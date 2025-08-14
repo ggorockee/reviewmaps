@@ -45,7 +45,7 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: ./backend
+          context: ./scrape
           push: true
           tags: ${{env.DOCKER_IMAGE}}:${{ steps.meta.outputs.tag }}
           labels: ${{ steps.meta.outputs.labels }} # metadata-action이 생성한 라벨을 사용합니다.

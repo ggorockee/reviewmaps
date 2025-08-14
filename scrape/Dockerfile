@@ -16,7 +16,7 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     libx11-6 libx11-xcb1 libxcomposite1 libxcursor1 libxdamage1 libxi6 \
     libxrandr2 libxrender1 libxss1 libxtst6 libgbm1 \
     tzdata ca-certificates curl gnupg unzip \
- && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/*
 
 # --- 3. 작업 디렉토리 설정 (Work Directory) ---
 WORKDIR /app

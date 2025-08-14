@@ -17,7 +17,7 @@ def update_image_tag(file_path, new_tag):
         with open(file_path) as f:
             data = yaml.load(f)
 
-        data["backend"]["image"]["tag"] = new_tag
+        data["server"]["image"]["tag"] = new_tag
 
         with open(file_path, "w") as f:
             yaml.dump(data, f)

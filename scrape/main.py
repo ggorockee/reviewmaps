@@ -1,10 +1,11 @@
 from module.config import Settings
 from module.pipeline import Pipeline
+from module.search_keyword import SEARCH_KEYWORDS
 import os
 
 if __name__ == "__main__":
     settings = Settings()
-    keywords = ["서울 강남", "경기 김포"]  # 필요 시 ENV나 파일로 분리 가능
+    keywords = SEARCH_KEYWORDS
     mode = os.getenv("BATCH_MODE", "once").lower()
 
     pipeline = Pipeline(settings, keywords)

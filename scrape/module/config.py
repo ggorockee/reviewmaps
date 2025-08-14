@@ -41,10 +41,9 @@ class Settings:
 
     @property
     def db_url(self) -> str:
-        return (
-            f"postgresql+psycopg2://{self.pg_user}:{self.pg_password}"
-            f"@{self.pg_host}:{self.pg_port}/{self.pg_db}"
-        )
+        database_url = f"postgresql+psycopg2://{self.pg_user}:{self.pg_password}@{self.pg_host}:{self.pg_port}/{self.pg_db}"
+        print("database_url: ", database_url)
+        return database_url
         
     @property
     def tz(self) -> ZoneInfo:

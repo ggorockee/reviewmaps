@@ -73,6 +73,14 @@ class Pipeline:
             except Exception as e:
                 log.exception(f"사이클 오류: {e}")
         log.info("배치 종료")
+        
+    def run_once(self) -> None:
+        self._install_signal_handlers()
+        try:
+            self._one_cycle()
+        except Exception as e:
+            log.exception(f"사이클 오류: {e}")
+        log.info("단일 실행 완료")
 
     def run_daily(self):
         """매일 HH:MM(타임존 기준)에 한 번 실행"""

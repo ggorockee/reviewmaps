@@ -13,6 +13,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
+
 from .config import Settings
 from .logger import get_logger
 from .db import get_engine, upsert_rows_psycopg2
@@ -36,14 +37,16 @@ class AdvancedScraper:
 
     def _init_driver(self) -> webdriver.Chrome:
         log.info("ChromeDriver 초기화…")
-        service = ChromeService(executable_path=ChromeDriverManager().install())
         options = ChromeOptions()
+        # 컨테이너 chromium 바이너리 지정
+        options.binary_location = os.getenv("CHROME_BIN", "/usr/bin/chromium")
         if self.settings.headless:
             options.add_argument("--headless=new")
-        options.add_experimental_option("excludeSwitches", ["enable-logging"])
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
-        return webdriver.Chrome(service=service, options=options)
+        options.add_experimental_option("excludeSwitches", ["enable-logging"])
+        # Service를 넘기지 않으면 Selenium Manager가 드라이버를 자동 설치/선택
+        return webdriver.Chrome(options=options)
 
     # ---------- 브라우저 조작 ----------
     def _go(self, path: str = "/"):

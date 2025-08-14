@@ -7,8 +7,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     CHROME_BIN=/usr/bin/chromium
 
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
-    chromium chromium-driver \
+    RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    chromium \
     fonts-liberation \
     libasound2 \
     libatk-bridge2.0-0 \

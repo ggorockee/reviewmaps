@@ -15,7 +15,7 @@ log = get_logger("db")
 def get_engine(settings: Settings) -> Engine:
     try:
         eng = create_engine(settings.db_url, pool_pre_ping=True, future=True)
-        log.info("DB 엔진 생성 성공.")
+        log.info("DB 엔진 생성 성공")
         return eng
     except SQLAlchemyError as e:
         log.critical(f"DB 엔진 생성 실패: {e}")

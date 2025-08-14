@@ -1,0 +1,99 @@
+name: scrape CI/CD
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "scrape/**" # backend/ 디렉토리 하위에 변경이 있을 때만 실행
+      - ".github/workflows/ci-scrape.yml" # 워크플로우 파일 자체가 변경될 때도 실행
+      - ".github/workflows/scripts/update_values.py" # 워크플로우 파일 자체가 변경될 때도 실행
+
+env:
+  # Docker Hub에 푸시할 이미지 이름 (레포지토리/이미지명)
+  DOCKER_IMAGE: ggorockee/scrape-with-selenium
+  # ArgoCD가 바라보는 인프라 레포지토리
+  INFRA_REPO: ggorockee/infra
+  # 인프라 레포지토리 내에서 수정할 values.yaml 파일 경로
+  VALUES_FILE_PATH: charts/argocd/applicationsets/valuefiles/prod/reviewmaps/values.yaml
+
+jobs:
+  build-and-push-image:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    outputs:
+      # docker/metadata-action의 결과물(버전)을 다음 Job에서 사용할 수 있도록 출력합니다.
+      image_tag: ${{ steps.meta.outputs.tag }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # docker/metadata-action을 사용하여 이미지 메타데이터(태그 등)를 동적으로 생성합니다.
+      - name: Generate image tag
+        id: meta
+        run: |
+          TAG=$(date +%Y%m%d)-$(git rev-parse --short HEAD)
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: ${{env.DOCKER_IMAGE}}:${{ steps.meta.outputs.tag }}
+          labels: ${{ steps.meta.outputs.labels }} # metadata-action이 생성한 라벨을 사용합니다.
+
+  update-manifest:
+    name: Update Kubernetes Manifest
+    needs: build-and-push-image # 이전 Job이 성공해야 실행됩니다.
+    runs-on: ubuntu-latest
+    steps:
+      # 1. Python 스크립트가 있는 현재 앱 레포지토리를 체크아웃합니다.
+      - name: Checkout App Repo for script
+        uses: actions/checkout@v4
+
+      # 2. 수정할 values.yaml이 있는 Infra 레포를 'infra' 폴더에 체크아웃합니다.
+      - name: Checkout Infra Repo to update values
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.INFRA_REPO }}
+          token: ${{ secrets.INFRA_GITHUB_TOKEN }} # PAT 시크릿을 직접 사용합니다.
+          ref: dev
+          path: "infra"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install ruamel.yaml
+        run: pip install ruamel.yaml
+
+      # 3. 파일로 분리된 Python 스크립트를 실행하여 values.yaml을 업데이트합니다.
+      - name: Update image tag in values.yaml
+        run: |
+          python ./.github/workflows/scripts/update_values.py \
+            ./infra/${{ env.VALUES_FILE_PATH }} \
+            ${{ needs.build-and-push-image.outputs.image_tag }}
+
+      # 4. 'infra' 디렉토리에서 Git 명령어를 실행하여 변경사항을 커밋하고 푸시합니다.
+      - name: Commit and push changes
+        working-directory: ./infra
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add ${{ env.VALUES_FILE_PATH }}
+
+          if ! git diff --staged --quiet; then
+            git commit -m "Update image for savvyrev to ${{ needs.build-and-push-image.outputs.image_tag }}"
+            git push
+          else
+            echo "No changes to commit in values.yaml."
+          fi

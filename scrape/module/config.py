@@ -2,6 +2,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from dotenv import load_dotenv
+from zoneinfo import ZoneInfo
 
 load_dotenv()
 
@@ -24,7 +25,7 @@ class Settings:
     naver_search_client_secret: str = os.getenv("NAVER_SEARCH_CLIENT_SECRET", "")
 
     # Table
-    table_name: str = os.getenv("TABLE_NAME", "campaign2")
+    table_name: str = os.getenv("TABLE_NAME", "campaign")
 
     # ===== Batch control =====
     # 배치 모드: "daily" 또는 "interval"
@@ -44,5 +45,12 @@ class Settings:
             f"postgresql+psycopg2://{self.pg_user}:{self.pg_password}"
             f"@{self.pg_host}:{self.pg_port}/{self.pg_db}"
         )
+        
+    @property
+    def tz(self) -> ZoneInfo:
+        try:
+            return ZoneInfo(self.timezone)
+        except Exception:
+            return ZoneInfo("Asia/Seoul")
 
 

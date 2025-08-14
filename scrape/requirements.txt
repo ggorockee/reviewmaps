@@ -8,3 +8,4 @@ SQLAlchemy==2.0.43
 psycopg2-binary==2.9.10
 tqdm==4.67.1
 tzdata==2025.2
+schedule==1.2.2

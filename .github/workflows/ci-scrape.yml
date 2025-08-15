@@ -27,13 +27,16 @@ jobs:
       server: ${{ steps.filter.outputs.server }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 히스토리 전체 필요
 
       - name: Paths filter
         id: filter
         uses: dorny/paths-filter@v3
         with:
-          # 마지막 원격 커밋과 diff (push 이벤트에서 깔끔)
-          since_last_remote_commit: true
+          # 현재 커밋과 푸시 직전 커밋을 비교
+          ref:  ${{ github.sha }}
+          base: ${{ github.event.before }}
           filters: |
             scrape:
               - 'scrape/**'

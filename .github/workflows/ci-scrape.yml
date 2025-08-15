@@ -19,10 +19,33 @@ env:
   VALUES_FILE_PATH: charts/argocd/applicationsets/valuefiles/prod/reviewmaps/values.yaml
 
 jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      scrape: ${{ steps.filter.outputs.scrape }}
+      server: ${{ steps.filter.outputs.server }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Paths filter
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          # 마지막 원격 커밋과 diff (push 이벤트에서 깔끔)
+          since_last_remote_commit: true
+          filters: |
+            scrape:
+              - 'scrape/**'
+            server:
+              - 'server/**'
+
   build-scrape:
     if: contains(github.event.head_commit.message, '[skip-scrape]') == false
     name: Build & Push Scrape
     runs-on: ubuntu-latest
+    needs: changes
+
     outputs:
       # docker/metadata-action의 결과물(버전)을 다음 Job에서 사용할 수 있도록 출력합니다.
       image_tag: ${{ steps.meta.outputs.tag }}
@@ -55,6 +78,7 @@ jobs:
   build-server:
     if: contains(github.event.head_commit.message, '[skip-server]') == false
     name: Build & Push Server
+    needs: changes
     runs-on: ubuntu-latest
     outputs:
       # docker/metadata-action의 결과물(버전)을 다음 Job에서 사용할 수 있도록 출력합니다.
@@ -88,7 +112,11 @@ jobs:
   update-manifest:
     name: Update Kubernetes Manifest
     needs: [build-scrape, build-server]
-    if: ${{ always() && (needs['build-scrape'].result == 'success' || needs['build-server'].result == 'success') }}
+    if: >-
+      ${{ always() && (
+        (needs.changes.outputs.scrape == 'true' && needs['build-scrape'].result == 'success') ||
+        (needs.changes.outputs.server == 'true' && needs['build-server'].result == 'success')
+      ) }}
     runs-on: ubuntu-latest
     steps:
       # 1. Python 스크립트가 있는 현재 앱 레포지토리를 체크아웃합니다.

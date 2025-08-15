@@ -1,0 +1,24 @@
+from __future__ import annotations
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy import String, BigInteger, TIMESTAMP, Numeric, text, Text
+
+class Base(DeclarativeBase):
+    pass
+
+class Campaign(Base):
+    __tablename__ = "campaign"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    platform: Mapped[str] = mapped_column(String(20), nullable=False)
+    company: Mapped[str] = mapped_column(String(255), nullable=False)
+    company_link: Mapped[str | None] = mapped_column(Text)
+    offer: Mapped[str] = mapped_column(Text)
+    apply_deadline: Mapped[object | None] = mapped_column(TIMESTAMP(timezone=True))
+    review_deadline: Mapped[object | None] = mapped_column(TIMESTAMP(timezone=True))
+    address: Mapped[str | None] = mapped_column(Text)
+    lat: Mapped[float | None] = mapped_column(Numeric(9, 6))
+    lng: Mapped[float | None] = mapped_column(Numeric(9, 6))
+    img_url: Mapped[str | None] = mapped_column(Text)
+    search_text: Mapped[str | None] = mapped_column(String(20))
+    created_at: Mapped[object] = mapped_column(TIMESTAMP(timezone=True), server_default=text("now()"))
+    updated_at: Mapped[object] = mapped_column(TIMESTAMP(timezone=True), server_default=text("now()"))

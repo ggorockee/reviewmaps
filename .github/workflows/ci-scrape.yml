@@ -8,6 +8,7 @@ on:
       - "scrape/**" # backend/ 디렉토리 하위에 변경이 있을 때만 실행
       - ".github/workflows/ci-scrape.yml" # 워크플로우 파일 자체가 변경될 때도 실행
       # - ".github/workflows/scripts/update_values.py" # 워크플로우 파일 자체가 변경될 때도 실행
+      - "server/**" # backend/ 디렉토리 하위에 변경이 있을 때만 실행
 
 env:
   # Docker Hub에 푸시할 이미지 이름 (레포지토리/이미지명)
@@ -18,8 +19,9 @@ env:
   VALUES_FILE_PATH: charts/argocd/applicationsets/valuefiles/prod/reviewmaps/values.yaml
 
 jobs:
-  build-and-push-image:
-    name: Build and Push Docker Image
+  build-scrape:
+    if: contains(github.event.head_commit.message, '[skip-scrape]') == false
+    name: Build & Push Scrape
     runs-on: ubuntu-latest
     outputs:
       # docker/metadata-action의 결과물(버전)을 다음 Job에서 사용할 수 있도록 출력합니다.
@@ -47,12 +49,49 @@ jobs:
         with:
           context: ./scrape
           push: true
-          tags: ${{env.DOCKER_IMAGE}}:${{ steps.meta.outputs.tag }}
+          tags: ggorockee/scrape-with-selenium:${{ steps.meta.outputs.tag }}
           labels: ${{ steps.meta.outputs.labels }} # metadata-action이 생성한 라벨을 사용합니다.
 
+  build-server:
+    if: contains(github.event.head_commit.message, '[skip-server]') == false
+    name: Build & Push Server
+    runs-on: ubuntu-latest
+    outputs:
+      # docker/metadata-action의 결과물(버전)을 다음 Job에서 사용할 수 있도록 출력합니다.
+      image_tag: ${{ steps.meta.outputs.tag }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # docker/metadata-action을 사용하여 이미지 메타데이터(태그 등)를 동적으로 생성합니다.
+      - name: Generate image tag
+        id: meta
+        run: |
+          TAG=$(date +%Y%m%d)-$(git rev-parse --short HEAD)
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./server
+          push: true
+          tags: ggorockee/reviewmaps-server:${{ steps.meta.outputs.tag }}
+          labels: ${{ steps.meta.outputs.labels }} # metadata-action이 생성한 라벨을 사용합니다.
+  
   update-manifest:
     name: Update Kubernetes Manifest
-    needs: build-and-push-image # 이전 Job이 성공해야 실행됩니다.
+    needs: [build-scrape, build-server]
+    if: ${{ always() && (
+      needs.build-scrape.result == 'success' ||
+      needs.build-server.result == 'success'
+    ) }}
     runs-on: ubuntu-latest
     steps:
       # 1. Python 스크립트가 있는 현재 앱 레포지토리를 체크아웃합니다.
@@ -77,12 +116,23 @@ jobs:
         run: pip install ruamel.yaml
 
       # 3. 파일로 분리된 Python 스크립트를 실행하여 values.yaml을 업데이트합니다.
-      - name: Update image tag in values.yaml
+      - name: Update tag (scrape)
+        if: ${{ needs.build-scrape.result == 'success' && needs.build-scrape.outputs.image_tag != '' }}
         run: |
           python ./.github/workflows/scripts/update_values.py \
             ./infra/${{ env.VALUES_FILE_PATH }} \
-            ${{ needs.build-and-push-image.outputs.image_tag }}
+            scrape \
+            ${{ needs.build-scrape.outputs.image_tag }}
 
+      - name: Update tag (server)
+        if: ${{ needs.build-server.result == 'success' && needs.build-server.outputs.image_tag != '' }}
+        run: |
+          python ./.github/workflows/scripts/update_values.py \
+            ./infra/${{ env.VALUES_FILE_PATH }} \
+            server \
+            ${{ needs.build-server.outputs.image_tag }}
+
+      
       # 4. 'infra' 디렉토리에서 Git 명령어를 실행하여 변경사항을 커밋하고 푸시합니다.
       - name: Commit and push changes
         working-directory: ./infra
@@ -91,9 +141,16 @@ jobs:
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git add ${{ env.VALUES_FILE_PATH }}
 
-          if ! git diff --staged --quiet; then
-            git commit -m "Update image for savvyrev to ${{ needs.build-and-push-image.outputs.image_tag }}"
-            git push
-          else
-            echo "No changes to commit in values.yaml."
+          if git diff --staged --quiet; then
+          echo "No changes to commit in values.yaml."
+          exit 0
           fi
+
+          CHANGED_SERVICES=$(git diff --staged --name-only "${{ env.VALUES_FILE_PATH }}" >/dev/null 2>&1 && \
+          git diff --staged -U0 "${{ env.VALUES_FILE_PATH }}" | \
+          grep -E '^\+.*image:\s*$|^\+.*tag:' -n | \
+          awk '{print tolower($0)}' | \
+          grep -E '(scrape|server|web|mobile)' -o | sort -u | tr '\n' ' ')
+
+          git commit -m "Update image tags: ${CHANGED_SERVICES:-values.yaml}"
+          git push

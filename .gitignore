@@ -2,3 +2,5 @@
 .idea
 **/__pycache__/
 **/*.log
+server/.env
+server/database/docker-compose.yml

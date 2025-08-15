@@ -1,0 +1,7 @@
+fastapi[standard]==0.115.0
+uvicorn[standard]==0.30.6
+SQLAlchemy==2.0.43
+asyncpg==0.30.0
+psycopg2-binary==2.9.10      # (선택) 로컬/툴링에만, 런타임 async는 asyncpg가 사용됨
+pydantic-settings==2.6.1
+python-dotenv==1.1.1

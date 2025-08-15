@@ -26,7 +26,6 @@ EXPOSE 8000
 
 # --- 8. 컨테이너 실행 명령어 (Entrypoint & Command) ---
 # 컨테이너가 시작되면 entrypoint.sh 스크립트를 먼저 실행합니다.
-ENTRYPOINT ["/app/entrypoint.sh"]
 
 # entrypoint.sh 스크립트가 실행된 후, 이 gunicorn 명령어가 실행됩니다.
 CMD ["gunicorn", "-w", "2", "-k", "uvicorn.workers.UvicornWorker", "-b", "0.0.0.0:8000", "main:app"]

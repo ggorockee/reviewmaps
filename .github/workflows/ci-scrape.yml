@@ -88,10 +88,7 @@ jobs:
   update-manifest:
     name: Update Kubernetes Manifest
     needs: [build-scrape, build-server]
-    if: ${{ always() && (
-      needs.build-scrape.result == 'success' ||
-      needs.build-server.result == 'success'
-    ) }}
+    if: ${{ always() && (needs['build-scrape'].result == 'success' || needs['build-server'].result == 'success') }}
     runs-on: ubuntu-latest
     steps:
       # 1. Python 스크립트가 있는 현재 앱 레포지토리를 체크아웃합니다.

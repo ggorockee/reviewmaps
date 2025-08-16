@@ -44,11 +44,10 @@ jobs:
               - 'server/**'
 
   build-scrape:
-    if: contains(github.event.head_commit.message, '[skip-scrape]') == false
     name: Build & Push Scrape
     runs-on: ubuntu-latest
+    if: needs.changes.outputs.scrape == 'true' && contains(github.event.head_commit.message, '[skip-scrape]') == false
     needs: changes
-
     outputs:
       # docker/metadata-action의 결과물(버전)을 다음 Job에서 사용할 수 있도록 출력합니다.
       image_tag: ${{ steps.meta.outputs.tag }}
@@ -79,10 +78,10 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }} # metadata-action이 생성한 라벨을 사용합니다.
 
   build-server:
-    if: contains(github.event.head_commit.message, '[skip-server]') == false
     name: Build & Push Server
     needs: changes
     runs-on: ubuntu-latest
+    if: needs.changes.outputs.scrape == 'true' && contains(github.event.head_commit.message, '[skip-scrape]') == false
     outputs:
       # docker/metadata-action의 결과물(버전)을 다음 Job에서 사용할 수 있도록 출력합니다.
       image_tag: ${{ steps.meta.outputs.tag }}
@@ -114,12 +113,8 @@ jobs:
   
   update-manifest:
     name: Update Kubernetes Manifest
-    needs: [build-scrape, build-server]
-    if: >-
-      ${{ always() && (
-        (needs.changes.outputs.scrape == 'true' && needs['build-scrape'].result == 'success') ||
-        (needs.changes.outputs.server == 'true' && needs['build-server'].result == 'success')
-      ) }}
+    needs: [changes, build-scrape, build-server]
+    if: always() && (needs.changes.outputs.scrape == 'true' || needs.changes.outputs.server == 'true')
     runs-on: ubuntu-latest
     steps:
       # 1. Python 스크립트가 있는 현재 앱 레포지토리를 체크아웃합니다.
@@ -145,7 +140,7 @@ jobs:
 
       # 3. 파일로 분리된 Python 스크립트를 실행하여 values.yaml을 업데이트합니다.
       - name: Update tag (scrape)
-        if: ${{ needs.build-scrape.result == 'success' && needs.build-scrape.outputs.image_tag != '' }}
+        if: needs.changes.outputs.scrape == 'true' && needs.build-scrape.result == 'success'
         run: |
           python ./.github/workflows/scripts/update_values.py \
             ./infra/${{ env.VALUES_FILE_PATH }} \
@@ -153,7 +148,7 @@ jobs:
             ${{ needs.build-scrape.outputs.image_tag }}
 
       - name: Update tag (server)
-        if: ${{ needs.build-server.result == 'success' && needs.build-server.outputs.image_tag != '' }}
+        if: needs.changes.outputs.server == 'true' && needs.build-server.result == 'success'
         run: |
           python ./.github/workflows/scripts/update_values.py \
             ./infra/${{ env.VALUES_FILE_PATH }} \
@@ -170,15 +165,18 @@ jobs:
           git add ${{ env.VALUES_FILE_PATH }}
 
           if git diff --staged --quiet; then
-          echo "No changes to commit in values.yaml."
-          exit 0
+            echo "No changes to commit in values.yaml."
+            exit 0
           fi
 
-          CHANGED_SERVICES=$(git diff --staged --name-only "${{ env.VALUES_FILE_PATH }}" >/dev/null 2>&1 && \
-          git diff --staged -U0 "${{ env.VALUES_FILE_PATH }}" | \
-          grep -E '^\+.*image:\s*$|^\+.*tag:' -n | \
-          awk '{print tolower($0)}' | \
-          grep -E '(scrape|server|web|mobile)' -o | sort -u | tr '\n' ' ')
+          # 커밋 메시지를 더 명확하게 생성
+          commit_message="ci: Update image tags"
+          if [[ "${{ needs.changes.outputs.scrape }}" == "true" && "${{ needs.build-scrape.result }}" == "success" ]]; then
+            commit_message="$commit_message (scrape: ${{ needs.build-scrape.outputs.image_tag }})"
+          fi
+          if [[ "${{ needs.changes.outputs.server }}" == "true" && "${{ needs.build-server.result }}" == "success" ]]; then
+            commit_message="$commit_message (server: ${{ needs.build-server.outputs.image_tag }})"
+          fi
 
-          git commit -m "Update image tags: ${CHANGED_SERVICES:-values.yaml}"
+          git commit -m "$commit_message"
           git push

@@ -14,6 +14,10 @@ async def list_campaigns(
     apply_to: Optional[str] = None,
     review_from: Optional[str] = None,
     review_to: Optional[str] = None,
+    sw_lat: Optional[float] = None,
+    sw_lng: Optional[float] = None,
+    ne_lat: Optional[float] = None,
+    ne_lng: Optional[float] = None,
     sort: str = "-created_at",
     limit: int = 20,
     offset: int = 0,
@@ -39,8 +43,13 @@ async def list_campaigns(
             stmt_ = stmt_.where(Campaign.review_deadline >= review_from)
         if review_to:
             stmt_ = stmt_.where(Campaign.review_deadline <= review_to)
+        if all([sw_lat, sw_lng, ne_lat, ne_lng]):
+            stmt_ = stmt_.where(
+                Campaign.lat.between(sw_lat, ne_lat),
+                Campaign.lng.between(sw_lng, ne_lng)
+            )
         return stmt_
-
+    
     # 카운트
     count_stmt = apply_filters(select(func.count()).select_from(Campaign))
     total = (await db.execute(count_stmt)).scalar_one()

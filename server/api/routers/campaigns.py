@@ -35,6 +35,13 @@ async def list_campaigns(
     apply_to: Optional[str]     = Query(None, description="apply_deadline <= (ISO8601)"),
     review_from: Optional[str]  = Query(None, description="review_deadline >= (ISO8601)"),
     review_to: Optional[str]    = Query(None, description="review_deadline <= (ISO8601)"),
+    
+    #  Bounding Box를 위한 4개의 좌표 파라미터
+    sw_lat: Optional[float]     = Query(None, description="남서쪽(좌측 하단) 위도"),
+    sw_lng: Optional[float]     = Query(None, description="남서쪽(좌측 하단) 경도"),
+    ne_lat: Optional[float]     = Query(None, description="북동쪽(우측 상단) 위도"),
+    ne_lng: Optional[float]     = Query(None, description="북동쪽(우측 상단) 경도"),
+
     sort: str                   = Query("-created_at", description="정렬 키. -는 내림차순"),
     limit: int                  = Query(20, ge=1, le=200),
     offset: int                 = Query(0, ge=0),
@@ -48,6 +55,10 @@ async def list_campaigns(
         apply_to=_parse_kst(apply_to),
         review_from=_parse_kst(review_from),
         review_to=_parse_kst(review_to),
+        sw_lat=sw_lat,
+        sw_lng=sw_lng,
+        ne_lat=ne_lat,
+        ne_lng=ne_lng,
         sort=sort,
         limit=limit,
         offset=offset,

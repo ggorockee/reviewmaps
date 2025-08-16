@@ -4,3 +4,4 @@
 **/*.log
 server/.env
 server/database/docker-compose.yml
+.DS_Store

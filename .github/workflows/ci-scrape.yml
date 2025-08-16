@@ -81,7 +81,7 @@ jobs:
     name: Build & Push Server
     needs: changes
     runs-on: ubuntu-latest
-    if: needs.changes.outputs.scrape == 'true' && contains(github.event.head_commit.message, '[skip-scrape]') == false
+    if: needs.changes.outputs.server == 'true' && contains(github.event.head_commit.message, '[skip-scrape]') == false
     outputs:
       # docker/metadata-action의 결과물(버전)을 다음 Job에서 사용할 수 있도록 출력합니다.
       image_tag: ${{ steps.meta.outputs.tag }}

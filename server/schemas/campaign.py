@@ -16,6 +16,7 @@ class CampaignOut(BaseModel):
     lng: Optional[float] = None
     img_url: Optional[str] = None
     search_text: Optional[str] = None
+    distance: Optional[float] = None
     created_at: datetime
     updated_at: datetime
 

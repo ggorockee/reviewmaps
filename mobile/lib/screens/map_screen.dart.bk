@@ -1,0 +1,423 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:location/location.dart';
+import 'package:mobile/const/colors.dart';
+import 'package:mobile/services/campaign_service.dart';
+import 'package:sliding_up_panel/sliding_up_panel.dart';
+
+import '../models/store_model.dart';
+
+class MapScreen extends StatefulWidget {
+  const MapScreen({super.key});
+
+  @override
+  State<MapScreen> createState() => _MapScreenState();
+}
+
+class _MapScreenState extends State<MapScreen> {
+  late final GoogleMapController _mapController;
+  late final CampaignService _service;
+  final Location _location = Location();
+  final Set<Marker> _markers = {};
+  final panelController = PanelController();
+  bool _mapReady = false;
+
+  // 패널/패딩 상태값
+  double _panelPos = 0.0; // 0.0(닫힘) ~ 1.0(열림)
+  static const double _panelMin = 40.0;
+  static const double _panelMax = 500.0;
+  double _mapBottomPadding = 80.0; // 지도 하단 패딩(구글 로고/제스처 안 가리게)
+
+  // Navermap
+
+
+  // 더미 데이터(원래 데이터 소스 있으면 교체)
+  // final List<Store> dummyStores = [
+  //   Store(id: '1', name: '편백회관 일산화정점', discountInfo: '최대 4만원·30% 할인', locationName: '일산', lat: 37.633, lng: 126.832, imageUrl: 'https://picsum.photos/seed/1/200/200'),
+  //   Store(id: '2', name: '꽃부리네일', discountInfo: '최대 6.9만원·50% 할인', locationName: '원흥역', lat: 37.649, lng: 126.872, imageUrl: 'https://picsum.photos/seed/2/200/200'),
+  //   Store(id: '3', name: '화정보쌈 쭈꾸미칼국수', discountInfo: '최대 5만원·70% 할인', locationName: '경기 고양시', lat: 37.636, lng: 126.830, imageUrl: 'https://picsum.photos/seed/3/200/200'),
+  //   Store(id: '4', name: '나무아이래쉬', discountInfo: '최대 6만원·50% 할인', locationName: '화정역', lat: 37.534, lng: 126.534, imageUrl: 'https://picsum.photos/seed/4/200/200'),
+  // ];
+
+  final List<Store> _visibleStores = []; // 이게 패널과 마커의 단일 소스가 됩니다.
+
+
+  @override
+  void initState() {
+    super.initState();
+    _service = CampaignService('http://127.0.0.1:8000'); // 환경에 맞게 변경
+  }
+
+  static const CameraPosition _initialPosition = CameraPosition(
+    target: LatLng(37.6345, 126.834), // 화정역 근처
+    zoom: 14,
+  );
+
+  checkPermission() async{
+      final isLocationEnabled = await Geolocator.isLocationServiceEnabled();
+      if(!isLocationEnabled) {
+        throw Exception('위치 기능을 활성화 해주세요');
+      }
+
+      LocationPermission checkedPermission = await Geolocator.checkPermission();
+
+      if (checkedPermission == LocationPermission.denied) {
+        checkedPermission = await Geolocator.requestPermission();
+      }
+
+      if(checkedPermission != LocationPermission.always
+          && checkedPermission != LocationPermission.whileInUse){
+        throw Exception('위치 권한을 허가해주세요');
+      }
+    }
+
+
+
+
+
+  // 현재 패널 높이(픽셀)
+  double _currentPanelHeight() => _panelMin + (_panelMax - _panelMin) * _panelPos;
+
+  Future<void> _searchInCurrentViewport() async {
+    if (!_mapReady || _mapController == null) return;
+
+    final bounds = await _mapController!.getVisibleRegion();
+    final south = bounds.southwest.latitude;
+    final west  = bounds.southwest.longitude;
+    final north = bounds.northeast.latitude;
+    final east  = bounds.northeast.longitude;
+
+
+    // 1) 서버에서 전체 캠페인 받아오기
+    print("Data를 받아 오는 중입니다...");
+    final all = await _service.fetchAll(); // 아래 4) 서비스에 추가
+
+    final withCoord = all.where((s) => s.lat != null && s.lng != null).toList();
+
+    bool inLng(double x) {
+      if (west <= east) {
+        return x >= west && x <= east;
+      } else {
+        // antimeridian crossing
+        return x >= west || x <= east;
+      }
+    }
+    final filtered = withCoord.where((s) {
+      final lat = s.lat!;
+      final lng = s.lng!;
+      final inLat = lat >= south && lat <= north;
+      final inLon = inLng(lng);
+      return inLat && inLon;
+    }).toList();
+
+    setState(() {
+      _visibleStores
+        ..clear()
+        ..addAll(filtered);
+
+      _markers
+        ..clear()
+        ..addAll(filtered.map((s) => Marker(
+          markerId: MarkerId('camp_${s.id}'),
+          position: LatLng(s.lat!, s.lng!),
+          infoWindow: InfoWindow(
+            title: s.company,
+            snippet: (s.offer?.isNotEmpty ?? false)
+                ? '${s.offer} · ${s.platform}'
+                : s.platform,
+          ),
+          onTap: () {
+            // 마커 탭 시 패널 띄우기 (선택)
+            if (panelController.isPanelClosed) {
+              panelController.open();
+            }
+          },
+        )));
+    });
+  }
+
+  Future<bool> _ensureLocationReady() async {
+    // 1) 위치 서비스
+    bool serviceEnabled = await _location.serviceEnabled();
+    if (!serviceEnabled) {
+      serviceEnabled = await _location.requestService();
+      if (!serviceEnabled) return false;
+    }
+
+    // 2) 권한
+    PermissionStatus permission = await _location.hasPermission();
+    if (permission == PermissionStatus.denied) {
+      permission = await _location.requestPermission();
+    }
+    // 사용자가 "다시는 묻지 않음" 한 경우
+    if (permission == PermissionStatus.deniedForever) {
+      // 여기선 앱 설정으로 유도(패키지 추가 없이 스낵바 안내)
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('설정 > 위치 권한을 허용해주세요.')),
+        );
+      }
+      return false;
+    }
+
+    return permission == PermissionStatus.granted;
+  }
+  // Future<LocationData?> _getReliableLocation() async {
+  //   // 정확도 높임 (일부 기기에서 기본값이면 첫 좌표가 안 떨어지기도 함)
+  //   await _location.changeSettings(
+  //     accuracy: LocationAccuracy.high,
+  //     interval: 1000,        // ms
+  //     distanceFilter: 0,     // 바로 방출
+  //   );
+  //
+  //   try {
+  //     // 1차: 즉시 값 (빠르면 여기서 끝)
+  //     final first = await _location.getLocation().timeout(const Duration(seconds: 10));
+  //     if (first.latitude != null && first.longitude != null) {
+  //       return first;
+  //     }
+  //   } on PlatformException catch (e) {
+  //     debugPrint('getLocation PlatformException: ${e.code} ${e.message}');
+  //   } on TimeoutException {
+  //     debugPrint('getLocation timeout, fallback to stream');
+  //   } catch (e) {
+  //     debugPrint('getLocation error: $e');
+  //   }
+  //
+  //   try {
+  //     // 2차: 스트림에서 첫 좌표 대기 (일부 기기/시뮬레이터 필수)
+  //     final fromStream = await _location.onLocationChanged.first.timeout(const Duration(seconds: 5));
+  //     if (fromStream.latitude != null && fromStream.longitude != null) {
+  //       return fromStream;
+  //     }
+  //   } on TimeoutException {
+  //     debugPrint('onLocationChanged timeout');
+  //   } catch (e) {
+  //     debugPrint('onLocationChanged error: $e');
+  //   }
+  //
+  //   return null;
+  // }
+
+
+  _goToMyLocation() async{
+    final location = await Geolocator.getCurrentPosition();
+    _mapController.animateCamera(
+      CameraUpdate.newLatLng(
+        LatLng(
+            location.latitude,
+            location.longitude),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('주변 탐색'),
+        centerTitle: true,
+      ),
+      body: FutureBuilder(
+        future: checkPermission(),
+        builder: (context, asyncSnapshot) {
+          if (asyncSnapshot.hasError){
+            return Center(
+              child: Text(asyncSnapshot.error.toString()),
+            );
+          }
+          return Stack(
+            children: [
+              // 1) 지도
+              GoogleMap(
+                initialCameraPosition: _initialPosition,
+                onMapCreated: (controller) {
+                  _mapController = controller;
+                  _mapReady = true;
+                },
+                mapType: MapType.normal,
+                myLocationEnabled: true,            // 내 위치 파란 점
+                myLocationButtonEnabled: false,     // 기본 버튼은 숨기고 커스텀 FAB 사용
+                zoomControlsEnabled: false,
+                markers: _markers,
+                padding: EdgeInsets.only(bottom: _mapBottomPadding),
+              ),
+
+              // 2) 슬라이딩 패널(버튼/칩보다 먼저 배치해서 뒤 레이어)
+              SlidingUpPanel(
+                controller: panelController,
+                panel: _buildPanel(),
+                minHeight: _panelMin,
+                maxHeight: _panelMax,
+                color: Colors.transparent,
+                boxShadow: const <BoxShadow>[],
+                onPanelSlide: (pos) {
+                  // 패널 진행값, 지도 패딩 갱신
+                  setState(() {
+                    _panelPos = pos;
+                    _mapBottomPadding = 80.0 + (_panelMax - _panelMin) * pos;
+                  });
+                },
+              ),
+
+              // 3) 상단 가운데 "이 위치로 검색" 버튼(패널 위에서도 클릭 가능)
+              Align(
+                alignment: Alignment.topCenter,
+                child: Container(
+                  margin: const EdgeInsets.only(top: 10),
+                  child: ElevatedButton.icon(
+                    onPressed: _searchInCurrentViewport,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('이 위치로 검색'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: PRIMARY_COLOR,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      elevation: 2,
+                    ),
+                  ),
+                ),
+              ),
+
+              // 4) 우하단 내 위치 버튼 — 패널 높이에 맞춰 같이 올라감
+              Positioned(
+                right: 16,
+                bottom: 4 + _currentPanelHeight(), // 패널 상단에서 16px 띄워 고정
+                child: FloatingActionButton(
+                  heroTag: 'myLoc',
+                  onPressed: _goToMyLocation,
+                  backgroundColor: Colors.white,
+                  elevation: 3,
+                  mini: true,
+                  child: const Icon(Icons.my_location, color: Colors.blue),
+                ),
+              ),
+
+              // (선택) 가운데 고정 핀 아이콘을 쓰고 싶다면 주석 해제 (터치 막기)
+              // IgnorePointer(
+              //   child: Center(
+              //     child: Icon(Icons.place, size: 32, color: Colors.green),
+              //   ),
+              // ),
+            ],
+          );
+        }
+      ),
+    );
+  }
+
+  // 슬라이딩 패널 내용
+  Widget _buildPanel() {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(24.0),
+          topRight: Radius.circular(24.0),
+        ),
+      ),
+      child: Column(
+        children: [
+          // 핸들
+          SizedBox(
+            height: _panelMin,
+            child: Center(
+              child: Container(
+                width: 40,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(12.0),
+                ),
+              ),
+            ),
+          ),
+          // 목록
+          Expanded(
+            child: _visibleStores.isEmpty
+                ? const Center(child: Text("먼저 '이 위치로 검색'을 눌러주세요."))
+                : ListView.separated(
+              padding: EdgeInsets.zero,
+              itemCount: _visibleStores.length,          // <-- 변경
+              itemBuilder: (context, index) {
+                return _buildStoreListItem(_visibleStores[index]); // <-- 변경
+              },
+              separatorBuilder: (context, index) => const Divider(indent: 16, endIndent: 16),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 개별 아이템
+  // _buildStoreListItem
+  Widget _buildStoreListItem(Store store) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8.0),
+            child: Image.network(
+              store.imageUrl ?? '',
+              width: 80, height: 80, fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                width: 80, height: 80,
+                color: Colors.grey[200],
+                child: Icon(Icons.image_not_supported, color: Colors.grey[400]),
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(store.company,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 4),
+                if ((store.offer ?? '').isNotEmpty)
+                  Text(
+                    store.offer ?? '',
+                    style: const TextStyle(color: Colors.red, fontSize: 14),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Icon(Icons.apps, size: 14, color: Colors.grey),
+                    const SizedBox(width: 4),
+                    Text(store.platform,
+                        style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+}
+curl -X 'GET' \
+  'https://api.review-maps.com/v1/campaigns?sw_lat=37.64074097745791&sw_lng=126.76034618929481&ne_lat=37.65305870486657&ne_lng=126.76957298861964&sort=-created_at&limit=20&offset=0' \
+  -H 'accept: application/json' \
+  -H 'X-API-KEY: 9e53ccafd6e993152e01e9e7a8ca66d1c2224bb5b21c78cf076f6e45dcbc0d12'
+
+curl -X 'GET' \
+  'https://api.review-maps.com/v1/campaigns?sw_lat=37.64074097745791&sw_lng=126.76034618929481&ne_lat=37.65305870486657&ne_lng=126.76957298861964&limit=200&offset=0&sort=-created_at' \
+  -H 'accept: application/json' \
+  -H 'X-API-KEY: 9e53ccafd6e993152e01e9e7a8ca66d1c2224bb5b21c78cf076f6e45dcbc0d12'
+
+

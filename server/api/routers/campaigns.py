@@ -41,11 +41,21 @@ async def list_campaigns(
     sw_lng: Optional[float]     = Query(None, description="남서쪽(좌측 하단) 경도"),
     ne_lat: Optional[float]     = Query(None, description="북동쪽(우측 상단) 위도"),
     ne_lng: Optional[float]     = Query(None, description="북동쪽(우측 상단) 경도"),
-
+    
+    lat: Optional[float]        = Query(None, description="사용자 현재 위도 (sort='distance'일 때 필수)"),
+    lng: Optional[float]        = Query(None, description="사용자 현재 경도 (sort='distance'일 때 필수)"),
     sort: str                   = Query("-created_at", description="정렬 키. -는 내림차순"),
+
     limit: int                  = Query(20, ge=1, le=200),
     offset: int                 = Query(0, ge=0),
 ):
+    if sort == "distance":
+        if lat is None or lng is None:
+            raise HTTPException(
+                status_code=400,
+                detail="sort='distance' requires 'lat' and 'lng' parameters."
+            )
+            
     total, rows = await crud.list_campaigns(
         db,
         q=q,
@@ -59,6 +69,12 @@ async def list_campaigns(
         sw_lng=sw_lng,
         ne_lat=ne_lat,
         ne_lng=ne_lng,
+
+        
+        lat=lat,
+        lng=lng,
+        
+        
         sort=sort,
         limit=limit,
         offset=offset,

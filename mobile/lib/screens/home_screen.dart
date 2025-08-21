@@ -1,759 +1,892 @@
+// home_screen.dart
+//
+// 홈 탭: 추천/가까운 체험단 피드 + 공지 배너 + 무한 스크롤
+// 배포 기준으로 불필요한 로그/미사용 코드 제거, 주석 강화
+
+import 'dart:math' as math;
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
+import 'package:mobile/config/config.dart';
 import 'package:mobile/services/campaign_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-// import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'dart:developer' as dev;
 
 import '../const/colors.dart';
 import '../models/store_model.dart';
+import '../widgets/friendly.dart'; // ← ClampTextScale, showFriendlySnack 여기서 사용
 import 'campaign_list_screen.dart';
+
+/// 외부 링크 열기 유틸
+/// - http/https 누락 시 https로 보정
+/// - 외부 브라우저 우선, 실패 시 인앱 시도
+/// - 배포: 로그 제거(조용히 실패)
+Future<void> openLink(String raw) async {
+  try {
+    String s = raw.trim();
+    if (!s.startsWith('http://') && !s.startsWith('https://')) {
+      s = 'https://$s';
+    }
+    final uri = Uri.parse(Uri.encodeFull(s));
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      await launchUrl(uri);
+    }
+  } catch (_) {
+    // no-op: 필요 시 상위에서 스낵바 처리
+  }
+}
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
-
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
+/// 홈 화면 상태
+/// - 추천 피드: 무한 스크롤(페이지네이션은 클라이언트 셔플 + 서버 페이징 혼합)
+/// - 가까운 체험단: 권한→현재위치→근처 API
+/// - 공지 배너: SharedPreferences로 노출 여부 저장
 class _HomeScreenState extends State<HomeScreen> {
+  // ---------------------------
+  // Services & Controllers
+  // ---------------------------
   final CampaignService _campaignService = CampaignService(
-      'https://api.review-maps.com/v1',
-      apiKey: '9e53ccafd6e993152e01e9e7a8ca66d1c2224bb5b21c78cf076f6e45dcbc0d12'
+    AppConfig.ReviewMapbaseUrl,
+    apiKey: AppConfig.ReviewMapApiKey,
   );
-
   final ScrollController _mainScrollController = ScrollController();
 
-  // 상태 변수 재구성
-  Future<List<Store>>? _nearestCampaigns;
+  // ---------------------------
+  // State
+  // ---------------------------
+  Future<List<Store>>? _nearestCampaigns; // 근처 체험단 Future (권한/위치 OK 후 세팅)
   Position? _currentPosition;
 
+  // 사용자 설정
+  bool _autoShowNearest = false; // 앱 진입 시 자동으로 근처 보여줄지
+  bool _showNoticeBanner = true; // 공지 배너 노출 여부
 
+  // 내부 플래그
+  bool _isRequestingPermission = false; // 버튼 연타 방지
+  bool _permAskedOnce = false;          // 한 세션당 권한 요청 1회
+  bool _serviceSettingsOpened = false;  // OS 설정 화면 1회만
+
+  // 추천 피드 페이징 상태
   List<Store> _shuffledCampaigns = [];
   List<Store> _visibleCampaigns = [];
   bool _isLoading = false;
   int _currentPage = 0;
   final int _pageSize = 10;
-  final int _apiLimit = 50;
-  int _apiOffset = 0;          // ← 추가
-  int? _apiTotal;              // ← 선택(있으면 정확한 hasMore 판단)
+  final int _apiLimit = 50; // 서버 한 번에 가져오는 개수
+  int _apiOffset = 0;
 
-  bool _showNoticeBanner = true; // 기본은 보이기
-  static const _kNoticeKey = 'hide_review_policy_notice';
-
-  Future<void> _restoreNoticePref() async {
-    final prefs = await SharedPreferences.getInstance();
-    final hidden = prefs.getBool(_kNoticeKey) ?? false;
-    if (mounted) setState(() => _showNoticeBanner = !hidden);
-  }
-
-  Future<void> _dismissNotice() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_kNoticeKey, true);
-    if (mounted) setState(() => _showNoticeBanner = false);
-  }
+  // SharedPreferences Keys
+  static const _kAutoNearestKey = 'auto_show_nearest';
+  static const _kFirstRunKey = 'first_run_done';
+  static const _kNoticeKey = 'hide_review_policy_notice'; // ← 누락돼 있던 키 추가
 
   @override
   void initState() {
     super.initState();
-    _restoreNoticePref();
-    _loadCampaigns(); // 초기 데이터 로드
-
+    _initialize();
     _mainScrollController.addListener(_onScroll);
   }
 
   @override
   void dispose() {
-    _mainScrollController.dispose(); // [수정] 주석 해제
+    _mainScrollController.removeListener(_onScroll);
+    _mainScrollController.dispose();
     super.dispose();
   }
 
-  Future<bool> openLink(String raw) async {
-    try {
-      String s = raw.trim();
-      if (!s.startsWith('http://') && !s.startsWith('https://')) {
-        s = 'https://$s';
+  // ------------------------------------------------------------
+  // 초기화: 사용자 설정 복원 → (옵션) 근처 로딩 → 추천 피드 로딩
+  // ------------------------------------------------------------
+  Future<void> _initialize() async {
+    final prefs = await SharedPreferences.getInstance();
+    final firstRunDone = prefs.getBool(_kFirstRunKey) ?? false;
+
+    await _restorePrefs();
+
+    if (!firstRunDone) {
+      // 첫 실행에서는 강제로 자동 근처 OFF
+      _autoShowNearest = false;
+      await prefs.setBool(_kFirstRunKey, true);
+    } else if (_autoShowNearest) {
+      // 사용자가 이전에 허용해둔 경우에만 자동 실행
+      _updateNearestCampaigns(); // ← 여기서 권한 팝업이 뜸(사용자 선택 반영)
+    }
+
+    await _loadRecommendedCampaigns();
+  }
+
+  Future<void> _restorePrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _showNoticeBanner = !(prefs.getBool(_kNoticeKey) ?? false);
+      _autoShowNearest = prefs.getBool(_kAutoNearestKey) ?? false;
+    });
+  }
+
+  // 당겨서 새로고침: 추천+근처(옵션) 동시 갱신
+  Future<void> _handleRefresh() async {
+    final futures = <Future>[
+      _loadRecommendedCampaigns(),
+      if (_autoShowNearest) _refreshNearestCampaigns(),
+    ];
+    await Future.wait(futures);
+  }
+
+  // 근처 데이터만 새로고침
+  Future<void> _refreshNearestCampaigns() async {
+    await _updateNearestCampaigns();
+  }
+
+  // ------------------------------------------------------------
+  // 권한/위치
+  // ------------------------------------------------------------
+  /// 위치 권한과 서비스 상태를 점검하고 필요 시 1회 요청/유도
+  Future<void> _ensureLocationPermissionOnce() async {
+    // 위치 서비스(기기 GPS) 꺼짐
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      if (!_serviceSettingsOpened && mounted) {
+        _serviceSettingsOpened = true;
+        showFriendlySnack(
+          context,
+          '위치 서비스를 켜주세요.',
+          actionLabel: '설정 열기',
+          onAction: () => Geolocator.openLocationSettings(),
+        );
       }
-      final uri = Uri.parse(Uri.encodeFull(s));
+      throw Exception('위치 서비스를 켜주세요.');
+    }
 
-      // 외부 브라우저 우선
-      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-      if (ok) return true;
+    // 권한 확인/요청
+    LocationPermission perm = await Geolocator.checkPermission();
+    if (perm == LocationPermission.denied && !_permAskedOnce) {
+      _permAskedOnce = true;
+      perm = await Geolocator.requestPermission();
+    }
 
-      // 실패 시 인앱(Chrome Custom Tabs) 폴백
-      return await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
-    } catch (e) {
-      print('[openLink][ERR] $e (raw="$raw")');
-      return false;
+    if (perm == LocationPermission.denied) {
+      throw Exception('위치 권한을 허용해주세요.');
+    }
+    if (perm == LocationPermission.deniedForever) {
+      if (mounted) {
+        showFriendlySnack(
+          context,
+          '앗, 권한이 영구 거부되어 있어요.',
+          actionLabel: '설정 열기',
+          onAction: () => Geolocator.openAppSettings(),
+        );
+      }
+      throw Exception('앱 설정에서 위치 권한을 허용해주세요.');
     }
   }
 
-
-  Future<void> _loadCampaigns() async {
-    // 1. 로딩 상태 시작
+  // ------------------------------------------------------------
+  // 데이터 로딩(추천)
+  // ------------------------------------------------------------
+  Future<void> _loadRecommendedCampaigns() async {
     setState(() {
       _isLoading = true;
-      _nearestCampaigns = _fetchNearestCampaigns();
       _visibleCampaigns = [];
       _shuffledCampaigns = [];
       _currentPage = 0;
-      _apiOffset = 0;        // ← 추가
-      _apiTotal = null;      // ← 추가
+      _apiOffset = 0;
     });
+    try {
+      final firstBatch = await _campaignService.fetchPage(
+        limit: _apiLimit,
+        offset: _apiOffset,
+        sort: '-created_at',
+      );
+      if (!mounted) return;
 
-    final firstBatch = await _campaignService.fetchPage(
-      limit: _apiLimit,
-      offset: _apiOffset,
-      sort: '-created_at',
-    );
+      _apiOffset += firstBatch.length;
+      firstBatch.shuffle();             // 노출 다양화
+      _shuffledCampaigns = firstBatch;  // 로컬 큐로 축적
 
-    if (!mounted) return;
-
-    if (firstBatch.isEmpty) {
+      final firstPage = _getNextPage();
       setState(() {
+        _visibleCampaigns = firstPage;
         _isLoading = false;
       });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      showFriendlySnack(context, '추천 체험단을 불러오는데 실패했습니다.');
+    }
+  }
+
+  // 추천: 스크롤 끝 근처에서 다음 페이지 공급(로컬 큐 → 부족하면 서버 추가 페치)
+  void _onScroll() {
+    if (!_isLoading && _mainScrollController.position.extentAfter < 400) {
+      _loadMoreCampaigns();
+    }
+  }
+
+  Future<void> _loadMoreCampaigns() async {
+    if (_isLoading) return;
+
+    // 1) 로컬 큐에서 먼저 꺼내 보여준다
+    final localNext = _getNextPage();
+    if (localNext.isNotEmpty) {
+      setState(() => _visibleCampaigns.addAll(localNext));
       return;
     }
 
-    // 서버가 total을 응답에 주지만, 현재 Service가 total을 안 돌려준다면
-    // hasMore 판단은 "마지막 페이지인지"로만 하되, 정확도를 높이려면
-    // 아래 “서비스 개선(선택)” 참고
-    _apiOffset += firstBatch.length;    // ← offset 누적
-
-    firstBatch.shuffle();
-    _shuffledCampaigns = firstBatch;
-
-    final firstPage = _getNextPage();
-    setState(() {
-      _visibleCampaigns = firstPage;
-      _isLoading = false;
-    });
-  }
-
-  Future<List<Store>> _fetchLatestCampaigns() async {
-    final stores = await _campaignService.fetchPage(limit: 200);
-    stores.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    return stores;
-  }
-
-  // 👇 [수정됨] 위치 서비스 확인과 권한 요청 로직을 통합하고 강화했습니다.
-  Future<List<Store>> _fetchNearestCampaigns() async {
-    // 1. 기기의 위치 서비스(GPS) 활성화 여부 확인
-    bool isLocationServiceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!isLocationServiceEnabled) {
-      // 서비스가 꺼져 있으면 사용자에게 명확한 메시지와 함께 오류 발생
-      throw Exception('위치 서비스를 활성화해주세요.');
-    }
-
-    // 2. 앱의 위치 권한 상태 확인
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      // 권한이 거부된 상태라면 요청
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        // 사용자가 요청을 거부한 경우
-        throw Exception('위치 권한을 허용해주세요.');
-      }
-    }
-
-    if (permission == LocationPermission.deniedForever) {
-      // 사용자가 권한을 영구적으로 거부한 경우
-      throw Exception('앱 설정에서 위치 권한을 허용해주세요.');
-    }
-
-    // 3. 모든 확인이 끝나면 현재 위치 가져오기
-    Position position;
+    // 2) 로컬 큐 고갈 시 서버에서 보충
+    setState(() => _isLoading = true);
     try {
-      position = await Geolocator.getCurrentPosition()
-          .timeout(const Duration(seconds: 10));
-      // [추가] 위치 정보를 상태 변수에 저장
-      if (mounted) {
-        setState(() => _currentPosition = position);
-      }
-    } catch (e) {
-      throw Exception('현재 위치를 가져올 수 없습니다.');
-    }
+      final batch = await _campaignService.fetchPage(
+        limit: _apiLimit,
+        offset: _apiOffset,
+        sort: '-created_at',
+      );
+      if (!mounted) return;
 
-    return _campaignService.fetchNearest(
-      lat: position.latitude,
-      lng: position.longitude,
-      limit: 10, // 홈 화면에서는 10개만 보여줌
-    );
+      _apiOffset += batch.length;
+      batch.shuffle();
+      _shuffledCampaigns.addAll(batch);
+
+      final refill = _getNextPage();
+      setState(() {
+        _visibleCampaigns.addAll(refill);
+        _isLoading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
+  // 추천: 로컬 큐에서 다음 페이지 슬라이스
+  List<Store> _getNextPage() {
+    final startIndex = _currentPage * _pageSize;
+    if (startIndex >= _shuffledCampaigns.length) return [];
+    final endIndex = math.min(startIndex + _pageSize, _shuffledCampaigns.length); // ← 타입 안전
+    _currentPage++;
+    return _shuffledCampaigns.getRange(startIndex, endIndex).toList();
+  }
+
+  // ------------------------------------------------------------
+  // 데이터 로딩(근처)
+  // ------------------------------------------------------------
+  Future<List<Store>> _fetchNearestCampaigns(Position position) async {
+    try {
+      return _campaignService.fetchNearest(
+        lat: position.latitude,
+        lng: position.longitude,
+        limit: 10,
+      );
+    } catch (_) {
+      throw Exception('가까운 체험단 정보를 불러오지 못했습니다.');
+    }
+  }
+
+  /// 근처 섹션 업데이트 파이프라인
+  /// - 권한체크 → 현재위치 → 근처 API → FutureBuilder에 바인딩
+  Future<void> _updateNearestCampaigns() async {
+    try {
+      await _ensureLocationPermissionOnce();
+
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      ).timeout(const Duration(seconds: 10));
+
+      if (!mounted) return;
+
+      final future = _fetchNearestCampaigns(position);
+      setState(() {
+        _currentPosition = position;
+        _nearestCampaigns = future;
+      });
+
+      // 여기서 await하여 오류를 화면/스낵바로 뿌릴 수 있게 함
+      await future;
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _nearestCampaigns = Future.error(e);
+      });
+      showFriendlySnack(
+        context,
+        e.toString().replaceFirst('Exception: ', '앗, '),
+        actionLabel: '설정 열기',
+        onAction: () => Geolocator.openAppSettings(),
+      );
+    }
+  }
+
+  /// 근처 섹션 버튼 눌렀을 때:
+  /// - 권한 파이프라인 실행 + 자동노출 설정 저장
+  Future<void> _requestAndLoadNearest() async {
+    if (_isRequestingPermission) return;
+    _isRequestingPermission = true;
+    try {
+      await _updateNearestCampaigns();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_kAutoNearestKey, true);
+      if (mounted) setState(() => _autoShowNearest = true);
+    } finally {
+      _isRequestingPermission = false;
+    }
+  }
+
+  // ------------------------------------------------------------
+  // Build
+  // ------------------------------------------------------------
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Padding(
-          padding: const EdgeInsets.only(top: 24),
-          child: const Text(
-            '리뷰맵',
-            style: TextStyle(fontWeight: FontWeight.w700),
+    return ClampTextScale(
+      child: Scaffold(
+        appBar: AppBar(
+          title: Padding(
+            padding: EdgeInsets.only(top: 24.h), // [ScreenUtil]
+            child: const Text('리뷰맵', style: TextStyle(fontWeight: FontWeight.w700)),
           ),
-        ),
-        actions: [
-          Visibility(
-            visible: false,                 // 안 보이지만
-            maintainSize: true,             // 공간 유지
-            maintainAnimation: true,
-            maintainState: true,
-            child: IconButton(onPressed: () {}, icon: const Icon(Icons.notifications_none)),
-          ),
-          Visibility(
-              visible: false,                 // 안 보이지만
-              maintainSize: true,             // 공간 유지
-              maintainAnimation: true,
-              maintainState: true,
-              child: IconButton(onPressed: () {}, icon: const Icon(Icons.search)),
-          ),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: _loadCampaigns,
-        child: ListView(
-          controller: _mainScrollController,
-          physics: const AlwaysScrollableScrollPhysics(), // ← 추가
-          children: [
-            _buildNoticeBanner(),
-            const SizedBox(height: 20),
-            _buildExperienceSection(
-              title: '가까운 체험단',
-              future: _nearestCampaigns,
-            ),
-            const SizedBox(height: 90),
-            _buildRecommendedCampaignsSection(),
-            const SizedBox(height: 24),
+          // 디자인 정렬 유지용 placeholder 아이콘(오른쪽 여백 균형)
+          actions: const [
+            Opacity(opacity: 0, child: Icon(Icons.notifications_none)),
+            Opacity(opacity: 0, child: Icon(Icons.search)),
           ],
+        ),
+        body: RefreshIndicator(
+          onRefresh: _handleRefresh,
+          child: CustomScrollView(
+            controller: _mainScrollController,
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              // 공지 배너
+              SliverToBoxAdapter(child: _buildNoticeBanner()),
+              SliverToBoxAdapter(child: SizedBox(height: 20.h)), // [ScreenUtil]
+
+              // 가까운 체험단
+              SliverToBoxAdapter(child: _buildNearestCampaignsSection()),
+              SliverToBoxAdapter(child: SizedBox(height: 50.h)), // [ScreenUtil]
+
+              // 추천 헤더
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16.w), // [ScreenUtil]
+                  child: _buildRecommendedHeader(context),
+                ),
+              ),
+              SliverToBoxAdapter(child: SizedBox(height: 12.h)),
+
+              // 추천 그리드
+              if (_isLoading && _visibleCampaigns.isEmpty)
+                const SliverToBoxAdapter(
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else
+                SliverPadding(
+                  padding: EdgeInsets.symmetric(horizontal: 16.w),
+                  sliver: SliverGrid(
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 0.1.w,  // [ScreenUtil]
+                      mainAxisSpacing: 0.1.w,   // [ScreenUtil]
+                      childAspectRatio: _gridAspectRatioRecommended(context),
+                    ),
+                    delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                        final gridLineColor = Colors.grey.shade300;
+                        final bool isLeftColumn = index % 2 == 0;
+                        final int totalRows = (_visibleCampaigns.length / 2).ceil();
+                        final int currentRow = (index / 2).floor();
+                        final bool isLastRow = currentRow == totalRows - 1;
+
+                        final border = Border(
+                          right: isLeftColumn
+                              ? BorderSide(color: gridLineColor, width: 0.7.w)
+                              : BorderSide.none,
+                          bottom: !isLastRow
+                              ? BorderSide(color: gridLineColor, width: 0.7.w)
+                              : BorderSide.none,
+                        );
+
+                        return Container(
+                          key: ValueKey(_visibleCampaigns[index].id), // id는 non-null
+                          decoration: BoxDecoration(border: border),
+                          child: ExperienceCard(
+                            store: _visibleCampaigns[index],
+                            dense: true,
+                          ),
+                        );
+                      },
+                      childCount: _visibleCampaigns.length,
+                    ),
+                  ),
+                ),
+
+              // 하단 로딩 인디케이터
+              if (_isLoading && _visibleCampaigns.isNotEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16.h),
+                    child: const Center(child: CircularProgressIndicator()),
+                  ),
+                ),
+              SliverToBoxAdapter(child: SizedBox(height: 24.h)),
+            ],
+          ),
         ),
       ),
     );
   }
 
+  // 추천 헤더(더보기)
+  Widget _buildRecommendedHeader(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text('추천 체험단',
+            style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold)),
+        GestureDetector(
+          onTap: () {
+            final listForNext = _shuffledCampaigns.isNotEmpty
+                ? _shuffledCampaigns.toList()
+                : _visibleCampaigns.toList();
+            if (listForNext.isEmpty) return;
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => CampaignListScreen(
+                  title: '추천 체험단',
+                  initialStores: listForNext,
+                ),
+              ),
+            );
+          },
+          child: Row(
+            children: [
+              Text('더보기',
+                  style: TextStyle(color: Colors.grey[600], fontSize: 13.sp)),
+              SizedBox(width: 2.w),
+              Icon(Icons.arrow_forward_ios, size: 12.sp, color: Colors.grey),
+              SizedBox(width: 8.w),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 공지 배너
   Widget _buildNoticeBanner() {
-    if (!_showNoticeBanner) return const SizedBox.shrink(); // 숨김
+    if (!_showNoticeBanner) return const SizedBox.shrink();
     return Container(
-      margin: const EdgeInsets.all(16.0),
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+      margin: EdgeInsets.all(16.w),
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
       decoration: BoxDecoration(
         color: Colors.blue[100],
-        borderRadius: BorderRadius.circular(12.0),
+        borderRadius: BorderRadius.circular(12.r),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           const Icon(Icons.campaign, color: Colors.blue),
-          const SizedBox(width: 12),
-          const Expanded(
+          SizedBox(width: 12.w),
+          Expanded(
             child: Text(
               '리뷰 정책이 새롭게 변경되었습니다.',
-              style: TextStyle(fontWeight: FontWeight.bold),
+              style:
+              TextStyle(fontWeight: FontWeight.bold, fontSize: 14.sp),
             ),
           ),
           IconButton(
             icon: const Icon(Icons.close, color: Colors.blue),
-            splashRadius: 18,
-            onPressed: _dismissNotice,   // ← 닫기
+            splashRadius: 18.r,
+            onPressed: _dismissNotice,
             tooltip: '닫기',
           ),
         ],
       ),
     );
   }
-  Widget _buildExperienceSection({
-    required String title,
-    required Future<List<Store>>? future,
-  }) {
+
+  // 가까운 체험단 섹션(권한 안내 → 로딩 → 목록/없음)
+  Widget _buildNearestCampaignsSection() {
     return Padding(
-      padding: const EdgeInsets.only(left: 16.0),
+      padding: EdgeInsets.only(left: 16.w),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // 타이틀 + 더보기
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(title,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text('가까운 체험단',
+                  style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold)),
               GestureDetector(
-                onTap: () async{
-                  // future가 완료된 데이터를 기다려서 넘깁니다.
-                  final data = await future;        // <-- 이미 Future<List<Store>> 임
-                  if (!context.mounted || data == null || _currentPosition == null) return;
-
+                onTap: () async {
+                  final data = await _nearestCampaigns;
+                  if (!mounted || data == null || _currentPosition == null) {
+                    return;
+                  }
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) => CampaignListScreen(
-                        title: title,
-                        // [수정] 파라미터 이름 변경 및 위치 정보 전달
-                        initialStores: data.toList(),
-                        userPosition: _currentPosition!,
+                      builder: (_) => ClampTextScale(
+                        child: CampaignListScreen(
+                          title: '가까운 체험단',
+                          initialStores: data.toList(),
+                          userPosition: _currentPosition!,
+                        ),
                       ),
                     ),
                   );
                 },
                 child: Row(
                   children: [
-                    Text('더보기', style: TextStyle(color: Colors.grey[600])),
-                    const SizedBox(width: 2.0), // 텍스트와 아이콘 사이의 간격 추가
-                    const Icon(
-                      Icons.arrow_forward_ios,
-                      size: 12,
-                      color: Colors.grey, // 아이콘 색상을 텍스트와 비슷하게 조절
-                    ),
-                    const SizedBox(width: 20.0), // 오른쪽 끝 여백을 위해 추가 (선택 사항)
+                    Text('더보기',
+                        style:
+                        TextStyle(color: Colors.grey[600], fontSize: 13.sp)),
+                    SizedBox(width: 2.w),
+                    Icon(Icons.arrow_forward_ios, size: 12.sp, color: Colors.grey),
+                    SizedBox(width: 8.w),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 150,
-            child: FutureBuilder<List<Store>>(
-              future: future,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                } else if (snapshot.hasError) {
-                  return Center(
+          SizedBox(height: 12.h),
+
+          // 콘텐츠
+          FutureBuilder<List<Store>>(
+            future: _nearestCampaigns,
+            builder: (context, snapshot) {
+              // 1) 아직 요청 전(권한 버튼 노출)
+              if (_nearestCampaigns == null) {
+                return Container(
+                  height: 150.h,
+                  margin: EdgeInsets.only(right: 16.w),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF5F7FF),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.place, color: Colors.blue),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          '내 주변 체험단을 보여드릴게요!\n아래 버튼을 눌러 위치 권한을 허용해 주세요 😊',
+                          style: TextStyle(color: Colors.blue[900]),
+                        ),
+                      ),
+                      ElevatedButton(
+                        onPressed: _requestAndLoadNearest,
+                        child: const Text('보여주기'),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              // 2) 로딩 중
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return SizedBox(
+                  height: 150.h,
+                  child: const Center(child: CircularProgressIndicator()),
+                );
+              }
+
+              // 3) 에러
+              if (snapshot.hasError) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 16.0),
                     child: Text(
-                      // "Exception: " 이라는 불필요한 텍스트를 제거하고 보여줌
                       snapshot.error.toString().replaceFirst('Exception: ', ''),
                       textAlign: TextAlign.center,
                     ),
-                  );
-                } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return const Center(child: Text('표시할 체험단이 없습니다.'));
-                }
-
-                // final stores = snapshot.data!.take(5).toList();
-                final stores = snapshot.data!.take(10).toList(); // ✅ 이 줄로 교체
-
-
-                // 구분선 스타일(원하는 값으로 조절)
-                const double kCardW = 150;
-                const double kCardH = 150;
-                const double kDividerThickness = 1.0;     // 선 두께
-                const double kDividerHeight = 80.0;      // 선 길이
-                final Color  kDividerColor = Colors.transparent; // 선 색상
-                const double kGap = 12.0;                  // 카드와 선 사이 여백
-
-
-                // return ListView.separated(
-                //   scrollDirection: Axis.horizontal,
-                //   itemCount: stores.length,
-                //   itemBuilder: (context, index) {
-                //     return Padding(
-                //       padding: const EdgeInsets.only(right: 8.0),
-                //       child: _buildExperienceCard(
-                //           stores[index],
-                //           width: 150,
-                //           height: 150
-                //       ),
-                //     );
-                //   },
-                //   separatorBuilder: (context, index) => Padding(
-                //       padding: const EdgeInsets.symmetric(horizontal: kGap / 2),
-                //       child: Center(
-                //           child: Container(
-                //             width: kDividerThickness,
-                //             height: kDividerHeight,
-                //             color: kDividerColor,
-                //           ),
-                //       ),
-                //   )
-                // );
-                return ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: stores.length,
-                  itemBuilder: (context, index) {
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8.0),
-                      child: _buildExperienceCard(stores[index], width: 150, height: 150),
-                    );
-                  },
+                  ),
                 );
-              },
-            ),
+              }
+
+              // 4) 데이터 없음
+              if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return Container(
+                  margin: const EdgeInsets.only(right: 16.0),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Center(
+                    child: Text(
+                      '현재 위치 주변에 진행중인 체험단이 없습니다.',
+                      style: TextStyle(color: Colors.black54),
+                    ),
+                  ),
+                );
+              }
+
+              // 5) 정상 데이터
+              final stores = snapshot.data!.take(10).toList();
+              return SizedBox(
+                height: _nearestRowHeight(context),
+                child: RepaintBoundary(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    padding: EdgeInsets.only(right: 8.w),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: stores
+                          .map(
+                            (store) => Padding(
+                          padding: EdgeInsets.only(right: 8.w),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12.r),
+                            child: ExperienceCard(
+                              key: ValueKey(store.id), // id는 non-null
+                              store: store,
+                              width: 150.w,
+                              compact: false,
+                            ),
+                          ),
+                        ),
+                      )
+                          .toList(),
+                    ),
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ),
     );
   }
 
-  // _buildExperienceCard, _imagePlaceholder, getLogoPathForPlatform 함수는 이전과 동일
-  Widget _buildExperienceCard(Store store, {
-    double width = 150,   // 기본값: 150
-    double height = 150,  // 기본값: 150
+  // 공지 닫기: 사용자 설정 저장
+  Future<void> _dismissNotice() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kNoticeKey, true);
+    if (mounted) setState(() => _showNoticeBanner = false);
+  }
 
-    // bool showCenterDivider = false,
-    // double dividerWidth = 120,
-    // double dividerThickness = 1,
-    // Color dividerColor = const Color(0xFFE5E7EB), // = gray-200
-  }) {
-    final logoPath = getLogoPathForPlatform(store.platform);
+  // 근처 가로 카드 영역의 동적 높이(텍스트 스케일 반영)
+  double _nearestRowHeight(BuildContext context) {
+    final ts = MediaQuery.textScalerOf(context).textScaleFactor.clamp(1.0, 1.3);
+    final t = ((ts - 1.0) / 0.3).clamp(0.0, 1.0);
+    final minH = 128.h;  // 폰트 작을 때 타이트
+    final maxH = 180.h;  // 폰트 커져도 안전 버퍼
+    return ui.lerpDouble(minH, maxH, t)!;
+  }
+
+  // 추천 그리드: childAspectRatio 계산
+  double _gridAspectRatioRecommended(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    final horizontalPadding = 16.w * 2;
+    final crossSpacing = 0.1.w;
+    final cellW = (width - horizontalPadding - crossSpacing) / 2;
+    final cellH = _recommendedCellHeight(context);
+    return cellW / cellH;
+  }
+
+  // 추천 그리드: 텍스트 스케일에 따른 셀 높이 보간
+  double _recommendedCellHeight(BuildContext context) {
+    final ts = MediaQuery.textScalerOf(context).textScaleFactor.clamp(1.0, 1.3);
+    final t = ((ts - 1.0) / 0.3).clamp(0.0, 1.0);
+    final minH = 145.h;
+    final maxH = 190.h;
+    return ui.lerpDouble(minH, maxH, t)!;
+  }
+}
+
+// ========================
+// 카드/메타 UI
+// ========================
+
+class ExperienceCard extends StatelessWidget {
+  final Store store;
+  final double? width;
+  final bool dense;
+  final bool compact;
+
+  const ExperienceCard({
+    super.key,
+    required this.store,
+    this.width,
+    this.dense = false,
+    this.compact = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final platformColor = platformBadgeColor(store.platform);
-    return InkWell(
-      onTap: (store.companyLink == null || store.companyLink!.isEmpty)
-          ? null
-          : () async {
-        await openLink(store.companyLink!);
-      },
-      child: SizedBox(
-        width: width,       // ← 가변 폭
-        height: height,     // ← 가변 높이
-        child: Card(
-          elevation: 0,
-          color: Colors.transparent,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: Stack(
-            children: [
 
-              Padding(
-                // 카드가 낮아져도 날짜 라인 안 덮게 하단 여백 유지
-                padding: const EdgeInsets.fromLTRB(10, 10, 10, 28),
-                child: Column(
+    // [ScreenUtil] 여백 프리셋
+    final double pad = dense ? 10.w : 12.w;
+    final double gapBadgeBody = dense ? 3.h : 4.h;
+    final double gapTitleOffer = dense ? 3.h : 4.h;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: (store.companyLink ?? '').isEmpty
+            ? null
+            : () => openLink(store.companyLink!),
+        child: SizedBox(
+          width: width,
+          child: Padding(
+            padding: EdgeInsets.all(pad),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 상단 그룹: 플랫폼 뱃지 + 회사명 + 제공내역
+                Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.max,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Row(
-                      children: [
-                        // Image.asset(
-                        //   getbannerPathForPlatform(store.platform),
-                        //   height: 20,
-                        //   fit: BoxFit.contain,
-                        //   errorBuilder: (_, __, ___) => const SizedBox(height: 20),
-                        // ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: platformColor,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            store.platform,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              height: 1.0,
-                            ),
-                          ),
+                    // 플랫폼 뱃지
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 3.h),
+                      decoration: BoxDecoration(
+                        color: platformColor,
+                        borderRadius: BorderRadius.circular(4.r),
+                      ),
+                      child: Text(
+                        store.platform,
+                        style: TextStyle(
+                          fontSize: 11.sp,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          height: 1.0,
                         ),
-                        const Spacer(),
-                        // Container(
-                        //   width: 28,
-                        //   height: 28,
-                        //   decoration: BoxDecoration(
-                        //     border: Border.all(color: Color(0xFFE5E7EB)),
-                        //     borderRadius: BorderRadius.circular(8),
-                        //   ),
-                        //   child: const Icon(Icons.shopping_bag_outlined, size: 16, color: Colors.black54),
-                        // ),
-                      ],
+                      ),
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: gapBadgeBody),
 
-                    // 상호명
+                    // 업체명
                     Text(
                       store.company,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.w700,
-                        fontSize: 13.5,
+                        fontSize: 13.5.sp,
                         height: 1.2,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    SizedBox(height: gapTitleOffer),
 
-                    // 오퍼
-                    if (store.offer != null && store.offer!.isNotEmpty)
-                      Flexible(
-                        child: Text(
-                          store.offer!,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 12, color: Colors.red, height: 1.2),
+                    // 제공내역(있을 때)
+                    if ((store.offer ?? '').isNotEmpty)
+                      Text(
+                        store.offer!,
+                        maxLines: compact ? 1 : 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 10.5.sp,
+                          color: Colors.red,
+                          height: 1.2,
                         ),
                       ),
                   ],
                 ),
-              ),
 
-              // 하단 날짜(바닥 기준 10px 위)
-              Positioned(
-                left: 12,
-                right: 12,
-                bottom: 10,
-                child: Row(
-                  children: [
-                    const Icon(Icons.calendar_today, size: 12, color: Colors.grey),
-                    const SizedBox(width: 4),
-                    if (store.applyDeadline != null)
-                      Text(
-                        '~${DateFormat('MM.dd').format(store.applyDeadline!)}',
-                        style: const TextStyle(fontSize: 11.5, color: Colors.grey),
-                      ),
-                    if (store.distance != null)
-                      Text(
-                        '  •  ${store.distance!.toStringAsFixed(1)}km',
-                        style: const TextStyle(fontSize: 11.5, color: Colors.grey),
-                      ),
-                  ],
+                // 하단 메타(마감일/거리)
+                const Spacer(),
+                Padding(
+                  padding: EdgeInsets.only(bottom: 1.h),
+                  child: _MetaAdaptiveLine(
+                    deadline: store.applyDeadline,
+                    distance: store.distance,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
+}
 
+class _MetaAdaptiveLine extends StatelessWidget {
+  final DateTime? deadline;
+  final double? distance;
 
+  const _MetaAdaptiveLine({required this.deadline, this.distance});
 
-  Widget _imagePlaceholder() {
-    return Container(
-      height: 120,
-      width: 140,
-      color: Colors.grey[200],
-      child: Center(
-          child: Icon(Icons.storefront, color: Colors.grey[400], size: 40)),
+  @override
+  Widget build(BuildContext context) {
+    final style = TextStyle(
+      fontSize: 11.5.sp,
+      height: 1.3,
+      color: Colors.grey[600],
     );
-  }
+    final dateStr = (deadline != null) ? '~${DateFormat('MM.dd').format(deadline!)}' : null;
+    final distStr = (distance != null) ? '${distance!.toStringAsFixed(1)}km' : null;
 
-  Widget _tagChip(String text) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF2F3F5),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(text, style: const TextStyle(fontSize: 11, color: Colors.black87)),
-    );
-  }
+    if (dateStr == null && distStr == null) return const SizedBox.shrink();
 
-
-  void _loadMoreVisibleCampaigns() {
-    if (_isLoading) return;
-
-    final int totalItems = _shuffledCampaigns.length;
-    // 이미 모든 아이템을 다 보여줬으면 더 이상 로드하지 않음
-    if (_visibleCampaigns.length >= totalItems) {
-      return;
-    }
-
-    setState(() { _isLoading = true; });
-
-    // 다음 페이지의 시작과 끝 인덱스 계산
-    final int startIndex = _currentPage * _pageSize;
-    int endIndex = startIndex + _pageSize;
-    if (endIndex > totalItems) {
-      endIndex = totalItems;
-    }
-
-    final newItems = _shuffledCampaigns.getRange(startIndex, endIndex).toList();
-
-    setState(() {
-      _visibleCampaigns.addAll(newItems);
-      _currentPage++;
-      _isLoading = false;
-    });
-  }
-
-  Future<void> _initializeRecommendedCampaigns() async{
-    setState(() {
-      _shuffledCampaigns = [];
-      _visibleCampaigns = [];
-      _currentPage = 0;
-      _isLoading = true; // 초기 로딩 시작
-    });
-
-    // 1. API에서 대량의 데이터를 가져옴
-    final allStores = await _campaignService.fetchPage(limit: 200);
-    // 2. 가져온 데이터를 무작위로 섞음
-    allStores.shuffle();
-    _shuffledCampaigns = allStores;
-
-    // 첫 페이지 데이터를 계산해서 바로 넣어줌
-    final int totalItems = _shuffledCampaigns.length;
-    int endIndex = _pageSize;
-    if (endIndex > totalItems) {
-      endIndex = totalItems;
-    }
-
-    // 상태 업데이트를 한 번에 처리
-    setState(() {
-      _visibleCampaigns = _shuffledCampaigns.getRange(0, endIndex).toList();
-      _currentPage = 1;
-      _isLoading = false; // 모든 초기 로드가 끝난 후 상태 변경
-    });
-
-  }
-
-  Widget _buildRecommendedCampaignsSection() {
-    // 선 스타일(원하는 값으로 조절)
-    final gridLineColor = Colors.grey.shade300; // 연한 회색
-    const gridLineWidth = 0.7;                  // 선 두께
-    const cols = 2;                             // 그리드 열 수
-
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    Widget buildInfoRow(IconData icon, String text) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('추천 체험단',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              GestureDetector(
-                onTap: () {
-                  // 추천 데이터로 넘길 리스트 선택: 보이는 것(or 이미 섞어둔 전체 버퍼)
-                  final listForNext = _shuffledCampaigns.isNotEmpty
-                      ? _shuffledCampaigns.toList()
-                      : _visibleCampaigns.toList();
-
-                  if (listForNext.isEmpty) return;
-
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => CampaignListScreen(
-                        title: '추천 체험단',
-                        initialStores: listForNext,
-                      ),
-                    ),
-                  );
-                  },
-                child: Row(
-                  children: [
-                    Text('더보기', style: TextStyle(color: Colors.grey[600])),
-                    const SizedBox(width: 2.0), // 텍스트와 아이콘 사이의 간격 추가
-                    const Icon(
-                      Icons.arrow_forward_ios,
-                      size: 12,
-                      color: Colors.grey, // 아이콘 색상을 텍스트와 비슷하게 조절
-                    ),
-                    const SizedBox(width: 8.0), // 오른쪽 끝 여백을 위해 추가 (선택 사항)
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // ✅ 라인이 끊기지 않게 spacing은 0으로
-          GridView.builder(
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: cols,
-              crossAxisSpacing: 0,   // ← 중요
-              mainAxisSpacing: 0,    // ← 중요
-              childAspectRatio: 150 / 130,
-            ),
-            itemCount: _visibleCampaigns.length,
-            itemBuilder: (context, index) {
-              final isRightCol = (index % cols) == cols - 1;
-              final isLastRow = index >= _visibleCampaigns.length - cols;
-
-              // 각 칸의 보더 구성: 오른쪽/아래만 그린다
-              final boxBorder = Border(
-                right: isRightCol
-                    ? BorderSide.none
-                    : BorderSide(color: gridLineColor, width: gridLineWidth),
-                bottom: isLastRow
-                    ? BorderSide.none
-                    : BorderSide(color: gridLineColor, width: gridLineWidth),
-              );
-
-              return DecoratedBox(
-                decoration: BoxDecoration(border: boxBorder),
-                // 컨텐츠와 선이 붙어 보이지 않게 내부 패딩 살짝
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                  child: _buildExperienceCard(_visibleCampaigns[index]),
-                ),
-              );
-            },
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-          ),
-
-          if (_isLoading)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 16.0),
-              child: Center(child: CircularProgressIndicator()),
-            ),
+          Icon(icon, size: 12.sp, color: Colors.grey[600]),
+          SizedBox(width: 4.w),
+          Text(text, style: style),
         ],
-      ),
-    );}
-
-  Future<void> _loadMoreCampaigns() async {
-    if (_isLoading) return;
-
-    // 1) 로컬 버퍼 먼저 소진
-    final localNext = _getNextPage();
-    if (localNext.isNotEmpty) {
-      setState(() {
-        _visibleCampaigns.addAll(localNext);
-      });
-      return;
+      );
     }
 
-    // 2) 서버 더 없음(총합을 알고 있다면 정확히 차단)
-    if (_apiTotal != null && _apiOffset >= _apiTotal!) {
-      return;
-    }
+    if (distStr == null) return buildInfoRow(Icons.calendar_today_outlined, dateStr!);
+    if (dateStr == null) return buildInfoRow(Icons.near_me_outlined, distStr);
 
-
-    setState(() { _isLoading = true; });
-
-    final batch = await _campaignService.fetchPage(
-      limit: _apiLimit,
-      offset: _apiOffset,
-      sort: '-created_at',
+    return Wrap(
+      spacing: 8.w,
+      runSpacing: 2.h,
+      crossAxisAlignment: WrapCrossAlignment.start,
+      children: [
+        buildInfoRow(Icons.calendar_today_outlined, dateStr),
+        buildInfoRow(Icons.near_me_outlined, distStr),
+      ],
     );
-
-    if (!mounted) return;
-
-    if (batch.isEmpty) {
-      setState(() { _isLoading = false; });
-      return;
-    }
-
-    _apiOffset += batch.length;      // ← offset 누적
-    batch.shuffle();
-    _shuffledCampaigns.addAll(batch);
-
-    final refill = _getNextPage();
-    setState(() {
-      _visibleCampaigns.addAll(refill);
-      _isLoading = false;
-    });
   }
+}
 
-  List<Store> _getNextPage() {
-    final int startIndex = _currentPage * _pageSize;
-    int endIndex = startIndex + _pageSize;
+// (선택) 권한 안내 위젯 – 현재 화면에서는 미사용, 필요 시 재활용
+class _PermissionHelp extends StatelessWidget {
+  final String message;
+  final VoidCallback onRequest;
+  final VoidCallback onOpenSettings;
+  const _PermissionHelp({
+    required this.message,
+    required this.onRequest,
+    required this.onOpenSettings,
+  });
 
-    if (startIndex >= _shuffledCampaigns.length) {
-      return [];
-    }
-    if (endIndex > _shuffledCampaigns.length) {
-      endIndex = _shuffledCampaigns.length;
-    }
-    _currentPage++;
-    return _shuffledCampaigns.getRange(startIndex, endIndex).toList();
-  }
-
-
-  void _onScroll() {
-    final pos = _mainScrollController.position;
-    if (!_isLoading && pos.extentAfter < 400) {
-      _loadMoreCampaigns();
-    }
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.place, size: 48, color: Colors.blue),
+            const SizedBox(height: 12),
+            Text(message, textAlign: TextAlign.center),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 12,
+              children: [
+                ElevatedButton(onPressed: onRequest, child: const Text('권한 요청')),
+                OutlinedButton(onPressed: onOpenSettings, child: const Text('설정 열기')),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

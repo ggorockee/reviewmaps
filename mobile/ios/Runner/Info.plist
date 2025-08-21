@@ -26,12 +26,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-	<key>NSLocationAlwaysUsageDescription</key>
-	<string>지도에서 현재 위치를 확인하기 위해 필요합니다.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>지도에서 현재 위치를 확인하기 위해 필요합니다.</string>
+	<string>주변 체험단 가게와 이벤트를 보여드리려면 현재 위치 정보가 필요해요 😊 위치는 앱 이용 중에만 사용되며 따로 저장되거나 추적되지 않으니 안심하세요!</string>
 	<key>NaverClientId</key>
-	<string>4hxo8bmlh7</string>
+	<string>$(NAVER_MAP_CLIENT_ID)</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

@@ -5,3 +5,5 @@
 server/.env
 server/database/docker-compose.yml
 .DS_Store
+mobile/.env
+*.xcconfig

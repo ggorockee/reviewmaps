@@ -1,50 +1,68 @@
 // lib/services/campaign_service.dart
 import 'dart:convert';
-import 'dart:developer' as dev;
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
+
 import '../models/store_model.dart';
 
+/// CampaignService
+/// ------------------------------------------------------------
+/// - API 엔드포인트 호출 전용 서비스(순수 데이터 계층)
+/// - 배포 기준: 콘솔 로그/프린트 전부 제거(무소음)
+/// - 공통 타임아웃/리트라이 적용으로 네트워크 탄성 확보
+/// - 예외는 상위(UI)에서 스낵바 등으로 사용자 친화 처리
 class CampaignService {
   final String baseUrl;
   final String apiKey;
   late final http.Client _client;
 
   CampaignService(this.baseUrl, {required this.apiKey}) {
+    // 플랫폼 간 일관된 소켓 타임아웃 설정
     final io = HttpClient()
-      ..connectionTimeout = const Duration(seconds: 15) // 소켓 연결 타임아웃
+      ..connectionTimeout = const Duration(seconds: 15)
       ..idleTimeout = const Duration(seconds: 15);
     _client = IOClient(io);
   }
 
+  /// 공통 헤더
   Map<String, String> get _headers => {
     'X-API-KEY': apiKey,
     'Accept': 'application/json',
-    'User-Agent': 'review-maps-app/1.0 (Flutter; iOS/Android)', // WAF 회피용
+    // 서버 트래픽 구분용 User-Agent (필요 시 변경)
+    'User-Agent': 'review-maps-app/1.0 (Flutter; iOS/Android)',
   };
 
-  Future<void> healthCheck() async {
+  /// 리소스 정리(앱 종료/DI 스코프 해제 시 호출 권장)
+  void dispose() {
+    _client.close();
+  }
+
+  /// 헬스 체크: 네트워크/백엔드 가용성 간단 점검
+  /// - 성공: true, 실패: false
+  /// - 배포: 로깅 없이 결과만 반환
+  Future<bool> healthCheck() async {
     try {
-      final addrs = await InternetAddress.lookup('api.review-maps.com');
-      if (kDebugMode) dev.log('[HC] DNS api.review-maps.com -> $addrs', name: 'Net');
-    } catch (e) {
-      if (kDebugMode) dev.log('[HC][ERR] DNS lookup failed: $e', name: 'Net');
+      // 1) DNS 확인(플랫폼 네트워크 스택 정상 여부)
+      await InternetAddress.lookup('api.review-maps.com');
+    } catch (_) {
+      // DNS 실패
+      return false;
     }
 
     try {
+      // 2) 백엔드 헬스 엔드포인트
       final r = await _client
           .get(Uri.parse('$baseUrl/healthz'), headers: _headers)
           .timeout(const Duration(seconds: 15));
-      if (kDebugMode) dev.log('[HC] /healthz status=${r.statusCode}', name: 'Net');
-    } catch (e) {
-      if (kDebugMode) dev.log('[HC][ERR] /healthz: $e', name: 'Net');
+      return r.statusCode == 200;
+    } catch (_) {
+      return false;
     }
   }
 
-  Future<T> _withRetry<T>(Future<T> Function() task,
-      {int retries = 3}) async {
+  /// 공통 리트라이 래퍼(지수적 백오프)
+  Future<T> _withRetry<T>(Future<T> Function() task, {int retries = 3}) async {
     int attempt = 0;
     Object? lastErr;
     while (attempt < retries) {
@@ -52,11 +70,8 @@ class CampaignService {
         return await task();
       } catch (e) {
         lastErr = e;
-        final delay = Duration(milliseconds: 400 * (1 << attempt)); // 0.4s, 0.8s, 1.6s
-        if (kDebugMode) {
-          dev.log('[RETRY] attempt=${attempt + 1} err=$e, sleep=${delay.inMilliseconds}ms',
-              name: 'CampaignService');
-        }
+        // 0.4s, 0.8s, 1.6s …
+        final delay = Duration(milliseconds: 400 * (1 << attempt));
         await Future.delayed(delay);
         attempt++;
       }
@@ -64,7 +79,23 @@ class CampaignService {
     throw lastErr ?? Exception('unknown error');
   }
 
-  Future<List<Store>> fetchPage({int limit = 200, int offset = 0, String sort = '-created_at'}) async {
+  /// 공통: 응답 검사 + JSON 파싱 + items 배열 추출
+  List<dynamic> _parseItemsOrThrow(http.Response r, {String context = ''}) {
+    if (r.statusCode != 200) {
+      throw Exception('$context 실패: ${r.statusCode}');
+    }
+    final decoded = jsonDecode(utf8.decode(r.bodyBytes));
+    final List items =
+    (decoded is Map && decoded['items'] is List) ? decoded['items'] : [];
+    return items;
+  }
+
+  /// 페이지 조회(정렬/오프셋/리밋)
+  Future<List<Store>> fetchPage({
+    int limit = 200,
+    int offset = 0,
+    String sort = '-created_at',
+  }) async {
     final uri = Uri.parse('$baseUrl/campaigns').replace(queryParameters: {
       'limit': '$limit',
       'offset': '$offset',
@@ -72,39 +103,16 @@ class CampaignService {
     });
 
     return _withRetry(() async {
-      final started = DateTime.now();
-      if (kDebugMode) dev.log('[REQ] GET $uri', name: 'CampaignService');
-
-      final r = await _client
-          .get(uri, headers: _headers)
-          .timeout(const Duration(seconds: 30));
-
-      final elapsed = DateTime.now().difference(started).inMilliseconds;
-      if (kDebugMode) {
-        final rawLen = r.bodyBytes.length;
-        final preview = r.body.length > 800
-            ? '${r.body.substring(0, 800)}…(truncated)'
-            : r.body;
-        dev.log('[RES] status=${r.statusCode} len=$rawLen elapsed=${elapsed}ms',
-            name: 'CampaignService');
-        dev.log('[BODY] $preview', name: 'CampaignService');
-      }
-
-      if (r.statusCode != 200) {
-        throw Exception('캠페인 조회 실패: ${r.statusCode}');
-      }
-
-      final decoded = jsonDecode(r.body);
-      final List items =
-      (decoded is Map && decoded['items'] is List) ? decoded['items'] : [];
-      if (kDebugMode) {
-        dev.log('[PARSE] items=${items.length} sample=${jsonEncode(items.take(2).toList())}',
-            name: 'CampaignService');
-      }
-      return items.map((e) => Store.fromJson(e as Map<String, dynamic>)).toList();
+      final r =
+      await _client.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      final items = _parseItemsOrThrow(r, context: '캠페인 조회');
+      return items
+          .map((e) => Store.fromJson(e as Map<String, dynamic>))
+          .toList();
     });
   }
 
+  /// 현재 지도 뷰포트(bbox) 내 캠페인 조회
   Future<List<Store>> fetchInBounds({
     required double south,
     required double west,
@@ -125,56 +133,37 @@ class CampaignService {
     });
 
     return _withRetry(() async {
-      if (kDebugMode) dev.log('[REQ] GET $uri (bbox)', name: 'CampaignService');
-      final r = await _client
-          .get(uri, headers: _headers)
-          .timeout(const Duration(seconds: 30));
-
-      if (kDebugMode) dev.log('[RES] bbox status=${r.statusCode}', name: 'CampaignService');
-      if (r.statusCode != 200) {
-        throw Exception('캠페인 조회 실패(bbox): ${r.statusCode}');
-      }
-
-      final decoded = jsonDecode(r.body);
-      final List items =
-      (decoded is Map && decoded['items'] is List) ? decoded['items'] : [];
-      return items.map((e) => Store.fromJson(e as Map<String, dynamic>)).toList();
+      final r =
+      await _client.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      final items = _parseItemsOrThrow(r, context: '캠페인 조회(bbox)');
+      return items
+          .map((e) => Store.fromJson(e as Map<String, dynamic>))
+          .toList();
     });
   }
 
-  // --- 👇 [추가된 메소드] ---
-  /// 사용자의 현재 위치를 기준으로 가장 가까운 캠페인을 조회합니다. (페이지네이션 지원)
+  /// 사용자 위치 기준 가장 가까운 캠페인(거리순, 페이지네이션)
   Future<List<Store>> fetchNearest({
     required double lat,
     required double lng,
     int limit = 20,
     int offset = 0,
   }) async {
-    // URI에 거리순 정렬 파라미터를 동적으로 추가
     final uri = Uri.parse('$baseUrl/campaigns').replace(queryParameters: {
       'lat': lat.toString(),
       'lng': lng.toString(),
-      'sort': 'distance', // 핵심: 서버에 거리순 정렬을 요청
+      'sort': 'distance', // 서버가 distance 정렬 지원해야 함
       'limit': limit.toString(),
       'offset': offset.toString(),
     });
 
     return _withRetry(() async {
-      if (kDebugMode) dev.log('[REQ] GET $uri (nearest)', name: 'CampaignService');
-      final r = await _client
-          .get(uri, headers: _headers)
-          .timeout(const Duration(seconds: 30));
-
-      if (kDebugMode) dev.log('[RES] nearest status=${r.statusCode}', name: 'CampaignService');
-      if (r.statusCode != 200) {
-        throw Exception('가까운 캠페인 조회 실패: ${r.statusCode}');
-      }
-
-      final decoded = jsonDecode(r.body);
-      final List items =
-      (decoded is Map && decoded['items'] is List) ? decoded['items'] : [];
-      return items.map((e) => Store.fromJson(e as Map<String, dynamic>)).toList();
+      final r =
+      await _client.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      final items = _parseItemsOrThrow(r, context: '가까운 캠페인 조회');
+      return items
+          .map((e) => Store.fromJson(e as Map<String, dynamic>))
+          .toList();
     });
   }
-// --- 👆 [추가된 메소드] ---
 }

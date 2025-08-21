@@ -1,3 +1,11 @@
+import java.util.Properties
+
+val dotenv = Properties()
+val dotenvFile = rootProject.file(".env")
+if (dotenvFile.exists()) {
+    dotenvFile.inputStream().use { dotenv.load(it) }
+}
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -28,6 +36,15 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        manifestPlaceholders.putAll(
+            mapOf(
+                "NAVER_MAP_CLIENT_ID" to (dotenv["NAVER_MAP_CLIENT_ID"] ?: ""),
+                "NAVER_MAP_CLIENT_SECRET" to (dotenv["NAVER_MAP_CLIENT_SECRET"] ?: ""),
+                "NAVER_APP_KEY" to (dotenv["NAVER_APP_KEY"] ?: ""),
+                "NAVER_APP_SECRET" to (dotenv["NAVER_APP_SECRET"] ?: ""),
+            )
+        )
     }
 
     buildTypes {

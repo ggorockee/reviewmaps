@@ -56,12 +56,20 @@ async def list_campaigns(
                 detail="sort='distance' requires 'lat' and 'lng' parameters."
             )
             
+    now_kst = datetime.now(KST)
+    user_apply_from = _parse_kst(apply_from)
+
+    effective_apply_from = user_apply_from
+    if effective_apply_from is None or effective_apply_from < now_kst:
+        effective_apply_from = now_kst
+
+            
     total, rows = await crud.list_campaigns(
         db,
         q=q,
         platform=platform,
         company=company,
-        apply_from=_parse_kst(apply_from),
+        apply_from=effective_apply_from,
         apply_to=_parse_kst(apply_to),
         review_from=_parse_kst(review_from),
         review_to=_parse_kst(review_to),

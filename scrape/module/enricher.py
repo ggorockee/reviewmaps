@@ -11,11 +11,15 @@ from .logger import get_logger
 
 log = get_logger("enricher")
 
-def fetch_campaigns(engine: Engine, table: str, company_col: str = "company") -> pd.DataFrame:
+def fetch_campaigns_to_enrich(engine: Engine, table: str, company_col: str = "company") -> pd.DataFrame:
+    """
+    모든 캠페인을 가져옵니다. (향후 category_id가 NULL인 것만 가져오도록 최적화 가능)
+    """
     q = f'SELECT "id", "{company_col}" FROM "{table}"'
+
     try:
         df = pd.read_sql_query(q, engine)
-        log.info(f"[{table}] {len(df)}건 로드")
+        log.info(f"[{table}] 보강 대상 {len(df)}건 로드")
         return df
     except Exception as e:
         log.error(f"캠페인 로드 실패: {e}")
@@ -51,10 +55,50 @@ def naver_geocode(map_id: str, map_secret: str, address: str) -> Optional[Tuple[
     except requests.RequestException as e:
         log.warning(f"Geocode 실패 ({address}): {e}")
         return None
+    
+def get_or_create_raw_category(engine: Engine, raw_text: str) -> Optional[int]:
+    """
+    raw_categories 테이블에서 raw_text를 찾아 ID를 반환합니다. 없으면 새로 생성합니다.
+    """
+    if not raw_text or not raw_text.strip():
+        return None
+
+    clean_text = raw_text.strip()
+    
+    with engine.begin() as conn:
+        # 먼저 ID를 조회
+        find_q = text("SELECT id FROM raw_categories WHERE raw_text = :text")
+        result = conn.execute(find_q, {"text": clean_text}).scalar_one_or_none()
+        
+        if result is not None:
+            return result
+        
+        # 없으면 새로 생성하고 ID를 반환 (ON CONFLICT를 사용하여 동시성 문제 방지)
+        log.info(f"새로운 원본 카테고리 발견: '{clean_text}'")
+        insert_q = text("INSERT INTO raw_categories (raw_text) VALUES (:text) ON CONFLICT (raw_text) DO NOTHING RETURNING id")
+        result = conn.execute(insert_q, {"text": clean_text}).scalar_one_or_none()
+        
+        # ON CONFLICT DO NOTHING 때문에 INSERT가 안됐을 수 있으므로 다시 조회하여 ID를 확실히 반환
+        if result is None:
+            result = conn.execute(find_q, {"text": clean_text}).scalar_one_or_none()
+            
+        return result
+    
+def find_mapped_category_id(engine: Engine, raw_category_id: int) -> Optional[int]:
+    """
+    category_mappings 테이블에서 매핑된 standard_category_id를 찾습니다.
+    """
+    if raw_category_id is None:
+        return None
+    
+    q = text("SELECT standard_category_id FROM category_mappings WHERE raw_category_id = :id")
+    with engine.connect() as conn:
+        result = conn.execute(q, {"id": raw_category_id}).scalar_one_or_none()
+    return result
 
 def enrich_once(settings: Settings) -> int:
     eng = get_engine(settings)
-    df = fetch_campaigns(eng, settings.table_name, "company")
+    df = fetch_campaigns_to_enrich(eng, settings.table_name, "company") # 함수 이름 변경
     if df.empty:
         log.info("보강(enrich) 대상 없음")
         return 0
@@ -71,6 +115,7 @@ def enrich_once(settings: Settings) -> int:
             continue
 
         address = place.get("roadAddress") or place.get("address")
+
         # 썸네일/링크가 명확치 않아 link를 img_url로 임시 저장 (원본 코드 유지)
         img_url = place.get("link")
 
@@ -81,12 +126,35 @@ def enrich_once(settings: Settings) -> int:
                                    address)
             if coords:
                 lat, lng = coords
+                
+        data_to_update = {
+            "address": address, 
+            "lat": lat, 
+            "lng": lng, 
+            "img_url": img_url,
+            }
+        
+        
+        # --- ✨ 카테고리 보강 로직 시작 ---
+        raw_category_text = place.get("category")
+        if raw_category_text:
+            # 1. 원본 카테고리 Get or Create
+            raw_id = get_or_create_raw_category(eng, raw_category_text)
+            
+            # 2. 매핑된 표준 카테고리 ID 조회
+            if raw_id:
+                standard_id = find_mapped_category_id(eng, raw_id)
+                # 3. 매핑된 ID가 있을 경우에만 업데이트 목록에 추가
+                if standard_id:
+                    data_to_update["category_id"] = standard_id
+        # --- 카테고리 보강 로직 끝 ---
 
+        # --- DB 업데이트 ---
         changed = update_where_id(
             eng,
             table=settings.table_name,
             row_id=cid,
-            data={"address": address, "lat": lat, "lng": lng, "img_url": img_url},
+            data=data_to_update,
         )
         if changed:
             updated_count += 1

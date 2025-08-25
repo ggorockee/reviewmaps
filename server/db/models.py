@@ -32,6 +32,9 @@ class Category(Base):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
     created_at: Mapped[object] = mapped_column(TIMESTAMP(timezone=True), server_default=text("now()"))
+    
+    campaigns: Mapped[list["Campaign"]] = relationship(back_populates="category")
+
 
 
 class RawCategory(Base):

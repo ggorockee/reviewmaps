@@ -1,7 +1,8 @@
 from __future__ import annotations
 from typing import Optional, Sequence, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, update, delete
+from sqlalchemy import select, func, update, delete, Date
+from datetime import timedelta
 from .models import Campaign, Category, RawCategory, CategoryMapping
 from schemas.category import CategoryMappingCreate,CategoryCreate
 
@@ -59,7 +60,7 @@ async def list_campaigns(
     # ✨ is_new 로직을 위한 SQL 표현식. PostgreSQL 문법 활용
     # (created_at의 날짜 부분 - 1일)이 (오늘 날짜 - 3일)보다 크거나 같으면 true
     is_new_expression = (
-        (func.cast(Campaign.created_at, func.Date()) - 1) >= (func.current_date() - 3)
+        (func.cast(Campaign.created_at, Date) >= (func.current_date() - timedelta(days=2)))
     ).label("is_new")
 
     # 공통 필터 적용 함수 (기존 코드와 동일)

@@ -1,5 +1,5 @@
 from __future__ import annotations
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy import String, BigInteger, TIMESTAMP, Numeric, text, Text,ForeignKey
 
 class Base(DeclarativeBase):
@@ -9,6 +9,9 @@ class Campaign(Base):
     __tablename__ = "campaign"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    category_id: Mapped[int] = mapped_column(ForeignKey("categories.id"), nullable=True)
+    category: Mapped["Category"] = relationship(back_populates="campaigns")
+
     platform: Mapped[str] = mapped_column(String(20), nullable=False)
     company: Mapped[str] = mapped_column(String(255), nullable=False)
     company_link: Mapped[str | None] = mapped_column(Text)

@@ -27,3 +27,4 @@ class CampaignList(BaseModel):
     limit: int
     offset: int
     items: list[CampaignOut]
+

@@ -29,32 +29,63 @@ def naver_local_search(client_id: str, client_secret: str, query: str) -> Option
     url = "https://openapi.naver.com/v1/search/local.json"
     headers = {"X-Naver-Client-Id": client_id, "X-Naver-Client-Secret": client_secret}
     params = {"query": query, "display": 1}
-    try:
-        r = requests.get(url, headers=headers, params=params, timeout=10)
-        r.raise_for_status()
-        items = r.json().get("items", [])
-        return items[0] if items else None
-    except requests.RequestException as e:
-        log.warning(f"Naver Local 실패 ({query}): {e}")
-        return None
+    
+    max_retries = 3
+    backoff_factor = 1  # 초기 대기 시간 (초)
+
+    for attempt in range(max_retries):
+        try:
+            r = requests.get(url, headers=headers, params=params, timeout=10)
+            r.raise_for_status()  # 200번대 응답이 아니면 예외 발생
+            items = r.json().get("items", [])
+            return items[0] if items else None
+        except requests.RequestException as e:
+            # 429 (Too Many Requests) 에러일 경우에만 재시도
+            if e.response and e.response.status_code == 429:
+                wait_time = backoff_factor * (2 ** attempt)
+                log.warning(f"Naver Local API 쿼터 초과 ({query}). {wait_time}초 후 재시도... ({attempt + 1}/{max_retries})")
+                time.sleep(wait_time)
+            else:
+                log.warning(f"Naver Local 실패 ({query}): {e}")
+                wait_time = backoff_factor * (2 ** attempt)
+                time.sleep(wait_time)
+                return None  # 다른 종류의 에러는 재시도하지 않음
+    
+    log.error(f"Naver Local API 모든 재시도 실패 ({query})")
+    return None
 
 def naver_geocode(map_id: str, map_secret: str, address: str) -> Optional[Tuple[float, float]]:
     # 반환값: (lat, lng)
     url = "https://maps.apigw.ntruss.com/map-geocode/v2/geocode"
     headers = {"x-ncp-apigw-api-key-id": map_id, "x-ncp-apigw-api-key": map_secret}
-    try:
-        r = requests.get(url, headers=headers, params={"query": address}, timeout=10)
-        r.raise_for_status()
-        addrs = r.json().get("addresses", [])
-        if not addrs:
-            return None
-        # Naver: x=lng, y=lat
-        lat = float(addrs[0]["y"])
-        lng = float(addrs[0]["x"])
-        return (lat, lng)
-    except requests.RequestException as e:
-        log.warning(f"Geocode 실패 ({address}): {e}")
-        return None
+    params = {"query": address}
+    max_retries = 3
+    backoff_factor = 1 # 초기 대기 시간 (초)
+    
+    for attempt in range(max_retries):
+        try:
+            r = requests.get(url, headers=headers, params=params, timeout=10)
+            r.raise_for_status()
+            addrs = r.json().get("addresses", [])
+            if not addrs:
+                return None
+            lat = float(addrs[0]["y"])
+            lng = float(addrs[0]["x"])
+            return (lat, lng)
+        except requests.RequestException as e:
+            # 429 (Too Many Requests) 에러일 경우에만 재시도
+            if e.response and e.response.status_code == 429:
+                wait_time = backoff_factor * (2 ** attempt)
+                log.warning(f"Geocode API 쿼터 초과 ({address}). {wait_time}초 후 재시도... ({attempt + 1}/{max_retries})")
+                time.sleep(wait_time)
+            else:
+                log.warning(f"Geocode 실패 ({address}): {e}")
+                wait_time = backoff_factor * (2 ** attempt)
+                time.sleep(wait_time)
+                return None # 다른 종류의 에러는 재시도하지 않음
+
+    log.error(f"Geocode API 모든 재시도 실패 ({address})")
+    return None
     
 def get_or_create_raw_category(engine: Engine, raw_text: str) -> Optional[int]:
     """
@@ -158,7 +189,7 @@ def enrich_once(settings: Settings) -> int:
         )
         if changed:
             updated_count += 1
-        time.sleep(0.1)
+        time.sleep(0.2)
 
     log.info(f"Enrich 완료: {updated_count} rows updated")
     return updated_count

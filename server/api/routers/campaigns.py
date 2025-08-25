@@ -6,20 +6,9 @@ from api.deps import get_db_session
 from db import crud
 from schemas.campaign import CampaignList, CampaignOut
 
+from core.utils import _parse_kst, KST
 from datetime import datetime
-from zoneinfo import ZoneInfo
 
-KST = ZoneInfo("Asia/Seoul")
-
-def _parse_kst(dt_str: str | None) -> datetime | None:
-    if not dt_str:
-        return None
-    # 1) 문자열을 datetime으로
-    dt = datetime.fromisoformat(dt_str)
-    # 2) tz가 없으면 KST로 로컬라이즈, 있으면 그대로 사용
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=KST)
-    return dt
 
 router = APIRouter(tags=["campaigns"])
 
@@ -28,6 +17,7 @@ router = APIRouter(tags=["campaigns"])
 @router.get("/campaigns", response_model=CampaignList, summary="캠페인 목록 조회 (async)")
 async def list_campaigns(
     db: AsyncSession            = Depends(get_db_session),
+    category_id: Optional[int]  = Query(None, description="카테고리 ID로 필터링"),
     q: Optional[str]            = Query(None, description="회사/오퍼/플랫폼 부분검색"),
     platform: Optional[str]     = Query(None),
     company: Optional[str]      = Query(None, description="회사명 부분검색"),
@@ -44,8 +34,11 @@ async def list_campaigns(
     
     lat: Optional[float]        = Query(None, description="사용자 현재 위도 (sort='distance'일 때 필수)"),
     lng: Optional[float]        = Query(None, description="사용자 현재 경도 (sort='distance'일 때 필수)"),
-    sort: str                   = Query("-created_at", description="정렬 키. -는 내림차순"),
-
+    sort: str                   = Query(
+                                    "-created_at", 
+                                    description="정렬 키. -는 내림차순. 사용 가능 키: created_at, apply_deadline, distance"
+                                    ),
+    
     limit: int                  = Query(20, ge=1, le=200),
     offset: int                 = Query(0, ge=0),
 ):
@@ -66,6 +59,7 @@ async def list_campaigns(
             
     total, rows = await crud.list_campaigns(
         db,
+        category_id=category_id,
         q=q,
         platform=platform,
         company=company,

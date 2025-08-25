@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from core.config import settings
 from core.logging import setup_logging
 from api.routers.campaigns import router as campaigns_router
+from api.routers.categories import router as categories_router
 from api.routers.health import router as healthcheck_router
 
 
@@ -30,6 +31,7 @@ v1_app.add_middleware(
 )
 
 v1_app.include_router(healthcheck_router)
+v1_app.include_router(categories_router, dependencies=[Depends(require_api_key)])
 v1_app.include_router(campaigns_router, dependencies=[Depends(require_api_key)])
 # v1_app.add_middleware(SecretKeyMiddleware, secret_key=settings.API_SECRET_KEY)
 

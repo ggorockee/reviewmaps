@@ -1,8 +1,9 @@
 from __future__ import annotations
 from typing import Optional, Sequence, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
-from db.models import Campaign
+from sqlalchemy import select, func, update, delete
+from .models import Campaign, Category, RawCategory, CategoryMapping
+from schemas.category import CategoryMappingCreate,CategoryCreate
 
 
 
@@ -36,6 +37,7 @@ def get_distance_query(lat: float, lng: float):
 async def list_campaigns(
     db: AsyncSession,
     *,
+    category_id: Optional[int] = None, # ✨ 필터 파라미터 추가
     q: Optional[str] = None,
     platform: Optional[str] = None,
     company: Optional[str] = None,
@@ -53,6 +55,12 @@ async def list_campaigns(
     limit: int = 20,
     offset: int = 0,
 ) -> Tuple[int, Sequence[Campaign]]:
+    
+    # ✨ is_new 로직을 위한 SQL 표현식. PostgreSQL 문법 활용
+    # (created_at의 날짜 부분 - 1일)이 (오늘 날짜 - 3일)보다 크거나 같으면 true
+    is_new_expression = (
+        (func.cast(Campaign.created_at, func.Date()) - 1) >= (func.current_date() - 3)
+    ).label("is_new")
 
     # 공통 필터 적용 함수 (기존 코드와 동일)
     def apply_common_filters(stmt_):
@@ -67,6 +75,8 @@ async def list_campaigns(
             stmt_ = stmt_.where(Campaign.platform == platform)
         if company:
             stmt_ = stmt_.where(Campaign.company.ilike(f"%{company}%"))
+        if category_id:
+            stmt_ = stmt_.where(Campaign.category_id == category_id)
         if apply_from:
             stmt_ = stmt_.where(Campaign.apply_deadline >= apply_from)
         if apply_to:
@@ -86,11 +96,10 @@ async def list_campaigns(
     if sort == "distance" and lat is not None and lng is not None:
         distance_col = get_distance_query(lat, lng)
         
-        # 1. 데이터 조회 쿼리 생성
-        stmt = select(Campaign, distance_col)
-        # 1-1. 거리 계산을 위해 좌표가 있는 캠페인만 필터링
+        # ✨ SELECT 구문에 is_new_expression, Category 추가 및 JOIN
+        stmt = select(Campaign, Category, is_new_expression, distance_col)
+        stmt = stmt.outerjoin(Category, Campaign.category_id == Category.id)
         stmt = stmt.where(Campaign.lat.isnot(None), Campaign.lng.isnot(None))
-        # 1-2. 공통 필터 적용
         stmt = apply_common_filters(stmt)
         
         # 2. total count 계산 (필터가 모두 적용된 쿼리 기반)
@@ -103,17 +112,19 @@ async def list_campaigns(
         # 4. 쿼리 실행 및 결과 처리
         result = await db.execute(stmt)
         rows = []
-        for campaign, distance in result.all():
-            campaign.distance = distance  # 모델 객체에 동적으로 거리 정보 추가
+        for campaign, category, is_new, distance in result.all():
+            campaign.is_new = is_new
+            campaign.distance = distance
+            campaign.category = category
             rows.append(campaign)
         
         return total, rows
 
     # === 일반 정렬 로직 ===
     else:
-        # 1. 데이터 조회 쿼리 생성
-        stmt = select(Campaign)
-        # 1-1. 공통 필터 적용
+        # ✨ SELECT 구문에 is_new_expression, Category 추가 및 JOIN
+        stmt = select(Campaign, Category, is_new_expression)
+        stmt = stmt.outerjoin(Category, Campaign.category_id == Category.id)
         stmt = apply_common_filters(stmt)
 
         # 2. total count 계산 (필터가 모두 적용된 쿼리 기반)
@@ -133,8 +144,79 @@ async def list_campaigns(
         
         stmt = stmt.order_by(sort_col.desc() if desc else sort_col.asc())
         
-        # 4. 페이지네이션 적용 및 쿼리 실행
         stmt = stmt.limit(limit).offset(offset)
-        rows = (await db.execute(stmt)).scalars().all()
+        result = await db.execute(stmt)
+        rows = []
+        # ✨ 결과 처리 로직 수정
+        for campaign, category, is_new in result.all():
+            campaign.is_new = is_new
+            campaign.category = category
+            rows.append(campaign)
         
         return total, rows
+
+
+async def get_categories(db: AsyncSession) -> Sequence[Category]:
+    """모든 표준 카테고리 목록을 조회합니다."""
+    stmt = select(Category).order_by(Category.name)
+    result = await db.execute(stmt)
+    return result.scalars().all()
+
+async def get_category_by_name(db: AsyncSession, name: str) -> Category | None:
+    """이름으로 단일 표준 카테고리를 조회합니다."""
+    stmt = select(Category).where(Category.name == name)
+    result = await db.execute(stmt)
+    return result.scalars().first()
+
+async def create_category(db: AsyncSession, category: CategoryCreate) -> Category:
+    """새로운 표준 카테고리를 생성합니다."""
+    db_category = Category(name=category.name)
+    db.add(db_category)
+    await db.commit()
+    await db.refresh(db_category)
+    return db_category
+
+
+async def update_category(db: AsyncSession, category_id: int, category_update: CategoryCreate) -> Category | None:
+    """표준 카테고리 정보를 수정합니다."""
+    # SQLAlchemy 2.0 style update
+    stmt = (
+        update(Category)
+        .where(Category.id == category_id)
+        .values(name=category_update.name)
+        .returning(Category)
+    )
+    result = await db.execute(stmt)
+    await db.commit()
+    return result.scalars().first()
+
+async def delete_category(db: AsyncSession, category_id: int) -> int:
+    """표준 카테고리를 삭제합니다."""
+    stmt = delete(Category).where(Category.id == category_id)
+    result = await db.execute(stmt)
+    await db.commit()
+    return result.rowcount # 삭제된 행의 수를 반환 (0 또는 1)
+
+async def get_unmapped_raw_categories(db: AsyncSession):
+    """아직 매핑되지 않은 원본 카테고리 목록을 조회합니다."""
+    # raw_categories 테이블과 category_mappings 테이블을 LEFT JOIN
+    # 매핑 정보가 없는(m.id IS NULL) 것들만 필터링
+    stmt = (
+        select(RawCategory)
+        .outerjoin(CategoryMapping, RawCategory.id == CategoryMapping.raw_category_id)
+        .filter(CategoryMapping.id.is_(None))
+        .order_by(RawCategory.created_at.desc())
+    )
+    result = await db.execute(stmt)
+    return result.scalars().all()
+    
+async def create_category_mapping(db: AsyncSession, mapping: CategoryMappingCreate):
+    """새로운 카테고리 매핑을 생성합니다."""
+    db_mapping = CategoryMapping(
+        raw_category_id=mapping.raw_category_id,
+        standard_category_id=mapping.standard_category_id,
+    )
+    db.add(db_mapping)
+    await db.commit()
+    await db.refresh(db_mapping)
+    return db_mapping

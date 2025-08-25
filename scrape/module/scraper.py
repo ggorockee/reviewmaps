@@ -14,6 +14,8 @@ from webdriver_manager.chrome import ChromeDriverManager
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
 import os
+import sys
+
 
 
 from .config import Settings
@@ -41,7 +43,15 @@ class AdvancedScraper:
         log.info("ChromeDriver 초기화…")
         options = ChromeOptions()
         # 컨테이너 chromium 바이너리 지정
-        options.binary_location = os.getenv("CHROME_BIN", "/usr/bin/chromium")
+        
+        # 운영체제에 따라 분기 처리
+        # sys.platform이 'linux'로 시작하면 (컨테이너 환경 등)
+        if sys.platform.startswith("linux"):
+            log.info("Linux 환경으로 감지, Chromium 바이너리 경로를 지정합니다.")
+            options.binary_location = os.getenv("CHROME_BIN", "/usr/bin/chromium")
+        else:
+            log.info(f"{sys.platform} 환경으로 감지, 자동 브라우저 감지를 사용합니다.")
+
         if self.settings.headless:
             options.add_argument("--headless=new")
         options.add_argument("--no-sandbox")

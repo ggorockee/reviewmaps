@@ -168,6 +168,24 @@ class AdvancedScraper:
             return 0
 
         final_df = pd.concat(all_df, ignore_index=True)
+        
+        # 정렬(Sort) 후 중복 제거
+        # 가장 최신 데이터를 남기는 확실한 방법은, 중복 제거 전에 데이터를 최신순으로 먼저 정렬
+        # 전체 데이터를 apply_deadline 기준으로 내림차순 정렬 (가장 마감일이 늦은 데이터가 위로 올라옴)
+        # 그다음 중복을 제거하면서 가장 첫 번째 데이터(keep='first')를 남김
+        
+        if not final_df.empty:
+            log.info(f"합계 {len(final_df)}건, 중복 제거 전")
+        
+            # 1. 'apply_deadline' 기준으로 내림차순 정렬 (최신 날짜가 위로)
+            # NaT (날짜 없음) 값은 정렬 시 뒤로 밀리도록 na_position='last' 설정
+            final_df.sort_values(by='apply_deadline', ascending=False, na_position='last', inplace=True)
+        
+            # 2. 정렬된 상태에서 첫 번째 나오는 중복 데이터만 남김
+            final_df.drop_duplicates(subset=self.CONFLICT_COLS, keep='first', inplace=True)
+        
+            log.info(f"중복 제거 후 {len(final_df)}건")
+        
         # UPSERT
         affected = upsert_rows_psycopg2(
             self.engine,

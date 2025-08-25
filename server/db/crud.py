@@ -162,6 +162,10 @@ async def get_categories(db: AsyncSession) -> Sequence[Category]:
     result = await db.execute(stmt)
     return result.scalars().all()
 
+async def get_category(db: AsyncSession, category_id: int) -> Category | None:
+    """ID로 단일 표준 카테고리를 조회합니다."""
+    return await db.get(Category, category_id)
+
 async def get_category_by_name(db: AsyncSession, name: str) -> Category | None:
     """이름으로 단일 표준 카테고리를 조회합니다."""
     stmt = select(Category).where(Category.name == name)

@@ -51,23 +51,6 @@ async def create_mapping(mapping: CategorySchema.CategoryMappingCreate, db: Asyn
         raise HTTPException(status_code=409, detail="Mapping failed. It might already exist.")
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 @router.get("/{category_id}", response_model=CategorySchema.Category)
 async def read_category(category_id: int, db: AsyncSession = Depends(get_db_session)):
     """특정 표준 카테고리 조회"""

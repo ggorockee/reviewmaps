@@ -1,7 +1,7 @@
 from __future__ import annotations
-from typing import Optional, Sequence, Tuple
+from typing import Optional, Sequence, Tuple, List
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, update, delete, Date
+from sqlalchemy import select, func, update, delete, Date, case
 from datetime import timedelta
 from .models import Campaign, Category, RawCategory, CategoryMapping
 from schemas.category import CategoryMappingCreate,CategoryCreate
@@ -159,7 +159,7 @@ async def list_campaigns(
 
 async def get_categories(db: AsyncSession) -> Sequence[Category]:
     """모든 표준 카테고리 목록을 조회합니다."""
-    stmt = select(Category).order_by(Category.name)
+    stmt = select(Category).order_by(Category.display_order, Category.name)
     result = await db.execute(stmt)
     return result.scalars().all()
 
@@ -225,3 +225,29 @@ async def create_category_mapping(db: AsyncSession, mapping: CategoryMappingCrea
     await db.commit()
     await db.refresh(db_mapping)
     return db_mapping
+
+async def update_category_order(db: AsyncSession, ordered_ids: List[int]) -> int:
+    """
+    제공된 ID 목록 순서대로 카테고리의 display_order를 일괄 업데이트합니다.
+    SQL의 CASE 문을 사용하여 한 번의 쿼리로 효율적으로 처리합니다.
+    """
+    if not ordered_ids:
+        return 0
+
+    # ID 목록을 기반으로 CASE 문을 생성
+    # 예: CASE WHEN id=3 THEN 1 WHEN id=1 THEN 2 ... END
+    case_statement = case(
+        {category_id: index + 1 for index, category_id in enumerate(ordered_ids)},
+        value=Category.id,
+    )
+
+    # 일괄 업데이트 쿼리 실행
+    stmt = (
+        update(Category)
+        .where(Category.id.in_(ordered_ids))
+        .values(display_order=case_statement)
+    )
+    result = await db.execute(stmt)
+    await db.commit()
+
+    return result.rowcount # 업데이트된 행의 수를 반환

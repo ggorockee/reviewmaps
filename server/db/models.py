@@ -1,6 +1,6 @@
 from __future__ import annotations
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-from sqlalchemy import String, BigInteger, TIMESTAMP, Numeric, text, Text,ForeignKey
+from sqlalchemy import String, BigInteger, TIMESTAMP, Numeric, text, Text,ForeignKey, Integer
 
 class Base(DeclarativeBase):
     pass
@@ -34,6 +34,8 @@ class Category(Base):
     created_at: Mapped[object] = mapped_column(TIMESTAMP(timezone=True), server_default=text("now()"))
     
     campaigns: Mapped[list["Campaign"]] = relationship(back_populates="category")
+    display_order: Mapped[int] = mapped_column(Integer, server_default=text("99"), nullable=False)
+
 
 
 

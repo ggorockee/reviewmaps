@@ -1,6 +1,6 @@
 from __future__ import annotations
 from pydantic import BaseModel, Field, ConfigDict
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 
 # --- Standard Category Schemas ---
@@ -12,6 +12,8 @@ class CategoryCreate(CategoryBase):
 
 class Category(CategoryBase):
     id: int
+    display_order: int
+
     
     class Config:
         from_attributes = True # SQLAlchemy 모델을 Pydantic 모델로 자동 변환
@@ -35,3 +37,7 @@ class CategoryMapping(CategoryMappingCreate):
 
     class Config:
         from_attributes = True
+        
+class CategoryOrderUpdate(BaseModel):
+    # 순서대로 정렬된 카테고리 ID 목록
+    ordered_ids: List[int] = Field(..., description="순서대로 정렬된 카테고리 ID 목록")

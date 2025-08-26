@@ -54,6 +54,31 @@ async def create_mapping(mapping: CategorySchema.CategoryMappingCreate, db: Asyn
         raise HTTPException(status_code=409, detail="Mapping failed. It might already exist.")
 
 
+
+# --- 👇 [추가] 카테고리 순서 일괄 업데이트 엔드포인트 ---
+@router.put("/order", status_code=status.HTTP_204_NO_CONTENT, summary="카테고리 순서 일괄 업데이트")
+async def update_order(
+    order_update: CategorySchema.CategoryOrderUpdate,
+    db: AsyncSession = Depends(get_db_session)
+):
+    """
+    카테고리 ID 목록을 순서대로 받아 `display_order`를 업데이트합니다.
+    """
+    # DB에 있는 모든 카테고리 ID를 가져옴
+    all_category_ids = await db.execute(select(Category.id))
+    all_category_ids_set = {row[0] for row in all_category_ids}
+
+    # 요청으로 들어온 ID 목록과 DB의 ID 목록이 일치하는지 확인
+    if set(order_update.ordered_ids) != all_category_ids_set:
+        raise HTTPException(
+            status_code=400,
+            detail="Provided ID list does not match the existing categories. Ensure all category IDs are included exactly once."
+        )
+
+    await crud.update_category_order(db, ordered_ids=order_update.ordered_ids)
+    return
+
+
 @router.get("/{category_id}", response_model=CategorySchema.Category)
 async def read_category(category_id: int, db: AsyncSession = Depends(get_db_session)):
     """특정 표준 카테고리 조회"""
@@ -93,25 +118,3 @@ async def delete_category(category_id: int, db: AsyncSession = Depends(get_db_se
     return
 
 
-# --- 👇 [추가] 카테고리 순서 일괄 업데이트 엔드포인트 ---
-@router.put("/order", status_code=status.HTTP_204_NO_CONTENT, summary="카테고리 순서 일괄 업데이트")
-async def update_order(
-    order_update: CategorySchema.CategoryOrderUpdate,
-    db: AsyncSession = Depends(get_db_session)
-):
-    """
-    카테고리 ID 목록을 순서대로 받아 `display_order`를 업데이트합니다.
-    """
-    # DB에 있는 모든 카테고리 ID를 가져옴
-    all_category_ids = await db.execute(select(Category.id))
-    all_category_ids_set = {row[0] for row in all_category_ids}
-
-    # 요청으로 들어온 ID 목록과 DB의 ID 목록이 일치하는지 확인
-    if set(order_update.ordered_ids) != all_category_ids_set:
-        raise HTTPException(
-            status_code=400,
-            detail="Provided ID list does not match the existing categories. Ensure all category IDs are included exactly once."
-        )
-
-    await crud.update_category_order(db, ordered_ids=order_update.ordered_ids)
-    return

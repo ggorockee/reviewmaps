@@ -1,34 +1,38 @@
+# middlewares/access.py
 from __future__ import annotations
+import time
+import logging
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
-import time
-from core.logging import setup_logging
-import logging
 
-# 로거 설정이 이미 되어있으므로, 이름으로 가져오기만 합니다.
-# main.py에서 설정한 로거를 사용합니다.
-log = logging.getLogger(__name__)
-setup_logging()
-
+log = logging.getLogger("middlewares.access")  # 이름 고정
 
 class AccessLogMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        start_time = time.time()
-        
-        # 다음 미들웨어 또는 API 로직 실행
-        response = await call_next(request)
-        
-        process_time = (time.time() - start_time) * 1000  # 밀리초 단위로 변환
-        
-        client_host = request.client.host
+        start = time.perf_counter()
+
+        # 사전 추출
+        client_host = request.client.host if request.client else "-"
         method = request.method
         url_path = request.url.path
-        status_code = response.status_code
-        user_agent = request.headers.get("user-agent", "N/A")
+        ua = request.headers.get("user-agent", "-")
 
-        # Uvicorn의 기본 액세스 로그 형식과 유사하게 맞춤
-        log.info(
-            f'{client_host} - "{method} {url_path}" {status_code} | {process_time:.2f}ms'
-        )
-        
-        return response
+        status_code = None
+        try:
+            response = await call_next(request)
+            status_code = response.status_code
+            return response
+        finally:
+            process_time_ms = round((time.perf_counter() - start) * 1000, 2)
+            # ⚠️ extra 로 포맷 필드 공급
+            log.info(
+                f'{client_host} - "{method} {url_path}" {status_code if status_code is not None else "-"} | {process_time_ms}ms',
+                extra={
+                    "client_host": client_host,
+                    "method": method,
+                    "url_path": url_path,
+                    "status_code": status_code,
+                    "process_time_ms": process_time_ms,
+                    "user_agent": ua,  # 원하면 포맷에 추가
+                },
+            )

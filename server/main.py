@@ -7,7 +7,7 @@ from core.logging import setup_logging
 from api.routers.campaigns import router as campaigns_router
 from api.routers.categories import router as categories_router
 from api.routers.health import router as healthcheck_router
-from .middlewares.access import AccessLogMiddleware
+from middlewares.access import AccessLogMiddleware
 
 
 from api.security import require_api_key

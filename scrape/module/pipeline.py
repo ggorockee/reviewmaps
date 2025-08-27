@@ -1,11 +1,11 @@
 from __future__ import annotations
 import signal
 import time
-from typing import List, Tuple
+from typing import List, Tuple, Type
 from .config import Settings
 from .logger import get_logger
-from .scraper import AdvancedScraper
 from .enricher import enrich_once
+from .scrapers.base import BaseScraper
 
 from datetime import datetime, timedelta
 
@@ -27,10 +27,12 @@ def _next_run_at(tz, hh: int, mm: int) -> datetime:
     return candidate
 
 class Pipeline:
-    def __init__(self, settings: Settings, keywords: List[str]):
+    def __init__(self, settings: Settings, keywords: List[str], scraper_classes: List[Type[BaseScraper]]):
         self.settings = settings
         self.keywords = keywords
+        self.scraper_classes = scraper_classes
         self._stop = False
+
 
     def _install_signal_handlers(self):
         def stop_handler(signum, frame):
@@ -40,18 +42,23 @@ class Pipeline:
         signal.signal(signal.SIGTERM, stop_handler)
         
     def _one_cycle(self):
-        """스크랩 → UPSERT → 보강 → 요약 로그"""
-        scraper = AdvancedScraper(self.settings)
-        try:
-            affected = scraper.run_once(self.keywords, self.settings.table_name)
-            log.info(f"Scrape UPSERT 건수: {affected}")
-        finally:
-            scraper.close()
+        total_affected = 0
+        for ScraperClass in self.scraper_classes:
+            log.info(f"---== {ScraperClass.PLATFORM_NAME} 스크래핑 시작 ==---")
+            scraper = ScraperClass(self.settings)
+            try:
+                affected = scraper.run_once(self.keywords, self.settings.table_name)
+                log.info(f"[{ScraperClass.PLATFORM_NAME}] Scrape UPSERT 건수: {affected}")
+                total_affected += affected
+            except Exception as e:
+                log.error(f"[{ScraperClass.PLATFORM_NAME}] 실행 중 오류 발생: {e}", exc_info=True)
+            finally:
+                scraper.close()
 
         updated = enrich_once(self.settings)
         log.info(f"Enrich 업데이트 건수: {updated}")
-        total = affected + updated
-        log.info(f"배치 사이클 요약: upsert={affected}, enrich_updates={updated}, total_changes={total}")
+        total_changes = total_affected + updated
+        log.info(f"배치 사이클 요약: upsert={total_affected}, enrich_updates={updated}, total_changes={total_changes}")
 
 
     def run_interval(self):

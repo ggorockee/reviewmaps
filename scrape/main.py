@@ -1,6 +1,11 @@
 from module.config import Settings
 from module.pipeline import Pipeline
 from module.search_keyword import SEARCH_KEYWORDS
+
+from module.scrapers.inflexer import InflexerScraper
+from module.scrapers.reviewnote import ReviewNoteScraper
+
+
 import os
 
 if __name__ == "__main__":
@@ -8,32 +13,20 @@ if __name__ == "__main__":
     keywords = SEARCH_KEYWORDS
     mode = os.getenv("BATCH_MODE", "once").lower()
 
-    pipeline = Pipeline(settings, keywords)
+    # 실행할 스크레이퍼 클래스 목록 정의
+    scraper_to_run = [
+        # InflexerScraper,
+        ReviewNoteScraper,
+        # 나중에 여기에 다른 스크레이퍼 클래스를 추가하기만 하면 됩니다.
+    ]
+
+    pipeline = Pipeline(settings, keywords, scraper_classes=scraper_to_run)
 
     if mode == "once":
-        # 한 번만 실행하고 종료 (CronJob에 적합)
         pipeline.run_once()
     elif mode == "interval":
-        # 일정 간격 반복 실행 (예: 5분)
-        interval_sec = int(os.getenv("INTERVAL_SEC", 300))
-        pipeline.run_forever(interval_sec=interval_sec)
+        pipeline.run_interval()
     elif mode == "daily":
-        # 매일 특정 시간에 실행 (예: 01:00)
-        from schedule import every, run_pending
-        import time
-        import pytz
-        from datetime import datetime
-
-        tz = pytz.timezone(os.getenv("TIMEZONE", "Asia/Seoul"))
-        run_time = os.getenv("BATCH_TIME", "01:00")
-
-        def job():
-            pipeline.run_once()
-
-        every().day.at(run_time).do(job)
-
-        while True:
-            run_pending()
-            time.sleep(1)
+        pipeline.run_daily()
     else:
         raise ValueError(f"Unknown BATCH_MODE: {mode}")

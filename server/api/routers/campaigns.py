@@ -39,7 +39,7 @@ async def list_campaigns(
                                     description="정렬 키. -는 내림차순. 사용 가능 키: created_at, apply_deadline, distance"
                                     ),
     
-    limit: int                  = Query(20, ge=1, le=200),
+    limit: int                  = Query(20, ge=1, le=100),
     offset: int                 = Query(0, ge=0),
 ):
     if sort == "distance":

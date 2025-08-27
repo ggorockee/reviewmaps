@@ -6,3 +6,4 @@ psycopg2-binary==2.9.10      # (선택) 로컬/툴링에만, 런타임 async는 
 pydantic-settings==2.6.1
 python-dotenv==1.1.1
 gunicorn==23.0.0
+python-json-logger==2.0.7

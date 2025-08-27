@@ -7,6 +7,7 @@ from core.logging import setup_logging
 from api.routers.campaigns import router as campaigns_router
 from api.routers.categories import router as categories_router
 from api.routers.health import router as healthcheck_router
+from .middlewares.access import AccessLogMiddleware
 
 
 from api.security import require_api_key
@@ -21,6 +22,9 @@ v1_app = FastAPI(
         # docs_url=f"{settings.api_prefix}/docs", 
         # openapi_url=f"{settings.api_prefix}/openapi.json",
     )
+# Access Log 미들웨어를 가장 먼저 등록
+v1_app.add_middleware(AccessLogMiddleware)
+
 
 v1_app.add_middleware(
     CORSMiddleware,

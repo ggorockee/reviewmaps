@@ -11,6 +11,7 @@ import re
 
 from .base import BaseScraper
 from module.logger import get_logger
+from module.db import get_engine, upsert_rows_psycopg2
 
 log = get_logger("scraper.reviewnote")
 
@@ -77,7 +78,7 @@ class ReviewNoteScraper(BaseScraper):
                 data['apply_from'] = None
                 data['apply_deadline'] = None
 
-             # 3. 리뷰 마감일 텍스트 추출 및 파싱
+            # 3. 리뷰 마감일 텍스트 추출 및 파싱
             # review_deadline_xpath = "//div[div[text()='리뷰 마감']]/following-sibling::div"
             review_deadline_xpath='//*[@id="__next"]/div/div[2]/div/div[1]/div[1]/div[3]/div[3]/div[1]/div[4]/div[2]'
             review_deadline_text = wait.until(EC.presence_of_element_located((By.XPATH, review_deadline_xpath))).text.strip()
@@ -96,69 +97,102 @@ class ReviewNoteScraper(BaseScraper):
         self.driver.get(self.BASE_URL)
         wait = WebDriverWait(self.driver, 15)
         all_data = []
-
-        target_region = "서울"
-        log.info(f"'{target_region}' 지역 필터링을 시작합니다.")
-
-
-        try:
-            # 1. '체험단 검색' 버튼 클릭 (더 안정적인 Selector로 변경)
-            # search_filter_button = wait.until(EC.element_to_be_clickable(
-            #     (By.XPATH, "//div[contains(text(), '체험단 검색')]")
-            # ))
-            # search_filter_button.click()
-            # time.sleep(1)
-
-            # 2. '서울' 버튼 클릭
-            seoul_button = wait.until(EC.element_to_be_clickable(
-                (By.XPATH, f"//div[text()='{target_region}']")
-            ))
-            seoul_button.click()
-            time.sleep(2)
-
-            # 3. 필터링된 목록에서 상위 10개 캠페인의 상세 페이지 URL 수집
-            log.info(f"'{target_region}' 지역 상위 10개 캠페인 URL 수집 시작")
-            campaign_cards = wait.until(EC.presence_of_all_elements_located(
-                (By.CSS_SELECTOR, "a[href^='/campaigns/']")
-            ))
-            
-            detail_urls = []
-            for card_link in campaign_cards[:10]:
-                url = card_link.get_attribute("href")
-                if url and url not in detail_urls:
-                    detail_urls.append(url)
-            
-            log.info(f"총 {len(detail_urls)}개의 상세 페이지 URL 수집 완료.")
-
-            # 4. 각 상세 페이지를 방문하여 정보 추출
-            for url in detail_urls:
-                log.info(f"상세 페이지 방문: {url}")
-                self.driver.get(url)
-                
-                detail_data = self._extract_detail_data(wait)
-                if detail_data.get("company"):
-                    detail_data['platform'] = self.PLATFORM_NAME
-                    detail_data['company_link'] = url
-                    detail_data['search_text'] = target_region
-                    all_data.append(detail_data)
-                    log.info(f"추출 성공: {detail_data['company']}")
-                else:
-                    log.warning(f"데이터 추출 실패: {url}")
-                time.sleep(1)
-
-        except (TimeoutException, NoSuchElementException) as e:
-            log.error(f"리뷰노트 크롤링 중 오류 발생: {e}", exc_info=True)
-            return 0
         
-        # 5. 최종 결과 출력
-        log.info("---------- 최종 크롤링 결과 (상위 10개) ----------")
-        for item in all_data:
-            print(item)
-        log.info("-------------------------------------------------")
+        region_map = {
+            "서울": 4,
+            "경기": 5,
+            "인천": 6,
+            "강원": 7,
+            "대전": 8,
+            "세종": 9,
+            "충남": 10,
+            "충북": 11,
+            "부산": 12,
+            "울산": 13,
+            "경남": 14,
+            "경북": 15,
+            "대구": 16,
+            "광주": 17,
+            "전남": 18,
+            "전북": 19,
+            "제주": 20,
+        }
+        
+        for key, value in region_map.items():
+            
+            try:
+                log.info(f"'{key}'지역 필터링을 시작합니다.")
+                local_button = wait.until(EC.element_to_be_clickable(
+                    (By.XPATH, f'//*[@id="__next"]/div/div[2]/div[1]/div[1]/div/div[2]/div[2]/div/div[1]/div/div/div[{value}]')
+                ))
+                local_button.click()
+                time.sleep(2)
+                
+                log.info("모든 캠페인 목록을 불러오기 위해 페이지를 스크롤합니다...")
+                last_height = self.driver.execute_script("return document.body.scrollHeight")
+
+                scroll_number = 0
+                while True:
+                    # 페이지 맨 아래로 스크롤
+                    self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                    scroll_number += 1
+                    # 새 콘텐츠가 로드될 때까지 2초 대기
+                    time.sleep(1.5)
+                    
+                    # 새 스크롤 높이를 계산하고 이전 높이와 비교
+                    new_height = self.driver.execute_script("return document.body.scrollHeight")
+                    if new_height == last_height:
+                        log.info("페이지 맨 끝에 도달했습니다.")
+                        break
+                    last_height = new_height
+                # --- 무한 스크롤 로직 끝 ---
+
+                log.info("모든 캠페인 URL 수집 시작")
+                campaign_links = wait.until(EC.presence_of_all_elements_located(
+                    (By.CSS_SELECTOR, "a[href^='/campaigns/']")
+                ))
+                
+                detail_urls = []
+                for link_element in campaign_links:
+                    url = link_element.get_attribute("href")
+                    if url and url != self.BASE_URL and url not in detail_urls:
+                        detail_urls.append(url)
+                
+                log.info(f"총 {len(detail_urls)}개의 상세 페이지 URL 수집 완료.")
+
+                for url in detail_urls:
+                    log.info(f"상세 페이지 방문: {url} ({detail_urls.index(url) + 1}/{len(detail_urls)})")
+                    self.driver.get(url)
+                    
+                    detail_data = self._extract_detail_data(wait)
+                    if detail_data.get("company"):
+                        detail_data['platform'] = self.PLATFORM_NAME
+                        detail_data['company_link'] = url
+                        detail_data['search_text'] = key
+                        all_data.append(detail_data)
+                        log.info(f"추출 성공: {detail_data['company']}")
+                    else:
+                        log.warning(f"데이터 추출 실패: {url}")
+                    time.sleep(1)
+
+            except (TimeoutException, NoSuchElementException) as e:
+                log.error(f"리뷰노트 크롤링 중 오류 발생: {e}", exc_info=True)
+                return 0
 
         if not all_data:
             return 0
 
         # 6. 데이터프레임 변환 및 DB 저장
         df = pd.DataFrame(all_data)
-        clean_df = self._clean_dataframe(df)
+        final_df = self._clean_dataframe(df)
+        log.info(f"[{self.PLATFORM_NAME}] 중복 제거 전 {len(final_df)}건")
+        final_df.sort_values(by='apply_deadline', ascending=False, na_position='last', inplace=True)
+        final_df.drop_duplicates(subset=self.CONFLICT_COLS, keep='first', inplace=True)
+        log.info(f"[{self.PLATFORM_NAME}] 중복 제거 후 {len(final_df)}건")
+        
+        affected = upsert_rows_psycopg2(
+            self.engine, table=table_name, rows=final_df,
+            conflict_cols=self.CONFLICT_COLS,
+            update_cols=[c for c in self.RESULT_TABLE_COLUMNS if c not in self.CONFLICT_COLS],
+        )
+        return affected

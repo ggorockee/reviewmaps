@@ -15,9 +15,8 @@ if __name__ == "__main__":
 
     # 실행할 스크레이퍼 클래스 목록 정의
     scraper_to_run = [
-        # InflexerScraper,
+        InflexerScraper,
         ReviewNoteScraper,
-        # 나중에 여기에 다른 스크레이퍼 클래스를 추가하기만 하면 됩니다.
     ]
 
     pipeline = Pipeline(settings, keywords, scraper_classes=scraper_to_run)

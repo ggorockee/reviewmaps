@@ -25,33 +25,44 @@ def fetch_campaigns_to_enrich(engine: Engine, table: str, company_col: str = "co
         log.error(f"캠페인 로드 실패: {e}")
         return pd.DataFrame()
 
-def naver_local_search(client_id: str, client_secret: str, query: str) -> Optional[Dict]:
+def naver_local_search(api_keys: List[Tuple[str, str]], query: str) -> Optional[Dict]:
+    # url = "https://openapi.naver.com/v1/search/local.json"
+    # headers = {"X-Naver-Client-Id": client_id, "X-Naver-Client-Secret": client_secret}
+    # params = {"query": query, "display": 1}
+    
     url = "https://openapi.naver.com/v1/search/local.json"
-    headers = {"X-Naver-Client-Id": client_id, "X-Naver-Client-Secret": client_secret}
     params = {"query": query, "display": 1}
+    max_retries = 2 # 각 키마다 재시도 횟수
     
-    max_retries = 3
-    backoff_factor = 1  # 초기 대기 시간 (초)
+    # max_retries = 3
+    # backoff_factor = 1  # 초기 대기 시간 (초)
 
-    for attempt in range(max_retries):
-        try:
-            r = requests.get(url, headers=headers, params=params, timeout=10)
-            r.raise_for_status()  # 200번대 응답이 아니면 예외 발생
-            items = r.json().get("items", [])
-            return items[0] if items else None
-        except requests.RequestException as e:
-            # 429 (Too Many Requests) 에러일 경우에만 재시도
-            if e.response and e.response.status_code == 429:
-                wait_time = backoff_factor * (2 ** attempt)
-                log.warning(f"Naver Local API 쿼터 초과 ({query}). {wait_time}초 후 재시도... ({attempt + 1}/{max_retries})")
-                time.sleep(wait_time)
-            else:
-                log.warning(f"Naver Local 실패 ({query}): {e}")
-                wait_time = backoff_factor * (2 ** attempt)
-                time.sleep(wait_time)
-                return None  # 다른 종류의 에러는 재시도하지 않음
-    
-    log.error(f"Naver Local API 모든 재시도 실패 ({query})")
+    # 👇 [추가] API 키 목록을 순회하는 외부 루프
+    for i, (client_id, client_secret) in enumerate(api_keys):
+        if not client_id or not client_secret:
+            continue # 키가 없으면 건너뛰기
+
+        log.info(f"Naver Local API 호출 (Key #{i+1}, Query: {query})")
+        headers = {"X-Naver-Client-Id": client_id, "X-Naver-Client-Secret": client_secret}
+
+        # 👇 기존 재시도 로직은 내부 루프로 사용
+        for attempt in range(max_retries):
+            try:
+                r = requests.get(url, headers=headers, params=params, timeout=10)
+                r.raise_for_status()
+                items = r.json().get("items", [])
+                return items[0] if items else None # 성공 시 즉시 결과 반환
+            except requests.RequestException as e:
+                # 429 (Too Many Requests) 에러일 경우, 현재 키 사용을 중단하고 다음 키로 넘어감
+                if e.response and e.response.status_code == 429:
+                    log.warning(f"Key #{i+1} 할당량 초과. 다음 키로 전환합니다.")
+                    break # 내부 재시도 루프 탈출 -> 외부 키 순회 루프로
+                else:
+                    log.warning(f"Naver Local 실패 (Key #{i+1}, 시도 {attempt + 1}/{max_retries}): {e}")
+                    if attempt < max_retries - 1:
+                        time.sleep(1) # 마지막 시도가 아니면 잠시 대기
+        
+    log.error(f"Naver Local API 모든 키와 재시도 실패 ({query})")
     return None
 
 def naver_geocode(map_id: str, map_secret: str, address: str) -> Optional[Tuple[float, float]]:
@@ -134,14 +145,23 @@ def enrich_once(settings: Settings) -> int:
         log.info("보강(enrich) 대상 없음")
         return 0
 
+    search_api_keys = []
+    if settings.naver_search_client_id and settings.naver_search_client_secret:
+        search_api_keys.append((settings.naver_search_client_id, settings.naver_search_client_secret))
+    if settings.naver_search_client_id_2 and settings.naver_search_client_secret_2:
+        search_api_keys.append((settings.naver_search_client_id_2, settings.naver_search_client_secret_2))
+    
+    if not search_api_keys:
+        log.error("사용 가능한 Naver Search API 키가 없습니다. .env 파일을 확인하세요.")
+        return 0
+    
     updated_count = 0
     for _, row in df.iterrows():
         cid = int(row["id"])
         name = str(row["company"])
 
-        place = naver_local_search(settings.naver_search_client_id,
-                                   settings.naver_search_client_secret,
-                                   name)
+        place = naver_local_search(search_api_keys, name)
+        
         if not place:
             continue
 

@@ -1,27 +1,39 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:mobile/config/config.dart';
 import 'package:mobile/const/colors.dart';
+import 'package:mobile/screens/search_results_screen.dart';
 import 'package:mobile/services/campaign_service.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:intl/intl.dart';
 
 import '../models/store_model.dart';
+import '../providers/category_provider.dart';
 import '../widgets/friendly.dart';
 
-class MapScreen extends StatefulWidget {
+class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key});
 
   @override
-  State<MapScreen> createState() => _MapScreenState();
+  ConsumerState<MapScreen> createState() => _MapScreenState();
 }
 
-class _MapScreenState extends State<MapScreen> {
+class _MapScreenState extends ConsumerState<MapScreen> {
   late final NaverMapController _naverController;
-  late final CampaignService _service;
   final PanelController panelController = PanelController();
+  late final CampaignService _service;
+  String _currentSortOrder = '-created_at';
+
+  bool _isTablet(BuildContext context) {
+    // 화면의 짧은 쪽 길이가 600 이상이면 태블릿으로 간주
+    return MediaQuery.of(context).size.shortestSide >= 600;
+  }
+
 
   bool _mapReady = false;
 
@@ -47,14 +59,19 @@ class _MapScreenState extends State<MapScreen> {
   Store? _selectedStore;
   List<Store> _displayedStores = [];
 
+  int? _selectedCategoryId; // null이면 '전체'를 의미
+  bool _showEmptyResultMessage = false;
+  Timer? _emptyMessageTimer;
+
+
   @override
   void initState() {
     super.initState();
-    _service = CampaignService(
-      AppConfig.ReviewMapbaseUrl,
-      apiKey: AppConfig.ReviewMapApiKey,
-    );
-    _service.healthCheck();
+    // _service = CampaignService(
+    //   AppConfig.ReviewMapbaseUrl,
+    //   apiKey: AppConfig.ReviewMapApiKey,
+    // );
+    // _service.healthCheck();
 
     // 지도 탭 처음 들어올 때만 내 위치로 이동 시도
     _centerToMyLocationOnFirstOpen();
@@ -96,31 +113,43 @@ class _MapScreenState extends State<MapScreen> {
   // 현재 뷰포트 검색
   Future<void> _searchInCurrentViewport() async {
     if (!_mapReady) return;
+    _naverController.setLocationTrackingMode(NLocationTrackingMode.none);
 
     try {
-      await checkPermission(); // 버튼에서만 권한 요청
-      _naverController.setLocationTrackingMode(NLocationTrackingMode.follow);
-
       final b = await _naverController.getContentBounds(withPadding: true);
-      final south = b.southWest.latitude;
-      final west = b.southWest.longitude;
-      final north = b.northEast.latitude;
-      final east = b.northEast.longitude;
-
-      final storesInBounds = await _service.fetchInBounds(
-        south: south,
-        west: west,
-        north: north,
-        east: east,
+      final service = ref.read(campaignServiceProvider);
+      final storesInBounds = await service.fetchInBounds(
+        south: b.southWest.latitude,
+        west: b.southWest.longitude,
+        north: b.northEast.latitude,
+        east: b.northEast.longitude,
+        categoryId: _selectedCategoryId,
+        sort: _currentSortOrder,
       );
 
       setState(() {
-        _allStoresInView
-          ..clear()
-          ..addAll(storesInBounds);
+        _allStoresInView.clear();
+        _allStoresInView.addAll(storesInBounds);
         _displayedStores = _allStoresInView;
         _selectedStore = null;
       });
+
+      if (storesInBounds.isNotEmpty) {
+        if (panelController.isPanelClosed) {
+          panelController.animatePanelToPosition(0.4);
+        }
+      } else {
+        // 👇 [추가] 결과가 없을 때 메시지 표시 로직
+        setState(() => _showEmptyResultMessage = true);
+        // 기존 타이머가 있으면 취소
+        _emptyMessageTimer?.cancel();
+        // 3초 후에 메시지 자동으로 숨기기
+        _emptyMessageTimer = Timer(const Duration(milliseconds: 2000), () {
+          if (mounted) {
+            setState(() => _showEmptyResultMessage = false);
+          }
+        });
+      }
 
       await _naverController.clearOverlays(type: NOverlayType.marker);
       final overlays = storesInBounds.map<NAddableOverlay>((s) {
@@ -137,15 +166,10 @@ class _MapScreenState extends State<MapScreen> {
         return m;
       }).toSet();
       await _naverController.addOverlayAll(overlays);
+
     } catch (e) {
       if (!mounted) return;
-      // 권한/네트워크 등 단일 스낵바로 안내(중복 노출 방지)
-      showFriendlySnack(
-        context,
-        '권한 또는 네트워크가 필요해요: ${e.toString().replaceFirst('Exception: ', '')}',
-        actionLabel: '설정 열기',
-        onAction: () => Geolocator.openAppSettings(),
-      );
+      showFriendlySnack(context, '앗! 주변 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요 🗺️');
     }
   }
 
@@ -188,9 +212,7 @@ class _MapScreenState extends State<MapScreen> {
               onMapReady: (controller) async {
                 _naverController = controller;
                 _mapReady = true;
-                // 권한 승인 전 추적 OFF
                 _naverController.setLocationTrackingMode(NLocationTrackingMode.none);
-                // ✅ pending 위치가 있으면 첫 1회 즉시 이동
                 if (_pendingTarget != null && !_autoCenteredOnce) {
                   await _naverController.updateCamera(
                     NCameraUpdate.scrollAndZoomTo(target: _pendingTarget!, zoom: 15),
@@ -200,12 +222,18 @@ class _MapScreenState extends State<MapScreen> {
                   _pendingTarget = null;
                 }
               },
+              // 👇 [수정] onMapTapped 로직 보강
               onMapTapped: (point, latLng) {
+                // 선택된 마커가 있으면 선택 해제
                 if (_selectedStore != null) {
                   setState(() {
                     _selectedStore = null;
                     _displayedStores = _allStoresInView;
                   });
+                }
+                // 패널이 닫혀있지 않으면 닫기
+                if (!panelController.isPanelClosed) {
+                  panelController.close();
                 }
               },
               options: NaverMapViewOptions(
@@ -222,7 +250,8 @@ class _MapScreenState extends State<MapScreen> {
               ),
             ),
 
-            // 슬라이딩 패널
+            _buildCategoryFilters(),
+
             SlidingUpPanel(
               controller: panelController,
               panel: _buildPanel(),
@@ -238,11 +267,12 @@ class _MapScreenState extends State<MapScreen> {
               },
             ),
 
-            // 상단: 이 위치로 검색
-            Align(
-              alignment: Alignment.topCenter,
-              child: Container(
-                margin: const EdgeInsets.only(top: 10),
+            Positioned(
+              top: 30.h + 15.h,
+              left: 0,
+              right: 0,
+              child: Align(
+                alignment: Alignment.topCenter,
                 child: ElevatedButton.icon(
                   onPressed: _searchInCurrentViewport,
                   icon: const Icon(Icons.refresh),
@@ -257,13 +287,35 @@ class _MapScreenState extends State<MapScreen> {
                       horizontal: 16,
                       vertical: 10,
                     ),
-                    elevation: 2,
+                    elevation: 4,
                   ),
                 ),
               ),
             ),
 
-            // 우하단: 내 위치 버튼 (패널 높이에 따라 위로)
+            Align(
+              alignment: Alignment.center,
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 300),
+                opacity: _showEmptyResultMessage ? 1.0 : 0.0,
+                child: IgnorePointer( // 메시지가 떠 있어도 지도 조작 가능하게 함
+                  ignoring: !_showEmptyResultMessage,
+                  child: Container(
+                    padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 16.h),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.75),
+                      borderRadius: BorderRadius.circular(12.r),
+                    ),
+                    child: const Text(
+                      '주변에 등록된 체험단이 없네요. \n지도를 살짝 옮겨 다른 동네를 구경해볼까요? 😉',
+                        style: TextStyle(color: Colors.white, fontSize: 16),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
             Positioned(
               right: 16,
               bottom: 4 + _currentPanelHeight(),
@@ -308,6 +360,17 @@ class _MapScreenState extends State<MapScreen> {
               ),
             ),
           ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Row(
+              children: [
+                _buildSortChip('최신등록순', '-created_at'),
+                const SizedBox(width: 8),
+                _buildSortChip('마감임박순', 'apply_deadline'),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8), // 필터와 목록 사이 간격
           // 목록
           Expanded(
             child: _displayedStores.isEmpty
@@ -366,11 +429,30 @@ class _MapScreenState extends State<MapScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    store.company,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Text(
+                        store.company,
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(width: 6),
+                      // isNew가 true일 때만 뱃지 표시
+                      if (store.isNew)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.redAccent,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'NEW',
+                            style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 4),
                   if ((store.offer ?? '').isNotEmpty)
@@ -381,14 +463,29 @@ class _MapScreenState extends State<MapScreen> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   const SizedBox(height: 4),
+
+                  // 👇 [수정] 플랫폼과 지원 마감일을 함께 표시하는 Row
                   Row(
                     children: [
+                      // 플랫폼 아이콘과 이름
                       const Icon(Icons.apps, size: 14, color: Colors.grey),
                       const SizedBox(width: 4),
                       Text(
                         store.platform,
                         style: TextStyle(color: Colors.grey[600], fontSize: 12),
                       ),
+
+                      // applyDeadline 데이터가 있을 때만 마감일 표시
+                      if (store.applyDeadline != null) ...[
+                        const SizedBox(width: 20), // 플랫폼과 마감일 사이 간격
+                        Icon(Icons.calendar_today_outlined, size: 12, color: Colors.grey[600]),
+                        const SizedBox(width: 4),
+                        Text(
+                          // 날짜를 '~MM.dd 마감' 형식으로 변환
+                          '${DateFormat('~MM.dd').format(store.applyDeadline!)} 마감',
+                          style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                        ),
+                      ]
                     ],
                   ),
                 ],
@@ -437,6 +534,163 @@ class _MapScreenState extends State<MapScreen> {
       _autoCenteredOnce = true;
     } catch (_) {
       // 권한 거절/타임아웃 등은 조용히 패스: 사용자가 FAB/버튼으로도 이동 가능
+    }
+  }
+
+  Widget _buildCategoryFilters() {
+    final categoriesAsync = ref.watch(categoriesProvider);
+
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: Container(
+        height: 30.h,
+        color: PRIMARY_COLOR,
+        child: categoriesAsync.when(
+          data: (categories) {
+            final List<Widget> chips = [
+              _buildCategoryChip('전체', _selectedCategoryId == null, () {
+                if (_selectedCategoryId != null) {
+                  setState(() => _selectedCategoryId = null);
+                  _searchInCurrentViewport();
+                }
+              }),
+              ...categories.map((category) {
+                final categoryId = category['id'] as int;
+                final categoryName = category['name'] as String;
+                final wittyName = _getWittyCategoryName(categoryName);
+                final isSelected = _selectedCategoryId == categoryId;
+                return _buildCategoryChip(wittyName, isSelected, () {
+                  if (!isSelected) {
+                    setState(() => _selectedCategoryId = categoryId);
+                    _searchInCurrentViewport();
+                  }
+                });
+              })
+            ];
+
+            // 👇 [핵심 수정] 태블릿과 폰에 다른 UI 적용
+            if (_isTablet(context)) {
+              // --- 태블릿용 UI: 균등 정렬 ---
+              return LayoutBuilder(builder: (context, constraints) {
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minWidth: constraints.maxWidth - 32.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: chips,
+                    ),
+                  ),
+                );
+              });
+            } else {
+              // --- 휴대폰용 UI: 좌우 스크롤 ---
+              return ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                itemCount: chips.length,
+                separatorBuilder: (context, index) => const SizedBox(width: 12.0),
+                itemBuilder: (context, index) => chips[index],
+              );
+            }
+          },
+          loading: () => const Center(child: LinearProgressIndicator(
+            backgroundColor: Colors.white24,
+            valueColor: AlwaysStoppedAnimation(Colors.white),
+          )),
+          error: (err, stack) => const Center(child: Text('카테고리 로딩 실패', style: TextStyle(color: Colors.white))),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryChip(String name, bool isSelected, VoidCallback onTap) {
+    final Color selectedColor = Colors.white;
+    final Color unselectedColor = Colors.white.withOpacity(0.8);
+
+    return TextButton(
+      onPressed: onTap,
+      style: TextButton.styleFrom(
+        foregroundColor: isSelected ? selectedColor : unselectedColor,
+        // 👇 버튼 내부의 좌우 패딩을 0으로 만들어 텍스트에 딱 맞게 조절
+        padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 4.0),
+        minimumSize: Size.zero, // 버튼의 최소 사이즈 제한 제거
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap, // 버튼의 터치 영역을 최소화
+        splashFactory: NoSplash.splashFactory,
+        overlayColor: Colors.white.withOpacity(0.1),
+      ),
+      child: Text(
+        name,
+        style: TextStyle(
+          fontSize: 14,
+          color: isSelected ? selectedColor : unselectedColor,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          decoration: isSelected ? TextDecoration.underline : TextDecoration.none,
+          decorationColor: Colors.white,
+          decorationThickness: 2.0,
+        ),
+      ),
+    );
+  }
+  Widget _buildSortChip(String label, String sortValue) {
+    final bool isSelected = _currentSortOrder == sortValue;
+
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (selected) {
+        if (selected) {
+          setState(() {
+            _currentSortOrder = sortValue;
+          });
+          _searchInCurrentViewport(); // 정렬 변경 시 데이터 다시 불러오기
+        }
+      },
+      // --- 👇 스타일링 수정 ---
+      // 선택되었을 때의 배경색
+      selectedColor: PRIMARY_COLOR,
+      // 선택되지 않았을 때의 배경색 (흰색으로 깔끔하게)
+      backgroundColor: Colors.white,
+      // 선택되지 않았을 때만 테두리를 표시
+      side: isSelected
+          ? BorderSide.none
+          : BorderSide(color: Colors.grey.shade300),
+      // 글자 스타일
+      labelStyle: TextStyle(
+        color: isSelected ? Colors.white : Colors.black87,
+        fontWeight: FontWeight.w500,
+      ),
+      // 동그란 '약' 모양으로 변경
+      shape: const StadiumBorder(),
+      // 체크 아이콘은 표시하지 않음
+      showCheckmark: false,
+      // 내부 여백 조절
+      padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 6.0),
+      // 그림자 효과 제거
+      elevation: 0,
+      pressElevation: 0,
+    );
+  }
+
+  String _getWittyCategoryName(String originalName) {
+    switch (originalName) {
+      // case '전체': return '다 보여줘';
+      // case '맛집': return '밥집🍚';
+      // case '카페/디저트': return '감성카페☕';
+      // case '뷰티/헬스': return '예뻐지기✨';
+      // case '숙박': return '호캉스🏖️';
+      // case '여행': return '떠나볼까✈️';
+      // case '패션/생활': return '꾸미기🛍️';
+      // case '쇼핑': return '득템찬스';
+      // case '생활서비스': return '편리하게';
+      // case '액티비티': return '꿀잼보장🍯';
+      // case '반려동물': return '댕댕이랑🐾';
+      // case '문화/클래스': return '취미생활';
+      // case '기타': return '또뭐있지🤔';
+      default: return originalName; // 매칭되는 문구가 없으면 원래 이름 사용
     }
   }
 }

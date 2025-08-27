@@ -6,6 +6,9 @@ import 'package:http/io_client.dart';
 
 import '../models/store_model.dart';
 
+import 'dart:developer' as developer; // 로그를 더 잘보이게 하기 위해 추가 (선택)
+
+
 /// CampaignService
 /// ------------------------------------------------------------
 /// - API 엔드포인트 호출 전용 서비스(순수 데이터 계층)
@@ -20,8 +23,8 @@ class CampaignService {
   CampaignService(this.baseUrl, {required this.apiKey}) {
     // 플랫폼 간 일관된 소켓 타임아웃 설정
     final io = HttpClient()
-      ..connectionTimeout = const Duration(seconds: 15)
-      ..idleTimeout = const Duration(seconds: 15);
+      ..connectionTimeout = const Duration(seconds: 3)
+      ..idleTimeout = const Duration(seconds: 3);
     _client = IOClient(io);
   }
 
@@ -54,7 +57,7 @@ class CampaignService {
       // 2) 백엔드 헬스 엔드포인트
       final r = await _client
           .get(Uri.parse('$baseUrl/healthz'), headers: _headers)
-          .timeout(const Duration(seconds: 15));
+          .timeout(const Duration(seconds: 3));
       return r.statusCode == 200;
     } catch (_) {
       return false;
@@ -104,7 +107,7 @@ class CampaignService {
 
     return _withRetry(() async {
       final r =
-      await _client.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      await _client.get(uri, headers: _headers).timeout(const Duration(seconds: 3));
       final items = _parseItemsOrThrow(r, context: '캠페인 조회');
       return items
           .map((e) => Store.fromJson(e as Map<String, dynamic>))
@@ -118,11 +121,12 @@ class CampaignService {
     required double west,
     required double north,
     required double east,
+    int? categoryId, // 👈 [추가] categoryId를 필터링 조건으로 추가
     int limit = 200,
     int offset = 0,
     String sort = '-created_at',
   }) async {
-    final uri = Uri.parse('$baseUrl/campaigns').replace(queryParameters: {
+    final queryParameters = {
       'sw_lat': south.toString(),
       'sw_lng': west.toString(),
       'ne_lat': north.toString(),
@@ -130,11 +134,18 @@ class CampaignService {
       'limit': limit.toString(),
       'offset': offset.toString(),
       'sort': sort,
-    });
+    };
+
+    // categoryId가 있으면 쿼리에 동적으로 추가
+    if (categoryId != null) {
+      queryParameters['category_id'] = categoryId.toString();
+    }
+
+    final uri = Uri.parse('$baseUrl/campaigns').replace(queryParameters: queryParameters);
 
     return _withRetry(() async {
       final r =
-      await _client.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      await _client.get(uri, headers: _headers).timeout(const Duration(seconds: 3));
       final items = _parseItemsOrThrow(r, context: '캠페인 조회(bbox)');
       return items
           .map((e) => Store.fromJson(e as Map<String, dynamic>))
@@ -146,21 +157,100 @@ class CampaignService {
   Future<List<Store>> fetchNearest({
     required double lat,
     required double lng,
+    int? categoryId, // categoryId 파라미터 추가
     int limit = 20,
     int offset = 0,
   }) async {
-    final uri = Uri.parse('$baseUrl/campaigns').replace(queryParameters: {
+    final queryParameters = {
       'lat': lat.toString(),
       'lng': lng.toString(),
-      'sort': 'distance', // 서버가 distance 정렬 지원해야 함
+      'sort': 'distance',
       'limit': limit.toString(),
       'offset': offset.toString(),
+    };
+    if (categoryId != null) {
+      queryParameters['category_id'] = categoryId.toString();
+    }
+
+    final uri = Uri.parse('$baseUrl/campaigns').replace(queryParameters: queryParameters);
+
+    return _withRetry(() async {
+      final r =
+      await _client.get(uri, headers: _headers).timeout(const Duration(seconds: 3));
+      final items = _parseItemsOrThrow(r, context: '가까운 캠페인 조회');
+      return items
+          .map((e) => Store.fromJson(e as Map<String, dynamic>))
+          .toList();
+    });
+  }
+
+  /// 표준 카테고리 전체 목록 조회
+  Future<List<Map<String, dynamic>>> fetchCategories() async {
+    final uri = Uri.parse('$baseUrl/categories/');
+
+    // --- 👇 [1단계] 요청 직전 정보 로깅 ---
+    // developer.log('--- [API 요청 시작] fetchCategories ---', name: 'CampaignService');
+    // developer.log('➡️ [URL]: $uri', name: 'CampaignService');
+    // developer.log('🔑 [헤더]: $_headers', name: 'CampaignService');
+    // ------------------------------------
+
+    // try {
+    //   final r = await _client
+    //       .get(uri, headers: _headers)
+    //       .timeout(const Duration(seconds: 15));
+    //
+    //   // --- 👇 [2단계] 응답 수신 후 정보 로깅 ---
+    //   developer.log('✅ [API 응답 상태 코드]: ${r.statusCode}', name: 'CampaignService');
+    //   developer.log('📄 [API 응답 본문]: ${utf8.decode(r.bodyBytes)}', name: 'CampaignService');
+    //   // ------------------------------------
+    //
+    //   if (r.statusCode != 200) {
+    //     // 여기서 에러를 던지면 아래 catch 블록으로 감
+    //     throw Exception('카테고리 조회 실패: ${r.statusCode}');
+    //   }
+    //   final decoded = jsonDecode(utf8.decode(r.bodyBytes));
+    //   return List<Map<String, dynamic>>.from(decoded);
+    // } catch (e) {
+    //   // --- 👇 [3단계] 에러 발생 시 정보 로깅 ---
+    //   developer.log('❌ [네트워크/파싱 오류] fetchCategories: $e', name: 'CampaignService', error: e);
+    //   // ------------------------------------
+    //   rethrow; // 기존 에러를 다시 던져서 UI에서 처리하도록 함
+    // }
+
+
+
+    return _withRetry(() async {
+      final r = await _client
+          .get(uri, headers: _headers)
+          .timeout(const Duration(seconds: 15));
+
+      // 여기서는 items 키 없이 바로 리스트가 반환된다고 가정
+      if (r.statusCode != 200) {
+        throw Exception('카테고리 조회 실패: ${r.statusCode}');
+      }
+      final decoded = jsonDecode(utf8.decode(r.bodyBytes));
+      // 백엔드 응답이 List<Map> 형태이므로 List<dynamic>으로 캐스팅 후 변환
+      return List<Map<String, dynamic>>.from(decoded);
+    });
+  }
+
+  Future<List<Store>> searchCampaigns({
+    required String query,
+    int limit = 50, // 검색 결과는 최대 50개까지 가져오도록 설정 (조절 가능)
+    int offset = 0,
+  }) async {
+    final uri = Uri.parse('$baseUrl/campaigns').replace(queryParameters: {
+      'q': query, // 👈 백엔드의 검색 파라미터 'q'를 사용
+      'limit': '$limit',
+      'offset': '$offset',
+      'sort': '-created_at', // 최신순으로 정렬
     });
 
     return _withRetry(() async {
       final r =
-      await _client.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
-      final items = _parseItemsOrThrow(r, context: '가까운 캠페인 조회');
+      await _client.get(uri, headers: _headers).timeout(
+          const Duration(seconds: 30));
+      final items = _parseItemsOrThrow(r, context: '캠페인 검색');
       return items
           .map((e) => Store.fromJson(e as Map<String, dynamic>))
           .toList();

@@ -16,6 +16,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';         // .env 환경변수 로드
 import 'package:flutter_naver_map/flutter_naver_map.dart';   // 네이버 지도 SDK 플러그인
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart'; // 반응형 사이즈/폰트 유틸
 
 import 'package:mobile/config/config.dart';      // AppConfig: .env를 읽어 상수로 노출
@@ -44,7 +45,12 @@ Future<void> main() async {
   );
 
   // 3) Flutter 앱 실행
-  runApp(const MyApp());
+  runApp(
+    // ProviderScope를 추가하여 앱 전체에서 Riverpod Provider를 사용
+    const ProviderScope(
+      child: MyApp(),
+    )
+  );
 }
 
 class MyApp extends StatelessWidget {

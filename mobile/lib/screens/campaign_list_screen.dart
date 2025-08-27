@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import 'package:mobile/config/config.dart';
@@ -222,11 +223,16 @@ class _CampaignListScreenState extends State<CampaignListScreen> {
                     color: platformColor,
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: const Text(
+                  child: Text(
                     // 플랫폼명은 길지 않으므로 폰트 고정 (가독 우선)
                     // 필요 시 ScreenUtil로 .sp 적용 가능
-                    '플랫폼', // 접근성 리더에서 store.platform을 그대로 읽게 하려면 아래 Text로 교체
-                    // Text(store.platform, ... )
+                    // '플랫폼', // 접근성 리더에서 store.platform을 그대로 읽게 하려면 아래 Text로 교체
+                      store.platform,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12.spMin,
+                        fontWeight: FontWeight.bold,
+                      ),
                   ),
                 ),
                 const SizedBox(height: 6),

@@ -11,6 +11,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
 import 'package:mobile/config/config.dart';
+import 'package:mobile/screens/search_screen.dart';
 import 'package:mobile/services/campaign_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -64,6 +65,9 @@ class _HomeScreenState extends State<HomeScreen> {
   // ---------------------------
   Future<List<Store>>? _nearestCampaigns; // 근처 체험단 Future (권한/위치 OK 후 세팅)
   Position? _currentPosition;
+  // _HomeScreenState 안에 헬퍼 하나 추가
+  bool _isTablet(BuildContext context) =>
+      MediaQuery.of(context).size.shortestSide >= 600;
 
   // 사용자 설정
   bool _autoShowNearest = false; // 앱 진입 시 자동으로 근처 보여줄지
@@ -343,7 +347,12 @@ class _HomeScreenState extends State<HomeScreen> {
   // ------------------------------------------------------------
   @override
   Widget build(BuildContext context) {
+    final bool isTab = _isTablet(context);
+    // 태블릿은 접근성 스케일 상한을 더 낮게(레이아웃 안정)
+    final double maxScale = isTab ? 1.10 : 1.30;
+
     return ClampTextScale(
+      max: maxScale,
       child: Scaffold(
         appBar: AppBar(
           title: Padding(
@@ -351,9 +360,21 @@ class _HomeScreenState extends State<HomeScreen> {
             child: const Text('리뷰맵', style: TextStyle(fontWeight: FontWeight.w700)),
           ),
           // 디자인 정렬 유지용 placeholder 아이콘(오른쪽 여백 균형)
-          actions: const [
+          actions: [
             Opacity(opacity: 0, child: Icon(Icons.notifications_none)),
-            Opacity(opacity: 0, child: Icon(Icons.search)),
+            // Opacity(opacity: 0, child: Icon(Icons.notifications_none)),
+            Padding(
+              padding: EdgeInsets.only(top: 12.h, right: 12), // [ScreenUtil]
+              child: IconButton(
+                  icon: Icon(Icons.search),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const SearchScreen()),
+                    );
+                  },
+                tooltip: '검색',
+              ),
+            ),
           ],
         ),
         body: RefreshIndicator(
@@ -443,11 +464,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // 추천 헤더(더보기)
   Widget _buildRecommendedHeader(BuildContext context) {
+    final bool isTab = _isTablet(context);
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text('추천 체험단',
-            style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold)),
+            style: TextStyle(fontSize: isTab ? 14.sp : 18.sp, fontWeight: FontWeight.bold)),
         GestureDetector(
           onTap: () {
             final listForNext = _shuffledCampaigns.isNotEmpty
@@ -512,6 +535,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // 가까운 체험단 섹션(권한 안내 → 로딩 → 목록/없음)
   Widget _buildNearestCampaignsSection() {
+    final bool isTab = _isTablet(context);
     return Padding(
       padding: EdgeInsets.only(left: 16.w),
       child: Column(
@@ -522,7 +546,10 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('가까운 체험단',
-                  style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold)),
+                  style: TextStyle(
+                    fontSize: isTab ? 14.sp : 18.sp,
+                    fontWeight: FontWeight.bold,
+                  )),
               GestureDetector(
                 onTap: () async {
                   final data = await _nearestCampaigns;
@@ -577,12 +604,19 @@ class _HomeScreenState extends State<HomeScreen> {
                       Expanded(
                         child: Text(
                           '내 주변 체험단을 보여드릴게요!\n아래 버튼을 눌러 위치 권한을 허용해 주세요 😊',
-                          style: TextStyle(color: Colors.blue[900]),
+                          style: TextStyle(
+                            color: Colors.blue[900],
+                            fontSize: isTab ? 11.sp : 11.sp, // ← 태블릿에서 크게
+                          ),
                         ),
                       ),
                       ElevatedButton(
                         onPressed: _requestAndLoadNearest,
-                        child: const Text('보여주기'),
+                        child: Text('보여주기',
+                          style: TextStyle(
+                            fontSize: isTab ? 11.sp : 11.sp, // ← 태블릿에서 크게
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -673,10 +707,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // 근처 가로 카드 영역의 동적 높이(텍스트 스케일 반영)
   double _nearestRowHeight(BuildContext context) {
-    final ts = MediaQuery.textScalerOf(context).textScaleFactor.clamp(1.0, 1.3);
-    final t = ((ts - 1.0) / 0.3).clamp(0.0, 1.0);
-    final minH = 128.h;  // 폰트 작을 때 타이트
-    final maxH = 180.h;  // 폰트 커져도 안전 버퍼
+    final bool isTab = _isTablet(context);
+
+    // ClampTextScale로 이미 상한을 묶었으니 “현재” 스케일을 그대로 신뢰
+    final double ts = MediaQuery.textScalerOf(context).textScaleFactor;
+
+    // 보간 민감도(분모) — 태블릿은 더 완만하게
+    final double denom = isTab ? (1.10 - 1.00) : (1.30 - 1.00);
+    final double t = denom == 0 ? 0 : ((ts - 1.0) / denom).clamp(0.0, 1.0);
+
+    // 높이 범위 — 태블릿은 더 낮고 촘촘하게
+    final double minH = isTab ? 190.h : 128.h;
+    final double maxH = isTab ? 160.h : 180.h;
+
     return ui.lerpDouble(minH, maxH, t)!;
   }
 
@@ -692,10 +735,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // 추천 그리드: 텍스트 스케일에 따른 셀 높이 보간
   double _recommendedCellHeight(BuildContext context) {
-    final ts = MediaQuery.textScalerOf(context).textScaleFactor.clamp(1.0, 1.3);
-    final t = ((ts - 1.0) / 0.3).clamp(0.0, 1.0);
-    final minH = 145.h;
-    final maxH = 190.h;
+    final bool isTab = _isTablet(context);
+    final double ts = MediaQuery.textScalerOf(context).textScaleFactor;
+
+    final double denom = isTab ? (1.10 - 1.00) : (1.30 - 1.00);
+    final double t = denom == 0 ? 0 : ((ts - 1.0) / denom).clamp(0.0, 1.0);
+
+    final double minH = isTab ? 175.h : 145.h;
+    final double maxH = isTab ? 170.h : 190.h;
+
     return ui.lerpDouble(minH, maxH, t)!;
   }
 }
@@ -721,6 +769,9 @@ class ExperienceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final platformColor = platformBadgeColor(store.platform);
+
+    final bool isTab = MediaQuery.of(context).size.shortestSide >= 600;
+
 
     // [ScreenUtil] 여백 프리셋
     final double pad = dense ? 10.w : 12.w;
@@ -755,7 +806,7 @@ class ExperienceCard extends StatelessWidget {
                       child: Text(
                         store.platform,
                         style: TextStyle(
-                          fontSize: 11.sp,
+                          fontSize: isTab ? 8.sp : 11.sp,
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
                           height: 1.0,
@@ -771,7 +822,7 @@ class ExperienceCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontWeight: FontWeight.w700,
-                        fontSize: 13.5.sp,
+                        fontSize: isTab ? 12.5.sp :13.5.sp,
                         height: 1.2,
                       ),
                     ),
@@ -784,7 +835,7 @@ class ExperienceCard extends StatelessWidget {
                         maxLines: compact ? 1 : 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: 10.5.sp,
+                          fontSize: isTab ? 9.5.sp :10.5.sp,
                           color: Colors.red,
                           height: 1.2,
                         ),
@@ -811,6 +862,7 @@ class ExperienceCard extends StatelessWidget {
 }
 
 class _MetaAdaptiveLine extends StatelessWidget {
+
   final DateTime? deadline;
   final double? distance;
 
@@ -818,8 +870,10 @@ class _MetaAdaptiveLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isTab = MediaQuery.of(context).size.shortestSide >= 600;
+
     final style = TextStyle(
-      fontSize: 11.5.sp,
+      fontSize: isTab ? 10.5.sp: 11.5.sp,
       height: 1.3,
       color: Colors.grey[600],
     );
@@ -832,7 +886,11 @@ class _MetaAdaptiveLine extends StatelessWidget {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 12.sp, color: Colors.grey[600]),
+          Icon(
+              icon,
+              size: isTab ? 10.5.sp: 12.sp,
+              color: Colors.grey[600],
+          ),
           SizedBox(width: 4.w),
           Text(text, style: style),
         ],

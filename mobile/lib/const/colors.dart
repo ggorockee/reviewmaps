@@ -38,6 +38,7 @@ Color platformBadgeColor(String platform) {
     case '디너의여왕': return const Color(0xFFda5f9d);      // 핑크
     case '체험뷰': return const Color(0xFFc76284);          // 와인핑크
     case '아싸뷰': return const Color(0xFF5ac6d9);          // 시원한 블루
+    case '구구다스': return const Color(0xFFd34540);
     default: return Colors.black54; // 기본값: 매칭 없는 경우 회색톤
   }
 }

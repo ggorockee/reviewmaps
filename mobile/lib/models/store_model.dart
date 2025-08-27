@@ -38,6 +38,9 @@ class Store {
   /// 현재 위치로부터의 거리(m 단위 등, 클라이언트 계산 필드 → 선택)
   double? distance;
 
+  final bool isNew; //  isNew 필드
+
+
   Store({
     required this.id,
     required this.platform,
@@ -50,6 +53,7 @@ class Store {
     this.imageUrl,
     this.applyDeadline,
     this.distance,
+    this.isNew = false,
   });
 
   /// JSON → Store 안전 파싱
@@ -98,6 +102,7 @@ class Store {
       createdAt: DateTime.parse(createdAtRaw as String),
       applyDeadline: toDt(j['apply_deadline']),
       distance: (j['distance'] as num?)?.toDouble(),
+      isNew: j['is_new'] as bool? ?? false,
     );
   }
 
@@ -152,6 +157,10 @@ const Map<String, String> _platformLogoFile = {
   '리뷰노트': 'reviewnote.png',
   '리뷰플레이스': 'logo_on.png',
   '디너의여왕': 'dinnerqueen.png',
+  '아싸뷰': 'assaview.png',
+  '체리뷰': 'cherryview.png',
+  '오마이블로그': 'ohmyblog.png',
+  '구구다스': 'gugudas.png',
   // ⚠️ 필요한 경우 여기에 계속 추가
 };
 
@@ -174,6 +183,9 @@ const Map<String, String> _platformBannerFile = {
   '디너의여왕': 'dinnerqueen.png',
   '체험뷰': 'chehubview.png', // 로고의 chehumview와 철자 다름 → 파일 존재 확인 필요
   '아싸뷰': 'assaview.png',
+  '체리뷰': 'cherryview.png',
+  '오마이블로그': 'ohmyblog.png',
+  '구구다스': 'gugudas.png',
   // ⚠️ 필요한 경우 여기에 계속 추가
 };
 

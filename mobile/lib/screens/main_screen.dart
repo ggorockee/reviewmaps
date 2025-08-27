@@ -23,6 +23,9 @@ class _MainScreenState extends State<MainScreen> {
   /// - const 생성자로 만들어 불필요한 리빌드 방지
   late List<Widget?> _tabs;
 
+  bool _isTablet(BuildContext context) =>
+      MediaQuery.of(context).size.shortestSide >= 600;
+
 
   @override
   void initState() {
@@ -47,6 +50,7 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isTab = _isTablet(context);
     return Scaffold(
       // ✅ IndexedStack: 현재 탭만 보이되, 나머지 탭도 트리에 남아 상태 보존
       body: IndexedStack(
@@ -67,6 +71,11 @@ class _MainScreenState extends State<MainScreen> {
         selectedItemColor: Theme.of(context).primaryColor,
         onTap: _onItemTapped,
         showUnselectedLabels: true,
+
+        // 📌 태블릿에서만 키움
+        iconSize: isTab ? 32.0 : 24.0,             // 아이콘 크기
+        selectedFontSize: isTab ? 25.0 : 12.0,     // 선택된 라벨 폰트
+        unselectedFontSize: isTab ? 25.0 : 12.0,   // 선택 안된 라벨 폰트
       ),
     );
   }

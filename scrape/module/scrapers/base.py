@@ -47,11 +47,25 @@ class BaseScraper(ABC):
             options.binary_location = os.getenv("CHROME_BIN", "/usr/bin/chromium")
         if self.settings.headless:
             options.add_argument("--headless=new")
+        # ✅ 리눅스 컨테이너에서 필수급
+        options.add_argument("--window-size=1920,1080")  # 헤드리스에서도 적용됨
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
-        options.add_argument("--window-size=1280,2000")
-        options.add_experimental_option("excludeSwitches", ["enable-logging"])
-        return webdriver.Chrome(options=options)
+
+        # ✅ 약간의 위장 (일부 사이트가 headless에 소극적일 때)
+        options.add_argument("--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                            "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
+        options.add_argument("--disable-blink-features=AutomationControlled")
+        options.add_experimental_option("excludeSwitches", ["enable-logging", "enable-automation"])
+        options.add_experimental_option("useAutomationExtension", False)
+
+        driver = webdriver.Chrome(options=options)
+        try:
+            # headless라도 한번 더 안전하게
+            driver.set_window_size(1920, 1080)
+        except Exception:
+            pass
+        return driver
 
     @abstractmethod
     def _search(self, keyword: str):

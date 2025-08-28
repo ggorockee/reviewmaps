@@ -15,7 +15,7 @@ if __name__ == "__main__":
 
     # 실행할 스크레이퍼 클래스 목록 정의
     scraper_to_run = [
-        InflexerScraper,
+        # InflexerScraper,
         ReviewNoteScraper,
     ]
 

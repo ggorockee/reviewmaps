@@ -26,6 +26,8 @@ class Settings:
     naver_search_client_secret: str = os.getenv("NAVER_SEARCH_CLIENT_SECRET", "")
     naver_search_client_id_2: str = os.getenv("NAVER_SEARCH_CLIENT_ID_2", "")
     naver_search_client_secret_2: str = os.getenv("NAVER_SEARCH_CLIENT_SECRET_2", "")
+    naver_search_client_id_3: str = os.getenv("naver_search_client_id_3", "")
+    naver_search_client_secret_3: str = os.getenv("naver_search_client_secret_3", "")
 
     # Table
     table_name: str = os.getenv("TABLE_NAME", "campaign")

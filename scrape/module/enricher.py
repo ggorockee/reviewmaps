@@ -26,43 +26,41 @@ def fetch_campaigns_to_enrich(engine: Engine, table: str, company_col: str = "co
         return pd.DataFrame()
 
 def naver_local_search(api_keys: List[Tuple[str, str]], query: str) -> Optional[Dict]:
-    # url = "https://openapi.naver.com/v1/search/local.json"
-    # headers = {"X-Naver-Client-Id": client_id, "X-Naver-Client-Secret": client_secret}
-    # params = {"query": query, "display": 1}
-    
     url = "https://openapi.naver.com/v1/search/local.json"
     params = {"query": query, "display": 1}
-    max_retries = 2 # 각 키마다 재시도 횟수
+
+    # 👇 [수정] 복사된 키 목록을 사용. 원본 리스트를 직접 수정하지 않기 위함.
+    keys_to_try = list(api_keys)
     
-    # max_retries = 3
-    # backoff_factor = 1  # 초기 대기 시간 (초)
-
-    # 👇 [추가] API 키 목록을 순회하는 외부 루프
-    for i, (client_id, client_secret) in enumerate(api_keys):
-        if not client_id or not client_secret:
-            continue # 키가 없으면 건너뛰기
-
-        log.info(f"Naver Local API 호출 (Key #{i+1}, Query: {query})")
+    while keys_to_try:
+        client_id, client_secret = keys_to_try[0] # 항상 목록의 첫 번째 키를 사용
+        
+        log.info(f"Naver Local API 호출 (남은 Key 개수: {len(keys_to_try)}, Query: {query})")
         headers = {"X-Naver-Client-Id": client_id, "X-Naver-Client-Secret": client_secret}
 
-        # 👇 기존 재시도 로직은 내부 루프로 사용
-        for attempt in range(max_retries):
-            try:
-                r = requests.get(url, headers=headers, params=params, timeout=10)
-                r.raise_for_status()
-                items = r.json().get("items", [])
-                return items[0] if items else None # 성공 시 즉시 결과 반환
-            except requests.RequestException as e:
-                # 429 (Too Many Requests) 에러일 경우, 현재 키 사용을 중단하고 다음 키로 넘어감
-                if e.response and e.response.status_code == 429:
-                    log.warning(f"Key #{i+1} 할당량 초과. 다음 키로 전환합니다.")
-                    break # 내부 재시도 루프 탈출 -> 외부 키 순회 루프로
-                else:
-                    log.warning(f"Naver Local 실패 (Key #{i+1}, 시도 {attempt + 1}/{max_retries}): {e}")
-                    if attempt < max_retries - 1:
-                        time.sleep(1) # 마지막 시도가 아니면 잠시 대기
-        
-    log.error(f"Naver Local API 모든 키와 재시도 실패 ({query})")
+        try:
+            r = requests.get(url, headers=headers, params=params, timeout=5)
+            r.raise_for_status()
+            items = r.json().get("items", [])
+            return items[0] if items else None # 성공 시 즉시 결과 반환
+
+        except requests.RequestException as e:
+            # 429 (Too Many Requests) 에러일 경우, 현재 키를 목록에서 제거하고 다음 키로 넘어감
+            if e.response and e.response.status_code == 429:
+                log.warning(f"Key (ID: ...{client_id[-4:]}) 할당량 초과. 해당 키를 목록에서 제거합니다.")
+                # 현재 사용한 키(첫 번째 키)를 제거
+                keys_to_try.pop(0)
+                # 원본 api_keys 리스트에서도 동일하게 제거하여 다음번 enrich_once 호출에 영향
+                if (client_id, client_secret) in api_keys:
+                    api_keys.remove((client_id, client_secret))
+                continue # 다음 키로 재시도
+            else:
+                log.warning(f"Naver Local API 실패: {e}. 다음 키로 시도합니다.")
+                # 429가 아닌 다른 에러(네트워크 등) 발생 시에도 현재 키를 제거하고 다음 키로 시도
+                keys_to_try.pop(0)
+                continue
+    
+    log.error(f"Naver Local API 모든 키 사용 실패 ({query})")
     return None
 
 def naver_geocode(map_id: str, map_secret: str, address: str) -> Optional[Tuple[float, float]]:
@@ -150,66 +148,50 @@ def enrich_once(settings: Settings) -> int:
         search_api_keys.append((settings.naver_search_client_id, settings.naver_search_client_secret))
     if settings.naver_search_client_id_2 and settings.naver_search_client_secret_2:
         search_api_keys.append((settings.naver_search_client_id_2, settings.naver_search_client_secret_2))
+    if settings.naver_search_client_id_3 and settings.naver_search_client_secret_3:
+        search_api_keys.append((settings.naver_search_client_id_3, settings.naver_search_client_secret_3))
     
     if not search_api_keys:
         log.error("사용 가능한 Naver Search API 키가 없습니다. .env 파일을 확인하세요.")
         return 0
     
     updated_count = 0
-    for _, row in df.iterrows():
-        cid = int(row["id"])
-        name = str(row["company"])
+    for row in df.itertuples():
+        cid = row.id
+        name = row.company
 
+        if not search_api_keys: # 모든 키가 소진되었으면 중단
+            log.error("모든 Naver Search API 키의 할당량이 소진되어 보강 작업을 중단합니다.")
+            break
+            
         place = naver_local_search(search_api_keys, name)
         
         if not place:
+            time.sleep(0.1) # 실패 시 잠시 대기
             continue
 
         address = place.get("roadAddress") or place.get("address")
-
-        # 썸네일/링크가 명확치 않아 link를 img_url로 임시 저장 (원본 코드 유지)
         img_url = place.get("link")
-
         lat, lng = (None, None)
         if address:
-            coords = naver_geocode(settings.naver_map_client_id,
-                                   settings.naver_map_client_secret,
-                                   address)
+            coords = naver_geocode(settings.naver_map_client_id, settings.naver_map_client_secret, address)
             if coords:
                 lat, lng = coords
-                
-        data_to_update = {
-            "address": address, 
-            "lat": lat, 
-            "lng": lng, 
-            "img_url": img_url,
-            }
         
+        data_to_update = { "address": address, "lat": lat, "lng": lng, "img_url": img_url }
         
-        # --- ✨ 카테고리 보강 로직 시작 ---
         raw_category_text = place.get("category")
         if raw_category_text:
-            # 1. 원본 카테고리 Get or Create
             raw_id = get_or_create_raw_category(eng, raw_category_text)
-            
-            # 2. 매핑된 표준 카테고리 ID 조회
             if raw_id:
                 standard_id = find_mapped_category_id(eng, raw_id)
-                # 3. 매핑된 ID가 있을 경우에만 업데이트 목록에 추가
                 if standard_id:
                     data_to_update["category_id"] = standard_id
-        # --- 카테고리 보강 로직 끝 ---
 
-        # --- DB 업데이트 ---
-        changed = update_where_id(
-            eng,
-            table=settings.table_name,
-            row_id=cid,
-            data=data_to_update,
-        )
+        changed = update_where_id(eng, table=settings.table_name, row_id=cid, data=data_to_update)
         if changed:
             updated_count += 1
-        time.sleep(0.2)
+        time.sleep(0.3) # 성공 시 API 부하 감소를 위한 대기
 
     log.info(f"Enrich 완료: {updated_count} rows updated")
     return updated_count

@@ -48,6 +48,7 @@ class BaseScraper(ABC):
             options.add_argument("--headless=new")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--window-size=1280,2000")
         options.add_experimental_option("excludeSwitches", ["enable-logging"])
         return webdriver.Chrome(options=options)
 
@@ -71,7 +72,7 @@ class BaseScraper(ABC):
                 s_with_year = current_year + "/" + s
                 dt_series = to_datetime(s_with_year, format="%Y/%m/%d", errors="coerce")
                 dt_series = dt_series.dt.tz_localize("Asia/Seoul")
-                df[col] = dt_series.astype("object").where(dt_series.notna(), None)
+                df[col] = df[col].apply(lambda x: x.to_pydatetime() if hasattr(x, "to_pydatetime") else x)
         return df
 
     def _clean_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -80,6 +81,12 @@ class BaseScraper(ABC):
         
         # [수정] 날짜 파싱 로직을 별도 메서드로 분리하여 호출
         df = self._parse_dates(df)
+
+        # ⬇위경도 숫자 캐스팅 (str 섞여도 안전)
+
+        for c in ("lat", "lng"):
+            if c in df.columns:
+                df[c] = pd.to_numeric(df[c], errors="coerce")
 
         for c in self.RESULT_TABLE_COLUMNS:
             if c not in df.columns:

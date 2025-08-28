@@ -63,7 +63,9 @@ class ReviewNoteScraper(BaseScraper):
             # 날짜 정보 추출
             # 2. 신청 기간 텍스트 추출 및 파싱
             # apply_period_xpath = "//div[div[text()='체험단 신청기간']]/following-sibling::div"
-            apply_period_xpath='//*[@id="__next"]/div/div[2]/div/div[1]/div[1]/div[3]/div[3]/div[1]/div[1]/div[2]'
+            self._expand_schedule_section(wait)
+            apply_period_xpath='//*[@id="__next"]/div/div[2]/div/div[1]/div[2]/div[2]/div[1]/div[1]/div/div[1]/div[2]'
+            
             apply_period_text = wait.until(EC.presence_of_element_located((By.XPATH, apply_period_xpath))).text.strip()
             
             # 정규표현식으로 모든 날짜(M/D)를 찾음
@@ -80,7 +82,7 @@ class ReviewNoteScraper(BaseScraper):
 
             # 3. 리뷰 마감일 텍스트 추출 및 파싱
             # review_deadline_xpath = "//div[div[text()='리뷰 마감']]/following-sibling::div"
-            review_deadline_xpath='//*[@id="__next"]/div/div[2]/div/div[1]/div[1]/div[3]/div[3]/div[1]/div[4]/div[2]'
+            review_deadline_xpath='//*[@id="__next"]/div/div[2]/div/div[1]/div[2]/div[2]/div[1]/div[1]/div/div[4]/div[2]'
             review_deadline_text = wait.until(EC.presence_of_element_located((By.XPATH, review_deadline_xpath))).text.strip()
             
             match = re.search(r'(\d{1,2}/\d{1,2})', review_deadline_text)
@@ -129,18 +131,37 @@ class ReviewNoteScraper(BaseScraper):
                 time.sleep(2)
                 
                 log.info("모든 캠페인 목록을 불러오기 위해 페이지를 스크롤합니다...")
-                last_height = self.driver.execute_script("return document.body.scrollHeight")
 
+                # 스크롤 대상 탐색 (컨테이너 우선)
+                container = None
+                for sel in ("main", "[role='main']", ".infinite-scroll", ".scroll-container"):
+                    try:
+                        container = self.driver.find_element(By.CSS_SELECTOR, sel)
+                        break
+                    except Exception:
+                        pass
+
+                def get_height():
+                    if container:
+                        return self.driver.execute_script("return arguments[0].scrollHeight;", container)
+                    return self.driver.execute_script("return document.body.scrollHeight")
+
+                def do_scroll():
+                    if container:
+                        self.driver.execute_script("arguments[0].scrollTop = arguments[0].scrollHeight;", container)
+                    else:
+                        self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+
+
+                last_height = get_height()
+
+                 # --- 무한 스크롤 로직 시작 ---
                 scroll_number = 0
                 while True:
-                    # 페이지 맨 아래로 스크롤
-                    self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                    do_scroll()
                     scroll_number += 1
-                    # 새 콘텐츠가 로드될 때까지 2초 대기
                     time.sleep(1.5)
-                    
-                    # 새 스크롤 높이를 계산하고 이전 높이와 비교
-                    new_height = self.driver.execute_script("return document.body.scrollHeight")
+                    new_height = get_height()
                     if new_height == last_height:
                         log.info("페이지 맨 끝에 도달했습니다.")
                         break
@@ -171,6 +192,12 @@ class ReviewNoteScraper(BaseScraper):
                         detail_data['search_text'] = key
                         all_data.append(detail_data)
                         log.info(f"추출 성공: {detail_data['company']}")
+                        # log.info(f"추출 성공: {detail_data['platform']}")
+                        # log.info(f"추출 성공: {detail_data['company_link']}")
+                        # log.info(f"추출 성공: {detail_data['search_text']}")
+                        # log.info(f"추출 성공: {detail_data['apply_from']}")
+                        # log.info(f"추출 성공: {detail_data['apply_deadline']}")
+                        # log.info(f"=====================================")
                     else:
                         log.warning(f"데이터 추출 실패: {url}")
                     time.sleep(1)
@@ -196,3 +223,18 @@ class ReviewNoteScraper(BaseScraper):
             update_cols=[c for c in self.RESULT_TABLE_COLUMNS if c not in self.CONFLICT_COLS],
         )
         return affected
+
+    def _expand_schedule_section(self, wait: WebDriverWait) -> None:
+        """
+        상세 페이지에서 '체험단 일정' 섹션이 접혀 있으면 펼칩니다.
+        - 버튼/토글 텍스트가 '체험단 일정'인 영역을 찾아 클릭
+        - 클릭이 가려지면 스크롤 후 JS 클릭 시도
+        - 이미 펼쳐져 있으면 조용히 통과
+        """
+       
+        toggle_xpath = '//*[@id="__next"]/div/div[2]/div/div[1]/div[2]/div[2]/div[1]/div[1]/button'
+        toggle_btn = wait.until(EC.element_to_be_clickable((By.XPATH, toggle_xpath)))
+        self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", toggle_btn)
+        toggle_btn.click()
+        log.info("체험단 일정 버튼 클릭 완료 (토글 펼침)")
+        time.sleep(0.5)  # 약간의 대기 (애니메이션 반영)

@@ -93,14 +93,8 @@ class ReviewNoteScraper(BaseScraper):
             log.warning(f"상세 정보 일부 추출 실패: {e}")
         
         return data
-
-    def run_once(self, keywords: List[str], table_name: str) -> int:
-        # BaseScraper의 run_once를 오버라이드하여 리뷰노트 전용 로직을 구현합니다.
-        self.driver.get(self.BASE_URL)
-        wait = WebDriverWait(self.driver, 15)
-        all_data = []
-        
-        region_map = {
+    
+    region_map = {
             # "서울": 4,
             # "경기": 5,
             # "인천": 6,
@@ -119,8 +113,34 @@ class ReviewNoteScraper(BaseScraper):
             # "전북": 19,
             # "제주": 20,
         }
+
+    def run_once(self, keywords: List[str], table_name: str) -> int:
+        # BaseScraper의 run_once를 오버라이드하여 리뷰노트 전용 로직을 구현합니다.
+        self.driver.get(self.BASE_URL)
+        wait = WebDriverWait(self.driver, 15)
+        all_data = []
         
-        for key, value in region_map.items():
+        # region_map = {
+        #     # "서울": 4,
+        #     # "경기": 5,
+        #     # "인천": 6,
+        #     # "강원": 7,
+        #     # "대전": 8,
+        #     "세종": 9,
+        #     # "충남": 10,
+        #     # "충북": 11,
+        #     # "부산": 12,
+        #     # "울산": 13,
+        #     # "경남": 14,
+        #     # "경북": 15,
+        #     # "대구": 16,
+        #     # "광주": 17,
+        #     # "전남": 18,
+        #     # "전북": 19,
+        #     # "제주": 20,
+        # }
+        
+        for key, value in self.region_map.items():
             
             try:
                 log.info(f"'{key}'지역 필터링을 시작합니다.")

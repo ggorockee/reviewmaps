@@ -4,6 +4,8 @@ import os, time, requests
 import pandas as pd
 from sqlalchemy.engine import Engine
 from sqlalchemy import text
+from sqlalchemy import text as sa_text
+
 
 from .config import Settings
 from .db import get_engine, update_where_id
@@ -11,18 +13,43 @@ from .logger import get_logger
 
 import random, time
 
+from .scrapers.reviewnote import ReviewNoteScraper 
+
+
 
 log = get_logger("enricher")
 
-def fetch_campaigns_to_enrich(engine: Engine, table: str, company_col: str = "company") -> pd.DataFrame:
+def fetch_campaigns_to_enrich(
+    engine: Engine,
+    table: str,
+    company_col: str = "company",
+    region_filters: Optional[List[str]] = None,  # ✨ 추가: 지역 필터(검색 키==search_text)
+) -> pd.DataFrame:
     """
-    모든 캠페인을 가져옵니다. (향후 category_id가 NULL인 것만 가져오도록 최적화 가능)
+    보강 대상 캠페인을 가져옵니다.
+    - address/lat/lng 중 하나라도 NULL 인 것만
+    - ENRICH_SCOPE=region 인 경우, region_filters (예: ['세종','충남',...]) 로 제한
     """
-    q = f'SELECT "id", "{company_col}" FROM "{table}"'
+    base_sql = f'''
+    SELECT "id", "{company_col}", "search_text"
+    FROM "{table}"
+    WHERE (address IS NULL OR lat IS NULL OR lng IS NULL)
+    '''
+    params: Dict[str, object] = {}
+
+    if region_filters:
+        # search_text 정확 매칭(권장). OR-체인으로 안전한 바인딩 구성
+        conds = []
+        for i, r in enumerate(region_filters):
+            key = f"r{i}"
+            conds.append(f'search_text = :{key}')
+            params[key] = r
+        base_sql += " AND (" + " OR ".join(conds) + ")"
 
     try:
-        df = pd.read_sql_query(q, engine)
-        log.info(f"[{table}] 보강 대상 {len(df)}건 로드")
+        q = sa_text(base_sql)
+        df = pd.read_sql_query(q, engine, params=params)
+        log.info(f'[{table}] 보강 대상 {len(df)}건 로드 (regions={region_filters if region_filters else "ALL"})')
         return df
     except Exception as e:
         log.error(f"캠페인 로드 실패: {e}")
@@ -185,7 +212,25 @@ def find_mapped_category_id(engine: Engine, raw_category_id: int) -> Optional[in
 def enrich_once(settings: Settings) -> int:
     seen = set()
     eng = get_engine(settings)
-    df = fetch_campaigns_to_enrich(eng, settings.table_name, "company") # 함수 이름 변경
+
+    scope = os.getenv("ENRICH_SCOPE", "all").strip().lower()  # all | region
+    region_filters = None
+
+    if scope == "region":
+        region_filters = list(getattr(ReviewNoteScraper, "region_map", {}).keys())
+        if not region_filters:
+            log.warning("ENRICH_SCOPE=region 이지만 region_map이 비어있습니다. 보강을 건너뜁니다.")
+            return 0
+        log.info(f"ENRICH_SCOPE=region → region_map 전체 적용: {region_filters}")
+    else:
+        log.info("ENRICH_SCOPE=all → 전체 캠페인 대상")
+        
+    df = fetch_campaigns_to_enrich(
+        eng,
+        settings.table_name,
+        "company",
+        region_filters=region_filters,
+    )
     if df.empty:
         log.info("보강(enrich) 대상 없음")
         return 0

@@ -61,4 +61,7 @@ class InflexerScraper(BaseScraper):
         BaseScraper의 일괄 할당 로직을 덮어써서 아무 작업도 하지 않도록 합니다.
         """
         log.info("개별 수집된 플랫폼 이름 유지.")
+        df = df.copy()
+        df["source"] = self.PLATFORM_NAME  # '인플렉서'
+        
         return df

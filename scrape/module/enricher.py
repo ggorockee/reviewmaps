@@ -23,12 +23,12 @@ def fetch_campaigns_to_enrich(
     engine: Engine,
     table: str,
     company_col: str = "company",
-    region_filters: Optional[List[str]] = None,  # ✨ 추가: 지역 필터(검색 키==search_text)
+    region_filters: Optional[List[str]] = None,  # ['세종','충남', ...]
 ) -> pd.DataFrame:
     """
-    보강 대상 캠페인을 가져옵니다.
-    - address/lat/lng 중 하나라도 NULL 인 것만
-    - ENRICH_SCOPE=region 인 경우, region_filters (예: ['세종','충남',...]) 로 제한
+    보강 대상 캠페인 조회
+    - address/lat/lng 중 하나라도 NULL
+    - region_filters가 있으면 search_text ILIKE '%지역%' 매칭 (ReviewNote/인플렉서 모두 커버)
     """
     base_sql = f'''
     SELECT "id", "{company_col}", "search_text"
@@ -38,23 +38,21 @@ def fetch_campaigns_to_enrich(
     params: Dict[str, object] = {}
 
     if region_filters:
-        # search_text 정확 매칭(권장). OR-체인으로 안전한 바인딩 구성
-        conds = []
+        r_conds = []
         for i, r in enumerate(region_filters):
-            key = f"r{i}"
-            conds.append(f'search_text = :{key}')
-            params[key] = r
-        base_sql += " AND (" + " OR ".join(conds) + ")"
+            k = f"r{i}"
+            r_conds.append(f'search_text ILIKE :{k}')
+            params[k] = f"%{r}%"
+        base_sql += " AND (" + " OR ".join(r_conds) + ")"
 
     try:
         q = sa_text(base_sql)
         df = pd.read_sql_query(q, engine, params=params)
-        log.info(f'[{table}] 보강 대상 {len(df)}건 로드 (regions={region_filters if region_filters else "ALL"})')
+        log.info(f'[{table}] 보강 대상 {len(df)}건 (regions={region_filters or "ALL"})')
         return df
     except Exception as e:
         log.error(f"캠페인 로드 실패: {e}")
         return pd.DataFrame()
-
 
 def naver_local_search(api_keys: List[Tuple[str, str]], query: str) -> Optional[Dict]:
     """
@@ -219,12 +217,12 @@ def enrich_once(settings: Settings) -> int:
     if scope == "region":
         region_filters = list(getattr(ReviewNoteScraper, "region_map", {}).keys())
         if not region_filters:
-            log.warning("ENRICH_SCOPE=region 이지만 region_map이 비어있습니다. 보강을 건너뜁니다.")
+            log.warning("ENRICH_SCOPE=region 이지만 region_map 비어있음 → 보강 중단")
             return 0
-        log.info(f"ENRICH_SCOPE=region → region_map 전체 적용: {region_filters}")
+        log.info(f"ENRICH_SCOPE=region → regions={region_filters}")
     else:
-        log.info("ENRICH_SCOPE=all → 전체 캠페인 대상")
-        
+        log.info("ENRICH_SCOPE=all → 지역 제한 없음")
+
     df = fetch_campaigns_to_enrich(
         eng,
         settings.table_name,
@@ -242,28 +240,30 @@ def enrich_once(settings: Settings) -> int:
         search_api_keys.append((settings.naver_search_client_id_2, settings.naver_search_client_secret_2))
     if settings.naver_search_client_id_3 and settings.naver_search_client_secret_3:
         search_api_keys.append((settings.naver_search_client_id_3, settings.naver_search_client_secret_3))
-    
     if not search_api_keys:
         log.error("사용 가능한 Naver Search API 키가 없습니다. .env 파일을 확인하세요.")
         return 0
     
     updated_count = 0
     for row in df.itertuples():
-        cid = row.id
-        name = (row.company or "").strip()
-
-        if not name or name in seen:
+        cid    = row.id
+        region = getattr(row, "search_text", "") or ""
+        name   = (row.company or "").strip()
+        if not name:
             continue
-        seen.add(name)
 
-        if not search_api_keys: # 모든 키가 소진되었으면 중단
-            log.error("모든 Naver Search API 키의 할당량이 소진되어 보강 작업을 중단합니다.")
-            break
-            
-        place = naver_local_search(search_api_keys, name)
-        
+
+        # 중복 방지 키: region|name (같은 상호라도 지역 다르면 각각 처리)
+        dedup_key = f"{region}|{name}"
+        if dedup_key in seen:
+            continue
+        seen.add(dedup_key)
+
+        # 정확도 ↑: 지역 접두사 붙여 검색
+        query_for_api = f"{region} {name}".strip() if region else name
+        place = naver_local_search(search_api_keys, query_for_api)
         if not place:
-            time.sleep(0.1) # 실패 시 잠시 대기
+            time.sleep(0.1)
             continue
 
         address = place.get("roadAddress") or place.get("address")
@@ -273,9 +273,9 @@ def enrich_once(settings: Settings) -> int:
             coords = naver_geocode(settings.naver_map_client_id, settings.naver_map_client_secret, address)
             if coords:
                 lat, lng = coords
-        
-        data_to_update = { "address": address, "lat": lat, "lng": lng, "img_url": img_url }
-        
+
+        data_to_update = {"address": address, "lat": lat, "lng": lng, "img_url": img_url}
+
         raw_category_text = place.get("category")
         if raw_category_text:
             raw_id = get_or_create_raw_category(eng, raw_category_text)
@@ -287,7 +287,7 @@ def enrich_once(settings: Settings) -> int:
         changed = update_where_id(eng, table=settings.table_name, row_id=cid, data=data_to_update)
         if changed:
             updated_count += 1
-        time.sleep(0.4 + random.random() * 0.3)  # 0.4 ~ 0.7초
+        time.sleep(0.4 + random.random() * 0.3)
 
     log.info(f"Enrich 완료: {updated_count} rows updated")
     return updated_count

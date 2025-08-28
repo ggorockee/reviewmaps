@@ -28,6 +28,7 @@ class BaseScraper(ABC):
         pass
 
     RESULT_TABLE_COLUMNS = [
+        "source",
         "platform", "company", "company_link", "offer",
         "apply_from", "apply_deadline", "review_deadline", "search_text",
         "address", "lat", "lng", "img_url",
@@ -100,6 +101,14 @@ class BaseScraper(ABC):
         데이터프레임에 플랫폼 이름을 할당합니다.
         기본 동작은 PLATFORM_NAME을 일괄 지정하는 것입니다.
         """
+        df = df.copy()
+
+
+        df["source"] = self.PLATFORM_NAME
+        # 해당 DF가 platform을 수집하지 않았다면 기본값으로 스크레이퍼 이름을 넣어줌
+        if "platform" not in df.columns or df["platform"].isnull().all():
+            df["platform"] = self.PLATFORM_NAME
+        
         df['platform'] = self.PLATFORM_NAME
         return df
 

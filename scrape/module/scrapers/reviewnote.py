@@ -288,7 +288,7 @@ class ReviewNoteScraper(BaseScraper):
 
                 # 5) 정식 수집 루틴 (_load_all_campaigns)
                 log.info("모든 캠페인 URL 수집 시작")
-                detail_urls = self._load_all_campaigns(wait, max_idle_rounds=4, hard_timeout=100)
+                detail_urls = self._load_all_campaigns(wait, max_idle_rounds=3, hard_timeout=100)
                 detail_urls = list(dict.fromkeys(detail_urls))  # 순서 유지 중복 제거
                 log.info(f"총 {len(detail_urls)}개의 상세 페이지 URL 수집 완료.")
 
@@ -379,7 +379,7 @@ class ReviewNoteScraper(BaseScraper):
                     uniq.append(a)
         return uniq
 
-    def _load_all_campaigns(self, wait: WebDriverWait, max_idle_rounds: int = 4, hard_timeout: int = 90) -> List[str]:
+    def _load_all_campaigns(self, wait: WebDriverWait, max_idle_rounds: int = 3, hard_timeout: int = 90) -> List[str]:
         start = time.time()
         prev_count = -1
         idle_rounds = 0

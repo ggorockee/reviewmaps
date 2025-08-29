@@ -452,7 +452,6 @@ class MyMilkyScraper(BaseScraper):
                     ON CONFLICT (platform, title, offer, campaign_channel) DO UPDATE SET
                         -- 업데이트할 필드들 --
                         company = EXCLUDED.company,
-                        content = EXCLUDED.content,
                         source = EXCLUDED.source,
                         content_link = EXCLUDED.content_link,
                         company_link = EXCLUDED.company_link,

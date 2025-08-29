@@ -10,3 +10,4 @@ tqdm==4.67.1
 tzdata==2025.2
 schedule==1.2.2
 beautifulsoup4==4.13.5
+pydantic-settings==2.10.1

@@ -1,58 +1,11 @@
-from __future__ import annotations
 from typing import Optional, Dict, Tuple, List
-import os, time, requests
-import pandas as pd
+import requests, time, random
 from sqlalchemy.engine import Engine
 from sqlalchemy import text
-from sqlalchemy import text as sa_text
 
-
-from .config import Settings
-from .db import get_engine, update_where_id
 from .logger import get_logger
 
-import random, time
-
-from .scrapers.reviewnote import ReviewNoteScraper 
-
-
-
 log = get_logger("enricher")
-
-def fetch_campaigns_to_enrich(
-    engine: Engine,
-    table: str,
-    company_col: str = "company",
-    region_filters: Optional[List[str]] = None,  # ['세종','충남', ...]
-) -> pd.DataFrame:
-    """
-    보강 대상 캠페인 조회
-    - address/lat/lng 중 하나라도 NULL
-    - region_filters가 있으면 search_text ILIKE '%지역%' 매칭 (ReviewNote/인플렉서 모두 커버)
-    """
-    base_sql = f'''
-    SELECT "id", "{company_col}", "search_text"
-    FROM "{table}"
-    WHERE (address IS NULL OR lat IS NULL OR lng IS NULL)
-    '''
-    params: Dict[str, object] = {}
-
-    if region_filters:
-        r_conds = []
-        for i, r in enumerate(region_filters):
-            k = f"r{i}"
-            r_conds.append(f'search_text ILIKE :{k}')
-            params[k] = f"%{r}%"
-        base_sql += " AND (" + " OR ".join(r_conds) + ")"
-
-    try:
-        q = sa_text(base_sql)
-        df = pd.read_sql_query(q, engine, params=params)
-        log.info(f'[{table}] 보강 대상 {len(df)}건 (regions={region_filters or "ALL"})')
-        return df
-    except Exception as e:
-        log.error(f"캠페인 로드 실패: {e}")
-        return pd.DataFrame()
 
 def naver_local_search(api_keys: List[Tuple[str, str]], query: str) -> Optional[Dict]:
     """
@@ -207,87 +160,4 @@ def find_mapped_category_id(engine: Engine, raw_category_id: int) -> Optional[in
         result = conn.execute(q, {"id": raw_category_id}).scalar_one_or_none()
     return result
 
-def enrich_once(settings: Settings) -> int:
-    seen = set()
-    eng = get_engine(settings)
 
-    scope = os.getenv("ENRICH_SCOPE", "all").strip().lower()  # all | region
-    region_filters = None
-
-    if scope == "region":
-        region_filters = list(getattr(ReviewNoteScraper, "region_map", {}).keys())
-        if not region_filters:
-            log.warning("ENRICH_SCOPE=region 이지만 region_map 비어있음 → 보강 중단")
-            return 0
-        log.info(f"ENRICH_SCOPE=region → regions={region_filters}")
-    else:
-        log.info("ENRICH_SCOPE=all → 지역 제한 없음")
-
-    df = fetch_campaigns_to_enrich(
-        eng,
-        settings.table_name,
-        "company",
-        region_filters=region_filters,
-    )
-    if df.empty:
-        log.info("보강(enrich) 대상 없음")
-        return 0
-
-    search_api_keys = []
-    if settings.naver_search_client_id and settings.naver_search_client_secret:
-        search_api_keys.append((settings.naver_search_client_id, settings.naver_search_client_secret))
-    if settings.naver_search_client_id_2 and settings.naver_search_client_secret_2:
-        search_api_keys.append((settings.naver_search_client_id_2, settings.naver_search_client_secret_2))
-    if settings.naver_search_client_id_3 and settings.naver_search_client_secret_3:
-        search_api_keys.append((settings.naver_search_client_id_3, settings.naver_search_client_secret_3))
-    if not search_api_keys:
-        log.error("사용 가능한 Naver Search API 키가 없습니다. .env 파일을 확인하세요.")
-        return 0
-    
-    updated_count = 0
-    for row in df.itertuples():
-        cid    = row.id
-        region = getattr(row, "search_text", "") or ""
-        name   = (row.company or "").strip()
-        if not name:
-            continue
-
-
-        # 중복 방지 키: region|name (같은 상호라도 지역 다르면 각각 처리)
-        dedup_key = f"{region}|{name}"
-        if dedup_key in seen:
-            continue
-        seen.add(dedup_key)
-
-        # 정확도 ↑: 지역 접두사 붙여 검색
-        query_for_api = f"{region} {name}".strip() if region else name
-        place = naver_local_search(search_api_keys, query_for_api)
-        if not place:
-            time.sleep(0.1)
-            continue
-
-        address = place.get("roadAddress") or place.get("address")
-        img_url = place.get("link")
-        lat, lng = (None, None)
-        if address:
-            coords = naver_geocode(settings.naver_map_client_id, settings.naver_map_client_secret, address)
-            if coords:
-                lat, lng = coords
-
-        data_to_update = {"address": address, "lat": lat, "lng": lng, "img_url": img_url}
-
-        raw_category_text = place.get("category")
-        if raw_category_text:
-            raw_id = get_or_create_raw_category(eng, raw_category_text)
-            if raw_id:
-                standard_id = find_mapped_category_id(eng, raw_id)
-                if standard_id:
-                    data_to_update["category_id"] = standard_id
-
-        changed = update_where_id(eng, table=settings.table_name, row_id=cid, data=data_to_update)
-        if changed:
-            updated_count += 1
-        time.sleep(0.4 + random.random() * 0.3)
-
-    log.info(f"Enrich 완료: {updated_count} rows updated")
-    return updated_count

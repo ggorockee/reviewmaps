@@ -65,7 +65,7 @@ class BaseScraper(ABC):
     def __init__(self):
         self.settings = settings
         self.logger = get_logger(f"scraper.{self.PLATFORM_NAME}")
-        self.driver = self._init_driver()
+        # self.driver = self._init_driver()
 
     def _init_driver(self) -> webdriver.Chrome:
         log.info(f"[{self.PLATFORM_NAME}] ChromeDriver 초기화…")

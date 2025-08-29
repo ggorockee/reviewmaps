@@ -1,597 +1,211 @@
+# scrapers/mymilky.py (API 기반 최종 동작 버전)
+
 from core.base import BaseScraper
 from core.logger import get_logger
-from typing import Any, List, Dict
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
+from typing import Any, List, Dict, Optional
 import pandas as pd
-from bs4 import BeautifulSoup
-from pprint import pformat
-from typing import Optional
 import re
 from datetime import datetime, timedelta
-from sqlalchemy import create_engine
+import time
+import json
+import requests
+from urllib.parse import quote
+
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
+
 from core.enricher import (
     naver_local_search,
     naver_geocode,
     get_or_create_raw_category,
     find_mapped_category_id,
 )
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
-import time
 
-log = get_logger("mymilky")
-from selenium.common.exceptions import TimeoutException  # TimeoutException 임포트 추가
-
+log = get_logger("scraper.mymilky")
 
 class MyMilkyScraper(BaseScraper):
-    """
-    mymilky.co.kr 사이트용 스크레이퍼입니다.
-    """
-
     PLATFORM_NAME = "mymilky"
-    BASE_URL = "https://mymilky.co.kr/"
-    
-    
-    
-    def scrape(self, keyword: Optional[str] = None) -> str:
+    BASE_URL = "https://mymilky.co.kr/api/campaigns"
+
+    def scrape(self, keyword: Optional[str] = None) -> List[Dict[str, Any]]:
         """
-        사이트에 접속하고 버튼 클릭 후, 초기 목록 로딩을 확인하고,
-        성공했을 경우에만 최대 10번까지 무한 스크롤을 실행합니다.
+        [API 버전] mymilky API를 호출하여 모든 페이지의 캠페인 데이터를 가져옵니다.
         """
-        log.info(f"{self.PLATFORM_NAME} 사이트 접속 시도: {self.BASE_URL}")
-        self.driver.get(self.BASE_URL)
+        all_campaign_data = []
+        page = 1
+        limit = 50
 
-        # 초기 목록 로딩 확인 (스크레이핑 성공의 기준점)
-        campaign_list_locator = (By.CSS_SELECTOR, "div.card-list > a.card-list__item")
-
-        try:
-            loading_overlay_locator = (By.CSS_SELECTOR, "div.loading-container")
-            log.info("초기 로딩 오버레이가 사라지기를 기다립니다...")
-            wait = WebDriverWait(
-                self.driver, self.settings.batch.WAIT_TIMEOUT
-            )  # 최대 15초 대기
-            wait.until(EC.invisibility_of_element_located(loading_overlay_locator))
-            log.info("로딩 오버레이 사라짐. 스크레이핑을 계속합니다.")
-        except TimeoutException:
-            # 로딩 오버레이는 때때로 매우 짧게 나타나거나 없을 수도 있습니다.
-            # 15초를 기다려도 사라지지 않는 경우만 문제로 간주하거나, 무시하고 넘어갈 수 있습니다.
-            # 여기서는 경고만 남기고 계속 진행하도록 하겠습니다.
-            log.warning(
-                "로딩 오버레이가 시간 내에 사라지지 않았거나, 처음부터 없었을 수 있습니다."
-            )
-            pass
-
-        if keyword:
-            log.info(f"'{keyword}' 키워드로 검색을 시작합니다.")
-            search_input_locator = (By.CSS_SELECTOR, "input.search-input")
-            search_button_locator = (
-                By.CSS_SELECTOR,
-                "div.search-box__container > div > img",
-            )
-
-            # .send_keys가 아니라 BaseScraper의 헬퍼 메서드를 사용
-            if not self._send_keys_to_element(search_input_locator, keyword):
-                log.error("검색어 입력에 실패했습니다.")
-                return ""
-            if not self._click_element(search_button_locator):
-                log.error("검색 버튼 클릭에 실패했습니다.")
-                return ""
-        else:
-            # 키워드가 없으면 기존의 전체 목록 보기 버튼 클릭
-            button_locator = (
-                By.XPATH,
-                '//*[@id="__nuxt"]/div/main/section[1]/div/div[2]/div/img',
-            )
-            if not self._click_element(
-                button_locator, timeout=self.settings.batch.WAIT_TIMEOUT
-            ):
-                log.error("버튼을 클릭하지 못해 스크레이핑을 중단합니다.")
-                return ""
-
-        log.info("초기 캠페인 목록 로딩 완료. 이제 무한 스크롤을 시작합니다.")
-
-        # 3. 무한 스크롤 실행
-        # max_scrolls = 7
-        scroll_count = 0
-        consecutive_fails = 0
-        # 연속으로 2번 이상 높이 변경 감지에 실패하면 종료
-        MAX_CONSECUTIVE_FAILS = 2 
-        last_height = self.driver.execute_script("return document.body.scrollHeight")
-        ###########################################
-        log.info("초기 캠페인 목록 로딩 완료. 이제 무한 스크롤을 시작합니다.")
-
-        campaign_list_locator = (By.CSS_SELECTOR, "div.card-list > a.card-list__item")
-        loading_overlay_locator = (By.CSS_SELECTOR, "div.loading-container")  # 로딩 오버레이
-        load_more_btns = [
-            (By.CSS_SELECTOR, "button.load-more"),
-            (By.CSS_SELECTOR, "div.load-more > button"),
-            (By.XPATH, "//button[contains(., '더보기') or contains(., '더 불러오기')]"),
-        ]
-
-        def _find_scroll_container():
-            # 스크롤 가능한 컨테이너를 탐색. 없으면 window(body) 사용
-            js = """
-            function findScrollable(el) {
-            const isScrollable = e => {
-                try {
-                const style = window.getComputedStyle(e);
-                const oy = style.overflowY;
-                if (!oy) return false;
-                if (oy === 'auto' || oy === 'scroll') {
-                    return e.scrollHeight > e.clientHeight + 2;
-                }
-                return false;
-                } catch (e) { return false; }
-            };
-            let node = el;
-            while (node && node !== document.body) {
-                if (isScrollable(node)) return node;
-                node = node.parentElement;
-            }
-            if (document.documentElement.scrollHeight > document.documentElement.clientHeight + 2) {
-                return document.scrollingElement || document.documentElement || document.body;
-            }
-            return document.body;
-            }
-            const list = document.querySelector("div.card-list");
-            if (list) return findScrollable(list);
-            return document.scrollingElement || document.documentElement || document.body;
-            """
-            return self.driver.execute_script("return (" + js + ");")
-
-        def _scroll_container_to_bottom(container, px=800):
-            # 살짝살짝 내려주며 관찰자를 자극
-            self.driver.execute_script("arguments[0].scrollBy(0, arguments[1]);", container, px)
-
-        def _scroll_to_bottom(container):
-            self.driver.execute_script("arguments[0].scrollTop = arguments[0].scrollHeight;", container)
-
-        def _last_card():
-            cards = self.driver.find_elements(*campaign_list_locator)
-            return cards[-1] if cards else None
-
-        def _wait_overlay_cycle(timeout=10):
-            # 오버레이가 보였다가(있다면) 사라질 때까지
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+            'Referer': 'https://mymilky.co.kr/',
+        }
+        
+        while True:
+            params = {'page': page, 'limit': limit, 'order': 'recent'}
+            if keyword:
+                params['q'] = quote(keyword)
+            
+            log.info(f"API 호출 중... (Page: {page}, Keyword: {keyword or 'None'})")
+            
             try:
-                WebDriverWait(self.driver, 2).until(EC.visibility_of_element_located(loading_overlay_locator))
-            except Exception:
-                pass
-            try:
-                WebDriverWait(self.driver, timeout).until(EC.invisibility_of_element_located(loading_overlay_locator))
-            except Exception:
-                pass
+                response = requests.get(self.BASE_URL, params=params, headers=headers, timeout=20)
+                response.raise_for_status()
+                data = response.json()
+                campaigns_on_page = data.get('data', [])
+                
+                if not campaigns_on_page:
+                    log.info("API로부터 더 이상 데이터를 받지 못했습니다. 스크레이핑을 종료합니다.")
+                    break
+                    
+                all_campaign_data.extend(campaigns_on_page)
+                log.info(f"캠페인 {len(campaigns_on_page)}개 수집 완료. (누적: {len(all_campaign_data)} / 전체: {data.get('total')})")
 
-        def _try_click_load_more():
-            for how, sel in load_more_btns:
-                btns = self.driver.find_elements(how, sel)
-                if btns:
-                    try:
-                        btn = btns[0]
-                        self.driver.execute_script("arguments[0].scrollIntoView({block:'center'});", btn)
-                        time.sleep(0.2)
-                        btn.click()
-                        log.info("‘더보기’ 버튼을 클릭했습니다.")
-                        return True
-                    except Exception as e:
-                        log.warning(f"‘더보기’ 클릭 실패: {e}")
-            return False
+                total = data.get('total', 0)
+                if page * limit >= total or total == 0:
+                    log.info("마지막 페이지에 도달했습니다.")
+                    break
 
-        scroll_container = _find_scroll_container()
-        log.info(f"스크롤 컨테이너 확보: {type(scroll_container)}")
+                page += 1
+                time.sleep(1)
 
-        MAX_ROUNDS = 120           # 충분히 크게(약 2천개면 넉넉히)
-        STEP_PX = 1000             # 한 번에 내릴 픽셀
-        STILL_LIMIT = 8            # 연속 변화 없음 허용 횟수
-        consecutive_no_change = 0
-        prev_count = len(self.driver.find_elements(*campaign_list_locator))
-        prev_last_id = None
-        try:
-            prev_last_id = _last_card().get_attribute("href") if _last_card() else None
-        except Exception:
-            prev_last_id = None
-
-        for round_no in range(1, MAX_ROUNDS + 1):
-            before_h = self.driver.execute_script("return arguments[0].scrollHeight;", scroll_container)
-            before_top = self.driver.execute_script("return arguments[0].scrollTop;", scroll_container)
-
-            # 1) 마지막 카드로 먼저 스크롤(관찰자 자극)
-            last = _last_card()
-            if last:
-                try:
-                    self.driver.execute_script("arguments[0].scrollIntoView({block:'end'});", last)
-                    time.sleep(0.1)
-                except Exception:
-                    pass
-
-            # 2) 컨테이너를 아래로 당김
-            _scroll_container_to_bottom(scroll_container, STEP_PX)
-
-            # 3) ‘더보기’ 버튼 있으면 클릭
-            clicked = _try_click_load_more()
-
-            # 4) 로딩 오버레이 사이클 대기
-            _wait_overlay_cycle(timeout=12)
-
-            # 5) 증가 판단: 개수/scrollHeight/마지막 카드 변경 중 하나라도 오르면 성공
-            now_count = len(self.driver.find_elements(*campaign_list_locator))
-            after_h = self.driver.execute_script("return arguments[0].scrollHeight;", scroll_container)
-            now_last = None
-            try:
-                card = _last_card()
-                now_last = card.get_attribute("href") if card else None
-            except Exception:
-                now_last = None
-
-            increased = (now_count > prev_count) or (after_h > before_h) or (now_last and now_last != prev_last_id)
-
-            log.info(f"스크롤 라운드 {round_no}: count {prev_count}->{now_count}, height {before_h}->{after_h}, last {prev_last_id}->{now_last}, clicked={clicked}")
-
-            if increased:
-                consecutive_no_change = 0
-                prev_count = now_count
-                prev_last_id = now_last
-            else:
-                consecutive_no_change += 1
-                # 컨테이너 끝까지 이미 도달했는데 변화가 없다면 마지막으로 바닥까지 쭉
-                _scroll_to_bottom(scroll_container)
-                time.sleep(0.3)
-
-            if consecutive_no_change >= STILL_LIMIT:
-                log.info(f"연속 {STILL_LIMIT}회 변화 없음 → 무한 스크롤 종료.")
+            except requests.RequestException as e:
+                log.error(f"API 호출 중 에러 발생: {e}", exc_info=True)
                 break
 
-        log.info("모든 캠페인 데이터 로딩 완료. 최종 페이지 소스를 반환합니다.")
-        return self.driver.page_source
+        return all_campaign_data
 
-    def parse_remaining_days(self, text: str) -> Optional[int]:
+    def parse(self, api_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
-        "10일 남음", "오늘 마감" 등의 텍스트에서 남은 날짜를 정수(int)로 추출합니다.
+        [API 버전] API JSON 데이터 리스트를 DB 스키마에 맞게 매핑합니다.
         """
-        if not isinstance(text, str):
-            return None
-
-        text = text.strip()
-
-        # '오늘 마감'을 0으로 처리
-        if "오늘 마감" in text:
-            return 0
-        # '마감' 또는 '종료'가 포함된 다른 경우는 -1로 처리 (이미 종료됨)
-        if "마감" in text or "종료" in text:
-            return -1
-
-        # 정규표현식으로 텍스트에서 숫자(\d+)를 찾습니다.
-        match = re.search(r"\d+", text)
-
-        if match:
-            # 숫자를 찾았다면 정수형으로 변환하여 반환
-            return int(match.group(0))
-
-        # 그 외("상시모집" 등)는 None을 반환
-        return None
-
-    def parse(self, html_content: str) -> List[Dict[str, Any]]:
-        """
-        HTML을 파싱하여, 정제되지 않은 데이터 딕셔너리의 리스트를 반환합니다.
-        """
-        log.info("HTML 파싱 시작...")
-        soup = BeautifulSoup(html_content, "lxml")
-        campaign_items = soup.select("div.card-list > a.card-list__item")
-
-        all_campaigns_data = []
-        for item in campaign_items:
+        log.info(f"API 데이터 {len(api_data)}건 파싱 시작...")
+        all_campaigns_mapped = []
+        for item in api_data:
             try:
-                if not item.select_one("div.card-content"):
-                    continue
-
-                title = item.select_one("h3.card-title").get_text(strip=True)
-
-                platform_elem = item.select_one(
-                    "div:nth-of-type(3) > span:nth-of-type(1)"
-                )
-                platform = platform_elem.get_text(strip=True) if platform_elem else None
-
-                href = item["href"]
-
-                content_link = (
-                    href
-                    if href.startswith("http")
-                    else self.BASE_URL.rstrip("/") + href
-                )
-
-                offer = item.select_one("div.card-description").get_text(strip=True)
-
-                tags = [
-                    tag.get_text(strip=True)
-                    for tag in item.select("div.card-tag__list > span")
-                ]
-
-                days_left_text = item.select_one("span.card-date__text").get_text(
-                    strip=True
-                )
-
-                campaign_type_elem = item.select_one(
-                    "div:nth-of-type(4) > span:nth-of-type(1)"
-                )
-                campaign_type = (
-                    campaign_type_elem.get_text(strip=True)
-                    if campaign_type_elem
-                    else None
-                )
-
-                region_elem = item.select_one(
-                    "div:nth-of-type(4) > span:nth-of-type(2)"
-                )
-                region = region_elem.get_text(strip=True) if region_elem else None
-
-                channel_img_elem = item.select_one("div.card-date img")
-                campaign_channel = "etc"
-                if channel_img_elem and "src" in channel_img_elem.attrs:
-                    channel_img_src = channel_img_elem["src"]
-                    if "blog" in channel_img_src:
-                        campaign_channel = "blog"
-                    elif "clip" in channel_img_src:
-                        campaign_channel = "clip"
-                    elif "instagram" in channel_img_src:
-                        campaign_channel = "instagram"
-                    elif "reels" in channel_img_src:
-                        campaign_channel = "reels"
-                    elif "youtube" in channel_img_src:
-                        campaign_channel = "youtube"
-                    elif "shorts" in channel_img_src:
-                        campaign_channel = "shorts"
-                    elif "tiktok" in channel_img_src:
-                        campaign_channel = "tiktok"
-
-                days_left_elem = item.select_one("span.card-date__text")
-                raw_days_left = (
-                    days_left_elem.get_text(strip=True) if days_left_elem else None
-                )
-
-                campaign_data = {
+                channel_info = json.loads(item.get('channel', '{}'))
+                business_name = item.get('business_name')
+                
+                mapped_data = {
                     "source": self.PLATFORM_NAME,
-                    "title": title,
-                    "company": title,
-                    "content_link": content_link,
-                    "company_link": content_link,
-                    "offer": offer,
-                    "platform": platform,
-                    "campaign_type": campaign_type,
-                    "region": region,
-                    "campaign_channel": campaign_channel,
-                    "raw_days_left": raw_days_left,
+                    "platform": item.get('platform'),
+                    "company": business_name,
+                    "title": business_name,
+                    "offer": item.get('details'),
+                    "campaign_channel": channel_info.get('channel', 'etc').lower(),
+                    "content_link": item.get('detail_link'),
+                    "company_link": item.get('detail_link'),
+                    "campaign_type": item.get('type'),
+                    "region": item.get('location'),
+                    "address": item.get('address') or None,
+                    "apply_deadline": item.get('end_date'),
+                    "review_deadline": item.get('review_deadline'),
+                    "img_url": item.get('thumbnail_image')
                 }
-                all_campaigns_data.append(campaign_data)
+                all_campaigns_mapped.append(mapped_data)
             except Exception as e:
-                log.error(f"개별 아이템 파싱 중 에러: {e}")
+                log.error(f"JSON 데이터 매핑 중 에러: {e}, Item: {item}")
                 continue
-        return all_campaigns_data
+        return all_campaigns_mapped
 
     def enrich(self, parsed_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
-        파싱된 데이터 리스트를 DataFrame으로 변환하고, 데이터를 정제 및 보강합니다.
-        최종적으로 다시 데이터 리스트 형태로 반환합니다.
+        [단순화 버전] 데이터를 정제하고, 주소가 비어있는 경우에만 API로 보강합니다.
         """
         log.info(f"총 {len(parsed_data)}개 데이터의 Enrich 단계 시작...")
+        if not parsed_data: return []
+
         raw_df = pd.DataFrame(parsed_data)
 
-        if raw_df.empty:
-            return []
+        # 1. 중복 제거 및 필터링 후 독립적인 복사본 생성
+        df = raw_df.drop_duplicates(subset=['platform', 'title', 'offer', 'campaign_channel'], keep='first')
+        df = df[df['platform'] != '클라우드리뷰'].copy()
+        log.info(f"중복 및 플랫폼 필터링 후 처리 대상: {len(df)}건")
+        if df.empty: return []
 
-        # 0. 중복제거
-        log.info(f"DataFrame 변환 완료. 중복 제거 전 데이터: {len(raw_df)}건")
-        dedup_df = raw_df.drop_duplicates(
-            subset=["platform", "title", "offer", "campaign_channel"], keep="first"
-        ).copy()
-        dropped_count = len(raw_df) - len(dedup_df)
-        if dropped_count > 0:
-            log.info(
-                '중복 제거 ===> ["platform", "title", "offer", "campaign_channel"]'
-            )
-            log.info(
-                f"중복된 데이터 {dropped_count}건을 제거했습니다. 처리 대상: {len(dedup_df)}건"
-            )
+        # 2. 날짜 형식 변환 (API에서 받은 날짜 문자열 -> datetime 객체)
+        df['apply_deadline'] = pd.to_datetime(df['apply_deadline'], errors='coerce').dt.tz_localize(None)
+        df['review_deadline'] = pd.to_datetime(df['review_deadline'], errors='coerce').dt.tz_localize(None)
 
-        if dedup_df.empty:
-            return []
-        original_count = len(dedup_df)
-        filterd_df = dedup_df[dedup_df["platform"] != "클라우드리뷰"].copy()
+        # 3. 주소 정보가 비어있는 '방문형' 캠페인에 대해서만 Naver API 보강
+        df['lat'] = pd.NA
+        df['lng'] = pd.NA
+        df['category_id'] = pd.NA
 
-        filtered_count = original_count - len(filterd_df)
-        if filtered_count > 0:
-            log.info(f"'클라우드리뷰' 플랫폼 데이터 {filtered_count}건을 제외했습니다.")
-        log.info(f"플랫폼 필터링 후 처리 대상: {len(filterd_df)}건")
+        to_enrich_df = df[(df['campaign_type'] == '방문형') & (df['address'].isnull() | (df['address'] == ''))].copy()
+        
+        if not to_enrich_df.empty:
+            log.info(f"주소가 비어있는 '방문형' 캠페인 {len(to_enrich_df)}건에 대해 주소 보강을 시작합니다.")
+            engine = create_engine(self.settings.db.url)
+            search_api_keys = self._get_api_keys()
 
-        filterd_df["address"] = None
-        filterd_df["lat"] = pd.NA
-        filterd_df["lng"] = pd.NA
-        filterd_df["category_id"] = pd.NA
-
-        # 1. days_left 컬럼 정제
-        filterd_df["days_left"] = filterd_df["raw_days_left"].apply(
-            self._parse_remaining_days
-        )
-        enriched_df = filterd_df.drop(["raw_days_left"], axis=1)
-        log.info(f"데이터 정제 및 보강 완료 (days_left 추가) 완료")
-
-        # 2. 마감일자 계산
-        enriched_df["apply_deadline"] = enriched_df["days_left"].apply(
-            self._calculate_deadline
-        )
-        log.info(f"데이터 정제 및 보강 완료 (apply_deadline 추가) 완료:")
-
-        engine = create_engine(self.settings.db.url)
-
-        # .env 파일에서 Naver API 키 목록 준비
-        search_api_keys = []
-        if (
-            self.settings.naver_api.SEARCH_CLIENT_ID
-            and self.settings.naver_api.SEARCH_CLIENT_SECRET
-        ):
-            search_api_keys.append(
-                (
-                    self.settings.naver_api.SEARCH_CLIENT_ID,
-                    self.settings.naver_api.SEARCH_CLIENT_SECRET,
-                )
-            )
-        if (
-            self.settings.naver_api.SEARCH_CLIENT_ID_2
-            and self.settings.naver_api.SEARCH_CLIENT_SECRET_2
-        ):
-            search_api_keys.append(
-                (
-                    self.settings.naver_api.SEARCH_CLIENT_ID_2,
-                    self.settings.naver_api.SEARCH_CLIENT_SECRET_2,
-                )
-            )
-        if (
-            self.settings.naver_api.SEARCH_CLIENT_ID_3
-            and self.settings.naver_api.SEARCH_CLIENT_SECRET_3
-        ):
-            search_api_keys.append(
-                (
-                    self.settings.naver_api.SEARCH_CLIENT_ID_3,
-                    self.settings.naver_api.SEARCH_CLIENT_SECRET_3,
-                )
-            )
-
-        if not search_api_keys:
-            log.error(
-                "사용 가능한 Naver Search API 키가 없습니다. .env 파일을 확인하세요."
-            )
-            # API 키가 없으면 보강 없이 원본 데이터를 반환
-            return enriched_df
-
-        engine = create_engine(self.settings.db.url)
-
-        visit_campaigns = enriched_df[enriched_df["campaign_type"] == "방문형"]
-        log.info(
-            f"'방문형' 캠페인 {len(visit_campaigns)}건에 대해 주소 보강을 시작합니다."
-        )
-
-        if not visit_campaigns.empty and search_api_keys:
-            for index, row in visit_campaigns.iterrows():
-                query = row["title"].replace("[", "").replace("]", " ")
+            for index, row in to_enrich_df.iterrows():
+                query = row['title'].replace('[', '').replace(']', ' ')
                 place = naver_local_search(search_api_keys, query)
-
                 if place:
                     address = place.get("roadAddress") or place.get("address")
                     lat, lng, std_id = (None, None, None)
                     if address:
-                        coords = naver_geocode(
-                            self.settings.naver_api.MAP_CLIENT_ID,
-                            self.settings.naver_api.MAP_CLIENT_SECRET,
-                            address,
-                        )
-                        if coords:
-                            lat, lng = coords
-
+                        coords = naver_geocode(self.settings.naver_api.MAP_CLIENT_ID, self.settings.naver_api.MAP_CLIENT_SECRET, address)
+                        if coords: lat, lng = coords
                     raw_category_text = place.get("category")
                     if raw_category_text:
                         raw_id = get_or_create_raw_category(engine, raw_category_text)
-                        if raw_id:
-                            std_id = find_mapped_category_id(engine, raw_id)
+                        if raw_id: std_id = find_mapped_category_id(engine, raw_id)
+                    
+                    df.loc[index, ['address', 'lat', 'lng', 'category_id']] = [address, lat, lng, std_id]
+                time.sleep(0.5)
 
-                    # .loc를 사용하여 원본 DataFrame(df)의 값을 직접 업데이트.
-                    enriched_df.loc[index, ["address", "lat", "lng", "category_id"]] = [
-                        address,
-                        lat,
-                        lng,
-                        std_id,
-                    ]
-
-                time.sleep(0.5)  # API 호출 간 예의를 지키는 대기
-
-        final_columns = [
-            col for col in self.RESULT_TABLE_COLUMNS if col in enriched_df.columns
-        ]
-        final_df = enriched_df[final_columns]
-
-        # 5. DB 저장을 위한 최종 데이터 타입 변환
+        # 4. 최종 컬럼 선택 및 반환
+        final_columns = [col for col in self.RESULT_TABLE_COLUMNS if col in df.columns]
+        final_df = df.reindex(columns=final_columns) # reindex로 순서 및 존재 보장
         final_df = final_df.astype(object).where(pd.notna(final_df), None)
-
-        # log.info(f"Enrich 최종 완료:\n{final_df.head().to_string()}")
-        return final_df.to_dict("records")
-
-    def _calculate_deadline(self, days_offset):
-        today_in_seoul = datetime.now(self.settings.batch.tz).date()
-        # log.info(f"마감일 계산 기준 날짜 (Asia/Seoul): {today_in_seoul}")
-
-        # days_left 값이 유효한 숫자일 경우 (NaN이 아닐 경우)
-        if pd.notna(days_offset):
-            # '오늘' 날짜에 남은 일수를 더합니다.
-            return today_in_seoul + timedelta(days=int(days_offset))
-        # '상시모집' 등으로 인해 days_left가 NaN인 경우는 None(NaT)을 반환
-        return None
-
-    def _parse_remaining_days(self, text: str) -> Optional[int]:
-        # 이전의 숫자 변환 함수를 내부 헬퍼 메서드로 변경
-        if not isinstance(text, str):
-            return None
-        text = text.strip()
-        if "오늘 마감" in text:
-            return 0
-        if "마감" in text or "종료" in text:
-            return -1
-        match = re.search(r"\d+", text)
-        return int(match.group(0)) if match else None
+        log.info(f"Enrich 최종 완료:\n{final_df.head().to_string()}")
+        return final_df.to_dict('records')
 
     def save(self, data: List[Dict[str, Any]]) -> None:
-        """
-        Enrich가 완료된 최종 데이터를 DB에 UPSERT 방식으로 저장합니다.
-        """
         if not data:
             log.warning("저장할 최종 데이터가 없습니다.")
             return
 
         log.info(f"정제된 최종 데이터 {len(data)}건을 DB에 저장 시작...")
-
         engine = create_engine(self.settings.db.url)
         Session = sessionmaker(bind=engine)
-
-        # upsert
-        upsert_sql = text(
-            f"""
-                    INSERT INTO campaign (
-                        -- 고유 키 --
-                        platform, title, offer, campaign_channel,
-                        -- 기본 정보 --
-                        company, content_link, company_link, source,
-                        -- 캠페인 정보 --
-                        campaign_type, region, apply_deadline,
-                        -- 보강된 정보 --
-                        address, lat, lng, category_id
-                    ) VALUES (
-                        :platform, :title, :offer, :campaign_channel,
-                        :company, :content_link, :company_link, :source,
-                        :campaign_type, :region, :apply_deadline,
-                        :address, :lat, :lng, :category_id
-                    )
-                    ON CONFLICT (platform, title, offer, campaign_channel) DO UPDATE SET
-                        -- 업데이트할 필드들 --
-                        company = EXCLUDED.company,
-                        source = EXCLUDED.source,
-                        content_link = EXCLUDED.content_link,
-                        company_link = EXCLUDED.company_link,
-                        campaign_type = EXCLUDED.campaign_type,
-                        region = EXCLUDED.region,
-                        apply_deadline = EXCLUDED.apply_deadline,
-                        address = EXCLUDED.address,
-                        lat = EXCLUDED.lat,
-                        lng = EXCLUDED.lng,
-                        category_id = EXCLUDED.category_id,
-                        updated_at = NOW();
-                """
-        )
-
+        
         with Session() as session:
             try:
+                # ❗️ [수정] UPSERT 구문을 DB 스키마와 완전히 일치시킵니다.
+                upsert_sql = text(f"""
+                    INSERT INTO campaign (
+                        platform, title, offer, campaign_channel, company, content_link, 
+                        company_link, source, campaign_type, region, apply_deadline, 
+                        review_deadline, address, lat, lng, category_id, img_url
+                    ) VALUES (
+                        :platform, :title, :offer, :campaign_channel, :company, :content_link, 
+                        :company_link, :source, :campaign_type, :region, :apply_deadline, 
+                        :review_deadline, :address, :lat, :lng, :category_id, :img_url
+                    )
+                    ON CONFLICT (platform, title, offer, campaign_channel) DO UPDATE SET
+                        company = EXCLUDED.company, source = EXCLUDED.source,
+                        content_link = EXCLUDED.content_link, company_link = EXCLUDED.company_link,
+                        campaign_type = EXCLUDED.campaign_type, region = EXCLUDED.region,
+                        apply_deadline = EXCLUDED.apply_deadline, review_deadline = EXCLUDED.review_deadline,
+                        address = EXCLUDED.address, lat = EXCLUDED.lat, lng = EXCLUDED.lng,
+                        category_id = EXCLUDED.category_id, img_url = EXCLUDED.img_url,
+                        updated_at = NOW();
+                """)
                 session.execute(upsert_sql, data)
                 session.commit()
-                log.info(
-                    f"DB 저장 완료. 총 {len(data)}건의 데이터가 성공적으로 처리되었습니다."
-                )
+                log.info(f"DB 저장 완료. 총 {len(data)}건의 데이터가 성공적으로 처리되었습니다.")
             except Exception as e:
                 log.error(f"DB 저장 중 에러 발생: {e}", exc_info=True)
                 session.rollback()
+
+    def _get_api_keys(self) -> list:
+        keys = []
+        if self.settings.naver_api.SEARCH_CLIENT_ID and self.settings.naver_api.SEARCH_CLIENT_SECRET:
+            keys.append((self.settings.naver_api.SEARCH_CLIENT_ID, self.settings.naver_api.SEARCH_CLIENT_SECRET))
+        if self.settings.naver_api.SEARCH_CLIENT_ID_2 and self.settings.naver_api.SEARCH_CLIENT_SECRET_2:
+            keys.append((self.settings.naver_api.SEARCH_CLIENT_ID_2, self.settings.naver_api.SEARCH_CLIENT_SECRET_2))
+        if self.settings.naver_api.SEARCH_CLIENT_ID_3 and self.settings.naver_api.SEARCH_CLIENT_SECRET_3:
+            keys.append((self.settings.naver_api.SEARCH_CLIENT_ID_3, self.settings.naver_api.SEARCH_CLIENT_SECRET_3))
+        return keys

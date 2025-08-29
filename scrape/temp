@@ -1,0 +1,50 @@
+1. source: "milky"
+        
+        
+        title:   '//*[@id="__nuxt"]/div/main/section[2]/div[1]/a[1]/div[2]/h3'
+        title2:  '//*[@id="__nuxt"]/div/main/section[2]/div[1]/a[2]/div[2]/h3'
+        title3:  '//*[@id="__nuxt"]/div/main/section[2]/div[1]/a[3]/div[2]/h3'
+        ...
+        title4:  '//*[@id="__nuxt"]/div/main/section[2]/div[1]/a[48]/div[2]/h3'
+
+        content_link:  '//*[@id="__nuxt"]/div/main/section[2]/div[1]/a[1]'
+        content_link2: '//*[@id="__nuxt"]/div/main/section[2]/div[1]/a[2]'
+        content_link3: '//*[@id="__nuxt"]/div/main/section[2]/div[1]/a[3]'
+        ...
+        content_link48: '//*[@id="__nuxt"]/div/main/section[2]/div[1]/a[48]'
+
+        offer1:  '//*[@id="__nuxt"]/div/main/section[2]/div[1]/a[1]/div[2]/div[2]'
+        offer2:  '//*[@id="__nuxt"]/div/main/section[2]/div[1]/a[2]/div[2]/div[2]'
+        offer3:  '//*[@id="__nuxt"]/div/main/section[2]/div[1]/a[3]/div[2]/div[2]'
+        ...
+        offer48:  '//*[@id="__nuxt"]/div/main/section[2]/div[1]/a[48]/div[2]/div[2]'
+
+        platform1:  '//*[@id="__nuxt"]/div/main/section[2]/div[1]/a[1]/div[2]/div[3]/span[1]'
+        platform2:  '//*[@id="__nuxt"]/div/main/section[2]/div[1]/a[2]/div[2]/div[3]/span[1]'
+        platform3:  '//*[@id="__nuxt"]/div/main/section[2]/div[1]/a[3]/div[2]/div[3]/span[1]'
+        ...
+        platform4:  '//*[@id="__nuxt"]/div/main/section[2]/div[1]/a[48]/div[2]/div[3]/span[1]'
+
+        campaign_type1 : '//*[@id="__nuxt"]/div/main/section[2]/div[1]/a[1]/div[2]/div[4]/span[1]'
+        campaign_type2 : '//*[@id="__nuxt"]/div/main/section[2]/div[1]/a[2]/div[2]/div[4]/span[1]'
+        campaign_type3 : '//*[@id="__nuxt"]/div/main/section[2]/div[1]/a[3]/div[2]/div[4]/span[1]'
+        ...
+        campaign_type48: '//*[@id="__nuxt"]/div/main/section[2]/div[1]/a[48]/div[2]/div[4]/span[1]'
+
+        region1:  '//*[@id="__nuxt"]/div/main/section[2]/div[1]/a[1]/div[2]/div[4]/span[2]'
+        region2:  '//*[@id="__nuxt"]/div/main/section[2]/div[1]/a[2]/div[2]/div[4]/span[2]'
+        region3:  '//*[@id="__nuxt"]/div/main/section[2]/div[1]/a[3]/div[2]/div[4]/span[2]'
+        ...
+        region48:  '//*[@id="__nuxt"]/div/main/section[2]/div[1]/a[48]/div[2]/div[4]/span[2]'
+
+        campaign_channel1:  '//*[@id="__nuxt"]/div/main/section[2]/div[1]/a[1]/div[2]/div[1]/div/img'
+        campaign_channel2:  '//*[@id="__nuxt"]/div/main/section[2]/div[1]/a[2]/div[2]/div[1]/div/img'
+        campaign_channel3:  '//*[@id="__nuxt"]/div/main/section[2]/div[1]/a[3]/div[2]/div[1]/div/img'
+        ...
+        campaign_channel48: '//*[@id="__nuxt"]/div/main/section[2]/div[1]/a[48]/div[2]/div[1]/div/img'
+
+        days_left1:    '//*[@id="__nuxt"]/div/main/section[2]/div[1]/a[1]/div[2]/div[1]/span'
+        days_left2:    '//*[@id="__nuxt"]/div/main/section[2]/div[1]/a[2]/div[2]/div[1]/span'
+        days_left3:    '//*[@id="__nuxt"]/div/main/section[2]/div[1]/a[3]/div[2]/div[1]/span'
+        ...
+        days_left48:   '//*[@id="__nuxt"]/div/main/section[2]/div[1]/a[48]/div[2]/div[1]/span'

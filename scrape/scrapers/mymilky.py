@@ -40,6 +40,8 @@ class MyMilkyScraper(BaseScraper):
             'Referer': 'https://mymilky.co.kr/',
         }
         
+        
+        
         while True:
             params = {
                 'page': page,
@@ -75,6 +77,7 @@ class MyMilkyScraper(BaseScraper):
                     break
                 page += 1
                 time.sleep(1)
+                break
             except requests.RequestException as e:
                 log.error(f"API 호출 중 에러 발생: {e}", exc_info=True)
                 break
@@ -83,13 +86,42 @@ class MyMilkyScraper(BaseScraper):
 
     def parse(self, api_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
-        [API 버전] API JSON 데이터 리스트를 DB 스키마에 맞게 매핑합니다.
+        [수정] channel 필드의 다양한 JSON 형식을 모두 처리하도록 수정합니다.
         """
         log.info(f"API 데이터 {len(api_data)}건 파싱 시작...")
+        
         all_campaigns_mapped = []
         for item in api_data:
             try:
-                channel_info = json.loads(item.get('channel', '{}'))
+                campaign_channel = 'etc'  # 기본값
+                channel_str = item.get('channel')
+
+                if channel_str:
+                    try:
+                        channel_data = json.loads(channel_str)
+                        
+                        # 1. 파싱 결과가 리스트인 경우 (예: [{'channel': 'blog'}, ...])
+                        if isinstance(channel_data, list):
+                            channels = [
+                                d.get('channel', '').lower()
+                                for d in channel_data
+                                if d.get('channel')
+                            ]
+                            if channels:
+                                # 쉼표로 구분된 문자열로 만듭니다. 예: "blog,instagram,youtube"
+                                campaign_channel = ",".join(sorted(channels))
+                        
+                        # 2. 파싱 결과가 딕셔너리인 경우 (예: {'channel': 'blog'})
+                        elif isinstance(channel_data, dict):
+                            channel_val = channel_data.get('channel')
+                            if channel_val:
+                                campaign_channel = channel_val.lower()
+
+                    except (json.JSONDecodeError, TypeError):
+                        # channel 필드가 JSON 문자열이 아닌 일반 텍스트인 경우
+                        campaign_channel = channel_str.lower()
+                # ----------------------------------------------------
+                
                 business_name = item.get('business_name')
                 
                 mapped_data = {
@@ -98,7 +130,7 @@ class MyMilkyScraper(BaseScraper):
                     "company": business_name,
                     "title": business_name,
                     "offer": item.get('details'),
-                    "campaign_channel": channel_info.get('channel', 'etc').lower(),
+                    "campaign_channel": campaign_channel, # ❗️ 처리된 최종 값을 사용
                     "content_link": item.get('detail_link'),
                     "company_link": item.get('detail_link'),
                     "campaign_type": item.get('type'),
@@ -106,14 +138,17 @@ class MyMilkyScraper(BaseScraper):
                     "address": item.get('address') or None,
                     "apply_deadline": item.get('end_date'),
                     "review_deadline": item.get('review_deadline'),
-                    "img_url": item.get('thumbnail_image')
+                    "img_url": item.get('thumbnail_image'),
+                    "apply_from": item.get('start_date'),
+                    "search_text": f"{business_name} {item.get('details')}",
                 }
                 all_campaigns_mapped.append(mapped_data)
             except Exception as e:
                 log.error(f"JSON 데이터 매핑 중 에러: {e}, Item: {item}")
                 continue
         return all_campaigns_mapped
-
+    
+    
     def enrich(self, parsed_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         [단순화 버전] 데이터를 정제하고, 주소가 비어있는 경우에만 API로 보강합니다.

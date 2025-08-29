@@ -93,63 +93,48 @@ class MyMilkyScraper(BaseScraper):
         # 3. 무한 스크롤 실행
         # max_scrolls = 7
         scroll_count = 0
+        consecutive_fails = 0
+        # 연속으로 2번 이상 높이 변경 감지에 실패하면 종료
+        MAX_CONSECUTIVE_FAILS = 2 
         last_height = self.driver.execute_script("return document.body.scrollHeight")
 
         while True:
             try:
-                # 아이템 갯수의 변화
-                # # 1. 스크롤 전 현재 아이템 개수 확인
-                # item_count_before_scroll = len(
-                #     self.driver.find_elements(*campaign_list_locator)
-                # )
-                # log.info(f"스크롤 전 아이템 개수: {item_count_before_scroll}")
-                #
-                # # 2. 페이지 맨 아래로 스크롤
-                # self.driver.execute_script(
-                #     "window.scrollTo(0, document.body.scrollHeight);"
-                # )
-                # scroll_count += 1
-                # log.info(f"스크롤 다운 ({scroll_count}회)")
-                #
-                # # 3. [핵심] time.sleep() 대신, 아이템 개수가 늘어날 때까지 최대 10초간 기다림
-                # wait = WebDriverWait(
-                #     self.driver,
-                #     self.settings.batch.WAIT_TIMEOUT,
-                # )  # 10초 이상 응답이 없으면 끝으로 간주
-                # wait.until(
-                #     lambda driver: len(driver.find_elements(*campaign_list_locator))
-                #     > item_count_before_scroll
-                # )
-                # # log.info("새로운 아이템 로딩이 확인되었습니다.")
-                # # if scroll_count == 5:
-                # #     break
-
-                # 1. 스크롤 전 현재 페이지의 높이를 기록합니다.
-                height_before_scroll = self.driver.execute_script(
-                    "return document.body.scrollHeight"
+                # 1. 스크롤 전 현재 아이템 개수 확인
+                item_count_before_scroll = len(
+                    self.driver.find_elements(*campaign_list_locator)
                 )
-
+                
                 # 2. 페이지 맨 아래로 스크롤
                 self.driver.execute_script(
                     "window.scrollTo(0, document.body.scrollHeight);"
                 )
                 scroll_count += 1
-                log.info(f"스크롤 다운 ({scroll_count}회)")
+                log.info(f"스크롤 다운 ({scroll_count}회), 현재 아이템: {item_count_before_scroll}개")
 
-                # 3. [핵심] 아이템 개수 대신, 페이지의 높이가 변할 때까지 최대 10초간 기다립니다.
-                wait = WebDriverWait(self.driver, self.settings.batch.WAIT_TIMEOUT)
+                # 3. 아이템 개수가 늘어날 때까지 최대 10초간 기다립니다.
+                wait = WebDriverWait(self.driver, 10)
                 wait.until(
-                    lambda driver: driver.execute_script(
-                        "return document.body.scrollHeight"
-                    )
-                    > height_before_scroll
+                    lambda driver: len(driver.find_elements(*campaign_list_locator))
+                    > item_count_before_scroll
                 )
-                log.info("새로운 콘텐츠 로딩으로 페이지 높이 변경 확인됨.")
+                
+                # 성공 시, 연속 실패 카운트를 0으로 리셋합니다.
+                consecutive_fails = 0
+                log.info(f"성공: 아이템 개수 증가 확인됨 ({len(self.driver.find_elements(*campaign_list_locator))}개).")
 
             except TimeoutException:
-                # 10초간 기다려도 아이템 개수에 변화가 없으면, 페이지 끝으로 판단하고 종료
-                log.info("페이지 끝에 도달하여 무한 스크롤을 종료합니다.")
-                break  # for 루프 탈출
+                # 실패 시, 연속 실패 카운트를 1 증가시킵니다.
+                consecutive_fails += 1
+                log.warning(f"타임아웃: 아이템 개수 변경 감지 실패. (연속 실패: {consecutive_fails}/{MAX_CONSECUTIVE_FAILS})")
+                
+                # 연속 실패 횟수가 최대치에 도달하면 무한 스크롤을 종료합니다.
+                if consecutive_fails >= MAX_CONSECUTIVE_FAILS:
+                    log.info("연속으로 아이템 개수 증가에 실패하여 무한 스크롤을 종료합니다.")
+                    break # while 루프 탈출
+                else:
+                    log.info("스크롤을 한 번 더 시도합니다...")
+                    continue
 
         log.info("모든 캠페인 데이터 로딩 완료. 최종 페이지 소스를 반환합니다.")
         return self.driver.page_source

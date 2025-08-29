@@ -77,7 +77,6 @@ class MyMilkyScraper(BaseScraper):
                     break
                 page += 1
                 time.sleep(1)
-                break
             except requests.RequestException as e:
                 log.error(f"API 호출 중 에러 발생: {e}", exc_info=True)
                 break
@@ -179,6 +178,7 @@ class MyMilkyScraper(BaseScraper):
             log.info(f"주소가 비어있는 '방문형' 캠페인 {len(to_enrich_df)}건에 대해 주소 보강을 시작합니다.")
             engine = create_engine(self.settings.db.url)
             search_api_keys = self._get_api_keys()
+            geocoded_success_count = 0
 
             for index, row in to_enrich_df.iterrows():
                 query = row['title'].replace('[', '').replace(']', ' ')
@@ -188,7 +188,9 @@ class MyMilkyScraper(BaseScraper):
                     lat, lng, std_id = (None, None, None)
                     if address:
                         coords = naver_geocode(self.settings.naver_api.MAP_CLIENT_ID, self.settings.naver_api.MAP_CLIENT_SECRET, address)
-                        if coords: lat, lng = coords
+                        if coords: 
+                            lat, lng = coords
+                            geocoded_success_count += 1
                     raw_category_text = place.get("category")
                     if raw_category_text:
                         raw_id = get_or_create_raw_category(engine, raw_category_text)
@@ -196,12 +198,12 @@ class MyMilkyScraper(BaseScraper):
                     
                     df.loc[index, ['address', 'lat', 'lng', 'category_id']] = [address, lat, lng, std_id]
                 time.sleep(0.5)
+            log.info(f"주소 보강 완료: 총 {len(to_enrich_df)}건 중 {geocoded_success_count}건의 위도/경도 정보를 추가")
 
         # 4. 최종 컬럼 선택 및 반환
         final_columns = [col for col in self.RESULT_TABLE_COLUMNS if col in df.columns]
         final_df = df.reindex(columns=final_columns) # reindex로 순서 및 존재 보장
         final_df = final_df.astype(object).where(pd.notna(final_df), None)
-        log.info(f"Enrich 최종 완료:\n{final_df.head().to_string()}")
         return final_df.to_dict('records')
 
     def save(self, data: List[Dict[str, Any]]) -> None:

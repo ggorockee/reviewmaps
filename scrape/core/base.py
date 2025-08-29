@@ -118,7 +118,9 @@ class BaseScraper(ABC):
             )
             return None
 
-    def _click_element(self, locator: Tuple[By, str], timeout: int = 10) -> bool:
+    def _click_element(
+        self, locator: Tuple[By, str], timeout: int = settings.batch.WAIT_TIMEOUT
+    ) -> bool:
         """
         요소가 '클릭 가능한 상태'가 될 때까지 기다린 후 클릭합니다.
         """
@@ -133,7 +135,10 @@ class BaseScraper(ABC):
         return False
 
     def _send_keys_to_element(
-        self, locator: Tuple[By, str], text: str, timeout: int = 10
+        self,
+        locator: Tuple[By, str],
+        text: str,
+        timeout: int = settings.batch.WAIT_TIMEOUT,
     ) -> bool:
         """
         요소가 나타날 때까지 기다린 후, 텍스트를 입력합니다.
@@ -150,7 +155,7 @@ class BaseScraper(ABC):
         return False
 
     @abstractmethod
-    def scrape(self) -> Any:
+    def scrape(self, keyword: Optional[str] = None) -> str:
         """
         대상 웹사이트에서 원본 데이터(HTML, JSON 등)를 가져옵니다.
         """
@@ -179,14 +184,16 @@ class BaseScraper(ABC):
         self.logger.info("Enrich 단계는 구현되지 않아 건너뜁니다.")
         return data
 
-    def run(self) -> None:
+    def run(self, keyword: Optional[str] = None) -> None:  # keyword 인자 추가
         """
         스크레이핑 전체 파이프라인 (Scrape -> Parse -> Enrich -> Save)을 실행합니다.
         """
-        self.logger.info(f"===== {self.PLATFORM_NAME} 스크레이핑 시작 =====")
+        self.logger.info(
+            f"===== {self.PLATFORM_NAME} 스크레이핑 시작 (키워드: {keyword or '전체'}) ====="
+        )
         try:
             # 1. Scrape: 웹에서 HTML 데이터 가져오기
-            html_content = self.scrape()
+            html_content = self.scrape(keyword=keyword)  # scrape에 keyword 전달
             if not html_content:
                 self.logger.warning("scrape 단계에서 데이터를 가져오지 못했습니다.")
                 return

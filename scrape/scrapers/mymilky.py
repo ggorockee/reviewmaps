@@ -33,7 +33,7 @@ class MyMilkyScraper(BaseScraper):
     PLATFORM_NAME = "mymilky"
     BASE_URL = "https://mymilky.co.kr/"
 
-    def scrape(self) -> str:
+    def scrape(self, keyword: Optional[str] = None) -> str:
         """
         사이트에 접속하고 버튼 클릭 후, 초기 목록 로딩을 확인하고,
         성공했을 경우에만 최대 10번까지 무한 스크롤을 실행합니다.
@@ -41,30 +41,52 @@ class MyMilkyScraper(BaseScraper):
         log.info(f"{self.PLATFORM_NAME} 사이트 접속 시도: {self.BASE_URL}")
         self.driver.get(self.BASE_URL)
 
-        # 1. 버튼 클릭
-        button_locator = (
-            By.XPATH,
-            '//*[@id="__nuxt"]/div/main/section[1]/div/div[2]/div/img',
-        )
-        log.info("캠페인 목록을 보기 위해 버튼 클릭을 시도합니다...")
-        if not self._click_element(button_locator, timeout=15):
-            log.error("버튼을 클릭하지 못해 스크레이핑을 중단합니다.")
-            with open("click_fail_page.html", "w", encoding="utf-8") as f:
-                f.write(self.driver.page_source)
-            log.info("클릭 실패 당시의 페이지를 click_fail_page.html 로 저장했습니다.")
-            return ""
-        log.info("버튼 클릭 성공.")
-
-        # 2. 초기 목록 로딩 확인 (스크레이핑 성공의 기준점)
+        # 초기 목록 로딩 확인 (스크레이핑 성공의 기준점)
         campaign_list_locator = (By.CSS_SELECTOR, "div.card-list > a.card-list__item")
-        if not self._wait_and_find_element(campaign_list_locator, timeout=15):
-            log.error("버튼 클릭 후 캠페인 목록을 찾지 못해 스크레이핑을 중단합니다.")
-            with open("list_load_fail_page.html", "w", encoding="utf-8") as f:
-                f.write(self.driver.page_source)
-            log.info(
-                "목록 로딩 실패 당시의 페이지를 list_load_fail_page.html 로 저장했습니다."
+
+        try:
+            loading_overlay_locator = (By.CSS_SELECTOR, "div.loading-container")
+            log.info("초기 로딩 오버레이가 사라지기를 기다립니다...")
+            wait = WebDriverWait(
+                self.driver, self.settings.batch.WAIT_TIMEOUT
+            )  # 최대 15초 대기
+            wait.until(EC.invisibility_of_element_located(loading_overlay_locator))
+            log.info("로딩 오버레이 사라짐. 스크레이핑을 계속합니다.")
+        except TimeoutException:
+            # 로딩 오버레이는 때때로 매우 짧게 나타나거나 없을 수도 있습니다.
+            # 15초를 기다려도 사라지지 않는 경우만 문제로 간주하거나, 무시하고 넘어갈 수 있습니다.
+            # 여기서는 경고만 남기고 계속 진행하도록 하겠습니다.
+            log.warning(
+                "로딩 오버레이가 시간 내에 사라지지 않았거나, 처음부터 없었을 수 있습니다."
             )
-            return ""
+            pass
+
+        if keyword:
+            log.info(f"'{keyword}' 키워드로 검색을 시작합니다.")
+            search_input_locator = (By.CSS_SELECTOR, "input.search-input")
+            search_button_locator = (
+                By.CSS_SELECTOR,
+                "div.search-box__container > div > img",
+            )
+
+            # .send_keys가 아니라 BaseScraper의 헬퍼 메서드를 사용
+            if not self._send_keys_to_element(search_input_locator, keyword):
+                log.error("검색어 입력에 실패했습니다.")
+                return ""
+            if not self._click_element(search_button_locator):
+                log.error("검색 버튼 클릭에 실패했습니다.")
+                return ""
+        else:
+            # 키워드가 없으면 기존의 전체 목록 보기 버튼 클릭
+            button_locator = (
+                By.XPATH,
+                '//*[@id="__nuxt"]/div/main/section[1]/div/div[2]/div/img',
+            )
+            if not self._click_element(
+                button_locator, timeout=self.settings.batch.WAIT_TIMEOUT
+            ):
+                log.error("버튼을 클릭하지 못해 스크레이핑을 중단합니다.")
+                return ""
 
         log.info("초기 캠페인 목록 로딩 완료. 이제 무한 스크롤을 시작합니다.")
 
@@ -90,7 +112,8 @@ class MyMilkyScraper(BaseScraper):
 
                 # 3. [핵심] time.sleep() 대신, 아이템 개수가 늘어날 때까지 최대 10초간 기다림
                 wait = WebDriverWait(
-                    self.driver, 10
+                    self.driver,
+                    self.settings.batch.WAIT_TIMEOUT,
                 )  # 10초 이상 응답이 없으면 끝으로 간주
                 wait.until(
                     lambda driver: len(driver.find_elements(*campaign_list_locator))
@@ -189,7 +212,7 @@ class MyMilkyScraper(BaseScraper):
                 region = region_elem.get_text(strip=True) if region_elem else None
 
                 channel_img_elem = item.select_one("div.card-date img")
-                campaign_channel = "unknown"
+                campaign_channel = "etc"
                 if channel_img_elem and "src" in channel_img_elem.attrs:
                     channel_img_src = channel_img_elem["src"]
                     if "blog" in channel_img_src:
@@ -198,10 +221,14 @@ class MyMilkyScraper(BaseScraper):
                         campaign_channel = "clip"
                     elif "instagram" in channel_img_src:
                         campaign_channel = "instagram"
-                    elif "youtube" in channel_img_src:
-                        campaign_channel = "youtube"
                     elif "reels" in channel_img_src:
                         campaign_channel = "reels"
+                    elif "youtube" in channel_img_src:
+                        campaign_channel = "youtube"
+                    elif "shorts" in channel_img_src:
+                        campaign_channel = "shorts"
+                    elif "tiktok" in channel_img_src:
+                        campaign_channel = "tiktok"
 
                 days_left_elem = item.select_one("span.card-date__text")
                 raw_days_left = (
@@ -241,7 +268,7 @@ class MyMilkyScraper(BaseScraper):
         # 0. 중복제거
         log.info(f"DataFrame 변환 완료. 중복 제거 전 데이터: {len(raw_df)}건")
         dedup_df = raw_df.drop_duplicates(
-            subset=["platform", "company", "offer"], keep="last"
+            subset=["platform", "company", "offer", "campaign_channel"], keep="last"
         ).copy()
         dropped_count = len(raw_df) - len(dedup_df)
         if dropped_count > 0:
@@ -409,11 +436,11 @@ class MyMilkyScraper(BaseScraper):
             f"""
                     INSERT INTO campaign (
                         -- 고유 키 --
-                        platform, company, offer,
+                        platform, company, offer, campaign_channel,
                         -- 기본 정보 --
                         title, content_link, company_link, source,
                         -- 캠페인 정보 --
-                        campaign_type, region, campaign_channel, apply_deadline,
+                        campaign_type, region, apply_deadline,
                         -- 보강된 정보 --
                         address, lat, lng, category_id
                     ) VALUES (
@@ -431,7 +458,6 @@ class MyMilkyScraper(BaseScraper):
                         company_link = EXCLUDED.company_link,
                         campaign_type = EXCLUDED.campaign_type,
                         region = EXCLUDED.region,
-                        campaign_channel = EXCLUDED.campaign_channel,
                         apply_deadline = EXCLUDED.apply_deadline,
                         address = EXCLUDED.address,
                         lat = EXCLUDED.lat,

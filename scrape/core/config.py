@@ -50,6 +50,9 @@ class BatchSettings(BaseSettings):
     # 프로세스 시작 직후 한 번 즉시 실행할지 여부
     RUN_AT_START: bool = os.getenv("RUN_AT_START", "false").lower() == "true"
 
+    # WAIT_TIMEOUT
+    WAIT_TIMEOUT: int = os.getenv("WAIT_TIMEOUT", 15)
+
     @property
     def tz(self) -> ZoneInfo:
         """설정된 타임존을 ZoneInfo 객체로 변환합니다."""

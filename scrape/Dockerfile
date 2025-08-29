@@ -7,7 +7,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     CHROME_BIN=/usr/bin/chromium
 
-    RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     chromium \
     fonts-liberation \
     libasound2 \
@@ -29,5 +29,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # .dockerignore에 명시된 파일을 제외하고 모든 파일을 복사합니다.
 COPY . .
 
+# entrypoint.sh 스크립트에 실행 권한을 부여합니다.
+RUN chmod +x entrypoint.sh
+
+
 # entrypoint.sh 스크립트가 실행된 후, 이 gunicorn 명령어가 실행됩니다.
-CMD ["python", "main.py"]
+ENTRYPOINT ["./entrypoint.sh"]

@@ -1,10 +1,22 @@
-.git
+# .dockerignore
+
+# Python
 __pycache__/
 *.pyc
-*.log
+*.pyo
+*.pyd
+.Python
+env/
+venv/
 .env
-.vscode
-.idea
-dist/
-build/
-.cache/
+
+# Git
+.git
+.gitignore
+
+# IDE / OS
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store

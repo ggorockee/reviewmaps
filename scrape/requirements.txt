@@ -2,13 +2,13 @@ python-dotenv==1.1.1
 pandas==2.3.1
 numpy==2.3.2
 requests==2.32.4
-selenium==4.35.0
-webdriver-manager==4.0.2
+# selenium==4.35.0
+# webdriver-manager==4.0.2
 SQLAlchemy==2.0.43
 psycopg2-binary==2.9.10
-tqdm==4.67.1
+# tqdm==4.67.1
 tzdata==2025.2
 schedule==1.2.2
-beautifulsoup4==4.13.5
+# beautifulsoup4==4.13.5
 pydantic-settings==2.10.1
-lxml==6.0.0
+# lxml==6.0.0

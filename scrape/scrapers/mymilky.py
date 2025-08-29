@@ -41,14 +41,22 @@ class MyMilkyScraper(BaseScraper):
         }
         
         while True:
-            params = {'page': page, 'limit': limit, 'order': 'recent'}
+            params = {
+                'page': 2, 
+                'limit': 19, 
+                }
             if keyword:
-                params['q'] = quote(keyword)
+                params['q'] = keyword
             
             log.info(f"API 호출 중... (Page: {page}, Keyword: {keyword or 'None'})")
-            
             try:
-                response = requests.get(self.BASE_URL, params=params, headers=headers, timeout=20)
+                response = requests.get(
+                        self.BASE_URL, 
+                        params=params, 
+                        headers=headers, 
+                        timeout=20,
+                    )
+                
                 response.raise_for_status()
                 data = response.json()
                 campaigns_on_page = data.get('data', [])
@@ -61,18 +69,16 @@ class MyMilkyScraper(BaseScraper):
                 log.info(f"캠페인 {len(campaigns_on_page)}개 수집 완료. (누적: {len(all_campaign_data)} / 전체: {data.get('total')})")
 
                 total = data.get('total', 0)
-                if page * limit >= total or total == 0:
+                if not total or page * limit >= total:
                     log.info("마지막 페이지에 도달했습니다.")
                     break
-
                 page += 1
                 time.sleep(1)
-
             except requests.RequestException as e:
                 log.error(f"API 호출 중 에러 발생: {e}", exc_info=True)
                 break
-
         return all_campaign_data
+
 
     def parse(self, api_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """

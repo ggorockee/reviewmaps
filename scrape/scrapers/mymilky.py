@@ -97,11 +97,37 @@ class MyMilkyScraper(BaseScraper):
 
         while True:
             try:
-                # 1. 스크롤 전 현재 아이템 개수 확인
-                item_count_before_scroll = len(
-                    self.driver.find_elements(*campaign_list_locator)
+                # 아이템 갯수의 변화
+                # # 1. 스크롤 전 현재 아이템 개수 확인
+                # item_count_before_scroll = len(
+                #     self.driver.find_elements(*campaign_list_locator)
+                # )
+                # log.info(f"스크롤 전 아이템 개수: {item_count_before_scroll}")
+                #
+                # # 2. 페이지 맨 아래로 스크롤
+                # self.driver.execute_script(
+                #     "window.scrollTo(0, document.body.scrollHeight);"
+                # )
+                # scroll_count += 1
+                # log.info(f"스크롤 다운 ({scroll_count}회)")
+                #
+                # # 3. [핵심] time.sleep() 대신, 아이템 개수가 늘어날 때까지 최대 10초간 기다림
+                # wait = WebDriverWait(
+                #     self.driver,
+                #     self.settings.batch.WAIT_TIMEOUT,
+                # )  # 10초 이상 응답이 없으면 끝으로 간주
+                # wait.until(
+                #     lambda driver: len(driver.find_elements(*campaign_list_locator))
+                #     > item_count_before_scroll
+                # )
+                # # log.info("새로운 아이템 로딩이 확인되었습니다.")
+                # # if scroll_count == 5:
+                # #     break
+
+                # 1. 스크롤 전 현재 페이지의 높이를 기록합니다.
+                height_before_scroll = self.driver.execute_script(
+                    "return document.body.scrollHeight"
                 )
-                log.info(f"스크롤 전 아이템 개수: {item_count_before_scroll}")
 
                 # 2. 페이지 맨 아래로 스크롤
                 self.driver.execute_script(
@@ -110,18 +136,15 @@ class MyMilkyScraper(BaseScraper):
                 scroll_count += 1
                 log.info(f"스크롤 다운 ({scroll_count}회)")
 
-                # 3. [핵심] time.sleep() 대신, 아이템 개수가 늘어날 때까지 최대 10초간 기다림
-                wait = WebDriverWait(
-                    self.driver,
-                    self.settings.batch.WAIT_TIMEOUT,
-                )  # 10초 이상 응답이 없으면 끝으로 간주
+                # 3. [핵심] 아이템 개수 대신, 페이지의 높이가 변할 때까지 최대 10초간 기다립니다.
+                wait = WebDriverWait(self.driver, self.settings.batch.WAIT_TIMEOUT)
                 wait.until(
-                    lambda driver: len(driver.find_elements(*campaign_list_locator))
-                    > item_count_before_scroll
+                    lambda driver: driver.execute_script(
+                        "return document.body.scrollHeight"
+                    )
+                    > height_before_scroll
                 )
-                # log.info("새로운 아이템 로딩이 확인되었습니다.")
-                # if scroll_count == 5:
-                #     break
+                log.info("새로운 콘텐츠 로딩으로 페이지 높이 변경 확인됨.")
 
             except TimeoutException:
                 # 10초간 기다려도 아이템 개수에 변화가 없으면, 페이지 끝으로 판단하고 종료

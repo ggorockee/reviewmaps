@@ -7,14 +7,15 @@ from .logger import get_logger
 
 log = get_logger("enricher")
 
+
 def naver_local_search(api_keys: List[Tuple[str, str]], query: str) -> Optional[Dict]:
     """
     키를 라운드로빈하지 않고, 1번 키를 최대한 소진 → 429가 일정 횟수 누적되면 '해당 키 소진'으로 판단하여
     리스트에서 제거하고 다음 키로 넘어간다.
     """
-    
+
     url = "https://openapi.naver.com/v1/search/local.json"
-    clean_q = (query or "").replace("[","").replace("]","").replace("/"," ").strip()
+    clean_q = (query or "").replace("[", "").replace("]", "").replace("/", " ").strip()
     params = {"query": clean_q, "display": 1}
 
     if not api_keys:
@@ -23,17 +24,20 @@ def naver_local_search(api_keys: List[Tuple[str, str]], query: str) -> Optional[
 
     # 429 일시 속도 제한을 위한 백오프 파라미터
     # - 동일 키에서 429가 STRIKE_LIMIT 번 이상 발생하면 '소진' 판단
-    STRIKE_LIMIT = 3               # 이 횟수 이상 429면 키 소진 처리
-    INITIAL_SLEEP = 0.4            # 첫 백오프(초)
-    BACKOFF_FACTOR = 1.7           # 지수 백오프 계수
-    MAX_BACKOFF = 6.0              # 같은 키에서 한 번 시도 시 최대 대기
-    JITTER = (0.0, 0.3)            # 지터 범위
+    STRIKE_LIMIT = 3  # 이 횟수 이상 429면 키 소진 처리
+    INITIAL_SLEEP = 0.4  # 첫 백오프(초)
+    BACKOFF_FACTOR = 1.7  # 지수 백오프 계수
+    MAX_BACKOFF = 6.0  # 같은 키에서 한 번 시도 시 최대 대기
+    JITTER = (0.0, 0.3)  # 지터 범위
 
     # 항상 첫 번째 키부터 시도 → 소진되면 pop(0)으로 제거
     # (원본 리스트를 수정해 다음 호출(enrich_once 루프)에도 상태가 반영되도록 함)
     while api_keys:
         client_id, client_secret = api_keys[0]
-        headers = {"X-Naver-Client-Id": client_id, "X-Naver-Client-Secret": client_secret}
+        headers = {
+            "X-Naver-Client-Id": client_id,
+            "X-Naver-Client-Secret": client_secret,
+        }
 
         strikes = 0
         backoff = INITIAL_SLEEP
@@ -43,7 +47,7 @@ def naver_local_search(api_keys: List[Tuple[str, str]], query: str) -> Optional[
                 log.info(
                     f"Naver Local API 호출 (현재 키: ...{client_id[-4:]}, 잔여키수: {len(api_keys)}, "
                     f"Query(raw)='{query}', Query(clean)='{clean_q}')"
-                    )
+                )
                 r = requests.get(url, headers=headers, params=params, timeout=5)
                 r.raise_for_status()
                 items = r.json().get("items", [])
@@ -58,12 +62,16 @@ def naver_local_search(api_keys: List[Tuple[str, str]], query: str) -> Optional[
                 if status == 429:
                     strikes += 1
                     if strikes >= STRIKE_LIMIT:
-                        log.warning(f"Key ...{client_id[-4:]} 429 {strikes}회 → 소진 판단, 키 제거 후 다음 키로 이동.")
+                        log.warning(
+                            f"Key ...{client_id[-4:]} 429 {strikes}회 → 소진 판단, 키 제거 후 다음 키로 이동."
+                        )
                         api_keys.pop(0)  # 이 키 제거 → 다음 키로 넘어감
                         break  # 외부 while로 나가 다음 키 시도
                     sleep_for = min(MAX_BACKOFF, backoff) + random.uniform(*JITTER)
-                    log.warning(f"429(Too Many Requests): 같은 키 재시도까지 {sleep_for:.2f}s 대기 "
-                                f"(strike {strikes}/{STRIKE_LIMIT}, key ...{client_id[-4:]})")
+                    log.warning(
+                        f"429(Too Many Requests): 같은 키 재시도까지 {sleep_for:.2f}s 대기 "
+                        f"(strike {strikes}/{STRIKE_LIMIT}, key ...{client_id[-4:]})"
+                    )
                     time.sleep(sleep_for)
                     backoff *= BACKOFF_FACTOR
                     continue
@@ -71,7 +79,9 @@ def naver_local_search(api_keys: List[Tuple[str, str]], query: str) -> Optional[
                 # 네트워크/기타 오류 → 같은 키로 짧게 재시도(두세 번만)
                 # 여기서는 429와 다르게 strikes 카운트를 쓰지 않고, 2~3회 정도만 빠르게 재도전 후 키 소진 처리해도 됨.
                 # 단순화를 위해 한 번 더만 시도:
-                log.warning(f"Naver Local API 실패(status={status}): {e}. 같은 키로 1회 재시도.")
+                log.warning(
+                    f"Naver Local API 실패(status={status}): {e}. 같은 키로 1회 재시도."
+                )
                 time.sleep(0.5 + random.uniform(*JITTER))
                 try:
                     r = requests.get(url, headers=headers, params=params, timeout=5)
@@ -87,14 +97,17 @@ def naver_local_search(api_keys: List[Tuple[str, str]], query: str) -> Optional[
     log.error(f"Naver Local API 모든 키 소진(또는 실패): {clean_q}")
     return None
 
-def naver_geocode(map_id: str, map_secret: str, address: str) -> Optional[Tuple[float, float]]:
+
+def naver_geocode(
+    map_id: str, map_secret: str, address: str
+) -> Optional[Tuple[float, float]]:
     # 반환값: (lat, lng)
     url = "https://maps.apigw.ntruss.com/map-geocode/v2/geocode"
     headers = {"x-ncp-apigw-api-key-id": map_id, "x-ncp-apigw-api-key": map_secret}
     params = {"query": address}
     max_retries = 3
-    backoff_factor = 1 # 초기 대기 시간 (초)
-    
+    backoff_factor = 1  # 초기 대기 시간 (초)
+
     for attempt in range(max_retries):
         try:
             r = requests.get(url, headers=headers, params=params, timeout=10)
@@ -108,18 +121,21 @@ def naver_geocode(map_id: str, map_secret: str, address: str) -> Optional[Tuple[
         except requests.RequestException as e:
             # 429 (Too Many Requests) 에러일 경우에만 재시도
             if e.response and e.response.status_code == 429:
-                wait_time = backoff_factor * (2 ** attempt)
-                log.warning(f"Geocode API 쿼터 초과 ({address}). {wait_time}초 후 재시도... ({attempt + 1}/{max_retries})")
+                wait_time = backoff_factor * (2**attempt)
+                log.warning(
+                    f"Geocode API 쿼터 초과 ({address}). {wait_time}초 후 재시도... ({attempt + 1}/{max_retries})"
+                )
                 time.sleep(wait_time)
             else:
                 log.warning(f"Geocode 실패 ({address}): {e}")
-                wait_time = backoff_factor * (2 ** attempt)
+                wait_time = backoff_factor * (2**attempt)
                 time.sleep(wait_time)
-                return None # 다른 종류의 에러는 재시도하지 않음
+                return None  # 다른 종류의 에러는 재시도하지 않음
 
     log.error(f"Geocode API 모든 재시도 실패 ({address})")
     return None
-    
+
+
 def get_or_create_raw_category(engine: Engine, raw_text: str) -> Optional[int]:
     """
     raw_categories 테이블에서 raw_text를 찾아 ID를 반환합니다. 없으면 새로 생성합니다.
@@ -128,36 +144,39 @@ def get_or_create_raw_category(engine: Engine, raw_text: str) -> Optional[int]:
         return None
 
     clean_text = raw_text.strip()
-    
+
     with engine.begin() as conn:
         # 먼저 ID를 조회
         find_q = text("SELECT id FROM raw_categories WHERE raw_text = :text")
         result = conn.execute(find_q, {"text": clean_text}).scalar_one_or_none()
-        
+
         if result is not None:
             return result
-        
+
         # 없으면 새로 생성하고 ID를 반환 (ON CONFLICT를 사용하여 동시성 문제 방지)
         log.info(f"새로운 원본 카테고리 발견: '{clean_text}'")
-        insert_q = text("INSERT INTO raw_categories (raw_text) VALUES (:text) ON CONFLICT (raw_text) DO NOTHING RETURNING id")
+        insert_q = text(
+            "INSERT INTO raw_categories (raw_text) VALUES (:text) ON CONFLICT (raw_text) DO NOTHING RETURNING id"
+        )
         result = conn.execute(insert_q, {"text": clean_text}).scalar_one_or_none()
-        
+
         # ON CONFLICT DO NOTHING 때문에 INSERT가 안됐을 수 있으므로 다시 조회하여 ID를 확실히 반환
         if result is None:
             result = conn.execute(find_q, {"text": clean_text}).scalar_one_or_none()
-            
+
         return result
-    
+
+
 def find_mapped_category_id(engine: Engine, raw_category_id: int) -> Optional[int]:
     """
     category_mappings 테이블에서 매핑된 standard_category_id를 찾습니다.
     """
     if raw_category_id is None:
         return None
-    
-    q = text("SELECT standard_category_id FROM category_mappings WHERE raw_category_id = :id")
+
+    q = text(
+        "SELECT standard_category_id FROM category_mappings WHERE raw_category_id = :id"
+    )
     with engine.connect() as conn:
         result = conn.execute(q, {"id": raw_category_id}).scalar_one_or_none()
     return result
-
-

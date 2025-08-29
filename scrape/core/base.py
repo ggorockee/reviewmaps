@@ -15,6 +15,7 @@ from typing import Tuple, Callable, Optional
 
 log = get_logger("scraper.base")
 
+
 class BaseScraper(ABC):
     """
     모든 스크레이퍼를 위한 추상 기본 클래스입니다.
@@ -36,23 +37,23 @@ class BaseScraper(ABC):
     RESULT_TABLE_COLUMNS = [
         # ======== 수정할 수 없는 영역 =======
         "source",
-        "platform", 
-        "company", 
-        "company_link", 
+        "platform",
+        "company",
+        "company_link",
         "category_id",
         "offer",
-        "apply_from", 
-        "apply_deadline", 
-        "review_deadline", 
+        "apply_from",
+        "apply_deadline",
+        "review_deadline",
         "search_text",
-        "address", 
-        "lat", 
-        "lng", 
+        "address",
+        "lat",
+        "lng",
         "img_url",
         # ================================
         # source -> 기존 것 사용
-        "title", # 작성하면서 company에도 데이터 추가, 기존 안정성유지
-        "content_link", # 작성하면서 company_link에도 데이터추가, 기존 안정성유지
+        "title",  # 작성하면서 company에도 데이터 추가, 기존 안정성유지
+        "content_link",  # 작성하면서 company_link에도 데이터추가, 기존 안정성유지
         # "offer", # 기존거 사용
         # "platform", # 기존거 사용
         "campaign_type",
@@ -60,8 +61,6 @@ class BaseScraper(ABC):
         "campaign_channel",
         # "days_left", # apply_deadline 추가
     ]
-
-
 
     def __init__(self):
         self.settings = settings
@@ -81,10 +80,14 @@ class BaseScraper(ABC):
         options.add_argument("--disable-dev-shm-usage")
 
         # ✅ 약간의 위장 (일부 사이트가 headless에 소극적일 때)
-        options.add_argument("--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-                            "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
+        options.add_argument(
+            "--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+        )
         options.add_argument("--disable-blink-features=AutomationControlled")
-        options.add_experimental_option("excludeSwitches", ["enable-logging", "enable-automation"])
+        options.add_experimental_option(
+            "excludeSwitches", ["enable-logging", "enable-automation"]
+        )
         options.add_experimental_option("useAutomationExtension", False)
 
         driver = webdriver.Chrome(options=options)
@@ -95,12 +98,11 @@ class BaseScraper(ABC):
             pass
         return driver
 
-
     def _wait_and_find_element(
-        self, 
-        locator: Tuple[By, str], 
-        timeout: int = 10, 
-        condition: Callable = EC.presence_of_element_located
+        self,
+        locator: Tuple[By, str],
+        timeout: int = 10,
+        condition: Callable = EC.presence_of_element_located,
     ) -> Optional[WebElement]:
         """
         지정된 locator의 요소가 특정 조건(condition)을 만족할 때까지 기다린 후,
@@ -111,17 +113,17 @@ class BaseScraper(ABC):
             element = wait.until(condition(locator))
             return element
         except TimeoutException:
-            self.logger.error(f"요소를 찾는 데 실패했습니다 (시간 초과). Locator: {locator}")
+            self.logger.error(
+                f"요소를 찾는 데 실패했습니다 (시간 초과). Locator: {locator}"
+            )
             return None
-    
+
     def _click_element(self, locator: Tuple[By, str], timeout: int = 10) -> bool:
         """
         요소가 '클릭 가능한 상태'가 될 때까지 기다린 후 클릭합니다.
         """
         element = self._wait_and_find_element(
-            locator, 
-            timeout, 
-            condition=EC.element_to_be_clickable
+            locator, timeout, condition=EC.element_to_be_clickable
         )
         if element:
             element.click()
@@ -130,19 +132,22 @@ class BaseScraper(ABC):
         self.logger.error(f"요소를 클릭하는 데 실패했습니다: {locator}")
         return False
 
-    def _send_keys_to_element(self, locator: Tuple[By, str], text: str, timeout: int = 10) -> bool:
+    def _send_keys_to_element(
+        self, locator: Tuple[By, str], text: str, timeout: int = 10
+    ) -> bool:
         """
         요소가 나타날 때까지 기다린 후, 텍스트를 입력합니다.
         """
         element = self._wait_and_find_element(locator, timeout)
         if element:
-            element.clear() # 기존 텍스트 삭제
+            element.clear()  # 기존 텍스트 삭제
             element.send_keys(text)
-            self.logger.info(f"요소에 텍스트를 입력했습니다: {locator}, text: {text[:30]}")
+            self.logger.info(
+                f"요소에 텍스트를 입력했습니다: {locator}, text: {text[:30]}"
+            )
             return True
         self.logger.error(f"요소에 텍스트를 입력하는 데 실패했습니다: {locator}")
         return False
-
 
     @abstractmethod
     def scrape(self) -> Any:
@@ -164,7 +169,7 @@ class BaseScraper(ABC):
         구조화된 데이터를 데이터베이스나 다른 저장소에 저장합니다.
         """
         raise NotImplementedError
-    
+
     def enrich(self, data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         [선택적] 파싱된 데이터를 데이터프레임 변환, 정제 등 보강하는 단계입니다.
@@ -192,7 +197,7 @@ class BaseScraper(ABC):
                 self.logger.warning("parse 단계에서 데이터가 파싱되지 않았습니다.")
                 return
             self.logger.info(f"총 {len(parsed_data)}개의 아이템을 파싱했습니다.")
-            
+
             # 3. Enrich: 파싱된 데이터 정제 및 보강
             enriched_data = self.enrich(parsed_data)
             # log.info(f"save 메서드로 전달될 데이터의 타입: {type(enriched_data)}")
@@ -200,7 +205,6 @@ class BaseScraper(ABC):
             # if enriched_data and isinstance(enriched_data, list) and len(enriched_data) > 0:
             #     log.info(f"리스트 첫 번째 요소의 타입: {type(enriched_data[0])}")
 
-            
             # 4. Save: 최종 데이터를 DB 등에 저장
             self.save(enriched_data)
 

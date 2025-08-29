@@ -435,6 +435,8 @@ class MyMilkyScraper(BaseScraper):
 
         engine = create_engine(self.settings.db.url)
         Session = sessionmaker(bind=engine)
+
+        # upsert
         upsert_sql = text(
             f"""
                     INSERT INTO campaign (

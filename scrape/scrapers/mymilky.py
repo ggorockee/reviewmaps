@@ -32,7 +32,9 @@ class MyMilkyScraper(BaseScraper):
 
     PLATFORM_NAME = "mymilky"
     BASE_URL = "https://mymilky.co.kr/"
-
+    
+    
+    
     def scrape(self, keyword: Optional[str] = None) -> str:
         """
         사이트에 접속하고 버튼 클릭 후, 초기 목록 로딩을 확인하고,
@@ -97,44 +99,148 @@ class MyMilkyScraper(BaseScraper):
         # 연속으로 2번 이상 높이 변경 감지에 실패하면 종료
         MAX_CONSECUTIVE_FAILS = 2 
         last_height = self.driver.execute_script("return document.body.scrollHeight")
+        ###########################################
+        log.info("초기 캠페인 목록 로딩 완료. 이제 무한 스크롤을 시작합니다.")
 
-        while True:
+        campaign_list_locator = (By.CSS_SELECTOR, "div.card-list > a.card-list__item")
+        loading_overlay_locator = (By.CSS_SELECTOR, "div.loading-container")  # 로딩 오버레이
+        load_more_btns = [
+            (By.CSS_SELECTOR, "button.load-more"),
+            (By.CSS_SELECTOR, "div.load-more > button"),
+            (By.XPATH, "//button[contains(., '더보기') or contains(., '더 불러오기')]"),
+        ]
+
+        def _find_scroll_container():
+            # 스크롤 가능한 컨테이너를 탐색. 없으면 window(body) 사용
+            js = """
+            function findScrollable(el) {
+            const isScrollable = e => {
+                try {
+                const style = window.getComputedStyle(e);
+                const oy = style.overflowY;
+                if (!oy) return false;
+                if (oy === 'auto' || oy === 'scroll') {
+                    return e.scrollHeight > e.clientHeight + 2;
+                }
+                return false;
+                } catch (e) { return false; }
+            };
+            let node = el;
+            while (node && node !== document.body) {
+                if (isScrollable(node)) return node;
+                node = node.parentElement;
+            }
+            if (document.documentElement.scrollHeight > document.documentElement.clientHeight + 2) {
+                return document.scrollingElement || document.documentElement || document.body;
+            }
+            return document.body;
+            }
+            const list = document.querySelector("div.card-list");
+            if (list) return findScrollable(list);
+            return document.scrollingElement || document.documentElement || document.body;
+            """
+            return self.driver.execute_script("return (" + js + ");")
+
+        def _scroll_container_to_bottom(container, px=800):
+            # 살짝살짝 내려주며 관찰자를 자극
+            self.driver.execute_script("arguments[0].scrollBy(0, arguments[1]);", container, px)
+
+        def _scroll_to_bottom(container):
+            self.driver.execute_script("arguments[0].scrollTop = arguments[0].scrollHeight;", container)
+
+        def _last_card():
+            cards = self.driver.find_elements(*campaign_list_locator)
+            return cards[-1] if cards else None
+
+        def _wait_overlay_cycle(timeout=10):
+            # 오버레이가 보였다가(있다면) 사라질 때까지
             try:
-                # 1. 스크롤 전 현재 아이템 개수 확인
-                item_count_before_scroll = len(
-                    self.driver.find_elements(*campaign_list_locator)
-                )
-                
-                # 2. 페이지 맨 아래로 스크롤
-                self.driver.execute_script(
-                    "window.scrollTo(0, document.body.scrollHeight);"
-                )
-                scroll_count += 1
-                log.info(f"스크롤 다운 ({scroll_count}회), 현재 아이템: {item_count_before_scroll}개")
+                WebDriverWait(self.driver, 2).until(EC.visibility_of_element_located(loading_overlay_locator))
+            except Exception:
+                pass
+            try:
+                WebDriverWait(self.driver, timeout).until(EC.invisibility_of_element_located(loading_overlay_locator))
+            except Exception:
+                pass
 
-                # 3. 아이템 개수가 늘어날 때까지 최대 10초간 기다립니다.
-                wait = WebDriverWait(self.driver, 10)
-                wait.until(
-                    lambda driver: len(driver.find_elements(*campaign_list_locator))
-                    > item_count_before_scroll
-                )
-                
-                # 성공 시, 연속 실패 카운트를 0으로 리셋합니다.
-                consecutive_fails = 0
-                log.info(f"성공: 아이템 개수 증가 확인됨 ({len(self.driver.find_elements(*campaign_list_locator))}개).")
+        def _try_click_load_more():
+            for how, sel in load_more_btns:
+                btns = self.driver.find_elements(how, sel)
+                if btns:
+                    try:
+                        btn = btns[0]
+                        self.driver.execute_script("arguments[0].scrollIntoView({block:'center'});", btn)
+                        time.sleep(0.2)
+                        btn.click()
+                        log.info("‘더보기’ 버튼을 클릭했습니다.")
+                        return True
+                    except Exception as e:
+                        log.warning(f"‘더보기’ 클릭 실패: {e}")
+            return False
 
-            except TimeoutException:
-                # 실패 시, 연속 실패 카운트를 1 증가시킵니다.
-                consecutive_fails += 1
-                log.warning(f"타임아웃: 아이템 개수 변경 감지 실패. (연속 실패: {consecutive_fails}/{MAX_CONSECUTIVE_FAILS})")
-                
-                # 연속 실패 횟수가 최대치에 도달하면 무한 스크롤을 종료합니다.
-                if consecutive_fails >= MAX_CONSECUTIVE_FAILS:
-                    log.info("연속으로 아이템 개수 증가에 실패하여 무한 스크롤을 종료합니다.")
-                    break # while 루프 탈출
-                else:
-                    log.info("스크롤을 한 번 더 시도합니다...")
-                    continue
+        scroll_container = _find_scroll_container()
+        log.info(f"스크롤 컨테이너 확보: {type(scroll_container)}")
+
+        MAX_ROUNDS = 120           # 충분히 크게(약 2천개면 넉넉히)
+        STEP_PX = 1000             # 한 번에 내릴 픽셀
+        STILL_LIMIT = 8            # 연속 변화 없음 허용 횟수
+        consecutive_no_change = 0
+        prev_count = len(self.driver.find_elements(*campaign_list_locator))
+        prev_last_id = None
+        try:
+            prev_last_id = _last_card().get_attribute("href") if _last_card() else None
+        except Exception:
+            prev_last_id = None
+
+        for round_no in range(1, MAX_ROUNDS + 1):
+            before_h = self.driver.execute_script("return arguments[0].scrollHeight;", scroll_container)
+            before_top = self.driver.execute_script("return arguments[0].scrollTop;", scroll_container)
+
+            # 1) 마지막 카드로 먼저 스크롤(관찰자 자극)
+            last = _last_card()
+            if last:
+                try:
+                    self.driver.execute_script("arguments[0].scrollIntoView({block:'end'});", last)
+                    time.sleep(0.1)
+                except Exception:
+                    pass
+
+            # 2) 컨테이너를 아래로 당김
+            _scroll_container_to_bottom(scroll_container, STEP_PX)
+
+            # 3) ‘더보기’ 버튼 있으면 클릭
+            clicked = _try_click_load_more()
+
+            # 4) 로딩 오버레이 사이클 대기
+            _wait_overlay_cycle(timeout=12)
+
+            # 5) 증가 판단: 개수/scrollHeight/마지막 카드 변경 중 하나라도 오르면 성공
+            now_count = len(self.driver.find_elements(*campaign_list_locator))
+            after_h = self.driver.execute_script("return arguments[0].scrollHeight;", scroll_container)
+            now_last = None
+            try:
+                card = _last_card()
+                now_last = card.get_attribute("href") if card else None
+            except Exception:
+                now_last = None
+
+            increased = (now_count > prev_count) or (after_h > before_h) or (now_last and now_last != prev_last_id)
+
+            log.info(f"스크롤 라운드 {round_no}: count {prev_count}->{now_count}, height {before_h}->{after_h}, last {prev_last_id}->{now_last}, clicked={clicked}")
+
+            if increased:
+                consecutive_no_change = 0
+                prev_count = now_count
+                prev_last_id = now_last
+            else:
+                consecutive_no_change += 1
+                # 컨테이너 끝까지 이미 도달했는데 변화가 없다면 마지막으로 바닥까지 쭉
+                _scroll_to_bottom(scroll_container)
+                time.sleep(0.3)
+
+            if consecutive_no_change >= STILL_LIMIT:
+                log.info(f"연속 {STILL_LIMIT}회 변화 없음 → 무한 스크롤 종료.")
+                break
 
         log.info("모든 캠페인 데이터 로딩 완료. 최종 페이지 소스를 반환합니다.")
         return self.driver.page_source

@@ -97,8 +97,8 @@ class MyMilkyScraper(BaseScraper):
                     > item_count_before_scroll
                 )
                 # log.info("새로운 아이템 로딩이 확인되었습니다.")
-                if scroll_count == 7:
-                    break
+                # if scroll_count == 7:
+                #     break
 
             except TimeoutException:
                 # 10초간 기다려도 아이템 개수에 변화가 없으면, 페이지 끝으로 판단하고 종료

@@ -33,7 +33,7 @@ class MyMilkyScraper(BaseScraper):
         """
         all_campaign_data = []
         page = 1
-        limit = 50
+        limit = 100
 
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
@@ -42,9 +42,10 @@ class MyMilkyScraper(BaseScraper):
         
         while True:
             params = {
-                'page': 2, 
-                'limit': 19, 
-                }
+                'page': page,
+                'limit': limit,
+                'order': 'recent',
+            }
             if keyword:
                 params['q'] = keyword
             

@@ -268,7 +268,7 @@ class MyMilkyScraper(BaseScraper):
         # 0. 중복제거
         log.info(f"DataFrame 변환 완료. 중복 제거 전 데이터: {len(raw_df)}건")
         dedup_df = raw_df.drop_duplicates(
-            subset=["platform", "company", "offer", "campaign_channel"], keep="last"
+            subset=["platform", "title", "offer", "campaign_channel"], keep="first"
         ).copy()
         dropped_count = len(raw_df) - len(dedup_df)
         if dropped_count > 0:
@@ -436,23 +436,23 @@ class MyMilkyScraper(BaseScraper):
             f"""
                     INSERT INTO campaign (
                         -- 고유 키 --
-                        platform, company, offer, campaign_channel,
+                        platform, title, offer, campaign_channel,
                         -- 기본 정보 --
-                        title, content_link, company_link, source,
+                        company, content_link, company_link, source,
                         -- 캠페인 정보 --
                         campaign_type, region, apply_deadline,
                         -- 보강된 정보 --
                         address, lat, lng, category_id
                     ) VALUES (
-                        :platform, :company, :offer,
-                        :title, :content_link, :company_link, :source,
-                        :campaign_type, :region, :campaign_channel,
-                        :apply_deadline,
+                        :platform, :title, :offer, :campaign_channel,
+                        :company, :content_link, :company_link, :source,
+                        :campaign_type, :region, :apply_deadline,
                         :address, :lat, :lng, :category_id
                     )
-                    ON CONFLICT (platform, company, offer) DO UPDATE SET
+                    ON CONFLICT (platform, title, offer, campaign_channel) DO UPDATE SET
                         -- 업데이트할 필드들 --
-                        title = EXCLUDED.title,
+                        company = EXCLUDED.company,
+                        content = EXCLUDED.content,
                         source = EXCLUDED.source,
                         content_link = EXCLUDED.content_link,
                         company_link = EXCLUDED.company_link,

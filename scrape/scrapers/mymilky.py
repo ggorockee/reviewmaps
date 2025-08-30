@@ -162,12 +162,21 @@ class MyMilkyScraper(BaseScraper):
         df = df[df['platform'] != '클라우드리뷰'].copy()
         log.info(f"중복 및 플랫폼 필터링 후 처리 대상: {len(df)}건")
         if df.empty: return []
+        
+        log.info("모든 텍스트 데이터의 양 끝 공백을 제거합니다...")
+        # DataFrame에서 'object' 타입 (주로 문자열)인 컬럼들만 선택
+        string_columns = df.select_dtypes(include=['object']).columns
+        
+        # 각 텍스트 컬럼에 대해 .str.strip() 함수를 적용
+        for col in string_columns:
+            df[col] = df[col].str.strip()
+        log.info("공백 제거 완료.")
 
-        # 2. 날짜 형식 변환 (API에서 받은 날짜 문자열 -> datetime 객체)
+        # 3. 날짜 형식 변환 (API에서 받은 날짜 문자열 -> datetime 객체)
         df['apply_deadline'] = pd.to_datetime(df['apply_deadline'], errors='coerce').dt.tz_localize(None)
         df['review_deadline'] = pd.to_datetime(df['review_deadline'], errors='coerce').dt.tz_localize(None)
 
-        # 3. 주소 정보가 비어있는 '방문형' 캠페인에 대해서만 Naver API 보강
+        # 4. 주소 정보가 비어있는 '방문형' 캠페인에 대해서만 Naver API 보강
         df['lat'] = pd.NA
         df['lng'] = pd.NA
         df['category_id'] = pd.NA

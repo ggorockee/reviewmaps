@@ -25,6 +25,16 @@ class Campaign(Base):
     search_text: Mapped[str | None] = mapped_column(String(20))
     created_at: Mapped[object] = mapped_column(TIMESTAMP(timezone=True), server_default=text("now()"))
     updated_at: Mapped[object] = mapped_column(TIMESTAMP(timezone=True), server_default=text("now()"))
+    
+    # --- 새로 추가된 컬럼들 ✨ ---
+    source: Mapped[str | None] = mapped_column(String(100))
+    title: Mapped[str | None] = mapped_column(Text)
+    content_link: Mapped[str | None] = mapped_column(Text)
+    campaign_type: Mapped[str | None] = mapped_column(String(50))
+    region: Mapped[str | None] = mapped_column(String(100))
+    campaign_channel: Mapped[str | None] = mapped_column(String(255)) # 여러 채널(,) 대비
+    apply_from: Mapped[object | None] = mapped_column(TIMESTAMP(timezone=True))
+    promotion_level: Mapped[int | None] = mapped_column(Integer, server_default=text("0"))
 
 class Category(Base):
     __tablename__ = "categories"

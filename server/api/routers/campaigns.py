@@ -5,6 +5,7 @@ from typing import Optional
 from api.deps import get_db_session
 from db import crud
 from schemas.campaign import CampaignList, CampaignOut
+from schemas.campaign import CampaignListV2, CampaignOutV2
 
 from core.utils import _parse_kst, KST
 from datetime import datetime
@@ -14,7 +15,7 @@ router = APIRouter(tags=["campaigns"])
 
 
 
-@router.get("/campaigns", response_model=CampaignList, summary="캠페인 목록 조회 (async)")
+@router.get("/campaigns", response_model=CampaignListV2, summary="캠페인 목록 조회 (V2)")
 async def list_campaigns(
     db: AsyncSession            = Depends(get_db_session),
     category_id: Optional[int]  = Query(None, description="카테고리 ID로 필터링"),
@@ -83,7 +84,7 @@ async def list_campaigns(
     )
     return {"total": total, "limit": limit, "offset": offset, "items": rows}
 
-@router.get("/campaigns/{campaign_id}", response_model=CampaignOut, summary="캠페인 상세 (async)")
+@router.get("/campaigns/{campaign_id}", response_model=CampaignOutV2, summary="캠페인 상세 (V2)")
 async def get_campaign(
     campaign_id: int,
     db: AsyncSession = Depends(get_db_session)

@@ -38,6 +38,11 @@ def get_distance_query(lat: float, lng: float):
 async def list_campaigns(
     db: AsyncSession,
     *,
+    # --- 새로운 필터 파라미터 추가 ---
+    region: Optional[str] = None,
+    campaign_type: Optional[str] = None,
+    campaign_channel: Optional[str] = None,
+    # ------------------------------------
     category_id: Optional[int] = None, # ✨ 필터 파라미터 추가
     q: Optional[str] = None,
     platform: Optional[str] = None,
@@ -70,12 +75,22 @@ async def list_campaigns(
             stmt_ = stmt_.where(
                 (Campaign.company.ilike(like)) |
                 (Campaign.offer.ilike(like)) |
-                (Campaign.platform.ilike(like))
+                (Campaign.platform.ilike(like)) |
+                (Campaign.title.ilike(like))
             )
         if platform:
             stmt_ = stmt_.where(Campaign.platform == platform)
         if company:
             stmt_ = stmt_.where(Campaign.company.ilike(f"%{company}%"))
+        # --- 새로운 필터 로직 추가 ---
+        if region:
+            stmt_ = stmt_.where(Campaign.region == region)
+        if campaign_type:
+            stmt_ = stmt_.where(Campaign.campaign_type == campaign_type)
+        if campaign_channel:
+            # 쉼표로 구분된 여러 채널 중 하나라도 포함되면 검색 (예: 'blog,instagram')
+            stmt_ = stmt_.where(Campaign.campaign_channel.ilike(f"%{campaign_channel}%"))
+        # --------------------------------
         if category_id:
             stmt_ = stmt_.where(Campaign.category_id == category_id)
         if apply_from:

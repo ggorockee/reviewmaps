@@ -18,6 +18,11 @@ router = APIRouter(tags=["campaigns"])
 @router.get("/campaigns", response_model=CampaignListV2, summary="캠페인 목록 조회 (V2)")
 async def list_campaigns(
     db: AsyncSession            = Depends(get_db_session),
+    # --- 새로운 필터 파라미터를 Query로 추가합니다. ---
+    region: Optional[str]       = Query(None, description="지역으로 필터링 (예: 서울, 경기)"),
+    campaign_type: Optional[str]= Query(None, description="캠페인 유형으로 필터링 (예: 방문형, 배송형)"),
+    campaign_channel: Optional[str] = Query(None, description="캠페인 채널로 필터링 (예: blog, instagram)"),
+    # -----------------------------------------------------------------
     category_id: Optional[int]  = Query(None, description="카테고리 ID로 필터링"),
     q: Optional[str]            = Query(None, description="회사/오퍼/플랫폼 부분검색"),
     platform: Optional[str]     = Query(None),
@@ -60,6 +65,11 @@ async def list_campaigns(
             
     total, rows = await crud.list_campaigns(
         db,
+        # --- [v2] crud 함수에 새로운 파라미터를 전달합니다. ---
+        region=region,
+        campaign_type=campaign_type,
+        campaign_channel=campaign_channel,
+        # --------------------------------------------------------
         category_id=category_id,
         q=q,
         platform=platform,

@@ -21,15 +21,11 @@ COPY . .
 # "이 스크립트, 믿고 실행해도 좋아!" 라는 허가증을 발급하는 셈이죠.
 # RUN chmod +x /app/entrypoint.sh
 
-# ---  포트 노출 (Expose Port) ---
+# --- 7. 포트 노출 (Expose Port) ---
 EXPOSE 8000
 
-# --- 엔트리포인트 스크립트 권한
-RUN chmod +x /app/entrypoint.sh
+# --- 8. 컨테이너 실행 명령어 (Entrypoint & Command) ---
+# 컨테이너가 시작되면 entrypoint.sh 스크립트를 먼저 실행합니다.
 
-# ---  포트
-EXPOSE 8000
-
-# --- 8. 실행
-ENTRYPOINT ["/usr/bin/tini", "--"]
-CMD ["/app/entrypoint.sh"]
+# entrypoint.sh 스크립트가 실행된 후, 이 gunicorn 명령어가 실행됩니다.
+CMD ["gunicorn", "-w", "2", "-k", "uvicorn.workers.UvicornWorker", "-b", "0.0.0.0:8000", "main:app"]

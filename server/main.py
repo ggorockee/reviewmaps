@@ -1,5 +1,5 @@
 from __future__ import annotations
-from fastapi import FastAPI, Depends, Security
+from fastapi import FastAPI, Depends, Security, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from core.config import settings
@@ -8,15 +8,15 @@ from api.routers.campaigns import router as campaigns_router
 from api.routers.categories import router as categories_router
 from api.routers.health import router as healthcheck_router
 from middlewares.access import AccessLogMiddleware
+from middlewares.metrics import FastAPIMetricsMiddleware 
 
 
 from api.security import require_api_key
 from prometheus_fastapi_instrumentator import Instrumentator
-# from prometheus_client import Gauge
-# import psutil
-# from contextlib import asynccontextmanager
+from prometheus_client import CollectorRegistry, multiprocess
+from prometheus_client.openmetrics.exposition import CONTENT_TYPE_LATEST, generate_latest
 
-
+import os
 
 
 setup_logging()
@@ -52,6 +52,9 @@ v1_app.add_middleware(
     allow_headers=["*"],
 )
 
+v1_app.add_middleware(FastAPIMetricsMiddleware, app_name=settings.app_name)
+
+
 v1_app.include_router(healthcheck_router)
 v1_app.include_router(categories_router, dependencies=[Depends(require_api_key)])
 v1_app.include_router(campaigns_router, dependencies=[Depends(require_api_key)])
@@ -61,8 +64,23 @@ v1_app.include_router(campaigns_router, dependencies=[Depends(require_api_key)])
 app = FastAPI()
 app.mount(f"{settings.api_prefix}", v1_app)
 
-Instrumentator().instrument(app).expose(app)
+mp = os.getenv("PROMETHEUS_MULTIPROC_DIR")
+if mp and not os.path.isdir(mp):
+    os.makedirs(mp, exist_ok=True)
 
+Instrumentator(
+    should_group_status_codes=True,
+    should_ignore_untemplated=True,  # /users/123 -> /users/{id}
+    excluded_handlers={"/metrics"},  # 자기 자신 제외
+).instrument(app)
+
+
+@app.get("/metrics")
+def metrics():
+    registry = CollectorRegistry()
+    multiprocess.MultiProcessCollector(registry)
+    data = generate_latest(registry)
+    return Response(content=data, media_type=CONTENT_TYPE_LATEST)
 
 # 2. 시스템/프로세스 메트릭을 위한 Gauge 생성
 # CPU_USAGE = Gauge('process_cpu_percent', 'Total CPU percentage usage of the process')

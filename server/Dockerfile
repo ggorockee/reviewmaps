@@ -1,31 +1,32 @@
-# --- 1. 기반 이미지 설정 (Base Image) ---
+# --- 1. 기반 이미지
 FROM python:3.12-slim-bookworm
 
-# --- 2. 환경 변수 설정 (Environment Variables) ---
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
+# --- 2. 환경 변수
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PROMETHEUS_MULTIPROC_DIR=/tmp/metrics
 
-# --- 3. 작업 디렉토리 설정 (Work Directory) ---
+RUN mkdir ${PROMETHEUS_MULTIPROC_DIR}
+
+# (선택) tini로 좀 더 안전한 신호처리
+RUN apt-get update && apt-get install -y --no-install-recommends tini && rm -rf /var/lib/apt/lists/*
+
+# --- 3. 작업 디렉토리
 WORKDIR /app
 
-# --- 4. 파이썬 의존성 설치 (Install Dependencies) ---
+# --- 4. 의존성
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# --- 5. 소스 코드 및 스크립트 복사 (Copy Source Code & Scripts) ---
-# .dockerignore에 명시된 파일을 제외하고 모든 파일을 복사합니다.
+# --- 5. 소스 복사
 COPY . .
 
-# --- 6. 시작 스크립트 실행 권한 부여 (Add Execute Permissions) ---
-# 컨테이너가 시작될 때 실행될 entrypoint.sh 파일에 실행 권한을 줍니다.
-# "이 스크립트, 믿고 실행해도 좋아!" 라는 허가증을 발급하는 셈이죠.
-# RUN chmod +x /app/entrypoint.sh
+# --- 6. 엔트리포인트 스크립트 권한
+RUN chmod +x /app/entrypoint.sh
 
-# --- 7. 포트 노출 (Expose Port) ---
+# --- 7. 포트
 EXPOSE 8000
 
-# --- 8. 컨테이너 실행 명령어 (Entrypoint & Command) ---
-# 컨테이너가 시작되면 entrypoint.sh 스크립트를 먼저 실행합니다.
-
-# entrypoint.sh 스크립트가 실행된 후, 이 gunicorn 명령어가 실행됩니다.
-CMD ["gunicorn", "-w", "2", "-k", "uvicorn.workers.UvicornWorker", "-b", "0.0.0.0:8000", "main:app"]
+# --- 8. 실행
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["/app/entrypoint.sh"]

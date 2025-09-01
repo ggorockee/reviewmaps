@@ -20,16 +20,16 @@ RESPONSES_TOTAL = Counter(
     "fastapi_responses_total", "Total count of responses by method, path and status",
     ["method", "path", "status_code", "app_name"]
 )
-INFLIGHT = Gauge(
-    "fastapi_requests_in_progress", "Requests currently being processed",
-    ["method", "path", "app_name"]
-)
 # INFLIGHT = Gauge(
-#     "fastapi_requests_in_progress",
-#     "Requests currently being processed",
-#     ["method", "path", "app_name"],
-#     multiprocess_mode="livesum",   # ★ 멀티프로세스에서 워커 합산
+#     "fastapi_requests_in_progress", "Requests currently being processed",
+#     ["method", "path", "app_name"]
 # )
+INFLIGHT = Gauge(
+    "fastapi_requests_in_progress",
+    "Requests currently being processed",
+    ["method", "path", "app_name"],
+    multiprocess_mode="livesum",   # ★ 멀티프로세스에서 워커 합산
+)
 
 class FastAPIMetricsMiddleware(BaseHTTPMiddleware):
     def __init__(self, app, app_name: str):

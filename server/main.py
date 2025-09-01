@@ -11,10 +11,28 @@ from middlewares.access import AccessLogMiddleware
 
 
 from api.security import require_api_key
+from prometheus_fastapi_instrumentator import Instrumentator
+# from prometheus_client import Gauge
+# import psutil
+# from contextlib import asynccontextmanager
+
 
 
 
 setup_logging()
+
+
+# @asynccontextmanager
+# async def lifespan(app: FastAPI):
+#     # 애플리케이션 시작 시 실행될 코드
+#     print("Application startup...")
+#     # /metrics 엔드포인트를 FastAPI 앱에 노출시킵니다.
+#     instrumentator.expose(app)
+#     print("Metrics endpoint exposed at /metrics")
+#     yield
+#     # 애플리케이션 종료 시 실행될 코드 (현재는 필요 없음)
+#     print("Application shutdown.")
+
 
 v1_app = FastAPI(
         title=settings.app_name, 
@@ -42,6 +60,24 @@ v1_app.include_router(campaigns_router, dependencies=[Depends(require_api_key)])
 
 app = FastAPI()
 app.mount(f"{settings.api_prefix}", v1_app)
+
+Instrumentator().instrument(app).expose(app)
+
+
+# 2. 시스템/프로세스 메트릭을 위한 Gauge 생성
+# CPU_USAGE = Gauge('process_cpu_percent', 'Total CPU percentage usage of the process')
+# MEMORY_USAGE_BYTES = Gauge('process_virtual_memory_bytes', 'Virtual memory usage of the process in bytes')
+# DISK_USAGE_PERCENT = Gauge('disk_usage_percent', 'Disk usage percentage of the root directory')
+
+# 5. 메트릭 업데이트를 위한 콜백 함수 등록
+# def update_system_metrics():
+#     """현재 프로세스와 시스템의 리소스 사용량을 가져와 Gauge 메트릭을 업데이트합니다."""
+#     process = psutil.Process(os.getpid())
+#     CPU_USAGE.set(process.cpu_percent(interval=0.1))
+#     MEMORY_USAGE_BYTES.set(process.memory_info().vms)
+#     DISK_USAGE_PERCENT.set(psutil.disk_usage('/').percent)
+
+# instrumentator.add(update_system_metrics)
 
 @app.get("/health", tags=["health"])
 async def health():

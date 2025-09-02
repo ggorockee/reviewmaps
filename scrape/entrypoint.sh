@@ -34,7 +34,7 @@ fi
 
 # cut은 1-based 이므로 +1
 keyword_index=$((POD_INDEX + 1))
-SELECTED_KEYWORD=$(echo "$KEYWORDS_STR" | cut -d' ' -f"$keyword_index")
+SELECTED_KEYWORD="$(printf "%s" "$KEYWORDS_STR" | cut -d',' -f"$IDX" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
 
 echo "Pod Index: $POD_INDEX"
 echo "Keyword Index for cut (1-based): $keyword_index"

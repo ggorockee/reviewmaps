@@ -1,7 +1,6 @@
 #!/bin/sh
 set -e
 
-
 # 스크레이퍼 이름(필수). 없으면 에러
 SCRAPER_NAME="${SCRAPER_NAME:-}"
 if [ -z "$SCRAPER_NAME" ]; then
@@ -32,9 +31,9 @@ if [ -z "$POD_INDEX" ]; then
   POD_INDEX=0
 fi
 
-## cut은 1-based 이므로 +1
+# cut은 1-based index → +1
 keyword_index=$((POD_INDEX + 1))
-SELECTED_KEYWORD="$(printf "%s" "$KEYWORDS_STR" | cut -d',' -f"$IDX" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+SELECTED_KEYWORD="$(printf "%s" "$KEYWORDS_STR" | cut -d',' -f"$keyword_index" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
 
 echo "Pod Index: $POD_INDEX"
 echo "Keyword Index for cut (1-based): $keyword_index"
@@ -42,7 +41,7 @@ echo "Selected Keyword: '$SELECTED_KEYWORD'"
 
 # 엣지: 인덱스 초과(키워드 없음)
 if [ -z "$SELECTED_KEYWORD" ]; then
-  echo "Error: 선택된 키워드가 없습니다. 인덱스가 키워드 개수보다 큽니다."
+  echo "Error: 선택된 키워드가 없습니다. 인덱스($POD_INDEX)가 키워드 개수보다 큽니다."
   exit 1
 fi
 

@@ -18,18 +18,18 @@ from core.enricher import (
 logger = get_logger(__name__)
 
 MEDIA_MAP = {
-    "BP_": "blog_post",
-    "IP_": "instagram_post",
-    "IR_": "instagram_reel",
-    "BC_": "blog_clip",
-    "BP_BC_": "blog_post+blog_clip",
-    "IP_IR_": "instagram_post+reel",
-    "BP_IP_": "blog+instagram_post",
-    "IP_IP_": "instagram_post*2",
-    "YP_": "youtube_post",
-    "YS_": "youtube_shorts",
-    "YP_YS_": "youtube_post+shorts",
-    "SR_": "youtube_shorts",  # 추측
+    "BP_": "blog",
+    "IP_": "instagram",
+    "IR_": "reels",
+    "BC_": "clip",
+    "BP_BC_": "blog,clip",
+    "IP_IR_": "instagram,reels",
+    "BP_IP_": "blog,instagram",
+    "IP_IP_": "instagram",
+    "YP_": "youtube",
+    "YS_": "shorts",
+    "YP_YS_": "youtube,shorts",
+    "SR_": "shorts",  # 추측
     "": "etc"
 }
 

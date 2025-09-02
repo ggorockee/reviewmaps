@@ -57,13 +57,13 @@ def run_job(scraper_name: str, keyword: Optional[str] = None):
         ScraperClass = find_scraper_class(scraper_name)
         scraper_instance = ScraperClass()
         scraper_instance.run(keyword=keyword)  # run 메서드에 keyword를 전달합니다.
+        log.info("작업 성공: %s", scraper_name)
     except Exception as e:
-        log.error(
-            f"'{scraper_name}' 스크레이퍼 실행 중 심각한 에러 발생: {e}", exc_info=True
-        )
-    log.info(
-        f"========== 작업 종료: {scraper_name} (키워드: {keyword or '전체'}) =========="
-    )
+        log.error("'%s' 실행 중 심각한 에러: %s", scraper_name, e, exc_info=True)
+        sys.exit(1)
+    finally:
+        log.info("========== 작업 종료: %s (키워드: %s) ==========", scraper_name, keyword or "전체")
+
 
 
 if __name__ == "__main__":

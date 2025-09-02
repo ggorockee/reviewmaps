@@ -32,7 +32,7 @@ if [ -z "$POD_INDEX" ]; then
   POD_INDEX=0
 fi
 
-# cut은 1-based 이므로 +1
+## cut은 1-based 이므로 +1
 keyword_index=$((POD_INDEX + 1))
 SELECTED_KEYWORD="$(printf "%s" "$KEYWORDS_STR" | cut -d',' -f"$IDX" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
 

@@ -19,7 +19,7 @@ def update_image(file_path: str, service: str, new_tag: str, new_repo: str | Non
     """
     yaml = YAML()
     yaml.preserve_quotes = True
-    yaml.indent(mapping=2, sequence=2, offset=2)
+    yaml.indent(mapping=2, sequence=4, offset=2)
 
     p = Path(file_path)
     if not p.exists():

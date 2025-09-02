@@ -74,14 +74,8 @@ if __name__ == "__main__":
         type=str,
         help="검색할 특정 키워드. 지정하지 않으면 전체를 대상으로 합니다.",
     )
-    # 스케줄링 옵션은 k8s의 CronJob이 담당하므로 여기서는 제거하거나 유지해도 됩니다.
-    # 지금은 즉시 실행 기능에 집중하기 위해 주석 처리하겠습니다.
-    # parser.add_argument(
-    #     "--schedule",
-    #     action="store_true",
-    #     help="config.py 설정에 따라 스케줄 모드로 실행합니다."
-    # )
+    
     args = parser.parse_args()
 
-    # 터미널에서 받은 인자를 바탕으로 작업을 실행합니다.
+    # 터미널에서 받은 인자를 바탕으로 작업을 실행
     run_job(args.scraper_name, keyword=args.keyword)

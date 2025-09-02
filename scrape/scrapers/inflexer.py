@@ -7,6 +7,7 @@ import time
 
 from typing import List, Dict, Any
 
+from sqlalchemy import create_engine
 
 from core.enricher import (
     naver_local_search,
@@ -115,14 +116,18 @@ class InflexerScraper(BaseScraper):
 
         result = base_df.copy()
         
-         # 문자열 양끝 공백 정리
+        # 문자열 양끝 공백 정리
         for col in result.select_dtypes(include="object").columns:
             result[col] = result[col].astype("string").str.strip()
 
         # NaT/NaN → None
         result = result.astype(object).where(pd.notna(result), None)
 
-        print(result.head)
+        result = result.drop_duplicates(
+            subset=["platform", "title", "offer", "campaign_channel"],
+            keep="first"
+        ).reset_index(drop=True)
+        
         return result.to_dict("records")
     
     def enrich(self, parsed_data: List[Dict[str, Any]], keyword: str) -> List[Dict[str, Any]]:
@@ -182,7 +187,9 @@ class InflexerScraper(BaseScraper):
         map_secret = self.settings.naver_api.MAP_CLIENT_SECRET
 
 
-         # 2) address 보강 + 3) 좌표 보강
+        # 2) address 보강 + 3) 좌표 보강
+        engine = create_engine(self.settings.db.url)
+        tmp["category_id"] = None
         for i, row in tmp.iterrows():
             title = (row["title"] or "").strip()
             cur_addr = row.get("address")
@@ -197,6 +204,15 @@ class InflexerScraper(BaseScraper):
                     if addr:
                         tmp.at[i, "address"] = addr
                         cur_addr = addr
+                        
+                    # 카테고리 보강
+                    raw_category_text = place.get("category")
+                    std_id = None
+                    if raw_category_text:
+                        raw_id = get_or_create_raw_category(engine, raw_category_text)
+                        if raw_id: 
+                            std_id = find_mapped_category_id(engine, raw_id)
+                    tmp.at[i, "category_id"] = std_id
 
             # 좌표가 비어있으면 지오코딩
             need_geo = cur_lat is None or cur_lng is None

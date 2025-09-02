@@ -186,7 +186,7 @@ class MyMilkyScraper(BaseScraper):
         if not to_enrich_df.empty:
             log.info(f"주소가 비어있는 '방문형' 캠페인 {len(to_enrich_df)}건에 대해 주소 보강을 시작합니다.")
             engine = create_engine(self.settings.db.url)
-            search_api_keys = self._get_api_keys()
+            search_api_keys = self.get_api_keys()
             geocoded_success_count = 0
 
             for index, row in to_enrich_df.iterrows():
@@ -214,51 +214,3 @@ class MyMilkyScraper(BaseScraper):
         final_df = df.reindex(columns=final_columns) # reindex로 순서 및 존재 보장
         final_df = final_df.astype(object).where(pd.notna(final_df), None)
         return final_df.to_dict('records')
-
-    def save(self, data: List[Dict[str, Any]]) -> None:
-        if not data:
-            log.warning("저장할 최종 데이터가 없습니다.")
-            return
-
-        log.info(f"정제된 최종 데이터 {len(data)}건을 DB에 저장 시작...")
-        engine = create_engine(self.settings.db.url)
-        Session = sessionmaker(bind=engine)
-        
-        with Session() as session:
-            try:
-                # ❗️ [수정] UPSERT 구문을 DB 스키마와 완전히 일치시킵니다.
-                upsert_sql = text(f"""
-                    INSERT INTO campaign (
-                        platform, title, offer, campaign_channel, company, content_link, 
-                        company_link, source, campaign_type, region, apply_deadline, 
-                        review_deadline, address, lat, lng, category_id, img_url
-                    ) VALUES (
-                        :platform, :title, :offer, :campaign_channel, :company, :content_link, 
-                        :company_link, :source, :campaign_type, :region, :apply_deadline, 
-                        :review_deadline, :address, :lat, :lng, :category_id, :img_url
-                    )
-                    ON CONFLICT (platform, title, offer, campaign_channel) DO UPDATE SET
-                        company = EXCLUDED.company, source = EXCLUDED.source,
-                        content_link = EXCLUDED.content_link, company_link = EXCLUDED.company_link,
-                        campaign_type = EXCLUDED.campaign_type, region = EXCLUDED.region,
-                        apply_deadline = EXCLUDED.apply_deadline, review_deadline = EXCLUDED.review_deadline,
-                        address = EXCLUDED.address, lat = EXCLUDED.lat, lng = EXCLUDED.lng,
-                        category_id = EXCLUDED.category_id, img_url = EXCLUDED.img_url,
-                        updated_at = NOW();
-                """)
-                session.execute(upsert_sql, data)
-                session.commit()
-                log.info(f"DB 저장 완료. 총 {len(data)}건의 데이터가 성공적으로 처리되었습니다.")
-            except Exception as e:
-                log.error(f"DB 저장 중 에러 발생: {e}", exc_info=True)
-                session.rollback()
-
-    def _get_api_keys(self) -> list:
-        keys = []
-        if self.settings.naver_api.SEARCH_CLIENT_ID and self.settings.naver_api.SEARCH_CLIENT_SECRET:
-            keys.append((self.settings.naver_api.SEARCH_CLIENT_ID, self.settings.naver_api.SEARCH_CLIENT_SECRET))
-        if self.settings.naver_api.SEARCH_CLIENT_ID_2 and self.settings.naver_api.SEARCH_CLIENT_SECRET_2:
-            keys.append((self.settings.naver_api.SEARCH_CLIENT_ID_2, self.settings.naver_api.SEARCH_CLIENT_SECRET_2))
-        if self.settings.naver_api.SEARCH_CLIENT_ID_3 and self.settings.naver_api.SEARCH_CLIENT_SECRET_3:
-            keys.append((self.settings.naver_api.SEARCH_CLIENT_ID_3, self.settings.naver_api.SEARCH_CLIENT_SECRET_3))
-        return keys

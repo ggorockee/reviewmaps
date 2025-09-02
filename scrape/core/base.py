@@ -5,6 +5,9 @@ from typing import Any, List, Dict, Optional
 from core.logger import get_logger
 from core.config import settings
 
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
+
 log = get_logger("scraper.base")
 
 class BaseScraper(ABC):
@@ -24,6 +27,25 @@ class BaseScraper(ABC):
     def BASE_URL(self) -> str:
         """스크레이핑 대상 사이트의 기본 URL 또는 API Endpoint"""
         pass
+
+    BASE_DATA_TYPES = {
+        "source": "string",
+        "platform": "string",
+        "company": "string",
+        "title": "string",
+        "offer": "string",
+        "campaign_channel": "string",
+        "content_link": "string",
+        "company_link": "string",
+        "campaign_type": "string",
+        "region": "string",
+        "address": "string",
+        "apply_deadline": "datetime64[ns]",
+        "review_deadline": "datetime64[ns]",
+        "img_url": "string",
+        "apply_from": "datetime64[ns]",
+        "search_text": "string",
+    }
 
     # 최종 DB 스키마를 정의하는 부분은 그대로 유지합니다.
     RESULT_TABLE_COLUMNS = [
@@ -67,12 +89,45 @@ class BaseScraper(ABC):
         self.logger.info("Enrich 단계는 구현되지 않아 건너뜁니다.")
         return parsed_data
 
-    @abstractmethod
     def save(self, data: List[Dict[str, Any]]) -> None:
         """
         최종 데이터를 데이터베이스에 저장합니다.
         """
-        raise NotImplementedError
+        if not data:
+            log.warning("저장할 최종 데이터가 없습니다.")
+            return
+
+        log.info(f"정제된 최종 데이터 {len(data)}건을 DB에 저장 시작...")
+        engine = create_engine(self.settings.db.url)
+        Session = sessionmaker(bind=engine)
+        
+        with Session() as session:
+            try:
+                upsert_sql = text(f"""
+                    INSERT INTO campaign (
+                        platform, title, offer, campaign_channel, company, content_link, 
+                        company_link, source, campaign_type, region, apply_deadline, 
+                        review_deadline, address, lat, lng, category_id, img_url
+                    ) VALUES (
+                        :platform, :title, :offer, :campaign_channel, :company, :content_link, 
+                        :company_link, :source, :campaign_type, :region, :apply_deadline, 
+                        :review_deadline, :address, :lat, :lng, :category_id, :img_url
+                    )
+                    ON CONFLICT (platform, title, offer, campaign_channel) DO UPDATE SET
+                        company = EXCLUDED.company, source = EXCLUDED.source,
+                        content_link = EXCLUDED.content_link, company_link = EXCLUDED.company_link,
+                        campaign_type = EXCLUDED.campaign_type, region = EXCLUDED.region,
+                        apply_deadline = EXCLUDED.apply_deadline, review_deadline = EXCLUDED.review_deadline,
+                        address = EXCLUDED.address, lat = EXCLUDED.lat, lng = EXCLUDED.lng,
+                        category_id = EXCLUDED.category_id, img_url = EXCLUDED.img_url,
+                        updated_at = NOW();
+                """)
+                session.execute(upsert_sql, data)
+                session.commit()
+                log.info(f"DB 저장 완료. 총 {len(data)}건의 데이터가 성공적으로 처리되었습니다.")
+            except Exception as e:
+                log.error(f"DB 저장 중 에러 발생: {e}", exc_info=True)
+                session.rollback()
 
     def run(self, keyword: Optional[str] = None) -> None:
         """
@@ -99,3 +154,13 @@ class BaseScraper(ABC):
             self.logger.error(f"스크레이핑 실행 중 에러 발생: {e}", exc_info=True)
         finally:
             self.logger.info(f"===== {self.PLATFORM_NAME} 스크레이핑 종료 =====")
+
+    def get_api_keys(self) -> list:
+        keys = []
+        if self.settings.naver_api.SEARCH_CLIENT_ID and self.settings.naver_api.SEARCH_CLIENT_SECRET:
+            keys.append((self.settings.naver_api.SEARCH_CLIENT_ID, self.settings.naver_api.SEARCH_CLIENT_SECRET))
+        if self.settings.naver_api.SEARCH_CLIENT_ID_2 and self.settings.naver_api.SEARCH_CLIENT_SECRET_2:
+            keys.append((self.settings.naver_api.SEARCH_CLIENT_ID_2, self.settings.naver_api.SEARCH_CLIENT_SECRET_2))
+        if self.settings.naver_api.SEARCH_CLIENT_ID_3 and self.settings.naver_api.SEARCH_CLIENT_SECRET_3:
+            keys.append((self.settings.naver_api.SEARCH_CLIENT_ID_3, self.settings.naver_api.SEARCH_CLIENT_SECRET_3))
+        return keys

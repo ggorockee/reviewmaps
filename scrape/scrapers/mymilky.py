@@ -160,9 +160,8 @@ class MyMilkyScraper(BaseScraper):
             return []
         
         existing = self._load_existing_map()
-        
 
-       # --- 1) DataFrame 준비 / 전처리
+        # --- 1) DataFrame 준비 / 전처리
         raw_df = pd.DataFrame(parsed_data)
         df = raw_df.drop_duplicates(
             subset=["platform", "title", "offer", "campaign_channel"],
@@ -170,15 +169,12 @@ class MyMilkyScraper(BaseScraper):
         )
         df = df[df["platform"] != "클라우드리뷰"].copy()
         
-        # 문자열 공백 정리
         for col in df.select_dtypes(include=["object"]).columns:
             df[col] = df[col].astype("string").str.strip()
 
-        # 3. 날짜 형식 변환 (API에서 받은 날짜 문자열 -> datetime 객체)
         df["apply_deadline"] = pd.to_datetime(df["apply_deadline"], errors="coerce").dt.tz_localize(None)
         df["review_deadline"] = pd.to_datetime(df["review_deadline"], errors="coerce").dt.tz_localize(None)
 
-        # 좌표/카테고리 컬럼 보장
         for c in ("lat", "lng", "category_id"):
             if c not in df.columns:
                 df[c] = pd.NA
@@ -189,15 +185,12 @@ class MyMilkyScraper(BaseScraper):
         map_id = self.settings.naver_api.MAP_CLIENT_ID
         map_secret = self.settings.naver_api.MAP_CLIENT_SECRET
 
-        # 런타임 지오코딩 캐시(동일 주소 반복 호출 방지)
-        geo_cache: Dict[str, tuple] = {}
-
-        # --- 3) 보강 루프
         processed = 0
         geocoded = 0
         from_mapxy = 0
         drift_fixed = 0
 
+        # --- 3) 보강 루프
         for i, row in df.iterrows():
             key = (row["platform"], row["title"], row["offer"], row["campaign_channel"])
             db_row = existing.get(key)
@@ -209,8 +202,7 @@ class MyMilkyScraper(BaseScraper):
             if pd.isna(cur_lat): cur_lat = None
             if pd.isna(cur_lng): cur_lng = None
 
-            # 3-1) 주소가 없으면 local.search로 주소/카테고리 + mapx/mapy 좌표 획득
-            place = None
+            # 3-1) 주소가 없으면 local.search
             if not cur_addr and row.get("campaign_type") == "방문형":
                 place = naver_local_search(search_api_keys, title)
                 if place:
@@ -219,7 +211,6 @@ class MyMilkyScraper(BaseScraper):
                         df.at[i, "address"] = addr
                         cur_addr = addr
 
-                    # mapx/mapy → 1e7 변환(경:mapx, 위:mapy)
                     lat_m, lng_m = self._from_mapxy(place)
                     if lat_m is not None and lng_m is not None:
                         df.at[i, "lat"] = lat_m
@@ -227,7 +218,6 @@ class MyMilkyScraper(BaseScraper):
                         cur_lat, cur_lng = lat_m, lng_m
                         from_mapxy += 1
 
-                    # 카테고리 매핑
                     raw_cat = place.get("category")
                     if raw_cat:
                         raw_id = get_or_create_raw_category(engine, raw_cat)
@@ -236,7 +226,7 @@ class MyMilkyScraper(BaseScraper):
 
                     time.sleep(0.2)
 
-            # 3-2) 주소는 있는데 좌표가 없으면 캐시→geocode
+            # 3-2) 주소는 있는데 좌표가 없으면 캐시 → geocode
             if cur_addr and (cur_lat is None or cur_lng is None):
                 cached = self._get_geocode_cache(cur_addr)
                 if cached:
@@ -247,10 +237,11 @@ class MyMilkyScraper(BaseScraper):
                     if coords:
                         cur_lat, cur_lng = coords
                         df.at[i, "lat"], df.at[i, "lng"] = coords
-                        self._put_geocode_cache(cur_addr, *coords)
+                        self._put_geocode_cache(cur_addr, *coords)   # ✅ 캐시에 저장
+                        geocoded += 1
                 time.sleep(0.2)
 
-            # 3-3) 기존 DB 좌표와 드리프트 체크 → 50m 초과 시 지오코딩 보정
+            # 3-3) 드리프트 체크 → 50m 초과 시 geocode로 보정
             if db_row and all(v is not None for v in (db_row.get("lat"), db_row.get("lng"), cur_lat, cur_lng)) and cur_addr:
                 dist = self._haversine(float(db_row["lat"]), float(db_row["lng"]), float(cur_lat), float(cur_lng))
                 if dist is not None and dist > 50:
@@ -259,12 +250,12 @@ class MyMilkyScraper(BaseScraper):
                         cur_lat, cur_lng = coords
                         df.at[i, "lat"] = cur_lat
                         df.at[i, "lng"] = cur_lng
-                        geo_cache[cur_addr] = (cur_lat, cur_lng)
+                        self._put_geocode_cache(cur_addr, *coords)   # ✅ drift_fix도 캐시에 기록
                         drift_fixed += 1
                         geocoded += 1
                     time.sleep(0.2)
 
-            # 3-4) 여전히 좌표 없고 DB에는 좌표가 있으면 DB 좌표로 보강 (최소한의 fallback)
+            # 3-4) 여전히 좌표 없고 DB에는 있으면 fallback
             if (df.at[i, "lat"] is None or pd.isna(df.at[i, "lat"]) or
                 df.at[i, "lng"] is None or pd.isna(df.at[i, "lng"])) and db_row:
                 if db_row.get("lat") is not None and db_row.get("lng") is not None:
@@ -275,7 +266,7 @@ class MyMilkyScraper(BaseScraper):
 
         log.info(f"[mymilky] enrich 통계 → 처리:{processed}, mapxy:{from_mapxy}, geocode:{geocoded}, drift_fix:{drift_fixed}")
 
-        # --- 4) 최종 정리 및 반환
+        # --- 4) 최종 반환
         final_columns = [c for c in self.RESULT_TABLE_COLUMNS if c in df.columns]
         final_df = df.reindex(columns=final_columns).astype(object).where(pd.notna(df), None)
         return final_df.to_dict("records")

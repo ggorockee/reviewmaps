@@ -132,7 +132,7 @@ class InflexerScraper(BaseScraper):
     
     def enrich(self, parsed_data: List[Dict[str, Any]], keyword: str = None) -> List[Dict[str, Any]]:
         """
-        Inflexer: map API lat/lng → 조건부 보강.
+        Inflexer: map API lat/lng → 조건부 보강 + 캐시 사용.
         """
         if not parsed_data:
             return []
@@ -156,8 +156,7 @@ class InflexerScraper(BaseScraper):
                 ["title", "lat", "lng"]
             ]
 
-        df = pd.DataFrame(parsed_data)
-        merged = df.merge(map_df, on="title", how="left", suffixes=("", "_map"))
+        merged = pd.DataFrame(parsed_data).merge(map_df, on="title", how="left", suffixes=("", "_map"))
         for c in ("address", "lat", "lng", "category_id"):
             if c not in merged.columns:
                 merged[c] = None
@@ -167,7 +166,6 @@ class InflexerScraper(BaseScraper):
         search_api_keys = self.get_api_keys()
         map_id = self.settings.naver_api.MAP_CLIENT_ID
         map_secret = self.settings.naver_api.MAP_CLIENT_SECRET
-        geo_cache: Dict[str, tuple] = {}
 
         # --- 3) 루프
         processed = geocoded = from_mapxy = drift_fixed = 0
@@ -204,29 +202,30 @@ class InflexerScraper(BaseScraper):
                             merged.at[i, "category_id"] = find_mapped_category_id(engine, raw_id)
                 time.sleep(0.2)
 
-            # 3-2) 주소는 있는데 좌표가 없으면 geocode
+            # 3-2) 주소는 있는데 좌표가 없으면 geocode + 캐시
             if cur_addr and (cur_lat is None or cur_lng is None):
                 cached = self._get_geocode_cache(cur_addr)
                 if cached:
                     cur_lat, cur_lng = cached
-                    df.at[i, "lat"], df.at[i, "lng"] = cur_lat, cur_lng
+                    merged.at[i, "lat"], merged.at[i, "lng"] = cur_lat, cur_lng
                 else:
                     coords = naver_geocode(map_id, map_secret, cur_addr)
                     if coords:
                         cur_lat, cur_lng = coords
-                        df.at[i, "lat"], df.at[i, "lng"] = coords
+                        merged.at[i, "lat"], merged.at[i, "lng"] = coords
                         self._put_geocode_cache(cur_addr, *coords)
+                        geocoded += 1
                 time.sleep(0.2)
 
             # 3-3) DB 좌표와 드리프트 체크
             if db_row and all(v is not None for v in (db_row.get("lat"), db_row.get("lng"), cur_lat, cur_lng)) and cur_addr:
                 dist = self._haversine(float(db_row["lat"]), float(db_row["lng"]), float(cur_lat), float(cur_lng))
-                if dist and dist > 50:
+                if dist and dist > DRIFT_METERS:
                     coords = naver_geocode(map_id, map_secret, cur_addr)
                     if coords:
                         cur_lat, cur_lng = coords
                         merged.at[i, "lat"], merged.at[i, "lng"] = cur_lat, cur_lng
-                        geo_cache[cur_addr] = (cur_lat, cur_lng)
+                        self._put_geocode_cache(cur_addr, *coords)   # ✅ drift_fix도 캐시에 기록
                         drift_fixed += 1
                         geocoded += 1
                     time.sleep(0.2)

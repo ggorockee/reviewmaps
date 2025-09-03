@@ -235,6 +235,10 @@ class BaseScraper(ABC):
                 text("""SELECT lat, lng FROM geocode_cache WHERE address_hash = sha1(:addr)"""),
                 {"addr": address.strip()}
             ).mappings().first()
+        if row:
+            self.logger.debug(f"[geocode_cache] HIT {address} → ({row['lat']}, {row['lng']})")
+        else:
+            self.logger.debug(f"[geocode_cache] MISS {address}")
         return (row["lat"], row["lng"]) if row else None
 
     def _put_geocode_cache(self, address: str, lat: float, lng: float):
@@ -248,3 +252,4 @@ class BaseScraper(ABC):
                 ON CONFLICT (address_hash) DO UPDATE
                 SET address = EXCLUDED.address, lat = EXCLUDED.lat, lng = EXCLUDED.lng, updated_at = NOW()
             """), {"addr": address.strip(), "lat": lat, "lng": lng})
+        self.logger.debug(f"[geocode_cache] PUT {address} → ({lat}, {lng})")

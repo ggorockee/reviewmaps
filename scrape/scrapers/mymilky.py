@@ -261,6 +261,7 @@ class MyMilkyScraper(BaseScraper):
                         df.at[i, "lng"] = cur_lng
                         geo_cache[cur_addr] = (cur_lat, cur_lng)
                         drift_fixed += 1
+                        geocoded += 1
                     time.sleep(0.2)
 
             # 3-4) 여전히 좌표 없고 DB에는 좌표가 있으면 DB 좌표로 보강 (최소한의 fallback)

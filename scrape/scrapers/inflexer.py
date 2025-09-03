@@ -1,7 +1,7 @@
 import os
 import requests
 import pandas as pd
-from core.base import BaseScraper
+from core.base import BaseScraper, DRIFT_METERS
 from core.logger import get_logger
 import time
 
@@ -130,120 +130,116 @@ class InflexerScraper(BaseScraper):
         
         return result.to_dict("records")
     
-    def enrich(self, parsed_data: List[Dict[str, Any]], keyword: str) -> List[Dict[str, Any]]:
+    def enrich(self, parsed_data: List[Dict[str, Any]], keyword: str = None) -> List[Dict[str, Any]]:
         """
-        파싱된 데이터를 보강합니다. (예: 주소/좌표 채우기)
+        Inflexer: map API lat/lng → 조건부 보강.
         """
-
-        request_url = "https://inflexer.net:5000/map"
-        params = {
-            'query': keyword,
-            'type': 'VST'
-        }
-
-        resp = requests.get(request_url, params=params)
-        data = resp.json()
-        map_df = pd.DataFrame(data.get("result", []))
-        if map_df.empty:
+        if not parsed_data:
             return []
-        map_df = map_df.rename(
-            columns={
-                "latitude": "lat",
-                "longitude": "lng",
-                "title": "title",
-                }
-            )[
+
+        # --- 0) 기존 DB 스냅샷
+        existing = self._load_existing_map()
+
+        # --- 1) Inflexer map API
+        request_url = "https://inflexer.net:5000/map"
+        params = {"query": keyword, "type": "VST"}
+        try:
+            resp = requests.get(request_url, params=params, timeout=20)
+            resp.raise_for_status()
+            map_df = pd.DataFrame(resp.json().get("result", []))
+        except Exception as e:
+            self.logger.warning(f"[inflexer] map API 실패: {e}")
+            map_df = pd.DataFrame()
+
+        if not map_df.empty:
+            map_df = map_df.rename(columns={"latitude": "lat", "longitude": "lng", "title": "title"})[
                 ["title", "lat", "lng"]
-                ]
-        
+            ]
 
+        df = pd.DataFrame(parsed_data)
+        merged = df.merge(map_df, on="title", how="left", suffixes=("", "_map"))
+        for c in ("address", "lat", "lng", "category_id"):
+            if c not in merged.columns:
+                merged[c] = None
 
-        parsed_df = pd.DataFrame(parsed_data)
-        merged_df = parsed_df.merge(map_df, on="title", how="left", suffixes=("", "_map"))
-        merged_df = merged_df.astype(object).where(pd.notna(merged_df), None)
-
-        # 임시 테이블2 구성 (필요 컬럼 보장)
-        for col in ["title", "lat", "lng", "address"]:
-            if col not in merged_df.columns:
-                merged_df[col] = None
-            
-
-        tmp = (
-            merged_df
-            .query("campaign_type == '방문형'")
-            [["title", "lat", "lng", "address"]]
-            .copy()
-            .dropna(subset=["title"])              # title 없는 건 스킵
-            .drop_duplicates(subset=["title"])     # title 기준 중복 제거
-            .reset_index(drop=True)
-        )
-
-        if tmp.empty:
-            # 붙일 게 없으면 원본 반환
-            return merged_df.astype(object).where(pd.notna(merged_df), None).to_dict("records")
-        
+        # --- 2) 준비물
+        engine = create_engine(self.settings.db.url)
         search_api_keys = self.get_api_keys()
         map_id = self.settings.naver_api.MAP_CLIENT_ID
         map_secret = self.settings.naver_api.MAP_CLIENT_SECRET
+        geo_cache: Dict[str, tuple] = {}
 
+        # --- 3) 루프
+        processed = geocoded = from_mapxy = drift_fixed = 0
 
-        # 2) address 보강 + 3) 좌표 보강
-        engine = create_engine(self.settings.db.url)
-        tmp["category_id"] = None
-        for i, row in tmp.iterrows():
-            title = (row["title"] or "").strip()
-            cur_addr = row.get("address")
-            cur_lat  = row.get("lat")
-            cur_lng  = row.get("lng")
+        for i, row in merged.iterrows():
+            key = (row["platform"], row["title"], row["offer"], row["campaign_channel"])
+            db_row = existing.get(key)
 
-            # 주소가 없으면 로컬 검색
-            if not cur_addr:
-                place = naver_local_search(search_api_keys, title)
+            cur_addr = (row.get("address") or "").strip() or None
+            cur_lat = row.get("lat") or row.get("lat_map")
+            cur_lng = row.get("lng") or row.get("lng_map")
+            if pd.isna(cur_lat): cur_lat = None
+            if pd.isna(cur_lng): cur_lng = None
+
+            # 3-1) 주소가 없으면 local.search + mapx/mapy
+            if not cur_addr and row.get("campaign_type") == "방문형":
+                place = naver_local_search(search_api_keys, row["title"])
                 if place:
                     addr = place.get("roadAddress") or place.get("address")
                     if addr:
-                        tmp.at[i, "address"] = addr
+                        merged.at[i, "address"] = addr
                         cur_addr = addr
-                        
-                    # 카테고리 보강
-                    raw_category_text = place.get("category")
-                    std_id = None
-                    if raw_category_text:
-                        raw_id = get_or_create_raw_category(engine, raw_category_text)
-                        if raw_id: 
-                            std_id = find_mapped_category_id(engine, raw_id)
-                    tmp.at[i, "category_id"] = std_id
 
-            # 좌표가 비어있으면 지오코딩
-            need_geo = cur_lat is None or cur_lng is None
-            if need_geo and cur_addr:
-                coords = naver_geocode(map_id, map_secret, cur_addr)
-                if coords:
-                    lat, lng = coords
-                    tmp.at[i, "lat"] = lat
-                    tmp.at[i, "lng"] = lng
+                    lat_m, lng_m = self._from_mapxy(place)
+                    if lat_m and lng_m:
+                        merged.at[i, "lat"], merged.at[i, "lng"] = lat_m, lng_m
+                        cur_lat, cur_lng = lat_m, lng_m
+                        from_mapxy += 1
 
-            # 너무 빠른 호출 방지 약간의 텀
-            time.sleep(0.2)
+                    raw_cat = place.get("category")
+                    if raw_cat:
+                        raw_id = get_or_create_raw_category(engine, raw_cat)
+                        if raw_id:
+                            merged.at[i, "category_id"] = find_mapped_category_id(engine, raw_id)
+                time.sleep(0.2)
 
-        # tmp 컬럼 이름 명확화(충돌 방지)
-        tmp = tmp.rename(columns={"address": "address_enriched", "lat": "lat_enriched", "lng": "lng_enriched"})
+            # 3-2) 주소는 있는데 좌표가 없으면 geocode
+            if cur_addr and (cur_lat is None or cur_lng is None):
+                cached = self._get_geocode_cache(cur_addr)
+                if cached:
+                    cur_lat, cur_lng = cached
+                    df.at[i, "lat"], df.at[i, "lng"] = cur_lat, cur_lng
+                else:
+                    coords = naver_geocode(map_id, map_secret, cur_addr)
+                    if coords:
+                        cur_lat, cur_lng = coords
+                        df.at[i, "lat"], df.at[i, "lng"] = coords
+                        self._put_geocode_cache(cur_addr, *coords)
+                time.sleep(0.2)
 
-        # 4) 원본에 붙이고 보강값 우선 적용
-        merged = merged_df.merge(tmp, on="title", how="left")
+            # 3-3) DB 좌표와 드리프트 체크
+            if db_row and all(v is not None for v in (db_row.get("lat"), db_row.get("lng"), cur_lat, cur_lng)) and cur_addr:
+                dist = self._haversine(float(db_row["lat"]), float(db_row["lng"]), float(cur_lat), float(cur_lng))
+                if dist and dist > 50:
+                    coords = naver_geocode(map_id, map_secret, cur_addr)
+                    if coords:
+                        cur_lat, cur_lng = coords
+                        merged.at[i, "lat"], merged.at[i, "lng"] = cur_lat, cur_lng
+                        geo_cache[cur_addr] = (cur_lat, cur_lng)
+                        drift_fixed += 1
+                    time.sleep(0.2)
 
-        # 보강값이 있으면 우선 적용
-        def _prefer_enriched(row, base_col, enrich_col):
-            return row[enrich_col] if pd.notna(row.get(enrich_col)) else row.get(base_col)
-        
-        merged["address"] = merged.apply(lambda r: _prefer_enriched(r, "address", "address_enriched"), axis=1)
-        merged["lat"]     = merged.apply(lambda r: _prefer_enriched(r, "lat",     "lat_enriched"), axis=1)
-        merged["lng"]     = merged.apply(lambda r: _prefer_enriched(r, "lng",     "lng_enriched"), axis=1)
+            # 3-4) 끝까지 좌표 없고 DB 좌표가 있으면 fallback
+            if (merged.at[i, "lat"] is None or merged.at[i, "lng"] is None) and db_row:
+                merged.at[i, "lat"] = db_row.get("lat")
+                merged.at[i, "lng"] = db_row.get("lng")
 
-        # 보강용 임시 컬럼 제거
-        merged = merged.drop(columns=["address_enriched", "lat_enriched", "lng_enriched"], errors="ignore")
+            processed += 1
 
-        # NaN → None
-        merged = merged.astype(object).where(pd.notna(merged), None)
+        self.logger.info(f"[inflexer] enrich 통계 → 처리:{processed}, mapxy:{from_mapxy}, geocode:{geocoded}, drift_fix:{drift_fixed}")
 
-        return merged.to_dict("records")
+        # --- 4) 최종 반환
+        final_cols = [c for c in self.RESULT_TABLE_COLUMNS if c in merged.columns]
+        final_df = merged.reindex(columns=final_cols).astype(object).where(pd.notna(merged), None)
+        return final_df.to_dict("records")

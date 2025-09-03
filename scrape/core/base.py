@@ -7,8 +7,11 @@ from core.config import settings
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
+import math
 
 log = get_logger("scraper.base")
+
+DRIFT_METERS = 50  # 필요시 per-scraper override 가능
 
 class BaseScraper(ABC):
     """
@@ -164,3 +167,84 @@ class BaseScraper(ABC):
         if self.settings.naver_api.SEARCH_CLIENT_ID_3 and self.settings.naver_api.SEARCH_CLIENT_SECRET_3:
             keys.append((self.settings.naver_api.SEARCH_CLIENT_ID_3, self.settings.naver_api.SEARCH_CLIENT_SECRET_3))
         return keys
+    
+    @staticmethod
+    def _safe_float(x):
+        try:
+            return float(x)
+        except Exception:
+            return None
+        
+    @classmethod
+    def _from_mapxy(cls, place: dict):
+        """
+        네이버 Local API 응답에서 mapx/mapy를 위경도로 변환.
+        - mapx: 경도(longitude)
+        - mapy: 위도(latitude)
+        - 반환: (lat, lng) or (None, None)
+        """
+        mx = cls._safe_float(place.get("mapx"))
+        my = cls._safe_float(place.get("mapy"))
+        if mx is None or my is None:
+            return None, None
+
+        lon = mx / 1e7
+        lat = my / 1e7
+
+        # 한국 좌표 대략 범위 체크
+        if not (33.0 <= lat <= 39.5 and 124.0 <= lon <= 132.0):
+            return None, None
+
+        return lat, lon
+    
+    @staticmethod
+    def _haversine(lat1, lng1, lat2, lng2):
+        """두 좌표 사이 거리(meter)"""
+        if None in (lat1, lng1, lat2, lng2):
+            return None
+        R = 6371000.0
+        dlat = math.radians(lat2 - lat1)
+        dlng = math.radians(lng2 - lng1)
+        a = (
+            math.sin(dlat / 2) ** 2
+            + math.cos(math.radians(lat1))
+            * math.cos(math.radians(lat2))
+            * math.sin(dlng / 2) ** 2
+        )
+        return 2 * R * math.asin(math.sqrt(a))
+    
+    def _load_existing_map(self):
+        """현재 캠페인 테이블의 핵심 컬럼만 키로 로딩."""
+        engine = create_engine(self.settings.db.url)
+        with engine.begin() as conn:
+            rows = conn.execute(text("""
+                SELECT platform, title, offer, campaign_channel, address, lat, lng, category_id
+                FROM campaign
+            """)).mappings().all()
+        return {
+            (r['platform'], r['title'], r['offer'], r['campaign_channel']): r
+            for r in rows
+        }
+    
+    def _get_geocode_cache(self, address: str):
+        if not address:
+            return None
+        engine = create_engine(self.settings.db.url)
+        with engine.begin() as conn:
+            row = conn.execute(
+                text("""SELECT lat, lng FROM geocode_cache WHERE address_hash = sha1(:addr)"""),
+                {"addr": address.strip()}
+            ).mappings().first()
+        return (row["lat"], row["lng"]) if row else None
+
+    def _put_geocode_cache(self, address: str, lat: float, lng: float):
+        if not address or lat is None or lng is None:
+            return
+        engine = create_engine(self.settings.db.url)
+        with engine.begin() as conn:
+            conn.execute(text("""
+                INSERT INTO geocode_cache (address_hash, address, lat, lng, updated_at)
+                VALUES (sha1(:addr), :addr, :lat, :lng, NOW())
+                ON CONFLICT (address_hash) DO UPDATE
+                SET address = EXCLUDED.address, lat = EXCLUDED.lat, lng = EXCLUDED.lng, updated_at = NOW()
+            """), {"addr": address.strip(), "lat": lat, "lng": lng})

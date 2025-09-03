@@ -204,25 +204,39 @@ class MyMilkyScraper(BaseScraper):
 
             # 3-1) 주소가 없으면 local.search
             if not cur_addr and row.get("campaign_type") == "방문형":
-                place = naver_local_search(search_api_keys, title)
-                if place:
-                    addr = place.get("roadAddress") or place.get("address")
-                    if addr:
-                        df.at[i, "address"] = addr
-                        cur_addr = addr
+                cache_row = self._get_local_cache(title)
+                if cache_row:
+                    df.at[i, "address"] = cache_row["address"]
+                    df.at[i, "lat"] = cache_row["lat"]
+                    df.at[i, "lng"] = cache_row["lng"]
+                    df.at[i, "category_id"] = cache_row["category"]
+                    cur_addr = cache_row["address"]
+                    cur_lat, cur_lng = cache_row["lat"], cache_row["lng"]
 
-                    lat_m, lng_m = self._from_mapxy(place)
-                    if lat_m is not None and lng_m is not None:
-                        df.at[i, "lat"] = lat_m
-                        df.at[i, "lng"] = lng_m
-                        cur_lat, cur_lng = lat_m, lng_m
-                        from_mapxy += 1
+                else:
+                    place = naver_local_search(search_api_keys, title)
+                    if place:
+                        addr = place.get("roadAddress") or place.get("address")
+                        raw_cat = place.get("category")   # ✅ 먼저 추출
+                        lat_m, lng_m = self._from_mapxy(place)
 
-                    raw_cat = place.get("category")
-                    if raw_cat:
-                        raw_id = get_or_create_raw_category(engine, raw_cat)
-                        if raw_id:
-                            df.at[i, "category_id"] = find_mapped_category_id(engine, raw_id)
+                        if addr:
+                            df.at[i, "address"] = addr
+                            cur_addr = addr
+                        if lat_m is not None and lng_m is not None:
+                            df.at[i, "lat"] = lat_m
+                            df.at[i, "lng"] = lng_m
+                            cur_lat, cur_lng = lat_m, lng_m
+                            from_mapxy += 1
+
+                        if raw_cat:
+                            raw_id = get_or_create_raw_category(engine, raw_cat)
+                            if raw_id:
+                                df.at[i, "category_id"] = find_mapped_category_id(engine, raw_id)
+
+                        # ✅ local_cache 저장 (lat_m/lng_m 기준)
+                        if addr and lat_m and lng_m:
+                            self._put_local_cache(title, addr, lat_m, lng_m, raw_cat)
 
                     time.sleep(0.2)
 

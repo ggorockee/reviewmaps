@@ -258,3 +258,49 @@ class BaseScraper(ABC):
                     updated_at = NOW()
             """), {"addr": address.strip(), "lat": lat, "lng": lng})
         self.logger.info(f"[geocode_cache] PUT {address} → ({lat}, {lng})")
+
+    
+    def _get_local_cache(self, title: str):
+        if not title:
+            return None
+        
+        engine = create_engine(self.settings.db.url)
+        with engine.begin() as conn:
+            row = conn.execute(
+                text("""
+                    SELECT address, lat, lng, category, updated_at
+                    FROM local_search_cache
+                    WHERE title_hash = digest(:title, 'sha1')
+                    AND updated_at > NOW() - INTERVAL '30 days'
+                """),
+                {"title": title.strip()}
+            ).mappings().first()
+        if row:
+            self.logger.info(f"[local_cache] HIT {title} (updated_at={row['updated_at']})")
+            return row
+        else:
+            self.logger.info(f"[local_cache] MISS {title}")
+            return None
+
+    def _put_local_cache(self, title: str, address: str, lat: float, lng: float, category: str = None):
+        if not title:
+            return
+        engine = create_engine(self.settings.db.url)
+        with engine.begin() as conn:
+            conn.execute(text("""
+                INSERT INTO local_search_cache (title_hash, title, address, lat, lng, category, updated_at)
+                VALUES (digest(:title, 'sha1'), :title, :address, :lat, :lng, :category, NOW())
+                ON CONFLICT (title_hash) DO UPDATE
+                SET address = EXCLUDED.address,
+                    lat = EXCLUDED.lat,
+                    lng = EXCLUDED.lng,
+                    category = EXCLUDED.category,
+                    updated_at = NOW()
+            """), {
+                "title": title.strip(),
+                "address": address,
+                "lat": lat,
+                "lng": lng,
+                "category": category
+            })
+        self.logger.info(f"[local_cache] PUT {title} → ({lat}, {lng})")

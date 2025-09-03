@@ -182,25 +182,41 @@ class InflexerScraper(BaseScraper):
 
             # 3-1) 주소가 없으면 local.search + mapx/mapy
             if not cur_addr and row.get("campaign_type") == "방문형":
-                place = naver_local_search(search_api_keys, row["title"])
-                if place:
-                    addr = place.get("roadAddress") or place.get("address")
-                    if addr:
-                        merged.at[i, "address"] = addr
-                        cur_addr = addr
+                cache_row = self._get_local_cache(row["title"])
+                if cache_row:
+                    merged.at[i, "address"] = cache_row["address"]
+                    merged.at[i, "lat"] = cache_row["lat"]
+                    merged.at[i, "lng"] = cache_row["lng"]
+                    merged.at[i, "category_id"] = cache_row["category"]
+                    cur_addr = cache_row["address"]
+                    cur_lat, cur_lng = cache_row["lat"], cache_row["lng"]
 
-                    lat_m, lng_m = self._from_mapxy(place)
-                    if lat_m and lng_m:
-                        merged.at[i, "lat"], merged.at[i, "lng"] = lat_m, lng_m
-                        cur_lat, cur_lng = lat_m, lng_m
-                        from_mapxy += 1
 
-                    raw_cat = place.get("category")
-                    if raw_cat:
-                        raw_id = get_or_create_raw_category(engine, raw_cat)
-                        if raw_id:
-                            merged.at[i, "category_id"] = find_mapped_category_id(engine, raw_id)
-                time.sleep(0.2)
+
+                else:
+                    place = naver_local_search(search_api_keys, row["title"])
+                    if place:
+                        addr = place.get("roadAddress") or place.get("address")
+                        raw_cat = place.get("category")
+                        lat_m, lng_m = self._from_mapxy(place)
+
+                        if addr:
+                            merged.at[i, "address"] = addr
+                            cur_addr = addr
+                        if lat_m and lng_m:
+                            merged.at[i, "lat"], merged.at[i, "lng"] = lat_m, lng_m
+                            cur_lat, cur_lng = lat_m, lng_m
+                            from_mapxy += 1
+
+                        if raw_cat:
+                            raw_id = get_or_create_raw_category(engine, raw_cat)
+                            if raw_id:
+                                merged.at[i, "category_id"] = find_mapped_category_id(engine, raw_id)
+
+                        # local_cache
+                        if addr and lat_m and lng_m:
+                            self._put_local_cache(row["title"], addr, lat_m, lng_m, raw_cat)
+                    time.sleep(0.2)
 
             # 3-2) 주소는 있는데 좌표가 없으면 geocode + 캐시
             if cur_addr and (cur_lat is None or cur_lng is None):
@@ -214,6 +230,8 @@ class InflexerScraper(BaseScraper):
                         cur_lat, cur_lng = coords
                         merged.at[i, "lat"], merged.at[i, "lng"] = coords
                         self._put_geocode_cache(cur_addr, *coords)
+                        # ✅ local_cache에도 기록
+                        self._put_local_cache(row["title"], cur_addr, coords[0], coords[1], merged.at[i, "category_id"])
                         geocoded += 1
                 time.sleep(0.2)
 
@@ -225,7 +243,9 @@ class InflexerScraper(BaseScraper):
                     if coords:
                         cur_lat, cur_lng = coords
                         merged.at[i, "lat"], merged.at[i, "lng"] = cur_lat, cur_lng
-                        self._put_geocode_cache(cur_addr, *coords)   # ✅ drift_fix도 캐시에 기록
+                        self._put_geocode_cache(cur_addr, *coords)
+                        # ✅ local_cache도 보정값으로 갱신
+                        self._put_local_cache(row["title"], cur_addr, coords[0], coords[1], merged.at[i, "category_id"])
                         drift_fixed += 1
                         geocoded += 1
                     time.sleep(0.2)

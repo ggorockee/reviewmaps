@@ -236,13 +236,15 @@ class BaseScraper(ABC):
                 {"addr": address.strip()}
             ).mappings().first()
         if row:
-            self.logger.debug(f"[geocode_cache] HIT {address} → ({row['lat']}, {row['lng']})")
+            self.logger.info(f"[geocode_cache] HIT {address} → ({row['lat']}, {row['lng']})")
         else:
-            self.logger.debug(f"[geocode_cache] MISS {address}")
+            self.logger.info(f"[geocode_cache] MISS {address}")
         return (row["lat"], row["lng"]) if row else None
+
 
     def _put_geocode_cache(self, address: str, lat: float, lng: float):
         if not address or lat is None or lng is None:
+            self.logger.debug(f"[geocode_cache] SKIP {address} lat={lat}, lng={lng}")
             return
         engine = create_engine(self.settings.db.url)
         with engine.begin() as conn:
@@ -252,4 +254,4 @@ class BaseScraper(ABC):
                 ON CONFLICT (address_hash) DO UPDATE
                 SET address = EXCLUDED.address, lat = EXCLUDED.lat, lng = EXCLUDED.lng, updated_at = NOW()
             """), {"addr": address.strip(), "lat": lat, "lng": lng})
-        self.logger.debug(f"[geocode_cache] PUT {address} → ({lat}, {lng})")
+        self.logger.info(f"[geocode_cache] PUT {address} → ({lat}, {lng})")

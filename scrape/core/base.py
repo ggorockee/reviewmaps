@@ -232,7 +232,7 @@ class BaseScraper(ABC):
         engine = create_engine(self.settings.db.url)
         with engine.begin() as conn:
             row = conn.execute(
-                text("""SELECT lat, lng FROM geocode_cache WHERE address_hash = sha1(:addr)"""),
+                text("""SELECT lat, lng FROM geocode_cache WHERE address_hash = digest(:addr, 'sha1')"""),
                 {"addr": address.strip()}
             ).mappings().first()
         if row:
@@ -250,8 +250,11 @@ class BaseScraper(ABC):
         with engine.begin() as conn:
             conn.execute(text("""
                 INSERT INTO geocode_cache (address_hash, address, lat, lng, updated_at)
-                VALUES (sha1(:addr), :addr, :lat, :lng, NOW())
+                VALUES (digest(:addr, 'sha1'), :addr, :lat, :lng, NOW())
                 ON CONFLICT (address_hash) DO UPDATE
-                SET address = EXCLUDED.address, lat = EXCLUDED.lat, lng = EXCLUDED.lng, updated_at = NOW()
+                SET address = EXCLUDED.address,
+                    lat = EXCLUDED.lat,
+                    lng = EXCLUDED.lng,
+                    updated_at = NOW()
             """), {"addr": address.strip(), "lat": lat, "lng": lng})
         self.logger.info(f"[geocode_cache] PUT {address} → ({lat}, {lng})")

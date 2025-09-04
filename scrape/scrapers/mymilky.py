@@ -209,7 +209,13 @@ class MyMilkyScraper(BaseScraper):
                     df.at[i, "address"] = cache_row["address"]
                     df.at[i, "lat"] = cache_row["lat"]
                     df.at[i, "lng"] = cache_row["lng"]
-                    df.at[i, "category_id"] = cache_row["category"]
+                    
+                    cat = cache_row["category"]
+                    if isinstance(cat, str):   # ✅ 문자열이면 매핑 재시도
+                        raw_id = get_or_create_raw_category(engine, cat)
+                        cat = find_mapped_category_id(engine, raw_id)
+                    df.at[i, "category_id"] = cat    # ✅ 항상 정수/None만 들어감
+                    
                     cur_addr = cache_row["address"]
                     cur_lat, cur_lng = cache_row["lat"], cache_row["lng"]
 
@@ -231,12 +237,11 @@ class MyMilkyScraper(BaseScraper):
 
                         if raw_cat:
                             raw_id = get_or_create_raw_category(engine, raw_cat)
-                            if raw_id:
-                                df.at[i, "category_id"] = find_mapped_category_id(engine, raw_id)
-
-                        # ✅ local_cache 저장 (lat_m/lng_m 기준)
-                        if addr and lat_m and lng_m:
-                            self._put_local_cache(title, addr, lat_m, lng_m, raw_cat)
+                            mapped_id = find_mapped_category_id(engine, raw_id)
+                            df.at[i, "category_id"] = mapped_id   # ✅ bigint만 들어감
+                            # local_cache에도 숫자 ID 저장
+                            if addr and lat_m and lng_m:
+                                self._put_local_cache(title, addr, lat_m, lng_m, mapped_id)   # ✅ 변경
 
                     time.sleep(0.2)
 
@@ -284,3 +289,5 @@ class MyMilkyScraper(BaseScraper):
         final_columns = [c for c in self.RESULT_TABLE_COLUMNS if c in df.columns]
         final_df = df.reindex(columns=final_columns).astype(object).where(pd.notna(df), None)
         return final_df.to_dict("records")
+    
+    

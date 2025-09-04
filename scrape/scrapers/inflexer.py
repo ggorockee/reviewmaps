@@ -187,11 +187,14 @@ class InflexerScraper(BaseScraper):
                     merged.at[i, "address"] = cache_row["address"]
                     merged.at[i, "lat"] = cache_row["lat"]
                     merged.at[i, "lng"] = cache_row["lng"]
-                    merged.at[i, "category_id"] = cache_row["category"]
+                    
+                    cat = cache_row["category"]
+                    if isinstance(cat, str):
+                        raw_id = get_or_create_raw_category(engine, cat)
+                        cat = find_mapped_category_id(engine, raw_id)
+                    merged.at[i, "category_id"] = cat
                     cur_addr = cache_row["address"]
                     cur_lat, cur_lng = cache_row["lat"], cache_row["lng"]
-
-
 
                 else:
                     place = naver_local_search(search_api_keys, row["title"])
@@ -212,6 +215,14 @@ class InflexerScraper(BaseScraper):
                             raw_id = get_or_create_raw_category(engine, raw_cat)
                             if raw_id:
                                 merged.at[i, "category_id"] = find_mapped_category_id(engine, raw_id)
+                                
+                        if raw_cat:
+                            raw_id = get_or_create_raw_category(engine, raw_cat)
+                            mapped_id = find_mapped_category_id(engine, raw_id)
+                            merged.at[i, "category_id"] = mapped_id
+                            self._put_local_cache(row["title"], addr, lat_m, lng_m, mapped_id)
+                                
+                    
 
                         # local_cache
                         if addr and lat_m and lng_m:

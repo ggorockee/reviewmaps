@@ -18,6 +18,14 @@ from prometheus_client.openmetrics.exposition import CONTENT_TYPE_LATEST, genera
 
 import os
 
+from fastapi.responses import PlainTextResponse
+
+
+
+
+APP_ADS_TXT = """google.com, pub-3219791135582658, DIRECT, f08c47fec0942fa0
+"""
+
 
 setup_logging()
 
@@ -81,6 +89,14 @@ def metrics():
     multiprocess.MultiProcessCollector(registry)
     data = generate_latest(registry)
     return Response(content=data, media_type=CONTENT_TYPE_LATEST)
+
+
+
+@app.get("/app-ads.txt", response_class=PlainTextResponse, include_in_schema=False)
+def app_ads_txt():
+    # 캐시 조금: 필요시 max-age 조절
+    headers = {"Cache-Control": "public, max-age=3600"}
+    return PlainTextResponse(APP_ADS_TXT, headers=headers)
 
 # 2. 시스템/프로세스 메트릭을 위한 Gauge 생성
 # CPU_USAGE = Gauge('process_cpu_percent', 'Total CPU percentage usage of the process')

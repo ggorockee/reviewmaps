@@ -77,6 +77,12 @@ class BaseScraper(ABC):
         self.settings = settings
         self.logger = get_logger(f"scraper.{self.PLATFORM_NAME}")
 
+        self.engine = create_engine(
+            self.settings.db.url, 
+            pool_pre_ping=True
+        )
+        self.Session = sessionmaker(bind=self.engine)
+
     @abstractmethod
     def scrape(self, keyword: Optional[str] = None) -> List[Dict[str, Any]]:
         raise NotImplementedError
@@ -101,10 +107,8 @@ class BaseScraper(ABC):
             return
 
         log.info(f"정제된 최종 데이터 {len(data)}건을 DB에 저장 시작...")
-        engine = create_engine(self.settings.db.url)
-        Session = sessionmaker(bind=engine)
         
-        with Session() as session:
+        with self.Session() as session:
             try:
                 upsert_sql = text(f"""
                     INSERT INTO campaign (
@@ -215,8 +219,7 @@ class BaseScraper(ABC):
     
     def _load_existing_map(self):
         """현재 캠페인 테이블의 핵심 컬럼만 키로 로딩."""
-        engine = create_engine(self.settings.db.url)
-        with engine.begin() as conn:
+        with self.engine.begin() as conn:
             rows = conn.execute(text("""
                 SELECT platform, title, offer, campaign_channel, address, lat, lng, category_id
                 FROM campaign
@@ -229,8 +232,7 @@ class BaseScraper(ABC):
     def _get_geocode_cache(self, address: str):
         if not address:
             return None
-        engine = create_engine(self.settings.db.url)
-        with engine.begin() as conn:
+        with self.engine.begin() as conn:
             row = conn.execute(
                 text("""SELECT lat, lng FROM geocode_cache WHERE address_hash = digest(:addr, 'sha1')"""),
                 {"addr": address.strip()}
@@ -246,8 +248,7 @@ class BaseScraper(ABC):
         if not address or lat is None or lng is None:
             self.logger.debug(f"[geocode_cache] SKIP {address} lat={lat}, lng={lng}")
             return
-        engine = create_engine(self.settings.db.url)
-        with engine.begin() as conn:
+        with self.engine.begin() as conn:
             conn.execute(text("""
                 INSERT INTO geocode_cache (address_hash, address, lat, lng, updated_at)
                 VALUES (digest(:addr, 'sha1'), :addr, :lat, :lng, NOW())
@@ -264,8 +265,7 @@ class BaseScraper(ABC):
         if not title:
             return None
         
-        engine = create_engine(self.settings.db.url)
-        with engine.begin() as conn:
+        with self.engine.begin() as conn:
             row = conn.execute(
                 text("""
                     SELECT address, lat, lng, category, updated_at
@@ -285,8 +285,8 @@ class BaseScraper(ABC):
     def _put_local_cache(self, title: str, address: str, lat: float, lng: float, category: str = None):
         if not title:
             return
-        engine = create_engine(self.settings.db.url)
-        with engine.begin() as conn:
+    
+        with self.engine.begin() as conn:
             conn.execute(text("""
                 INSERT INTO local_search_cache (title_hash, title, address, lat, lng, category, updated_at)
                 VALUES (digest(:title, 'sha1'), :title, :address, :lat, :lng, :category, NOW())

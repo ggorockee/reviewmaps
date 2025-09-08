@@ -6,6 +6,7 @@ from datetime import timedelta
 from .models import Campaign, Category, RawCategory, CategoryMapping
 from schemas.category import CategoryMappingCreate,CategoryCreate
 
+
 import re
 
 
@@ -232,29 +233,45 @@ async def list_campaigns(
     # === 거리순 정렬 로직 ===
     if sort == "distance" and lat is not None and lng is not None:
         distance_col = get_distance_query(lat, lng)
-        
-        # ✨ SELECT 구문에 is_new_expression, Category 추가 및 JOIN
-        stmt = select(Campaign, Category, is_new_expression, distance_col)
-        stmt = stmt.outerjoin(Category, Campaign.category_id == Category.id)
-        stmt = stmt.where(Campaign.lat.isnot(None), Campaign.lng.isnot(None))
+
+        # 좌표 유무 관계없이 모두 포함 (좌표 없는 항목도 결과에 남긴다)
+        stmt = (
+            select(Campaign, Category, is_new_expression, distance_col)
+            .outerjoin(Category, Campaign.category_id == Category.id)
+        )
+
+        # 공통 필터 적용 (region/offer 등)
         stmt = apply_common_filters(stmt)
-        
-        # 2. total count 계산 (필터가 모두 적용된 쿼리 기반)
+
+        # total 계산 (필터가 적용된 서브쿼리 기준)
         count_stmt = select(func.count()).select_from(stmt.subquery())
         total = (await db.execute(count_stmt)).scalar_one()
 
-        # 3. 정렬 및 페이지네이션 적용
-        stmt = stmt.order_by(distance_col.asc()).limit(limit).offset(offset)
-        
-        # 4. 쿼리 실행 및 결과 처리
+        # 정렬: 거리 오름차순 + NULLS LAST + created_at DESC(2차키)
+        # Postgres + SQLAlchemy 2.x면 nulls_last() 지원
+        try:
+            order_by_clause = (
+                distance_col.asc().nulls_last(),
+                Campaign.created_at.desc(),
+            )
+        except Exception:
+            # DB/드라이버에서 nulls_last 미지원이면 case로 대체
+            order_by_clause = (
+                case((distance_col.is_(None), 1), else_=0),  # NULL 먼저 플래그(1) → 뒤로 감
+                distance_col.asc(),
+                Campaign.created_at.desc(),
+            )
+
+        stmt = stmt.order_by(*order_by_clause).limit(limit).offset(offset)
+
         result = await db.execute(stmt)
         rows = []
         for campaign, category, is_new, distance in result.all():
             campaign.is_new = is_new
-            campaign.distance = distance
+            campaign.distance = distance  # 좌표 없으면 None
             campaign.category = category
             rows.append(campaign)
-        
+
         return total, rows
 
     # === 일반 정렬 로직 ===

@@ -197,7 +197,7 @@ async def list_campaigns(
             for token in tokens:
                 like = f"%{token}%"
                 stmt_ = stmt_.where(
-                    (Campaign.region.ilike(like)) | (Campaign.address.ilike(like))
+                    (Campaign.region.ilike(like)) | (Campaign.address.ilike(like)) | (Campaign.title.ilike(like))
                 )
         if offer:
             # 텍스트 오퍼(예: '10만원', '이용권') 부분검색

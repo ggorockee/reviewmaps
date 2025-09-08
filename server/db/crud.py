@@ -87,7 +87,12 @@ async def list_campaigns(
             stmt_ = stmt_.where(Campaign.company.ilike(f"%{company}%"))
         # --- 새로운 필터 로직 추가 ---
         if region:
-            stmt_ = stmt_.where(Campaign.region.ilike(f"%{region}%"))
+            tokens = [t.strip() for t in region.split() if t.strip()]
+            for token in tokens:
+                like = f"%{token}%"
+                stmt_ = stmt_.where(
+                    (Campaign.region.ilike(like)) | (Campaign.address.ilike(like))
+                )
         if offer:
             # 텍스트 오퍼(예: '10만원', '이용권') 부분검색
             stmt_ = stmt_.where(Campaign.offer.ilike(f"%{offer}%"))

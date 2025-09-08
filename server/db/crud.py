@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Optional, Sequence, Tuple, List
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, update, delete, Date, case
+from sqlalchemy import select, func, update, delete, Date, case, or_
 from datetime import timedelta
 from .models import Campaign, Category, RawCategory, CategoryMapping
 from schemas.category import CategoryMappingCreate,CategoryCreate
@@ -40,6 +40,7 @@ async def list_campaigns(
     *,
     # --- 새로운 필터 파라미터 추가 ---
     region: Optional[str] = None,
+    offer: Optional[str] = None,  # ✨ 추가: 오퍼(텍스트) 부분검색
     campaign_type: Optional[str] = None,
     campaign_channel: Optional[str] = None,
     # ------------------------------------
@@ -73,10 +74,12 @@ async def list_campaigns(
         if q:
             like = f"%{q}%"
             stmt_ = stmt_.where(
-                (Campaign.company.ilike(like)) |
-                (Campaign.offer.ilike(like)) |
-                (Campaign.platform.ilike(like)) |
-                (Campaign.title.ilike(like))
+                or_(
+                 Campaign.company.ilike(like),   
+                 Campaign.offer.ilike(like),
+                 Campaign.platform.ilike(like),
+                 Campaign.title.ilike(like),
+                )
             )
         if platform:
             stmt_ = stmt_.where(Campaign.platform == platform)
@@ -84,12 +87,17 @@ async def list_campaigns(
             stmt_ = stmt_.where(Campaign.company.ilike(f"%{company}%"))
         # --- 새로운 필터 로직 추가 ---
         if region:
-            stmt_ = stmt_.where(Campaign.region == region)
+            stmt_ = stmt_.where(Campaign.region.ilike(f"%{region}%"))
+        if offer:
+            # 텍스트 오퍼(예: '10만원', '이용권') 부분검색
+            stmt_ = stmt_.where(Campaign.offer.ilike(f"%{offer}%"))
         if campaign_type:
             stmt_ = stmt_.where(Campaign.campaign_type == campaign_type)
         if campaign_channel:
             # 쉼표로 구분된 여러 채널 중 하나라도 포함되면 검색 (예: 'blog,instagram')
-            stmt_ = stmt_.where(Campaign.campaign_channel.ilike(f"%{campaign_channel}%"))
+            tokens = [t.strip() for t in campaign_channel.split(",") if t.strip()]
+            if tokens:
+                stmt_ = stmt_.where(or_(*[Campaign.campaign_channel.ilike(f"%{t}%") for t in tokens]))
         # --------------------------------
         if category_id:
             stmt_ = stmt_.where(Campaign.category_id == category_id)
@@ -101,10 +109,12 @@ async def list_campaigns(
             stmt_ = stmt_.where(Campaign.review_deadline >= review_from)
         if review_to:
             stmt_ = stmt_.where(Campaign.review_deadline <= review_to)
-        if all([sw_lat, sw_lng, ne_lat, ne_lng]):
+        if None not in (sw_lat, sw_lng, ne_lat, ne_lng):
+            lat_min, lat_max = sorted([sw_lat, ne_lat])
+            lng_min, lng_max = sorted([sw_lng, ne_lng])
             stmt_ = stmt_.where(
-                Campaign.lat.between(sw_lat, ne_lat),
-                Campaign.lng.between(sw_lng, ne_lng)
+                Campaign.lat.between(lat_min, lat_max),
+                Campaign.lng.between(lng_min, lng_max)
             )
         return stmt_
 

@@ -20,6 +20,7 @@ async def list_campaigns(
     db: AsyncSession            = Depends(get_db_session),
     # --- 새로운 필터 파라미터를 Query로 추가합니다. ---
     region: Optional[str]       = Query(None, description="지역으로 필터링 (예: 서울, 경기)"),
+    offer: Optional[str]  = Query(None, description="오퍼(텍스트) 부분검색, 예: 10만원"),
     campaign_type: Optional[str]= Query(None, description="캠페인 유형으로 필터링 (예: 방문형, 배송형)"),
     campaign_channel: Optional[str] = Query(None, description="캠페인 채널로 필터링 (예: blog, instagram)"),
     # -----------------------------------------------------------------
@@ -67,6 +68,7 @@ async def list_campaigns(
         db,
         # --- [v2] crud 함수에 새로운 파라미터를 전달합니다. ---
         region=region,
+        offer=offer,
         campaign_type=campaign_type,
         campaign_channel=campaign_channel,
         # --------------------------------------------------------

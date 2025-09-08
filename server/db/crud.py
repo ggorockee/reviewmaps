@@ -1,11 +1,116 @@
 from __future__ import annotations
 from typing import Optional, Sequence, Tuple, List
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, update, delete, Date, case, or_
+from sqlalchemy import select, func, update, delete, Date, case, or_, and_
 from datetime import timedelta
 from .models import Campaign, Category, RawCategory, CategoryMapping
 from schemas.category import CategoryMappingCreate,CategoryCreate
 
+import re
+
+
+
+# --- offer 정규화 유틸 ---
+_NUM_UNIT_PAT = re.compile(
+    r'(?P<num>\d+)\s*(?P<unit>개월|월|주|일|시간|분|회|회차|인|명|대|병|장|팩|개)'
+)
+
+def _normalize_money_variants(value: int) -> list[str]:
+    """정수 금액 -> 다양한 문자열 표현(숫자/쉼표/만원 단위) 목록"""
+    variants = [f"{value}", f"{value:,}"]
+    if value % 10000 == 0:
+        man = value // 10000
+        variants += [f"{man}만", f"{man}만원"]
+    return variants
+
+
+def _extract_money_value(s: str) -> int | None:
+    """'40,000'/'40000'/'4만'/'4만원' 등에서 금액(원) 뽑기."""
+    s = s.strip()
+    # 한글 '만/만원' 케이스
+    m = re.match(r'^(\d+)\s*만(원)?$', s)
+    if m:
+        return int(m.group(1)) * 10000
+    # 숫자만/쉼표 숫자
+    digits = re.sub(r'\D', '', s)
+    return int(digits) if digits else None
+
+
+def build_offer_predicates(offer_input: str, column):
+    """
+    offer 입력을 의미 단위로 나눠서,
+    각 단위를 (여러 표현 OR)로 만들고, 전체는 AND로 결합하기 위한 predicate 리스트를 반환.
+    사용 예: for pred in build_offer_predicates(...): stmt = stmt.where(pred)
+    """
+    if not offer_input or not offer_input.strip():
+        return []
+
+    terms = [t for t in re.split(r'\s+', offer_input.strip()) if t]
+    predicates = []
+
+    for term in terms:
+        or_variants = []
+
+        # 1) 금액 후보
+        money = _extract_money_value(term)
+        if money:
+            for v in _normalize_money_variants(money):
+                or_variants.append(column.ilike(f"%{v}%"))
+            # 예: "4만"만 적어도 '40,000'과 매칭되도록 원본 term 자체도 포함
+            or_variants.append(column.ilike(f"%{term}%"))
+
+        # 2) 수량/기간 (2개월, 10회, 2인, 3주, 30분, 2시간 등)
+        m = _NUM_UNIT_PAT.fullmatch(term)
+        if m:
+            n = m.group('num')
+            u = m.group('unit')
+            # 동의어/표현 다양화
+            unit_alias = {
+                '개월': ['개월', '달', '월'],
+                '월':   ['월', '개월', '달'],
+                '주':   ['주'],
+                '일':   ['일'],
+                '시간': ['시간', '시간권'],
+                '분':   ['분'],
+                '회':   ['회', '회차'],
+                '회차': ['회차', '회'],
+                '인':   ['인', '명'],
+                '명':   ['명', '인'],
+                '대':   ['대'],
+                '병':   ['병'],
+                '장':   ['장'],
+                '팩':   ['팩'],
+                '개':   ['개'],
+            }.get(u, [u])
+
+            for ua in unit_alias:
+                # 공백 유무 모두
+                or_variants.append(column.ilike(f"%{n}{ua}%"))
+                or_variants.append(column.ilike(f"%{n} {ua}%"))
+            # 원본 그대로
+            or_variants.append(column.ilike(f"%{term}%"))
+
+        # 3) 일반 키워드 (헬스장, PT, 커플, 이용권 등)
+        #    숫자/단위/금액으로 잡히지 않았다면 키워드로 처리
+        if not or_variants:
+            # PT 같이 대소문자 섞이는 건 ILIKE로 충분
+            or_variants.append(column.ilike(f"%{term}%"))
+
+            # 가벼운 동의어 추가 (필요 시 확장)
+            synonym_map = {
+                '헬스장': ['헬스장', '헬스', '피트니스', '짐', 'GYM', 'fitness'],
+                'PT':    ['PT', '피티', '퍼스널트레이닝', '퍼스널', 'personal training'],
+                '커플':  ['커플', '2인', '두명'],
+                '이용권': ['이용권', '이용 쿠폰', '이용권한', '이용권증정'],
+            }
+            if term in synonym_map:
+                for syn in synonym_map[term]:
+                    or_variants.append(column.ilike(f"%{syn}%"))
+
+        # 그룹(표현들)을 OR로 묶고, 그룹 간은 AND
+        predicates.append(or_(*or_variants))
+
+    return predicates
 
 
 async def get_campaign(db: AsyncSession, campaign_id: int) -> Campaign | None:
@@ -95,7 +200,8 @@ async def list_campaigns(
                 )
         if offer:
             # 텍스트 오퍼(예: '10만원', '이용권') 부분검색
-            stmt_ = stmt_.where(Campaign.offer.ilike(f"%{offer}%"))
+            for pred in build_offer_predicates(offer, Campaign.offer):
+                stmt_ = stmt_.where(pred)
         if campaign_type:
             stmt_ = stmt_.where(Campaign.campaign_type == campaign_type)
         if campaign_channel:

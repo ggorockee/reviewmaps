@@ -19,37 +19,31 @@ class TitleWithBadges extends StatelessWidget {
   Widget build(BuildContext context) {
     final isTab = MediaQuery.of(context).size.shortestSide >= 600;
     
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         // 제목
-        Expanded(
-          child: Text(
-            store.title,
-            style: TextStyle(
-              fontSize: dense 
-                  ? (isTab ? 10.sp : 13.sp)
-                  : (isTab ? 12.sp : 15.sp),
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
-              height: 1.3,
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+        Text(
+          store.title,
+          style: TextStyle(
+            fontSize: dense 
+                ? (isTab ? 10.sp : 13.sp)
+                : (isTab ? 12.sp : 15.sp),
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+            height: 1.3,
           ),
         ),
         
-        // 채널 아이콘들
+        // 채널 아이콘들 (기존 이미지 사용)
         if (store.campaignChannel != null && store.campaignChannel!.isNotEmpty) ...[
-          SizedBox(width: 8.w),
-          Row(
-            children: buildChannelIcons(store.campaignChannel),
-          ),
+          SizedBox(width: 6.w),
+          ...buildChannelIcons(store.campaignChannel),
         ],
         
-        // 뱃지들 (NEW)
+        // NEW 뱃지 (기존 위젯 사용)
         if (_shouldShowBadges()) ...[
-          SizedBox(width: 8.w),
+          SizedBox(width: 6.w),
           NewBadge(dense: dense),
         ],
       ],

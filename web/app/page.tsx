@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 
 export default function Home() {
   const [isDragging, setIsDragging] = useState(false);
@@ -55,7 +55,7 @@ export default function Home() {
     setTimeout(() => setShowPopup(false), 3000);
   };
 
-  const startAutoScroll = () => {
+  const startAutoScroll = useCallback(() => {
     if (!sliderRef.current) return;
     
     const scroll = () => {
@@ -76,7 +76,7 @@ export default function Home() {
     };
     
     animationRef.current = requestAnimationFrame(scroll);
-  };
+  }, [isDragging, isHovered]);
 
   useEffect(() => {
     if (!isDragging && !isHovered) {
@@ -88,7 +88,7 @@ export default function Home() {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [isDragging, isHovered]);
+  }, [isDragging, isHovered, startAutoScroll]);
 
   return (
     <div className="min-h-screen bg-white">
@@ -120,7 +120,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center space-x-3">
-        <Image
+              <Image
                 src="/assets/images/logo.png"
                 alt="리뷰맵 로고"
                 width={40}
@@ -164,7 +164,7 @@ export default function Home() {
                 />
               </button>
               <a href="https://apps.apple.com/us/app/%EB%A6%AC%EB%B7%B0%EB%A7%B5/id6751343880" target="_blank" rel="noopener noreferrer" className="inline-block">
-            <Image
+                <Image
                   src="/assets/images/app-store-badge.png"
                   alt="App Store에서 다운로드"
                   width={200}
@@ -262,13 +262,13 @@ export default function Home() {
             <div className="text-center">
               <div className="w-16 h-16 bg-green-600 text-white rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-6">1</div>
               <h3 className="text-xl font-semibold text-gray-900 mb-4">위치 권한 허용</h3>
-              <p className="text-gray-600">홈에서 '가까운 체험단 보여주기' 버튼을 눌러 위치 권한을 허용합니다.</p>
+              <p className="text-gray-600">홈에서 &apos;가까운 체험단 보여주기&apos; 버튼을 눌러 위치 권한을 허용합니다.</p>
             </div>
 
             <div className="text-center">
               <div className="w-16 h-16 bg-green-600 text-white rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-6">2</div>
               <h3 className="text-xl font-semibold text-gray-900 mb-4">지도에서 검색</h3>
-              <p className="text-gray-600">지도 화면에서 상단 '이 위치로 검색'을 눌러 현재 화면 범위를 조회합니다.</p>
+              <p className="text-gray-600">지도 화면에서 상단 &apos;이 위치로 검색&apos;을 눌러 현재 화면 범위를 조회합니다.</p>
             </div>
 
             <div className="text-center">
@@ -374,7 +374,7 @@ export default function Home() {
                   />
                 </div>
                 <div className="bg-gray-100 rounded-2xl p-4 shadow-lg card-hover">
-          <Image
+                  <Image
                     src="/assets/images/app-screenshot-4.png"
                     alt="리뷰맵 앱 화면 4"
                     width={300}
@@ -383,7 +383,7 @@ export default function Home() {
                   />
                 </div>
                 <div className="bg-gray-100 rounded-2xl p-4 shadow-lg card-hover">
-          <Image
+                  <Image
                     src="/assets/images/app-screenshot-5.png"
                     alt="리뷰맵 앱 화면 5"
                     width={300}
@@ -397,14 +397,13 @@ export default function Home() {
         </div>
       </section>
 
-
       {/* Footer */}
       <footer className="bg-gray-900 text-white py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid md:grid-cols-3 gap-8">
             <div>
               <div className="flex items-center space-x-3 mb-4">
-          <Image
+                <Image
                   src="/assets/images/logo.png"
                   alt="리뷰맵 로고"
                   width={40}

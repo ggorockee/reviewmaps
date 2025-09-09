@@ -57,7 +57,7 @@ final searchResultsProvider = FutureProvider.family.autoDispose<List<Store>, Str
     // 검색어로 필터링
     if (query.isNotEmpty) {
       results = results.where((store) {
-        return store.company.toLowerCase().contains(query.toLowerCase()) ||
+        return store.title.toLowerCase().contains(query.toLowerCase()) ||
                (store.offer?.toLowerCase().contains(query.toLowerCase()) ?? false);
       }).toList();
     }

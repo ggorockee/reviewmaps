@@ -47,7 +47,7 @@ class ExperienceCard extends StatelessWidget {
     return MediaQuery(
       data: MediaQuery.of(context).copyWith(textScaler: localScaler),
       child: InkWell(
-        onTap: (store.companyLink ?? '').isEmpty ? null : () => openLink(store.companyLink!),
+        onTap: (store.contentLink ?? '').isEmpty ? null : () => openLink(store.contentLink!),
         child: SizedBox(
           width: width,
           child: Padding(
@@ -126,6 +126,13 @@ class ExperienceCard extends StatelessWidget {
                                 style: TextStyle(fontSize: isTab ? 9.sp : 11.sp, color: Colors.grey[600])),
                           ],
                         ),
+                      // 채널 아이콘들 추가
+                      if (store.campaignChannel != null && store.campaignChannel!.isNotEmpty) ...[
+                        SizedBox(height: 4.h),
+                        Row(
+                          children: buildChannelIcons(store.campaignChannel),
+                        ),
+                      ],
                     ],
                   )
                       : Row(
@@ -144,6 +151,15 @@ class ExperienceCard extends StatelessWidget {
                     ],
                   ),
                 ),
+                
+                // 채널 아이콘들 (가로 배치일 때)
+                if (!stackedMeta && store.campaignChannel != null && store.campaignChannel!.isNotEmpty)
+                  Padding(
+                    padding: EdgeInsets.only(top: 4.h),
+                    child: Row(
+                      children: buildChannelIcons(store.campaignChannel),
+                    ),
+                  ),
               ],
             ),
           ),

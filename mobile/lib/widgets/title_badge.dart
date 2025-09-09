@@ -23,7 +23,7 @@ class TitleWithBadges extends StatelessWidget {
       children: [
         // 제목
         Text(
-          store.company,
+          store.title,
           style: TextStyle(
             fontSize: dense 
                 ? (isTab ? 10.sp : 13.sp)

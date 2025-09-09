@@ -9,10 +9,10 @@ class Store {
   final String platform;
 
   /// 업체명/캠페인명 (필수)
-  final String company;
+  final String title;
 
   /// 상세 링크 (선택)
-  final String? companyLink;
+  final String? contentLink;
 
   /// 제공 혜택/오퍼 (선택)
   final String? offer;
@@ -42,9 +42,9 @@ class Store {
   Store({
     required this.id,
     required this.platform,
-    required this.company,
+    required this.title,
     required this.createdAt,
-    this.companyLink,
+    this.contentLink,
     this.offer,
     this.lat,
     this.lng,
@@ -111,8 +111,8 @@ class Store {
     return Store(
       id: toInt(j['id']),
       platform: (j['platform'] ?? '').toString().trim(),
-      company: (j['company'] ?? '').toString().trim(),
-      companyLink: (j['company_link'] ?? j['companyLink'])?.toString().trim(),
+      title: (j['title'] ?? '').toString().trim(),
+      contentLink: (j['content_link'] ?? j['content_link'])?.toString().trim(),
       offer: (j['offer'] as String?)?.trim(),
       lat: toD(j['lat']),
       lng: toD(j['lng']),
@@ -132,8 +132,8 @@ class Store {
   Store copyWith({
     int? id,
     String? platform,
-    String? company,
-    String? companyLink,
+    String? title,
+    String? contentLink,
     String? offer,
     double? lat,
     double? lng,
@@ -147,8 +147,8 @@ class Store {
     return Store(
       id: id ?? this.id,
       platform: platform ?? this.platform,
-      company: company ?? this.company,
-      companyLink: companyLink ?? this.companyLink,
+      title: title ?? this.title,
+      contentLink: contentLink ?? this.contentLink,
       offer: offer ?? this.offer,
       lat: lat ?? this.lat,
       lng: lng ?? this.lng,
@@ -246,6 +246,35 @@ const Map<String, String> _platformBannerFile = {
   '오마이블로그': 'ohmyblog.png',
   '구구다스': 'gugudas.png',
   '티블': 'tble.png',
+  '디노단': 'dinodan.png',
+  '데일리뷰': 'dailiview.png',
+  '똑똑체험단': 'ddokddok.png',
+  '리뷰메이커': 'reviewmaker.png',
+  '리뷰어랩': 'reviewerlab.png',
+  '리뷰어스': 'reviewus.png',
+  '리뷰웨이브': 'reviewwave.png',
+  '리뷰윙': 'reviewwing.png',
+  '리뷰퀸': 'reviewqueen.png',
+  '리얼리뷰': 'realreview.png',
+  '마녀체험단': 'witch_review.png',
+  '모두의블로그': 'moble.png',
+  '모두의체험단': 'modan.png',
+  '뷰티의여왕': 'beauti_queen.png',
+  '블로그원정대': 'review_one.png',
+  '서울오빠': 'seoulobba.png',
+  '서포터즈픽': 'supporterzpick.png',
+  '샐러뷰': 'celuvu.png',
+  '시원뷰': 'coolvue.png',
+  '와이리': 'waili.png',
+  '이음체험단': 'iumchehum.png',
+  '츄블': 'chuble.png',
+  '클라우드리뷰': 'cloudreview.png',
+  '키플랫체험단': 'keyplat.png',
+  '택배의여왕': 'taebae_queen.png',
+  '파블로체험단': 'pablochehum.png',
+  '후기업': 'whogiup.png',
+  '플레이체험단': 'playchehum.png',
+  '태그바이': 'tagby.png',
 };
 
 String _logoPath(String fileName) => 'asset/image/logo/$fileName';

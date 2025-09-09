@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mobile/models/store_model.dart';
 import 'package:mobile/widgets/deadline_chips.dart';
+import 'package:mobile/screens/home_screen.dart';
 
 /// 메타 정보 바 (마감일, 거리, 플랫폼 등)
 class MetaBar extends StatelessWidget {
@@ -39,11 +40,23 @@ class MetaBar extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    return Wrap(
-      spacing: 6.w,
-      runSpacing: 4.h,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: items,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 6.w,
+          runSpacing: 4.h,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: items,
+        ),
+        // 채널 아이콘들
+        if (store.campaignChannel != null && store.campaignChannel!.isNotEmpty) ...[
+          SizedBox(height: 4.h),
+          Row(
+            children: buildChannelIcons(store.campaignChannel),
+          ),
+        ],
+      ],
     );
   }
 

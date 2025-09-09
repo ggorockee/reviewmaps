@@ -3,8 +3,10 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
+import 'package:flutter/foundation.dart';
 
 import '../models/store_model.dart';
+import '../config/config.dart';
 import 'package:geolocator/geolocator.dart';
 
 
@@ -34,6 +36,22 @@ class CampaignService {
     // 서버 트래픽 구분용 User-Agent (필요 시 변경)
     'User-Agent': 'review-maps-app/1.0 (Flutter; iOS/Android)',
   };
+
+  /// 디버깅 모드에서 API 응답 출력
+  void _debugPrintResponse(String method, String url, Map<String, String>? queryParams, http.Response response) {
+    if (!AppConfig.isDebugMode) return;
+    
+    debugPrint('=== API DEBUG ===');
+    debugPrint('Method: $method');
+    debugPrint('URL: $url');
+    if (queryParams != null && queryParams.isNotEmpty) {
+      debugPrint('Query Params: $queryParams');
+    }
+    debugPrint('Status Code: ${response.statusCode}');
+    debugPrint('Response Headers: ${response.headers}');
+    debugPrint('Response Body: ${response.body}');
+    debugPrint('==================');
+  }
 
   /// 리소스 정리(앱 종료/DI 스코프 해제 시 호출 권장)
   void dispose() {
@@ -244,6 +262,9 @@ class CampaignService {
           .get(uri, headers: _headers)
           .timeout(const Duration(seconds: 15));
 
+      // 디버깅 모드에서 API 응답 출력
+      _debugPrintResponse('GET', uri.toString(), null, r);
+
       // 여기서는 items 키 없이 바로 리스트가 반환된다고 가정
       if (r.statusCode != 200) {
         throw Exception('카테고리 조회 실패: ${r.statusCode}');
@@ -270,6 +291,10 @@ class CampaignService {
       final r =
       await _client.get(uri, headers: _headers).timeout(
           const Duration(seconds: 30));
+      
+      // 디버깅 모드에서 API 응답 출력
+      _debugPrintResponse('GET', uri.toString(), uri.queryParameters, r);
+      
       final items = _parseItemsOrThrow(r, context: '캠페인 검색');
       return items
           .map((e) => Store.fromJson(e as Map<String, dynamic>))

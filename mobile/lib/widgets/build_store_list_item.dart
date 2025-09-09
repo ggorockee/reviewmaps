@@ -147,12 +147,12 @@ class StoreListItem extends StatelessWidget {
     );
   }
 
-  // 채널 그리드 아이콘 (9개 사각형)
+  // 채널 그리드 아이콘 (9개 사각형 - 모두 같은 회색)
   Widget _buildChannelGridIcon(String? channelStr) {
     if (channelStr == null || channelStr.isEmpty) return const SizedBox.shrink();
     
     final channels = channelStr.split(',').map((c) => c.trim()).toList();
-    final validChannels = channels.where((ch) => ch != 'etc' && ch != 'unknown').take(9).toList();
+    final validChannels = channels.where((ch) => ch != 'etc' && ch != 'unknown').toList();
     
     if (validChannels.isEmpty) return const SizedBox.shrink();
     
@@ -169,41 +169,17 @@ class StoreListItem extends StatelessWidget {
         mainAxisSpacing: 1,
         crossAxisSpacing: 1,
         children: List.generate(9, (index) {
-          if (index < validChannels.length) {
-            return Container(
-              decoration: BoxDecoration(
-                color: _getChannelColor(validChannels[index]),
-                borderRadius: BorderRadius.circular(1.r),
-              ),
-            );
-          } else {
-            return Container(
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(1.r),
-              ),
-            );
-          }
+          return Container(
+            decoration: BoxDecoration(
+              color: Colors.grey[400], // 모든 사각형을 같은 회색으로
+              borderRadius: BorderRadius.circular(1.r),
+            ),
+          );
         }),
       ),
     );
   }
 
-  // 채널별 색상 반환
-  Color _getChannelColor(String channel) {
-    final Map<String, Color> colorMap = {
-      'blog': Colors.blue,
-      'youtube': Colors.red,
-      'instagram': Colors.purple,
-      'clip': Colors.orange,
-      'blog_clip': Colors.orange,
-      'reels': Colors.pink,
-      'tiktok': Colors.black,
-      'shorts': Colors.red,
-    };
-    
-    return colorMap[channel] ?? Colors.grey;
-  }
 
   // 플랫폼별 로고 경로 반환
   String _getLogoPathForPlatform(String platform) {

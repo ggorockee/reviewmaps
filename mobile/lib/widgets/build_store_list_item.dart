@@ -4,7 +4,6 @@ import 'package:mobile/models/store_model.dart';
 import 'package:mobile/widgets/experience_card.dart';
 import 'package:mobile/widgets/title_badge.dart';
 import 'package:mobile/widgets/deadline_chips.dart';
-import 'package:mobile/screens/home_screen.dart'; // buildChannelIcons 사용
 
 /// 스토어 리스트 아이템 위젯
 class StoreListItem extends StatelessWidget {
@@ -48,10 +47,10 @@ class StoreListItem extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // [타이틀][채널][NEW] - 기존 홈 방식 그대로
+                  // [타이틀][채널][NEW] - 기존 홈 방식 그대로 (폰트 크기 조정)
                   TitleWithBadges(
                     store: store,
-                    dense: dense,
+                    dense: true, // 맵에서는 항상 dense 모드 사용
                   ),
                   
                   SizedBox(height: 8.h),
@@ -119,19 +118,19 @@ class StoreListItem extends StatelessWidget {
   Widget _buildBottomInfo() {
     return Row(
       children: [
-        // 채널 아이콘들
+        // 채널 아이콘들 (9개 사각형 아이콘)
         if (store.campaignChannel != null && store.campaignChannel!.isNotEmpty) ...[
-          ...buildChannelIcons(store.campaignChannel),
+          _buildChannelGridIcon(store.campaignChannel),
           SizedBox(width: 4.w),
         ],
         
-        // 플랫폼 이름
+        // 플랫폼 이름 (크게)
         Text(
           store.platform,
           style: TextStyle(
-            fontSize: dense ? 9.sp : 10.sp,
+            fontSize: dense ? 12.sp : 14.sp, // 플랫폼 폰트 크게
             color: Colors.grey[600],
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.w600, // 굵게
           ),
         ),
         
@@ -146,6 +145,64 @@ class StoreListItem extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  // 채널 그리드 아이콘 (9개 사각형)
+  Widget _buildChannelGridIcon(String? channelStr) {
+    if (channelStr == null || channelStr.isEmpty) return const SizedBox.shrink();
+    
+    final channels = channelStr.split(',').map((c) => c.trim()).toList();
+    final validChannels = channels.where((ch) => ch != 'etc' && ch != 'unknown').take(9).toList();
+    
+    if (validChannels.isEmpty) return const SizedBox.shrink();
+    
+    return Container(
+      width: 16.w,
+      height: 16.h,
+      decoration: BoxDecoration(
+        color: Colors.grey[200],
+        borderRadius: BorderRadius.circular(2.r),
+        border: Border.all(color: Colors.grey[300]!, width: 0.5),
+      ),
+      child: GridView.count(
+        crossAxisCount: 3,
+        mainAxisSpacing: 1,
+        crossAxisSpacing: 1,
+        children: List.generate(9, (index) {
+          if (index < validChannels.length) {
+            return Container(
+              decoration: BoxDecoration(
+                color: _getChannelColor(validChannels[index]),
+                borderRadius: BorderRadius.circular(1.r),
+              ),
+            );
+          } else {
+            return Container(
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(1.r),
+              ),
+            );
+          }
+        }),
+      ),
+    );
+  }
+
+  // 채널별 색상 반환
+  Color _getChannelColor(String channel) {
+    final Map<String, Color> colorMap = {
+      'blog': Colors.blue,
+      'youtube': Colors.red,
+      'instagram': Colors.purple,
+      'clip': Colors.orange,
+      'blog_clip': Colors.orange,
+      'reels': Colors.pink,
+      'tiktok': Colors.black,
+      'shorts': Colors.red,
+    };
+    
+    return colorMap[channel] ?? Colors.grey;
   }
 
   // 플랫폼별 로고 경로 반환

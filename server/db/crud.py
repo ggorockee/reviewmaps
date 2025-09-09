@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import Optional, Sequence, Tuple, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, update, delete, Date, case, or_, and_
-from datetime import timedelta, date
+from datetime import timedelta
 from .models import Campaign, Category, RawCategory, CategoryMapping
 from schemas.category import CategoryMappingCreate,CategoryCreate
 
@@ -144,66 +144,54 @@ def get_distance_query(lat: float, lng: float):
 async def list_campaigns(
     db: AsyncSession,
     *,
-    # ✅ 항상 적용할 '오늘 이후' 날짜 필터 (KST에서 계산된 date를 라우터가 전달)
-    apply_from_date: Optional[date] = None,
-
-    # --- 새로운 필터 파라미터 ---
+    # --- 새로운 필터 파라미터 추가 ---
     region: Optional[str] = None,
-    offer: Optional[str] = None,  # 오퍼(텍스트) 부분검색
+    offer: Optional[str] = None,  # ✨ 추가: 오퍼(텍스트) 부분검색
     campaign_type: Optional[str] = None,
     campaign_channel: Optional[str] = None,
-
-    # 다양화(플랫폼 쏠림 방지)
-    diversify: Optional[str] = None,  # 'platform' 사용 시 플랫폼별 cap 적용
-    platform_cap: int = 5,
-
-    # --- 기존 필터 ---
-    category_id: Optional[int] = None,
+    # ------------------------------------
+    category_id: Optional[int] = None, # ✨ 필터 파라미터 추가
     q: Optional[str] = None,
     platform: Optional[str] = None,
     company: Optional[str] = None,
-    apply_from: Optional[str] = None,  # (선택) 구형 파라미터: 시간단위 비교
+    apply_from: Optional[str] = None, # API 단에서 datetime으로 파싱된 것을 받는다고 가정
     apply_to: Optional[str] = None,
     review_from: Optional[str] = None,
     review_to: Optional[str] = None,
-
-    # 지도/거리
     sw_lat: Optional[float] = None,
     sw_lng: Optional[float] = None,
     ne_lat: Optional[float] = None,
     ne_lng: Optional[float] = None,
     lat: Optional[float] = None,
     lng: Optional[float] = None,
-
-    # 정렬/페이징
     sort: str = "-created_at",
     limit: int = 20,
     offset: int = 0,
 ) -> Tuple[int, Sequence[Campaign]]:
-
-    # ✨ is_new: 최근 2일 이내 생성
+    
+    # ✨ is_new 로직을 위한 SQL 표현식. PostgreSQL 문법 활용
+    # (created_at의 날짜 부분 - 1일)이 (오늘 날짜 - 3일)보다 크거나 같으면 true
     is_new_expression = (
         (func.cast(Campaign.created_at, Date) >= (func.current_date() - timedelta(days=2)))
     ).label("is_new")
 
-    # 공통 필터
+    # 공통 필터 적용 함수 (기존 코드와 동일)
     def apply_common_filters(stmt_):
         if q:
             like = f"%{q}%"
             stmt_ = stmt_.where(
                 or_(
-                    Campaign.company.ilike(like),
-                    Campaign.offer.ilike(like),
-                    Campaign.platform.ilike(like),
-                    Campaign.title.ilike(like),
+                 Campaign.company.ilike(like),   
+                 Campaign.offer.ilike(like),
+                 Campaign.platform.ilike(like),
+                 Campaign.title.ilike(like),
                 )
             )
         if platform:
             stmt_ = stmt_.where(Campaign.platform == platform)
         if company:
             stmt_ = stmt_.where(Campaign.company.ilike(f"%{company}%"))
-
-        # 지역/주소/제목 토큰 검색
+        # --- 새로운 필터 로직 추가 ---
         if region:
             tokens = [t.strip() for t in region.split() if t.strip()]
             for token in tokens:
@@ -211,39 +199,28 @@ async def list_campaigns(
                 stmt_ = stmt_.where(
                     (Campaign.region.ilike(like)) | (Campaign.address.ilike(like)) | (Campaign.title.ilike(like))
                 )
-
-        # 오퍼(금액/단위/키워드 파서)
         if offer:
+            # 텍스트 오퍼(예: '10만원', '이용권') 부분검색
             for pred in build_offer_predicates(offer, Campaign.offer):
                 stmt_ = stmt_.where(pred)
-
         if campaign_type:
             stmt_ = stmt_.where(Campaign.campaign_type == campaign_type)
-
         if campaign_channel:
+            # 쉼표로 구분된 여러 채널 중 하나라도 포함되면 검색 (예: 'blog,instagram')
             tokens = [t.strip() for t in campaign_channel.split(",") if t.strip()]
             if tokens:
                 stmt_ = stmt_.where(or_(*[Campaign.campaign_channel.ilike(f"%{t}%") for t in tokens]))
-
+        # --------------------------------
         if category_id:
             stmt_ = stmt_.where(Campaign.category_id == category_id)
-
-        # ✅ 항상 적용되는 '오늘 이후' 필터 (date 기준)
-        if apply_from_date:
-            stmt_ = stmt_.where(func.cast(Campaign.apply_deadline, Date) >= apply_from_date)
-
-        # (선택) 구형 파라미터가 온 경우: 시간 단위로 추가 적용
         if apply_from:
             stmt_ = stmt_.where(Campaign.apply_deadline >= apply_from)
         if apply_to:
             stmt_ = stmt_.where(Campaign.apply_deadline <= apply_to)
-
         if review_from:
             stmt_ = stmt_.where(Campaign.review_deadline >= review_from)
         if review_to:
             stmt_ = stmt_.where(Campaign.review_deadline <= review_to)
-
-        # BBox
         if None not in (sw_lat, sw_lng, ne_lat, ne_lng):
             lat_min, lat_max = sorted([sw_lat, ne_lat])
             lng_min, lng_max = sorted([sw_lng, ne_lng])
@@ -253,172 +230,84 @@ async def list_campaigns(
             )
         return stmt_
 
-    # === 거리순 정렬 ===
+    # === 거리순 정렬 로직 ===
     if sort == "distance" and lat is not None and lng is not None:
         distance_col = get_distance_query(lat, lng)
 
-        # 기본 셀렉트
-        base = (
-            select(
-                Campaign,
-                Category,
-                is_new_expression,
-                distance_col
-            )
+        # 좌표 유무 관계없이 모두 포함 (좌표 없는 항목도 결과에 남긴다)
+        stmt = (
+            select(Campaign, Category, is_new_expression, distance_col)
             .outerjoin(Category, Campaign.category_id == Category.id)
         )
-        base = apply_common_filters(base)
 
-        # 🔹 다양화(플랫폼 cap) 적용 분기
-        if diversify == "platform":
-            # 1) 거리 기준 rn
-            subq = (
-                select(
-                    Campaign.id.label("id"),
-                    Campaign.platform.label("platform"),
-                    Campaign.created_at.label("created_at"),
-                    distance_col.label("distance"),
-                    func.row_number().over(
-                        partition_by=Campaign.platform,
-                        order_by=distance_col.asc()
-                    ).label("rn"),
-                )
-                .select_from(Campaign)
-            )
-            subq = apply_common_filters(subq).subquery()
+        # 공통 필터 적용 (region/offer 등)
+        stmt = apply_common_filters(stmt)
 
-            # 2) 플랫폼별 cap
-            filtered = select(subq).where(subq.c.rn <= platform_cap)
-
-            # total
-            total = (await db.execute(select(func.count()).select_from(filtered.subquery()))).scalar_one()
-
-            # 3) 거리 오름차순으로 id 페이징
-            id_rows = await db.execute(
-                filtered.order_by(subq.c.distance.asc()).limit(limit).offset(offset)
-            )
-            ids = [r.id for r in id_rows.all()]
-            if not ids:
-                return 0, []
-
-            # 4) 실제 객체 재조회
-            rows_stmt = (
-                select(Campaign, Category, is_new_expression, distance_col)
-                .outerjoin(Category, Campaign.category_id == Category.id)
-                .where(Campaign.id.in_(ids))
-            )
-            result = await db.execute(rows_stmt)
-            id_index = {i: k for k, i in enumerate(ids)}
-
-            rows = []
-            for campaign, category, is_new, distance in result.all():
-                campaign.is_new = is_new
-                campaign.distance = distance
-                campaign.category = category
-                rows.append(campaign)
-            rows.sort(key=lambda c: id_index.get(c.id, 10**9))
-            return total, rows
-
-        # 🔸 다양화 OFF: 기존 로직
-        count_stmt = select(func.count()).select_from(base.subquery())
+        # total 계산 (필터가 적용된 서브쿼리 기준)
+        count_stmt = select(func.count()).select_from(stmt.subquery())
         total = (await db.execute(count_stmt)).scalar_one()
 
+        # 정렬: 거리 오름차순 + NULLS LAST + created_at DESC(2차키)
+        # Postgres + SQLAlchemy 2.x면 nulls_last() 지원
         try:
             order_by_clause = (
                 distance_col.asc().nulls_last(),
                 Campaign.created_at.desc(),
             )
         except Exception:
+            # DB/드라이버에서 nulls_last 미지원이면 case로 대체
             order_by_clause = (
-                case((distance_col.is_(None), 1), else_=0),
+                case((distance_col.is_(None), 1), else_=0),  # NULL 먼저 플래그(1) → 뒤로 감
                 distance_col.asc(),
                 Campaign.created_at.desc(),
             )
 
-        stmt = base.order_by(*order_by_clause).limit(limit).offset(offset)
+        stmt = stmt.order_by(*order_by_clause).limit(limit).offset(offset)
+
         result = await db.execute(stmt)
         rows = []
         for campaign, category, is_new, distance in result.all():
             campaign.is_new = is_new
-            campaign.distance = distance
+            campaign.distance = distance  # 좌표 없으면 None
             campaign.category = category
             rows.append(campaign)
+
         return total, rows
 
-    # === 일반 정렬 (+ 선택적 다양화) ===
-    base_stmt = (
-        select(Campaign, Category, is_new_expression)
-        .outerjoin(Category, Campaign.category_id == Category.id)
-    )
-    base_stmt = apply_common_filters(base_stmt)
+    # === 일반 정렬 로직 ===
+    else:
+        # ✨ SELECT 구문에 is_new_expression, Category 추가 및 JOIN
+        stmt = select(Campaign, Category, is_new_expression)
+        stmt = stmt.outerjoin(Category, Campaign.category_id == Category.id)
+        stmt = apply_common_filters(stmt)
 
-    if diversify == "platform":
-        rn_base = (
-            select(
-                Campaign.id.label("id"),
-                Campaign.created_at.label("created_at"),
-                Campaign.platform.label("platform"),
-                is_new_expression.label("is_new"),
-                func.row_number().over(
-                    partition_by=Campaign.platform,
-                    order_by=Campaign.created_at.desc()
-                ).label("rn")
-            )
-            .select_from(Campaign)
-            .outerjoin(Category, Campaign.category_id == Category.id)
-        )
-        rn_base = apply_common_filters(rn_base)
-        subq = rn_base.subquery()
+        # 2. total count 계산 (필터가 모두 적용된 쿼리 기반)
+        count_stmt = select(func.count()).select_from(stmt.subquery())
+        total = (await db.execute(count_stmt)).scalar_one()
 
-        filtered = select(subq).where(subq.c.rn <= platform_cap)
-
-        total = (await db.execute(select(func.count()).select_from(filtered.subquery()))).scalar_one()
-
-        id_rows = await db.execute(
-            filtered.order_by(subq.c.created_at.desc()).limit(limit).offset(offset)
-        )
-        ids = [row.id for row in id_rows.all()]
-        if not ids:
-            return 0, []
-
-        rows_stmt = (
-            select(Campaign, Category, is_new_expression)
-            .outerjoin(Category, Campaign.category_id == Category.id)
-            .where(Campaign.id.in_(ids))
-        )
-        result = await db.execute(rows_stmt)
+        # 3. 정렬 로직 적용
+        sort_map = {
+            "created_at": Campaign.created_at,
+            "updated_at": Campaign.updated_at,
+            "apply_deadline": Campaign.apply_deadline,
+            "review_deadline": Campaign.review_deadline,
+        }
+        desc = sort.startswith("-")
+        key = sort[1:] if desc else sort
+        sort_col = sort_map.get(key, Campaign.created_at)
+        
+        stmt = stmt.order_by(sort_col.desc() if desc else sort_col.asc())
+        
+        stmt = stmt.limit(limit).offset(offset)
+        result = await db.execute(stmt)
         rows = []
-        order_map = {i: k for k, i in enumerate(ids)}
+        # ✨ 결과 처리 로직 수정
         for campaign, category, is_new in result.all():
             campaign.is_new = is_new
             campaign.category = category
             rows.append(campaign)
-        rows.sort(key=lambda c: order_map.get(c.id, 10**9))
+        
         return total, rows
-
-    # 🔸 다양화 OFF: 기존 정렬
-    sort_map = {
-        "created_at": Campaign.created_at,
-        "updated_at": Campaign.updated_at,
-        "apply_deadline": Campaign.apply_deadline,
-        "review_deadline": Campaign.review_deadline,
-    }
-    desc = sort.startswith("-")
-    key = sort[1:] if desc else sort
-    sort_col = sort_map.get(key, Campaign.created_at)
-
-    stmt = base_stmt.order_by(sort_col.desc() if desc else sort_col.asc()).limit(limit).offset(offset)
-    result = await db.execute(stmt)
-
-    count_stmt = select(func.count()).select_from(base_stmt.subquery())
-    total = (await db.execute(count_stmt)).scalar_one()
-
-    rows = []
-    for campaign, category, is_new in result.all():
-        campaign.is_new = is_new
-        campaign.category = category
-        rows.append(campaign)
-    return total, rows
 
 
 async def get_categories(db: AsyncSession) -> Sequence[Category]:

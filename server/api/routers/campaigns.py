@@ -15,98 +15,86 @@ router = APIRouter(tags=["campaigns"])
 
 
 
-
 @router.get("/campaigns", response_model=CampaignListV2, summary="캠페인 목록 조회 (V2)")
 async def list_campaigns(
     db: AsyncSession            = Depends(get_db_session),
-
-    # --- 필터 ---
-    region: Optional[str]       = Query(None, description="지역 필터 (예: 서울, 경기)"),
-    offer: Optional[str]        = Query(None, description="오퍼(텍스트) 부분검색, 예: 10만원"),
-    campaign_type: Optional[str]= Query(None, description="캠페인 유형 (예: 방문형, 배송형)"),
-    campaign_channel: Optional[str] = Query(None, description="캠페인 채널 (예: blog, instagram)"),
-
-    category_id: Optional[int]  = Query(None, description="카테고리 ID"),
-    q: Optional[str]            = Query(None, description="회사/오퍼/플랫폼/제목 부분검색"),
+    # --- 새로운 필터 파라미터를 Query로 추가합니다. ---
+    region: Optional[str]       = Query(None, description="지역으로 필터링 (예: 서울, 경기)"),
+    offer: Optional[str]  = Query(None, description="오퍼(텍스트) 부분검색, 예: 10만원"),
+    campaign_type: Optional[str]= Query(None, description="캠페인 유형으로 필터링 (예: 방문형, 배송형)"),
+    campaign_channel: Optional[str] = Query(None, description="캠페인 채널로 필터링 (예: blog, instagram)"),
+    # -----------------------------------------------------------------
+    category_id: Optional[int]  = Query(None, description="카테고리 ID로 필터링"),
+    q: Optional[str]            = Query(None, description="회사/오퍼/플랫폼 부분검색"),
     platform: Optional[str]     = Query(None),
     company: Optional[str]      = Query(None, description="회사명 부분검색"),
-
-    # 구형 파라미터(있으면 추가 적용)
-    apply_from: Optional[str]   = Query(None, description="apply_deadline >= (ISO8601, 선택)"),
+    apply_from: Optional[str]   = Query(None, description="apply_deadline >= (ISO8601)"),
     apply_to: Optional[str]     = Query(None, description="apply_deadline <= (ISO8601)"),
     review_from: Optional[str]  = Query(None, description="review_deadline >= (ISO8601)"),
     review_to: Optional[str]    = Query(None, description="review_deadline <= (ISO8601)"),
-
-    # BBox / 거리
-    sw_lat: Optional[float]     = Query(None, description="남서 위도"),
-    sw_lng: Optional[float]     = Query(None, description="남서 경도"),
-    ne_lat: Optional[float]     = Query(None, description="북동 위도"),
-    ne_lng: Optional[float]     = Query(None, description="북동 경도"),
-
-    lat: Optional[float]        = Query(None, description="사용자 위도 (sort='distance'일 때 필수)"),
-    lng: Optional[float]        = Query(None, description="사용자 경도 (sort='distance'일 때 필수)"),
-
-    sort: str = Query(
-        "-created_at",
-        description="정렬 키: created_at, apply_deadline, review_deadline, distance (앞에 -는 내림차순)"
-    ),
-
-    # 🔹 다양화 옵션(기본 ON 권장)
-    diversify: Optional[str] = Query(
-        "platform",
-        description="다양성 보장 모드: 'platform'이면 플랫폼별 상한 적용"
-    ),
-    platform_cap: int = Query(5, ge=1, le=20, description="플랫폼당 최대 노출 개수"),
-
-    limit: int = Query(20, ge=1, le=200),
-    offset: int = Query(0, ge=0),
+    
+    #  Bounding Box를 위한 4개의 좌표 파라미터
+    sw_lat: Optional[float]     = Query(None, description="남서쪽(좌측 하단) 위도"),
+    sw_lng: Optional[float]     = Query(None, description="남서쪽(좌측 하단) 경도"),
+    ne_lat: Optional[float]     = Query(None, description="북동쪽(우측 상단) 위도"),
+    ne_lng: Optional[float]     = Query(None, description="북동쪽(우측 상단) 경도"),
+    
+    lat: Optional[float]        = Query(None, description="사용자 현재 위도 (sort='distance'일 때 필수)"),
+    lng: Optional[float]        = Query(None, description="사용자 현재 경도 (sort='distance'일 때 필수)"),
+    sort: str                   = Query(
+                                    "-created_at", 
+                                    description="정렬 키. -는 내림차순. 사용 가능 키: created_at, apply_deadline, distance"
+                                    ),
+    
+    limit: int                  = Query(20, ge=1, le=200),
+    offset: int                 = Query(0, ge=0),
 ):
-    # 거리 정렬이면 좌표 필수
     if sort == "distance":
         if lat is None or lng is None:
             raise HTTPException(
                 status_code=400,
                 detail="sort='distance' requires 'lat' and 'lng' parameters."
             )
+            
+    now_kst = datetime.now(KST)
+    user_apply_from = _parse_kst(apply_from)
 
-    # ✅ 항상 적용할 '오늘(KST) 날짜 기준' 필터 값
-    today_kst_date = datetime.now(KST).date()
+    effective_apply_from = user_apply_from
+    if effective_apply_from is None or effective_apply_from < now_kst:
+        effective_apply_from = now_kst
 
+            
     total, rows = await crud.list_campaigns(
         db,
-        # v2 필터
+        # --- [v2] crud 함수에 새로운 파라미터를 전달합니다. ---
         region=region,
         offer=offer,
         campaign_type=campaign_type,
         campaign_channel=campaign_channel,
-
+        # --------------------------------------------------------
         category_id=category_id,
         q=q,
         platform=platform,
         company=company,
-
-        # ✅ '오늘 이후' 기본 필터(date)
-        apply_from_date=today_kst_date,
-
-        # 선택: 구형 파라미터 추가 적용
-        apply_from=_parse_kst(apply_from),
+        apply_from=effective_apply_from,
         apply_to=_parse_kst(apply_to),
         review_from=_parse_kst(review_from),
         review_to=_parse_kst(review_to),
+        sw_lat=sw_lat,
+        sw_lng=sw_lng,
+        ne_lat=ne_lat,
+        ne_lng=ne_lng,
 
-        # BBox/거리
-        sw_lat=sw_lat, sw_lng=sw_lng, ne_lat=ne_lat, ne_lng=ne_lng,
-        lat=lat, lng=lng,
-
-        # 정렬/페이징
-        sort=sort, limit=limit, offset=offset,
-
-        # 🔹 다양화 옵션
-        diversify=diversify,
-        platform_cap=platform_cap,
+        
+        lat=lat,
+        lng=lng,
+        
+        
+        sort=sort,
+        limit=limit,
+        offset=offset,
     )
     return {"total": total, "limit": limit, "offset": offset, "items": rows}
-
 
 @router.get("/campaigns/{campaign_id}", response_model=CampaignOutV2, summary="캠페인 상세 (V2)")
 async def get_campaign(

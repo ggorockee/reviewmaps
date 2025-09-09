@@ -23,7 +23,7 @@ class TitleWithBadges extends StatelessWidget {
       crossAxisAlignment: WrapCrossAlignment.center,
       runAlignment: WrapAlignment.start,
       children: [
-        // 제목
+        // 제목 (2줄까지 표시)
         Text(
           store.title,
           style: TextStyle(
@@ -34,6 +34,7 @@ class TitleWithBadges extends StatelessWidget {
             color: Colors.black87,
             height: 1.3,
           ),
+          maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
         

@@ -260,6 +260,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
       _apiOffset += firstBatch.length;
       firstBatch.shuffle();             // 노출 다양화
+      
+      // 거리 계산 추가
+      await _calculateDistancesForStores(firstBatch);
+      
       _shuffledCampaigns = firstBatch;  // 로컬 큐로 축적
 
       final firstPage = _getNextPage();
@@ -303,6 +307,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
       _apiOffset += batch.length;
       batch.shuffle();
+      
+      // 거리 계산 추가
+      await _calculateDistancesForStores(batch);
+      
       _shuffledCampaigns.addAll(batch);
 
       final refill = _getNextPage();
@@ -325,8 +333,40 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // ------------------------------------------------------------
-  // 데이터 로딩(근처)
+  // 거리 계산 유틸리티
   // ------------------------------------------------------------
+  Future<void> _calculateDistancesForStores(List<Store> stores) async {
+    try {
+      // 위치 권한 확인
+      final permission = await Geolocator.checkPermission();
+      if (permission != LocationPermission.always && permission != LocationPermission.whileInUse) {
+        return; // 권한이 없으면 거리 계산하지 않음
+      }
+
+      // 현재 위치 가져오기
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      ).timeout(const Duration(seconds: 5));
+
+      // 각 스토어에 대해 거리 계산하고 리스트 업데이트
+      for (int i = 0; i < stores.length; i++) {
+        final store = stores[i];
+        if (store.lat != null && store.lng != null) {
+          final distance = Geolocator.distanceBetween(
+            position.latitude,
+            position.longitude,
+            store.lat!,
+            store.lng!,
+          ) / 1000; // km 단위로 변환
+          
+          // 새로운 Store 객체로 교체
+          stores[i] = store.copyWith(distance: distance);
+        }
+      }
+    } catch (_) {
+      // 위치 정보를 가져올 수 없으면 거리 계산하지 않음
+    }
+  }
   Future<List<Store>> _fetchNearestCampaigns(Position position) async {
     try {
       return _campaignService.fetchNearest(

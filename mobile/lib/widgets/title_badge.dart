@@ -19,37 +19,48 @@ class TitleWithBadges extends StatelessWidget {
   Widget build(BuildContext context) {
     final isTab = MediaQuery.of(context).size.shortestSide >= 600;
     
-    return Wrap(
-      crossAxisAlignment: WrapCrossAlignment.center,
-      runAlignment: WrapAlignment.start,
-      children: [
-        // 제목 (2줄까지 표시)
-        Text(
-          store.title,
-          style: TextStyle(
-            fontSize: dense 
-                ? (isTab ? 10.sp : 13.sp)
-                : (isTab ? 12.sp : 15.sp),
-            fontWeight: FontWeight.w600,
-            color: Colors.black87,
-            height: 1.3,
+    return RichText(
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      text: TextSpan(
+        children: [
+          // 제목 텍스트
+          TextSpan(
+            text: store.title,
+            style: TextStyle(
+              fontSize: dense 
+                  ? (isTab ? 10.sp : 13.sp)
+                  : (isTab ? 12.sp : 15.sp),
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+              height: 1.3,
+            ),
           ),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-        
-        // 채널 아이콘들 (기존 이미지 사용)
-        if (store.campaignChannel != null && store.campaignChannel!.isNotEmpty) ...[
-          SizedBox(width: 4.w),
-          ...buildChannelIcons(store.campaignChannel),
+          
+          // 채널 아이콘들 (기존 이미지 사용)
+          if (store.campaignChannel != null && store.campaignChannel!.isNotEmpty) ...[
+            WidgetSpan(
+              child: Padding(
+                padding: EdgeInsets.only(left: 4.w),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: buildChannelIcons(store.campaignChannel),
+                ),
+              ),
+            ),
+          ],
+          
+          // NEW 뱃지 (기존 위젯 사용)
+          if (_shouldShowBadges()) ...[
+            WidgetSpan(
+              child: Padding(
+                padding: EdgeInsets.only(left: 4.w),
+                child: NewBadge(dense: dense),
+              ),
+            ),
+          ],
         ],
-        
-        // NEW 뱃지 (기존 위젯 사용)
-        if (_shouldShowBadges()) ...[
-          SizedBox(width: 4.w),
-          NewBadge(dense: dense),
-        ],
-      ],
+      ),
     );
   }
 

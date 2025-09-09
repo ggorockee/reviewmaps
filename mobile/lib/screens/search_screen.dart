@@ -95,6 +95,18 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   // 2. 디바운싱을 위한 상태 변수 추가
   Timer? _debounce;
   // String _currentQuery = ''; // UI 상태 분기를 위한 현재 검색어
+  bool _loading = false;
+
+  bool _isTablet(BuildContext ctx) =>
+      MediaQuery.of(ctx).size.shortestSide >= 600;
+
+  T t<T>(BuildContext ctx, T phone, T tablet) =>
+      _isTablet(ctx) ? tablet : phone;
+
+  void _setLoading(bool v) {
+    if (!mounted) return;
+    setState(() => _loading = v);
+  }
 
   @override
   void dispose() {
@@ -120,6 +132,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Future<void> _onCategoryTapped(int categoryId, String categoryName) async {
+    if (_loading) return;      // 연타 방지
+    _setLoading(true);         // 탭 즉시 스피너 ON
     try {
       // 1. 위치 권한 확인 및 현재 위치 가져오기
       // (home_screen.dart의 로직을 참고하여 권한 처리 로직 추가 가능)
@@ -157,28 +171,50 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
       if (!mounted) return;
 
-      // 3. CampaignListScreen으로 이동하여 결과 보여주기
+      // 3. CampaignListScreen으로 이동하여 결과 보여주기 (카테고리 결과)
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => CampaignListScreen(
             title: categoryName,
             initialStores: stores,
             userPosition: position, // 목록 화면에서 무한 스크롤을 위해 위치 정보 전달
+            categoryId: categoryId, // 카테고리 ID 전달
+            isSearchResult: false, // 카테고리 결과 (2열 그리드)
           ),
         ),
       );
     } catch (e) {
-      if (mounted) Navigator.pop(context); // 로딩 닫기
-      if (mounted)
+      if (mounted) {
         showFriendlySnack(context, '앗, 정보를 가져오지 못했어요. 잠시 후 다시 시도해 주세요!');
+      }
+    } finally {
+      _setLoading(false);
     }
   }
+
+  Widget _loadingOverlay() {
+    return IgnorePointer(
+      ignoring: !_loading, // loading일 때만 이벤트 차단
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 120),
+        opacity: _loading ? 1.0 : 0.0,
+        child: Container(
+          color: Colors.black.withOpacity(0.25),
+          alignment: Alignment.center,
+          child: const CircularProgressIndicator(),
+        ),
+      ),
+    );
+  }
+
 
   // 카테고리 이름에 맞는 아이콘 반환 (클라이언트에서 관리)
   Widget _getIconForCategory(String categoryName) {
     // 아이콘 크기 (폰트 크기에 반응하도록 .sp 사용)
     // 이전 답변에서 .sp로 변경했던 것을 유지합니다.
-    final double iconSize = 18.sp; // Tab
+    // final double iconSize = 18.sp; // Tab
+
+    final double iconSize = t(context, 15.sp, 18.sp);
 
     switch (categoryName) {
       case '맛집':
@@ -218,28 +254,50 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       appBar: AppBar(
         leading: const SizedBox.shrink(),
         leadingWidth: 0,
-        title: TextField(
-          controller: _searchController,
-          autofocus: true,
-          textInputAction: TextInputAction.search, // 선택
-          decoration: const InputDecoration(
-            hintText: '찾고 있는 장소나 가게 이름이 있나요?',
-            border: InputBorder.none,
+        titleSpacing: t(context, 16.w, 15.w),
+        toolbarHeight: t(context, 56.h, 72.h),
+        title: Padding(
+          padding: EdgeInsets.only(
+            top: t(context, 4.h, 8.h),
+            bottom: t(context, 6.h, 10.h),
+            // 필요하면 오른쪽도: right: t(context, 16.w, 24.w),
           ),
-          onSubmitted: _handleSearch,
-          onChanged: (value) {
-            _debounce?.cancel();
-            _debounce = Timer(const Duration(milliseconds: 300), () {
-              if (!mounted) return;
-              // ✅ read만 쓰기 (리빌드 유발 X)
-              ref.read(searchQueryProvider.notifier).state = value;
-            });
-          },
+          child: TextField(
+            controller: _searchController,
+            autofocus: true,
+            textInputAction: TextInputAction.search, // 선택
+            decoration: InputDecoration(
+              hintText: '찾고 있는 장소나 가게 이름이 있나요?',
+              hintStyle: TextStyle(
+                fontSize: t(context, 16.sp, 9.5.sp),
+              ),
+              border: InputBorder.none,
+            ),
+            onSubmitted: _handleSearch,
+            onChanged: (value) {
+              _debounce?.cancel();
+              _debounce = Timer(const Duration(milliseconds: 300), () {
+                if (!mounted) return;
+                // ✅ read만 쓰기 (리빌드 유발 X)
+                ref.read(searchQueryProvider.notifier).state = value;
+              });
+            },
+          ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('닫기'),
+          Padding(
+            padding: EdgeInsets.only(
+                right: t(context, 16.sp, 8.sp),
+            ),
+            child: TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                  '닫기',
+                style: TextStyle(
+                  fontSize: t(context, 16.sp, 8.sp),
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -254,6 +312,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 maintainState: true,
                 child: _buildRecentAndRecommendedSearches(wref),
               ),
+              if (_loading) Positioned.fill(child: _loadingOverlay()),
             ],
           );
         },
@@ -312,30 +371,49 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             }
             return SizedBox(
               height: 80.h, // 섹션 높이 지정
-              child: ListView.builder(
-                // 👇 [수정] 리스트의 시작 부분에만 왼쪽 여백(16)을 추가합니다.
-                padding: EdgeInsets.only(left: 16.w),
-                scrollDirection: Axis.horizontal,
-                itemCount: categories.length,
-                itemBuilder: (context, index) {
-                  final category = categories[index];
-                  final categoryId = category['id'] as int;
-                  final categoryName = category['name'] as String;
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  // 화면 너비를 기준으로 5.5개 아이템이 보이도록 계산
+                  final screenWidth = constraints.maxWidth;
+                  final itemWidth = 60.w; // 각 아이템의 너비
+                  final itemSpacing = 8.w; // 아이템 간격
+                  final leftPadding = 8.w; // 왼쪽 패딩
+                  
+                  // 5.5개 아이템이 보이도록 ListView의 너비 제한
+                  final visibleWidth = leftPadding + (itemWidth * 5.5) + (itemSpacing * 4.5);
+                  
+                  return SizedBox(
+                    width: visibleWidth.clamp(0.0, screenWidth),
+                    child: ListView.builder(
+                      padding: EdgeInsets.only(left: leftPadding),
+                      scrollDirection: Axis.horizontal,
+                      itemCount: categories.length,
+                      itemBuilder: (context, index) {
+                        final category = categories[index];
+                        final categoryId = category['id'] as int;
+                        final categoryName = category['name'] as String;
 
-                  // 👇 [수정] 각 아이템의 왼쪽 대신 오른쪽에 여백(24)을 주어 간격을 넓힙니다.
-                  return Padding(
-                    padding: EdgeInsets.only(right: 28.w),
-                    child: InkWell(
-                      onTap: () => _onCategoryTapped(categoryId, categoryName),
-                      borderRadius: BorderRadius.circular(16.r),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _getIconForCategory(categoryName),
-                          SizedBox(height: 4.h),
-                          Text(categoryName, style: TextStyle(fontSize: 13.sp)),
-                        ],
-                      ),
+                        return Container(
+                          width: itemWidth,
+                          margin: EdgeInsets.only(right: itemSpacing),
+                          child: InkWell(
+                            onTap: () => _onCategoryTapped(categoryId, categoryName),
+                            borderRadius: BorderRadius.circular(16.r),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                _getIconForCategory(categoryName),
+                                SizedBox(height: 4.h),
+                                Text(
+                                    categoryName,
+                                    style: TextStyle(
+                                        fontSize: t(context, 13.sp, 8.5.sp),
+                                    )),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   );
                 },
@@ -361,7 +439,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 ),
                 SizedBox(height: 8.h),
                 if (searches.isEmpty)
-                  const Text('최근 검색 기록이 없습니다.')
+                  Text(
+                      '최근 검색 기록이 없습니다.',
+                    style: TextStyle(
+                      fontSize: t(context, 16.sp, 8.5.sp)
+                    ),
+                  )
                 else
                   ...searches.map((term) => _buildRecentSearchItem(term)),
               ],
@@ -398,40 +481,5 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   //   );
   // }
 
-  Widget _buildHighlightedText(String text, String query) {
-    if (query.isEmpty) {
-      return Text(text, style: const TextStyle(color: Colors.black));
-    }
-
-    final lowerText = text.toLowerCase();
-    final lowerQuery = query.toLowerCase();
-
-    final startIndex = lowerText.indexOf(lowerQuery);
-    if (startIndex == -1) {
-      return Text(text, style: const TextStyle(color: Colors.black));
-    }
-
-    final endIndex = startIndex + query.length;
-
-    final before = text.substring(0, startIndex);
-    final highlight = text.substring(startIndex, endIndex);
-    final after = text.substring(endIndex);
-
-    return RichText(
-      text: TextSpan(
-        style: const TextStyle(color: Colors.black, fontSize: 16), // 기본 스타일
-        children: [
-          TextSpan(text: before),
-          TextSpan(
-            text: highlight,
-            style: TextStyle(
-              color: Theme.of(context).primaryColor,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          TextSpan(text: after),
-        ],
-      ),
-    );
-  }
+  // 사용하지 않는 메서드 제거됨
 }

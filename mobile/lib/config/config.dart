@@ -26,10 +26,77 @@ class AppConfig {
   static final String NAVER_APP_KEY = _getEnv('NAVER_APP_KEY');
   static final String NAVER_APP_SECRET = _getEnv('NAVER_APP_SECRET');
 
+
+  static final String NAVER_APP_SEARCH_CLIENT_ID_1 = _getEnv('NAVER_APP_SEARCH_CLIENT_ID_1');
+  static final String NAVER_APP_SEARCH_CLIENT_ID_2 = _getEnv('NAVER_APP_SEARCH_CLIENT_ID_2');
+  static final String NAVER_APP_SEARCH_CLIENT_ID_3 = _getEnv('NAVER_APP_SEARCH_CLIENT_ID_3');
+  static final String NAVER_APP_SEARCH_CLIENT_ID_4 = _getEnv('NAVER_APP_SEARCH_CLIENT_ID_4');
+  static final String NAVER_APP_SEARCH_CLIENT_ID_5 = _getEnv('NAVER_APP_SEARCH_CLIENT_ID_5');
+  static final String NAVER_APP_SEARCH_CLIENT_ID_6 = _getEnv('NAVER_APP_SEARCH_CLIENT_ID_6');
+  static final String NAVER_APP_SEARCH_CLIENT_ID_7 = _getEnv('NAVER_APP_SEARCH_CLIENT_ID_7');
+  static final String NAVER_APP_SEARCH_CLIENT_ID_8 = _getEnv('NAVER_APP_SEARCH_CLIENT_ID_8');
+  static final String NAVER_APP_SEARCH_CLIENT_ID_9 = _getEnv('NAVER_APP_SEARCH_CLIENT_ID_9');
+  static final String NAVER_APP_SEARCH_CLIENT_ID_10 = _getEnv('NAVER_APP_SEARCH_CLIENT_ID_10');
+  static final String NAVER_APP_SEARCH_CLIENT_ID_11 = _getEnv('NAVER_APP_SEARCH_CLIENT_ID_11');
+  static final String NAVER_APP_SEARCH_CLIENT_ID_12 = _getEnv('NAVER_APP_SEARCH_CLIENT_ID_12');
+  static final String NAVER_APP_SEARCH_CLIENT_ID_13 = _getEnv('NAVER_APP_SEARCH_CLIENT_ID_13');
+  static final String NAVER_APP_SEARCH_CLIENT_ID_14 = _getEnv('NAVER_APP_SEARCH_CLIENT_ID_14');
+  static final String NAVER_APP_SEARCH_CLIENT_ID_15 = _getEnv('NAVER_APP_SEARCH_CLIENT_ID_15');
+  static final String NAVER_APP_SEARCH_CLIENT_ID_16 = _getEnv('NAVER_APP_SEARCH_CLIENT_ID_16');
+  static final String NAVER_APP_SEARCH_CLIENT_ID_17 = _getEnv('NAVER_APP_SEARCH_CLIENT_ID_17');
+
+  static final String NAVER_APP_SEARCH_CLIENT_SECRET_1 = _getEnv('NAVER_APP_SEARCH_CLIENT_SECRET_1');
+  static final String NAVER_APP_SEARCH_CLIENT_SECRET_2 = _getEnv('NAVER_APP_SEARCH_CLIENT_SECRET_2');
+  static final String NAVER_APP_SEARCH_CLIENT_SECRET_3 = _getEnv('NAVER_APP_SEARCH_CLIENT_SECRET_3');
+  static final String NAVER_APP_SEARCH_CLIENT_SECRET_4 = _getEnv('NAVER_APP_SEARCH_CLIENT_SECRET_4');
+  static final String NAVER_APP_SEARCH_CLIENT_SECRET_5 = _getEnv('NAVER_APP_SEARCH_CLIENT_SECRET_5');
+  static final String NAVER_APP_SEARCH_CLIENT_SECRET_6 = _getEnv('NAVER_APP_SEARCH_CLIENT_SECRET_6');
+  static final String NAVER_APP_SEARCH_CLIENT_SECRET_7 = _getEnv('NAVER_APP_SEARCH_CLIENT_SECRET_7');
+  static final String NAVER_APP_SEARCH_CLIENT_SECRET_8 = _getEnv('NAVER_APP_SEARCH_CLIENT_SECRET_8');
+  static final String NAVER_APP_SEARCH_CLIENT_SECRET_9 = _getEnv('NAVER_APP_SEARCH_CLIENT_SECRET_9');
+  static final String NAVER_APP_SEARCH_CLIENT_SECRET_10 = _getEnv('NAVER_APP_SEARCH_CLIENT_SECRET_10');
+  static final String NAVER_APP_SEARCH_CLIENT_SECRET_11 = _getEnv('NAVER_APP_SEARCH_CLIENT_SECRET_11');
+  static final String NAVER_APP_SEARCH_CLIENT_SECRET_12 = _getEnv('NAVER_APP_SEARCH_CLIENT_SECRET_12');
+  static final String NAVER_APP_SEARCH_CLIENT_SECRET_13 = _getEnv('NAVER_APP_SEARCH_CLIENT_SECRET_13');
+  static final String NAVER_APP_SEARCH_CLIENT_SECRET_14 = _getEnv('NAVER_APP_SEARCH_CLIENT_SECRET_14');
+  static final String NAVER_APP_SEARCH_CLIENT_SECRET_15 = _getEnv('NAVER_APP_SEARCH_CLIENT_SECRET_15');
+  static final String NAVER_APP_SEARCH_CLIENT_SECRET_16 = _getEnv('NAVER_APP_SEARCH_CLIENT_SECRET_16');
+  static final String NAVER_APP_SEARCH_CLIENT_SECRET_17 = _getEnv('NAVER_APP_SEARCH_CLIENT_SECRET_17');
+
+
+
+
+
+
   // 📌 디버그 모드 플래그
   // - .env에서 DEBUG_MODE=true 설정 시 true 반환.
   // - 로깅/테스트용 분기처리에 활용.
   static final bool isDebugMode = dotenv.env['DEBUG_MODE']?.toLowerCase() == 'true';
+
+  // 📌 AdMob 관련 설정
+  // - 위험 플로우 토글 (기본 OFF, 릴리스 전 반드시 false 확인)
+  static const bool INTERSTITIAL_ON_ENTRY = false; // 앱 진입 직후 전면광고 금지
+  static const bool NATIVE_ON_EXIT = false; // 종료 UX와 광고 결합 금지
+
+  // AdMob App ID (Android)
+  static const String ADMOB_APP_ID_ANDROID = 'ca-app-pub-3219791135582658~5531424356';
+  
+  // AdMob Ad Unit IDs (Android)
+  static const String ADMOB_BANNER_ID_ANDROID = 'ca-app-pub-3219791135582658/4571348868';
+  static const String ADMOB_NATIVE_ID_ANDROID = 'ca-app-pub-3219791135582658/3299920799';
+  static const String ADMOB_INTERSTITIAL_ID_ANDROID = 'ca-app-pub-3219791135582658/2389577075';
+  
+  // 추가 검증용 하단 배너 ID (지도 검색 시)
+  static const String ADMOB_BOTTOM_BANNER_ID_ANDROID = 'ca-app-pub-3219791135582658/2605199497';
+  
+  // AdMob App ID (iOS) - 기존 설정 확인용
+  static const String ADMOB_APP_ID_IOS = 'ca-app-pub-3219791135582658~2537889532';
+  
+  // AdMob Ad Unit IDs (iOS) - 기존 설정 확인용
+  static const String ADMOB_BANNER_ID_IOS = 'ca-app-pub-3219791135582658/4571348868';
+  static const String ADMOB_NATIVE_ID_IOS = 'ca-app-pub-3219791135582658/3299920799';
+  static const String ADMOB_INTERSTITIAL_ID_IOS = 'ca-app-pub-3219791135582658/2389577075';
+  static const String ADMOB_BOTTOM_BANNER_ID_IOS = 'ca-app-pub-3219791135582658/4572925277';
 
   /// 내부 함수: .env 값 조회
   /// --------------------------------------------

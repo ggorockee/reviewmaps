@@ -21,12 +21,19 @@ import 'package:flutter_screenutil/flutter_screenutil.dart'; // 반응형 사이
 
 import 'package:mobile/config/config.dart';      // AppConfig: .env를 읽어 상수로 노출
 import 'package:mobile/const/colors.dart';       // PRIMARY_COLOR 등 앱 공통 컬러
-import 'package:mobile/screens/main_screen.dart';// 앱 루트 화면
+import 'package:mobile/screens/splash_screen.dart'; // 스플래시 화면
+import 'package:mobile/ads/interstitial_ad_service.dart'; // 전면광고 서비스
+import 'package:mobile/services/firebase_service.dart'; // Firebase 통합 서비스
+import 'package:mobile/services/notification_service.dart'; // 알림 서비스
+
+import 'package:google_mobile_ads/google_mobile_ads.dart';
+
 
 // 비동기 초기화가 필요하므로 main을 async로 선언
 Future<void> main() async {
   // 플러그인 채널 바인딩. runApp 이전에 비동기 초기화(예: dotenv, 지도 SDK)를 안전하게 수행하기 위해 필요
   WidgetsFlutterBinding.ensureInitialized();
+  await MobileAds.instance.initialize();
 
   // 1) .env 로드
   // - pubspec.yaml의 assets에 .env 등록되어 있어야 함.
@@ -44,7 +51,22 @@ Future<void> main() async {
     onAuthFailed: (_) {}, // 배포: 로깅/예외 토스트 등 UI 노이즈 최소화(필요시 Sentry 등으로 전환)
   );
 
-  // 3) Flutter 앱 실행
+  // 3) Firebase 서비스 초기화
+  try {
+    await FirebaseService.instance.initialize();
+    
+    // 4) 알림 서비스 초기화
+    await NotificationService.instance.initialize();
+  } catch (e) {
+    // Firebase 초기화 실패해도 앱은 계속 실행
+    debugPrint('Firebase/Notification initialization failed, continuing: $e');
+  }
+
+  // 5) 전면광고 서비스 초기화 및 첫 광고 로드
+  final interstitialAdService = InterstitialAdService();
+  await interstitialAdService.loadAd();
+
+  // 6) Flutter 앱 실행
   runApp(
     // ProviderScope를 추가하여 앱 전체에서 Riverpod Provider를 사용
     const ProviderScope(
@@ -109,7 +131,7 @@ class MyApp extends StatelessWidget {
 
       // 여기서 루트 위젯을 지정하면, 위 builder의 home으로 전달됨.
       // const로 고정해 불필요한 리빌드를 줄여 성능/배터리 소모 최소화.
-      child: const MainScreen(),
+      child: const SplashScreen(),
     );
   }
 }

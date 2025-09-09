@@ -5,21 +5,64 @@
 
 import 'dart:math' as math;
 import 'dart:ui' as ui;
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:intl/intl.dart';
 import 'package:mobile/config/config.dart';
 import 'package:mobile/screens/search_screen.dart';
 import 'package:mobile/services/campaign_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../const/colors.dart';
+import '../ads/banner.dart';
 import '../models/store_model.dart';
+import '../widgets/experience_card.dart';
 import '../widgets/friendly.dart'; // ← ClampTextScale, showFriendlySnack 여기서 사용
 import 'campaign_list_screen.dart';
+
+
+
+
+List<Widget> buildChannelIcons(String? channelStr) {
+  if (channelStr == null || channelStr.isEmpty) return [];
+
+  final channels = channelStr.split(',').map((c) => c.trim()).toList();
+
+  // 매핑 정의
+  final Map<String, String> iconMap = {
+    'blog': 'asset/icons/blog_logo.png',
+    'youtube': 'asset/icons/youtube_logo.png',
+    'instagram': 'asset/icons/instagram_logo.png',
+    'clip': 'asset/icons/clip_logo.png',
+    'blog_clip': 'asset/icons/clip_logo.png',
+    'reels': 'asset/icons/reels_logo.png',
+    // 'unknown': 'asset/icons/etc.png',
+    // 'etc': 'asset/icons/etc.png',
+  };
+
+
+  return channels.where((ch) {
+    return ch != 'etc' && ch != 'unknown';
+  }).map((ch) {
+    final path = iconMap[ch];
+    if (path == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: Image.asset(
+        path,
+        width: 16,
+        height: 16,
+        fit: BoxFit.contain,
+      ),
+    );
+  }).toList();
+}
+
+
+
+
 
 /// 외부 링크 열기 유틸
 /// - http/https 누락 시 https로 보정
@@ -69,9 +112,12 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isTablet(BuildContext context) =>
       MediaQuery.of(context).size.shortestSide >= 600;
 
+  T t<T>(BuildContext ctx, T phone, T tablet) => _isTablet(ctx) ? tablet : phone;
+
+
   // 사용자 설정
   bool _autoShowNearest = false; // 앱 진입 시 자동으로 근처 보여줄지
-  bool _showNoticeBanner = true; // 공지 배너 노출 여부
+ // 공지 배너 노출 여부
 
   // 내부 플래그
   bool _isRequestingPermission = false; // 버튼 연타 방지
@@ -90,7 +136,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // SharedPreferences Keys
   static const _kAutoNearestKey = 'auto_show_nearest';
   static const _kFirstRunKey = 'first_run_done';
-  static const _kNoticeKey = 'hide_review_policy_notice'; // ← 누락돼 있던 키 추가
+ // ← 누락돼 있던 키 추가
 
   @override
   void initState() {
@@ -105,6 +151,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _mainScrollController.dispose();
     super.dispose();
   }
+
 
   // ------------------------------------------------------------
   // 초기화: 사용자 설정 복원 → (옵션) 근처 로딩 → 추천 피드 로딩
@@ -131,7 +178,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
     setState(() {
-      _showNoticeBanner = !(prefs.getBool(_kNoticeKey) ?? false);
       _autoShowNearest = prefs.getBool(_kAutoNearestKey) ?? false;
     });
   }
@@ -355,19 +401,27 @@ class _HomeScreenState extends State<HomeScreen> {
       max: maxScale,
       child: Scaffold(
         appBar: AppBar(
+          toolbarHeight: t(context, 56.0.h, 64.0.h), // 폰/패드 높이만 조절
           title: Padding(
-            padding: EdgeInsets.only(top: 24.h), // [ScreenUtil]
-            child: const Text('리뷰맵', style: TextStyle(fontWeight: FontWeight.w700)),
+            padding: EdgeInsets.only(top: 12.h, left: isTab ? 10.w : 5.w),
+            child: Text(
+              '리뷰맵',
+              style: TextStyle(
+                fontSize: t(context, 22.0.sp, 18.0.sp),  // 태블릿에서 더 큼
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
           // 디자인 정렬 유지용 placeholder 아이콘(오른쪽 여백 균형)
           actions: [
             Opacity(opacity: 0, child: Icon(Icons.notifications_none)),
             // Opacity(opacity: 0, child: Icon(Icons.notifications_none)),
             Padding(
-              padding: EdgeInsets.only(top: 12.h, right: 12), // [ScreenUtil]
+              padding: EdgeInsets.only(top: 12.h, right: isTab ? 10.w : 20.w),
               child: IconButton(
                   icon: Icon(Icons.search),
-                  onPressed: () {
+                iconSize: t(context, 24.0.h, 28.0.h),
+                onPressed: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => const SearchScreen()),
                     );
@@ -384,7 +438,8 @@ class _HomeScreenState extends State<HomeScreen> {
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
               // 공지 배너
-              SliverToBoxAdapter(child: _buildNoticeBanner()),
+              // SliverToBoxAdapter(child: _buildNoticeBanner()),
+              SliverToBoxAdapter(child: MyBannerAdWidget()),
               SliverToBoxAdapter(child: SizedBox(height: 20.h)), // [ScreenUtil]
 
               // 가까운 체험단
@@ -473,10 +528,16 @@ class _HomeScreenState extends State<HomeScreen> {
             style: TextStyle(fontSize: isTab ? 14.sp : 18.sp, fontWeight: FontWeight.bold)),
         GestureDetector(
           onTap: () {
-            final listForNext = _shuffledCampaigns.isNotEmpty
-                ? _shuffledCampaigns.toList()
-                : _visibleCampaigns.toList();
+            if (_shuffledCampaigns.isEmpty && _visibleCampaigns.isEmpty) return;
+
+            final listForNext = [
+              ..._visibleCampaigns,
+              ...(_shuffledCampaigns.isNotEmpty
+                  ? _shuffledCampaigns.skip(_visibleCampaigns.length)
+                  : const <Store>[]),
+            ];
             if (listForNext.isEmpty) return;
+
             Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (_) => CampaignListScreen(
@@ -488,8 +549,7 @@ class _HomeScreenState extends State<HomeScreen> {
           },
           child: Row(
             children: [
-              Text('더보기',
-                  style: TextStyle(color: Colors.grey[600], fontSize: 13.sp)),
+              Text('더보기', style: TextStyle(color: Colors.grey[600], fontSize: 13.sp)),
               SizedBox(width: 2.w),
               Icon(Icons.arrow_forward_ios, size: 12.sp, color: Colors.grey),
               SizedBox(width: 8.w),
@@ -500,38 +560,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // 공지 배너
-  Widget _buildNoticeBanner() {
-    if (!_showNoticeBanner) return const SizedBox.shrink();
-    return Container(
-      margin: EdgeInsets.all(16.w),
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-      decoration: BoxDecoration(
-        color: Colors.blue[100],
-        borderRadius: BorderRadius.circular(12.r),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          const Icon(Icons.campaign, color: Colors.blue),
-          SizedBox(width: 12.w),
-          Expanded(
-            child: Text(
-              '리뷰 정책이 새롭게 변경되었습니다.',
-              style:
-              TextStyle(fontWeight: FontWeight.bold, fontSize: 14.sp),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.close, color: Colors.blue),
-            splashRadius: 18.r,
-            onPressed: _dismissNotice,
-            tooltip: '닫기',
-          ),
-        ],
-      ),
-    );
-  }
 
   // 가까운 체험단 섹션(권한 안내 → 로딩 → 목록/없음)
   Widget _buildNearestCampaignsSection() {
@@ -680,7 +708,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             child: ExperienceCard(
                               key: ValueKey(store.id), // id는 non-null
                               store: store,
-                              width: 150.w,
+                              width: _nearestItemWidth(context),
+                              dense: true,
                               compact: false,
                             ),
                           ),
@@ -698,29 +727,25 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // 공지 닫기: 사용자 설정 저장
-  Future<void> _dismissNotice() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_kNoticeKey, true);
-    if (mounted) setState(() => _showNoticeBanner = false);
+  double _nearestItemWidth(BuildContext context) {
+    final ts = MediaQuery.textScalerOf(context).textScaleFactor.clamp(1.0, 1.3);
+    final t = ((ts - 1.0) / (1.3 - 1.0)).clamp(0.0, 1.0);
+    return lerpDouble(150.w, 170.w, t)!; // 글자 커지면 카드 폭도 살짝 증가
   }
+
+  // 공지 닫기: 사용자 설정 저장
 
   // 근처 가로 카드 영역의 동적 높이(텍스트 스케일 반영)
   double _nearestRowHeight(BuildContext context) {
     final bool isTab = _isTablet(context);
+    final double ts = MediaQuery.textScalerOf(context).textScaleFactor.clamp(1.0, 1.3);
 
-    // ClampTextScale로 이미 상한을 묶었으니 “현재” 스케일을 그대로 신뢰
-    final double ts = MediaQuery.textScalerOf(context).textScaleFactor;
-
-    // 보간 민감도(분모) — 태블릿은 더 완만하게
     final double denom = isTab ? (1.10 - 1.00) : (1.30 - 1.00);
     final double t = denom == 0 ? 0 : ((ts - 1.0) / denom).clamp(0.0, 1.0);
 
-    // 높이 범위 — 태블릿은 더 낮고 촘촘하게
-    final double minH = isTab ? 190.h : 128.h;
-    final double maxH = isTab ? 160.h : 180.h;
-
-    return ui.lerpDouble(minH, maxH, t)!;
+    final double minH = isTab ? 190.h : 165.h; // 폰 기본 살짝 ↑
+    final double maxH = isTab ? 230.h : 200.h; // 상한도 ↑
+    return lerpDouble(minH, maxH, t)!;
   }
 
   // 추천 그리드: childAspectRatio 계산
@@ -748,203 +773,4 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// ========================
-// 카드/메타 UI
-// ========================
 
-class ExperienceCard extends StatelessWidget {
-  final Store store;
-  final double? width;
-  final bool dense;
-  final bool compact;
-
-  const ExperienceCard({
-    super.key,
-    required this.store,
-    this.width,
-    this.dense = false,
-    this.compact = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final platformColor = platformBadgeColor(store.platform);
-
-    final bool isTab = MediaQuery.of(context).size.shortestSide >= 600;
-
-
-    // [ScreenUtil] 여백 프리셋
-    final double pad = dense ? 10.w : 12.w;
-    final double gapBadgeBody = dense ? 3.h : 4.h;
-    final double gapTitleOffer = dense ? 3.h : 4.h;
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: (store.companyLink ?? '').isEmpty
-            ? null
-            : () => openLink(store.companyLink!),
-        child: SizedBox(
-          width: width,
-          child: Padding(
-            padding: EdgeInsets.all(pad),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 상단 그룹: 플랫폼 뱃지 + 회사명 + 제공내역
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // 플랫폼 뱃지
-                    Container(
-                      padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 3.h),
-                      decoration: BoxDecoration(
-                        color: platformColor,
-                        borderRadius: BorderRadius.circular(4.r),
-                      ),
-                      child: Text(
-                        store.platform,
-                        style: TextStyle(
-                          fontSize: isTab ? 8.sp : 11.sp,
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          height: 1.0,
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: gapBadgeBody),
-
-                    // 업체명
-                    Text(
-                      store.company,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: isTab ? 12.5.sp :13.5.sp,
-                        height: 1.2,
-                      ),
-                    ),
-                    SizedBox(height: gapTitleOffer),
-
-                    // 제공내역(있을 때)
-                    if ((store.offer ?? '').isNotEmpty)
-                      Text(
-                        store.offer!,
-                        maxLines: compact ? 1 : 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: isTab ? 9.5.sp :10.5.sp,
-                          color: Colors.red,
-                          height: 1.2,
-                        ),
-                      ),
-                  ],
-                ),
-
-                // 하단 메타(마감일/거리)
-                const Spacer(),
-                Padding(
-                  padding: EdgeInsets.only(bottom: 1.h),
-                  child: _MetaAdaptiveLine(
-                    deadline: store.applyDeadline,
-                    distance: store.distance,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _MetaAdaptiveLine extends StatelessWidget {
-
-  final DateTime? deadline;
-  final double? distance;
-
-  const _MetaAdaptiveLine({required this.deadline, this.distance});
-
-  @override
-  Widget build(BuildContext context) {
-    final bool isTab = MediaQuery.of(context).size.shortestSide >= 600;
-
-    final style = TextStyle(
-      fontSize: isTab ? 10.5.sp: 11.5.sp,
-      height: 1.3,
-      color: Colors.grey[600],
-    );
-    final dateStr = (deadline != null) ? '~${DateFormat('MM.dd').format(deadline!)}' : null;
-    final distStr = (distance != null) ? '${distance!.toStringAsFixed(1)}km' : null;
-
-    if (dateStr == null && distStr == null) return const SizedBox.shrink();
-
-    Widget buildInfoRow(IconData icon, String text) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-              icon,
-              size: isTab ? 10.5.sp: 12.sp,
-              color: Colors.grey[600],
-          ),
-          SizedBox(width: 4.w),
-          Text(text, style: style),
-        ],
-      );
-    }
-
-    if (distStr == null) return buildInfoRow(Icons.calendar_today_outlined, dateStr!);
-    if (dateStr == null) return buildInfoRow(Icons.near_me_outlined, distStr);
-
-    return Wrap(
-      spacing: 8.w,
-      runSpacing: 2.h,
-      crossAxisAlignment: WrapCrossAlignment.start,
-      children: [
-        buildInfoRow(Icons.calendar_today_outlined, dateStr),
-        buildInfoRow(Icons.near_me_outlined, distStr),
-      ],
-    );
-  }
-}
-
-// (선택) 권한 안내 위젯 – 현재 화면에서는 미사용, 필요 시 재활용
-class _PermissionHelp extends StatelessWidget {
-  final String message;
-  final VoidCallback onRequest;
-  final VoidCallback onOpenSettings;
-  const _PermissionHelp({
-    required this.message,
-    required this.onRequest,
-    required this.onOpenSettings,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.place, size: 48, color: Colors.blue),
-            const SizedBox(height: 12),
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 12,
-              children: [
-                ElevatedButton(onPressed: onRequest, child: const Text('권한 요청')),
-                OutlinedButton(onPressed: onOpenSettings, child: const Text('설정 열기')),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

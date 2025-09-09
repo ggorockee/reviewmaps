@@ -5,8 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 
 import '../models/store_model.dart';
-
-import 'dart:developer' as developer; // 로그를 더 잘보이게 하기 위해 추가 (선택)
+import 'package:geolocator/geolocator.dart';
 
 
 /// CampaignService
@@ -178,9 +177,30 @@ class CampaignService {
       final r =
       await _client.get(uri, headers: _headers).timeout(const Duration(seconds: 3));
       final items = _parseItemsOrThrow(r, context: '가까운 캠페인 조회');
-      return items
+      final stores = items
           .map((e) => Store.fromJson(e as Map<String, dynamic>))
           .toList();
+      
+      // 클라이언트에서 거리 계산 및 추가
+      final storesWithDistance = stores.map((store) {
+        if (store.lat != null && store.lng != null) {
+          final distance = Geolocator.distanceBetween(
+            lat, lng, store.lat!, store.lng!,
+          ) / 1000; // 미터를 킬로미터로 변환
+          
+          return store.copyWith(distance: distance);
+        }
+        return store;
+      }).toList();
+      
+      // 거리순으로 정렬
+      storesWithDistance.sort((a, b) {
+        final distanceA = a.distance ?? double.maxFinite;
+        final distanceB = b.distance ?? double.maxFinite;
+        return distanceA.compareTo(distanceB);
+      });
+      
+      return storesWithDistance;
     });
   }
 

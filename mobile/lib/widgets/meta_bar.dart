@@ -28,13 +28,15 @@ class MetaBar extends StatelessWidget {
       items.add(_buildPlatformChip(store.platform));
     }
 
-    // 마감일 및 거리 칩들
-    items.add(
-      DeadlineChips(
-        store: store,
-        dense: dense,
-      ),
-    );
+    // 거리만 표시 (마감일 제거)
+    if (store.distance != null) {
+      items.add(
+        DeadlineChips(
+          store: store,
+          dense: dense,
+        ),
+      );
+    }
 
     if (items.isEmpty) {
       return const SizedBox.shrink();

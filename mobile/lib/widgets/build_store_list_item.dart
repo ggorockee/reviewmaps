@@ -3,7 +3,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mobile/models/store_model.dart';
 import 'package:mobile/widgets/experience_card.dart';
 import 'package:mobile/widgets/meta_bar.dart';
-import 'package:mobile/screens/home_screen.dart';
 
 /// 스토어 리스트 아이템 위젯
 class StoreListItem extends StatelessWidget {
@@ -77,20 +76,12 @@ class StoreListItem extends StatelessWidget {
               SizedBox(height: 8.h),
             ],
             
-            // 메타 정보 (마감일, 거리 등)
+            // 메타 정보 (거리만)
             MetaBar(
               store: store,
               dense: dense,
               showDistance: showDistance,
             ),
-            
-            // 채널 아이콘들
-            if (store.campaignChannel != null && store.campaignChannel!.isNotEmpty) ...[
-              SizedBox(height: 6.h),
-              Row(
-                children: buildChannelIcons(store.campaignChannel),
-              ),
-            ],
           ],
         ),
       ),

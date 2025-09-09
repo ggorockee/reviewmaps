@@ -40,9 +40,6 @@ class ExperienceCard extends StatelessWidget {
     final double gapBadgeBody = dense ? 2.h : 3.h;
     final double gapTitleOffer = dense ? 2.h : 3.h;
 
-    final ts = MediaQuery.textScalerOf(context).textScaleFactor;
-    final stackedMeta = compact || ts >= 1.2;
-
 
     return MediaQuery(
       data: MediaQuery.of(context).copyWith(textScaler: localScaler),
@@ -106,59 +103,11 @@ class ExperienceCard extends StatelessWidget {
                 else
                   SizedBox(height: _offerMetaGap(isTab, MediaQuery.textScalerOf(context).textScaleFactor)),
 
-                // ---------- 마감/거리 (오퍼 바로 아래 일정한 간격으로 배치) ----------
-                Padding(
-                  padding: EdgeInsets.only(bottom: 1.h),
-                  child: stackedMeta
-                      ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      DeadlineChips(store: store, dense: dense),
-                      SizedBox(height: 2.h),
-                      if (store.distance != null)
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.near_me_outlined,
-                                size: isTab ? 10.5.sp : 12.sp, color: Colors.grey[600]),
-                            SizedBox(width: 4.w),
-                            Text('${store.distance!.toStringAsFixed(1)}km',
-                                style: TextStyle(fontSize: isTab ? 9.sp : 11.sp, color: Colors.grey[600])),
-                          ],
-                        ),
-                      // 채널 아이콘들 추가
-                      if (store.campaignChannel != null && store.campaignChannel!.isNotEmpty) ...[
-                        SizedBox(height: 4.h),
-                        Row(
-                          children: buildChannelIcons(store.campaignChannel),
-                        ),
-                      ],
-                    ],
-                  )
-                      : Row(
-                    children: [
-                      Expanded(child: DeadlineChips(store: store, dense: dense)),
-                      if (store.distance != null) Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.near_me_outlined,
-                              size: isTab ? 10.5.sp : 12.sp, color: Colors.grey[600]),
-                          SizedBox(width: 4.w),
-                          Text('${store.distance!.toStringAsFixed(1)}km',
-                              style: TextStyle(fontSize: isTab ? 9.sp : 11.sp, color: Colors.grey[600])),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                
-                // 채널 아이콘들 (가로 배치일 때)
-                if (!stackedMeta && store.campaignChannel != null && store.campaignChannel!.isNotEmpty)
+                // ---------- 거리만 표시 (파란색 칩) ----------
+                if (store.distance != null)
                   Padding(
-                    padding: EdgeInsets.only(top: 4.h),
-                    child: Row(
-                      children: buildChannelIcons(store.campaignChannel),
-                    ),
+                    padding: EdgeInsets.only(bottom: 1.h),
+                    child: DeadlineChips(store: store, dense: dense),
                   ),
               ],
             ),

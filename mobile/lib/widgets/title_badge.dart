@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mobile/models/store_model.dart';
 import 'package:mobile/widgets/new_badge.dart';
+import 'package:mobile/screens/home_screen.dart';
 
 /// 제목과 뱃지를 함께 표시하는 위젯
 class TitleWithBadges extends StatelessWidget {
@@ -36,7 +37,15 @@ class TitleWithBadges extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
         ),
         
-        // 뱃지들
+        // 채널 아이콘들
+        if (store.campaignChannel != null && store.campaignChannel!.isNotEmpty) ...[
+          SizedBox(height: 4.h),
+          Row(
+            children: buildChannelIcons(store.campaignChannel),
+          ),
+        ],
+        
+        // 뱃지들 (NEW)
         if (_shouldShowBadges()) ...[
           SizedBox(height: 4.h),
           Row(

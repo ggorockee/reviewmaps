@@ -17,12 +17,7 @@ class DeadlineChips extends StatelessWidget {
   Widget build(BuildContext context) {
     final List<Widget> chips = [];
 
-    // 마감일 칩
-    if (store.applyDeadline != null) {
-      chips.add(_buildDeadlineChip(store.applyDeadline!));
-    }
-
-    // 거리 칩
+    // 거리 칩만 표시 (마감일 제거)
     if (store.distance != null) {
       chips.add(_buildDistanceChip(store.distance!));
     }
@@ -35,35 +30,6 @@ class DeadlineChips extends StatelessWidget {
       spacing: 4.w,
       runSpacing: 4.h,
       children: chips,
-    );
-  }
-
-  Widget _buildDeadlineChip(DateTime deadline) {
-    // D-day 계산
-    final dDay = _calculateDDay(deadline);
-    final isUrgent = dDay != null && dDay <= 3;
-
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: dense ? 6.w : 8.w,
-        vertical: dense ? 2.h : 3.h,
-      ),
-      decoration: BoxDecoration(
-        color: isUrgent ? Colors.red.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(dense ? 8.r : 10.r),
-        border: Border.all(
-          color: isUrgent ? Colors.red.withOpacity(0.3) : Colors.grey.withOpacity(0.3),
-          width: 0.5,
-        ),
-      ),
-      child: Text(
-        dDay != null ? 'D-$dDay' : '마감임박',
-        style: TextStyle(
-          fontSize: dense ? 9.sp : 10.sp,
-          fontWeight: FontWeight.w500,
-          color: isUrgent ? Colors.red : Colors.grey[700],
-        ),
-      ),
     );
   }
 
@@ -94,12 +60,6 @@ class DeadlineChips extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  int? _calculateDDay(DateTime deadline) {
-    final now = DateTime.now();
-    final difference = deadline.difference(now).inDays;
-    return difference >= 0 ? difference : null;
   }
 }
 

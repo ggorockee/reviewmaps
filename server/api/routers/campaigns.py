@@ -20,8 +20,8 @@ router = APIRouter(tags=["campaigns"])
 async def list_campaigns(
     db: AsyncSession            = Depends(get_db_session),
 
-    # --- 신규/기존 필터 ---
-    region: Optional[str]       = Query(None, description="지역으로 필터링 (예: 서울, 경기)"),
+    # --- 필터 ---
+    region: Optional[str]       = Query(None, description="지역 필터 (예: 서울, 경기)"),
     offer: Optional[str]        = Query(None, description="오퍼(텍스트) 부분검색, 예: 10만원"),
     campaign_type: Optional[str]= Query(None, description="캠페인 유형 (예: 방문형, 배송형)"),
     campaign_channel: Optional[str] = Query(None, description="캠페인 채널 (예: blog, instagram)"),
@@ -31,19 +31,18 @@ async def list_campaigns(
     platform: Optional[str]     = Query(None),
     company: Optional[str]      = Query(None, description="회사명 부분검색"),
 
-    # 구형 파라미터(있으면 추가로 적용), 기본 필터는 오늘 날짜로 별도 적용됨
+    # 구형 파라미터(있으면 추가 적용)
     apply_from: Optional[str]   = Query(None, description="apply_deadline >= (ISO8601, 선택)"),
     apply_to: Optional[str]     = Query(None, description="apply_deadline <= (ISO8601)"),
     review_from: Optional[str]  = Query(None, description="review_deadline >= (ISO8601)"),
     review_to: Optional[str]    = Query(None, description="review_deadline <= (ISO8601)"),
 
-    #  Bounding Box
+    # BBox / 거리
     sw_lat: Optional[float]     = Query(None, description="남서 위도"),
     sw_lng: Optional[float]     = Query(None, description="남서 경도"),
     ne_lat: Optional[float]     = Query(None, description="북동 위도"),
     ne_lng: Optional[float]     = Query(None, description="북동 경도"),
 
-    # 거리 정렬용
     lat: Optional[float]        = Query(None, description="사용자 위도 (sort='distance'일 때 필수)"),
     lng: Optional[float]        = Query(None, description="사용자 경도 (sort='distance'일 때 필수)"),
 
@@ -52,7 +51,7 @@ async def list_campaigns(
         description="정렬 키: created_at, apply_deadline, review_deadline, distance (앞에 -는 내림차순)"
     ),
 
-    # 🔹 신규: 플랫폼 다양화 옵션(쏠림 방지)
+    # 🔹 다양화 옵션(기본 ON 권장)
     diversify: Optional[str] = Query(
         "platform",
         description="다양성 보장 모드: 'platform'이면 플랫폼별 상한 적용"
@@ -75,19 +74,18 @@ async def list_campaigns(
 
     total, rows = await crud.list_campaigns(
         db,
-        # --- v2 파라미터 ---
+        # v2 필터
         region=region,
         offer=offer,
         campaign_type=campaign_type,
         campaign_channel=campaign_channel,
 
-        # --- 기본 필터 ---
         category_id=category_id,
         q=q,
         platform=platform,
         company=company,
 
-        # ✅ '오늘 이후' 기본 필터를 date로 전달 (핵심)
+        # ✅ '오늘 이후' 기본 필터(date)
         apply_from_date=today_kst_date,
 
         # 선택: 구형 파라미터 추가 적용
@@ -96,14 +94,14 @@ async def list_campaigns(
         review_from=_parse_kst(review_from),
         review_to=_parse_kst(review_to),
 
-        # 지도/거리
+        # BBox/거리
         sw_lat=sw_lat, sw_lng=sw_lng, ne_lat=ne_lat, ne_lng=ne_lng,
         lat=lat, lng=lng,
 
         # 정렬/페이징
         sort=sort, limit=limit, offset=offset,
 
-        # 🔹 플랫폼 다양화 옵션 전달
+        # 🔹 다양화 옵션
         diversify=diversify,
         platform_cap=platform_cap,
     )

@@ -232,7 +232,7 @@ async def list_campaigns(
         if apply_from_date:
             stmt_ = stmt_.where(func.cast(Campaign.apply_deadline, Date) >= apply_from_date)
 
-        # (선택) 구형 파라미터가 온 경우: 시간 단위로 추가 적용 가능
+        # (선택) 구형 파라미터가 온 경우: 시간 단위로 추가 적용
         if apply_from:
             stmt_ = stmt_.where(Campaign.apply_deadline >= apply_from)
         if apply_to:
@@ -257,13 +257,70 @@ async def list_campaigns(
     if sort == "distance" and lat is not None and lng is not None:
         distance_col = get_distance_query(lat, lng)
 
-        stmt = (
-            select(Campaign, Category, is_new_expression, distance_col)
+        # 기본 셀렉트
+        base = (
+            select(
+                Campaign,
+                Category,
+                is_new_expression,
+                distance_col
+            )
             .outerjoin(Category, Campaign.category_id == Category.id)
         )
-        stmt = apply_common_filters(stmt)
+        base = apply_common_filters(base)
 
-        count_stmt = select(func.count()).select_from(stmt.subquery())
+        # 🔹 다양화(플랫폼 cap) 적용 분기
+        if diversify == "platform":
+            # 1) 거리 기준 rn
+            subq = (
+                select(
+                    Campaign.id.label("id"),
+                    Campaign.platform.label("platform"),
+                    Campaign.created_at.label("created_at"),
+                    distance_col.label("distance"),
+                    func.row_number().over(
+                        partition_by=Campaign.platform,
+                        order_by=distance_col.asc()
+                    ).label("rn"),
+                )
+                .select_from(Campaign)
+            )
+            subq = apply_common_filters(subq).subquery()
+
+            # 2) 플랫폼별 cap
+            filtered = select(subq).where(subq.c.rn <= platform_cap)
+
+            # total
+            total = (await db.execute(select(func.count()).select_from(filtered.subquery()))).scalar_one()
+
+            # 3) 거리 오름차순으로 id 페이징
+            id_rows = await db.execute(
+                filtered.order_by(subq.c.distance.asc()).limit(limit).offset(offset)
+            )
+            ids = [r.id for r in id_rows.all()]
+            if not ids:
+                return 0, []
+
+            # 4) 실제 객체 재조회
+            rows_stmt = (
+                select(Campaign, Category, is_new_expression, distance_col)
+                .outerjoin(Category, Campaign.category_id == Category.id)
+                .where(Campaign.id.in_(ids))
+            )
+            result = await db.execute(rows_stmt)
+            id_index = {i: k for k, i in enumerate(ids)}
+
+            rows = []
+            for campaign, category, is_new, distance in result.all():
+                campaign.is_new = is_new
+                campaign.distance = distance
+                campaign.category = category
+                rows.append(campaign)
+            rows.sort(key=lambda c: id_index.get(c.id, 10**9))
+            return total, rows
+
+        # 🔸 다양화 OFF: 기존 로직
+        count_stmt = select(func.count()).select_from(base.subquery())
         total = (await db.execute(count_stmt)).scalar_one()
 
         try:
@@ -278,7 +335,7 @@ async def list_campaigns(
                 Campaign.created_at.desc(),
             )
 
-        stmt = stmt.order_by(*order_by_clause).limit(limit).offset(offset)
+        stmt = base.order_by(*order_by_clause).limit(limit).offset(offset)
         result = await db.execute(stmt)
         rows = []
         for campaign, category, is_new, distance in result.all():
@@ -289,16 +346,13 @@ async def list_campaigns(
         return total, rows
 
     # === 일반 정렬 (+ 선택적 다양화) ===
-    # 기본 셀렉트
     base_stmt = (
         select(Campaign, Category, is_new_expression)
         .outerjoin(Category, Campaign.category_id == Category.id)
     )
     base_stmt = apply_common_filters(base_stmt)
 
-    # 🔹 플랫폼 다양화 모드: 플랫폼별 최신순 상한 cap
     if diversify == "platform":
-        # 플랫폼별 row_number
         rn_base = (
             select(
                 Campaign.id.label("id"),
@@ -316,13 +370,10 @@ async def list_campaigns(
         rn_base = apply_common_filters(rn_base)
         subq = rn_base.subquery()
 
-        # 플랫폼당 cap 이하만
         filtered = select(subq).where(subq.c.rn <= platform_cap)
 
-        # total
         total = (await db.execute(select(func.count()).select_from(filtered.subquery()))).scalar_one()
 
-        # 최신순으로 아이디만 뽑아 페이징
         id_rows = await db.execute(
             filtered.order_by(subq.c.created_at.desc()).limit(limit).offset(offset)
         )
@@ -330,7 +381,6 @@ async def list_campaigns(
         if not ids:
             return 0, []
 
-        # 실제 객체 재조회
         rows_stmt = (
             select(Campaign, Category, is_new_expression)
             .outerjoin(Category, Campaign.category_id == Category.id)
@@ -346,7 +396,7 @@ async def list_campaigns(
         rows.sort(key=lambda c: order_map.get(c.id, 10**9))
         return total, rows
 
-    # 🔸 다양화 OFF: 기존 정렬대로
+    # 🔸 다양화 OFF: 기존 정렬
     sort_map = {
         "created_at": Campaign.created_at,
         "updated_at": Campaign.updated_at,

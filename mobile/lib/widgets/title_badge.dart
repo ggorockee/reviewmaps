@@ -21,6 +21,7 @@ class TitleWithBadges extends StatelessWidget {
     
     return Wrap(
       crossAxisAlignment: WrapCrossAlignment.center,
+      runAlignment: WrapAlignment.start,
       children: [
         // 제목
         Text(
@@ -33,7 +34,6 @@ class TitleWithBadges extends StatelessWidget {
             color: Colors.black87,
             height: 1.3,
           ),
-          maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
         

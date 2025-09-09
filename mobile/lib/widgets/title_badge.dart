@@ -19,19 +19,23 @@ class TitleWithBadges extends StatelessWidget {
   Widget build(BuildContext context) {
     final isTab = MediaQuery.of(context).size.shortestSide >= 600;
     
-    return Wrap(
-      crossAxisAlignment: WrapCrossAlignment.center,
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 제목
-        Text(
-          store.title,
-          style: TextStyle(
-            fontSize: dense 
-                ? (isTab ? 10.sp : 13.sp)
-                : (isTab ? 12.sp : 15.sp),
-            fontWeight: FontWeight.w600,
-            color: Colors.black87,
-            height: 1.3,
+        // 제목 (Flexible로 감싸서 공간 부족시에만 줄바꿈)
+        Flexible(
+          child: Text(
+            store.title,
+            style: TextStyle(
+              fontSize: dense 
+                  ? (isTab ? 10.sp : 13.sp)
+                  : (isTab ? 12.sp : 15.sp),
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+              height: 1.3,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
         

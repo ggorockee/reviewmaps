@@ -103,12 +103,11 @@ class ExperienceCard extends StatelessWidget {
                 else
                   SizedBox(height: _offerMetaGap(isTab, MediaQuery.textScalerOf(context).textScaleFactor)),
 
-                // ---------- 거리만 표시 (파란색 칩) ----------
-                if (store.distance != null)
-                  Padding(
-                    padding: EdgeInsets.only(bottom: 1.h),
-                    child: DeadlineChips(store: store, dense: dense),
-                  ),
+                // ---------- 마감일 및 거리 칩들 ----------
+                Padding(
+                  padding: EdgeInsets.only(bottom: 1.h),
+                  child: DeadlineChips(store: store, dense: dense),
+                ),
               ],
             ),
           ),

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mobile/models/store_model.dart';
 import 'package:mobile/widgets/experience_card.dart';
-import 'package:mobile/widgets/meta_bar.dart';
+import 'package:mobile/widgets/title_badge.dart';
+import 'package:mobile/widgets/deadline_chips.dart';
+import 'package:mobile/screens/home_screen.dart'; // buildChannelIcons 사용
 
 /// 스토어 리스트 아이템 위젯
 class StoreListItem extends StatelessWidget {
@@ -34,53 +36,45 @@ class StoreListItem extends StatelessWidget {
             width: 1,
           ),
         ),
-        child: Column(
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 플랫폼 및 제목
-            Row(
-              children: [
-                if (store.platform != null) ...[
-                  _buildPlatformChip(store.platform!),
-                  SizedBox(width: 8.w),
-                ],
-                Expanded(
-                  child: Text(
-                    store.title,
-                    style: TextStyle(
-                      fontSize: dense ? 13.sp : 15.sp,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+            // 맨 왼쪽: 플랫폼 로고
+            _buildPlatformLogo(store.platform),
+            SizedBox(width: 12.w),
+            
+            // 중앙: 제목 + 채널 + NEW + 혜택 + 하단 정보
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // [타이틀][채널][NEW] - 기존 홈 방식 그대로
+                  TitleWithBadges(
+                    store: store,
+                    dense: dense,
                   ),
-                ),
-              ],
-            ),
-            
-            SizedBox(height: 8.h),
-            
-            // 혜택 정보
-            if (store.offer != null && store.offer!.isNotEmpty) ...[
-              Text(
-                store.offer!,
-                style: TextStyle(
-                  fontSize: dense ? 11.sp : 13.sp,
-                  color: Colors.blue[700],
-                  fontWeight: FontWeight.w500,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                  
+                  SizedBox(height: 8.h),
+                  
+                  // 혜택 정보
+                  if (store.offer != null && store.offer!.isNotEmpty) ...[
+                    Text(
+                      store.offer!,
+                      style: TextStyle(
+                        fontSize: dense ? 11.sp : 13.sp,
+                        color: Colors.red[600],
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    SizedBox(height: 8.h),
+                  ],
+                  
+                  // 하단: [아이콘]플랫폼 D-day, 거리
+                  _buildBottomInfo(),
+                ],
               ),
-              SizedBox(height: 8.h),
-            ],
-            
-            // 메타 정보 (거리만)
-            MetaBar(
-              store: store,
-              dense: dense,
-              showDistance: showDistance,
             ),
           ],
         ),
@@ -88,29 +82,98 @@ class StoreListItem extends StatelessWidget {
     );
   }
 
-  Widget _buildPlatformChip(String platform) {
+  // 플랫폼 로고 (asset 이미지)
+  Widget _buildPlatformLogo(String platform) {
+    final String logoAssetPath = _getLogoPathForPlatform(platform);
+    
     return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: 6.w,
-        vertical: 2.h,
-      ),
+      width: 48.w,
+      height: 48.h,
       decoration: BoxDecoration(
-        color: Colors.orange.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(4.r),
-        border: Border.all(
-          color: Colors.orange.withOpacity(0.3),
-          width: 0.5,
-        ),
+        borderRadius: BorderRadius.circular(8.r),
+        color: Colors.grey[100],
       ),
-      child: Text(
-        platform,
-        style: TextStyle(
-          fontSize: 9.sp,
-          fontWeight: FontWeight.w500,
-          color: Colors.orange[700],
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8.r),
+        child: Image.asset(
+          logoAssetPath,
+          width: 48.w,
+          height: 48.h,
+          fit: BoxFit.contain,
+          errorBuilder: (_, __, ___) => Container(
+            width: 48.w,
+            height: 48.h,
+            color: Colors.grey[200],
+            child: Icon(
+              Icons.image_not_supported,
+              color: Colors.grey[400],
+              size: 20.sp,
+            ),
+          ),
         ),
       ),
     );
+  }
+
+  // 하단 정보: [아이콘]플랫폼 D-day, 거리
+  Widget _buildBottomInfo() {
+    return Row(
+      children: [
+        // 채널 아이콘들
+        if (store.campaignChannel != null && store.campaignChannel!.isNotEmpty) ...[
+          ...buildChannelIcons(store.campaignChannel),
+          SizedBox(width: 4.w),
+        ],
+        
+        // 플랫폼 이름
+        Text(
+          store.platform,
+          style: TextStyle(
+            fontSize: dense ? 9.sp : 10.sp,
+            color: Colors.grey[600],
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        
+        SizedBox(width: 8.w),
+        
+        // D-day와 거리 칩들
+        Expanded(
+          child: DeadlineChips(
+            store: store,
+            dense: dense,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 플랫폼별 로고 경로 반환
+  String _getLogoPathForPlatform(String platform) {
+    final Map<String, String> logoMap = {
+      '강남맛집': 'asset/image/logo/gannam.png',
+      '캐시노트': 'asset/image/logo/cashnote.png',
+      '레뷰': 'asset/image/logo/revu.png',
+      '체험미': 'asset/image/logo/chehumi.png',
+      '체험뷰': 'asset/image/logo/chehumview.png',
+      '체리뷰': 'asset/image/logo/cherryview.png',
+      '디너퀸': 'asset/image/logo/dinnerqueen.png',
+      '가보자': 'asset/image/logo/gaboja.png',
+      '미스터블': 'asset/image/logo/mrble.png',
+      '놀어와': 'asset/image/logo/noleowa.png',
+      '포포몬': 'asset/image/logo/popomon.png',
+      '리뷰노트': 'asset/image/logo/reviewnote.png',
+      '리뷰플레이스': 'asset/image/logo/reviewplace.png',
+      '링블': 'asset/image/logo/ringble.png',
+      '링뷰': 'asset/image/logo/ringvue.png',
+      '스토리미디어': 'asset/image/logo/storymedia.png',
+      '구구다스': 'asset/image/logo/gugudas.png',
+      '오마이블로그': 'asset/image/logo/ohmyblog.png',
+      '포블로그': 'asset/image/logo/4blog2.png',
+      '아사뷰': 'asset/image/logo/assaview.png',
+    };
+    
+    return logoMap[platform] ?? 'asset/image/logo/default_log.png';
   }
 }
 

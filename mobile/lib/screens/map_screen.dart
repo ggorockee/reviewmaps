@@ -194,6 +194,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       // 더 최신 검색이 도착했다면 버린다.
       if (mySeq != _searchSeq) return;
 
+      // 거리 계산 추가
+      await _calculateDistancesForStores(storesInBounds);
+
       setState(() {
         _allStoresInView
           ..clear()
@@ -1019,6 +1022,40 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       const SizedBox(width: 4),
       ddayChip,
     ]);
+  }
+
+  // 거리 계산 유틸리티 (홈화면과 동일)
+  Future<void> _calculateDistancesForStores(List<Store> stores) async {
+    try {
+      // 위치 권한 확인
+      final permission = await Geolocator.checkPermission();
+      if (permission != LocationPermission.always && permission != LocationPermission.whileInUse) {
+        return; // 권한이 없으면 거리 계산하지 않음
+      }
+
+      // 현재 위치 가져오기
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      ).timeout(const Duration(seconds: 5));
+
+      // 각 스토어에 대해 거리 계산하고 리스트 업데이트
+      for (int i = 0; i < stores.length; i++) {
+        final store = stores[i];
+        if (store.lat != null && store.lng != null) {
+          final distance = Geolocator.distanceBetween(
+            position.latitude,
+            position.longitude,
+            store.lat!,
+            store.lng!,
+          ) / 1000; // km 단위로 변환
+          
+          // 새로운 Store 객체로 교체
+          stores[i] = store.copyWith(distance: distance);
+        }
+      }
+    } catch (_) {
+      // 위치 정보를 가져올 수 없으면 거리 계산하지 않음
+    }
   }
 
   Future<void> _moveCameraAndSearch(NLatLng target, {double zoom = 16}) async {

@@ -29,7 +29,7 @@ class TitleWithBadges extends StatelessWidget {
             text: store.title,
             style: TextStyle(
               fontSize: dense 
-                  ? (isTab ? 10.sp : 13.sp)
+                  ? (isTab ? 10.sp : 11.sp)
                   : (isTab ? 12.sp : 15.sp),
               fontWeight: FontWeight.w600,
               color: Colors.black87,

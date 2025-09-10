@@ -783,7 +783,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final double denom = isTab ? (1.10 - 1.00) : (1.30 - 1.00);
     final double t = denom == 0 ? 0 : ((ts - 1.0) / denom).clamp(0.0, 1.0);
 
-    final double minH = isTab ? 190.h : 165.h; // 폰 기본 살짝 ↑
+    final double minH = isTab ? 190.h : 130.h; // 폰 기본 살짝 ↑
     final double maxH = isTab ? 230.h : 200.h; // 상한도 ↑
     return lerpDouble(minH, maxH, t)!;
   }

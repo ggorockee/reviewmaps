@@ -62,7 +62,7 @@ class ExperienceCard extends StatelessWidget {
                   child: Text(
                     store.platform,
                     style: TextStyle(
-                      fontSize: isTab ? 8.sp : 11.sp,
+                      fontSize: isTab ? 8.sp : 8.5.sp,
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
                       height: 1.0,
@@ -87,7 +87,7 @@ class ExperienceCard extends StatelessWidget {
                     maxLines: isTab ? 2 : (compact ? 1 : 2),
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: isTab ? 8.5.sp : 10.5.sp,
+                      fontSize: isTab ? 8.5.sp : 9.5.sp,
                       color: Colors.red,
                       height: isTab ? 1.05 : 1.2,
                     ),

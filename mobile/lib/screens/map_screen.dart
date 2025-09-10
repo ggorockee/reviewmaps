@@ -195,8 +195,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     }
     if (!panelController.isAttached) return;
 
-    // 실행높이로 올리기 (검색 성공 시 쓰던 계산식 그대로 재사용)
-    final desiredHeight = _panelMin + _panelHeaderExtra + _itemMinHeight * 1.5;
+    // 실행높이로 올리기 - "이 위치로 검색" 버튼 바로 밑까지
+    final desiredHeight = _panelMin + _panelHeaderExtra + _itemMinHeight * 0.8;
     final clamped = desiredHeight.clamp(_panelMin, _panelMax);
     final position = (clamped - _panelMin) / (_panelMax - _panelMin);
 

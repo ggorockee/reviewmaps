@@ -38,10 +38,11 @@ class Campaign(Base):
 
     # ✨ 성능 최적화를 위한 인덱스 정의
     __table_args__ = (
-        # 추천 체험단 API 최적화: promotion_level + apply_deadline 복합 인덱스
+        # 추천 체험단 API 최적화: promotion_level + apply_deadline + 좌표 복합 인덱스
         # 1. promotion_level 내림차순 정렬 최적화
         # 2. apply_deadline >= 현재시간 필터링 최적화
-        Index('idx_campaign_promotion_deadline', 'promotion_level', 'apply_deadline'),
+        # 3. 지도 뷰포트 필터링 최적화
+        Index('idx_campaign_promo_deadline_lat_lng', 'promotion_level', 'apply_deadline', 'lat', 'lng'),
         
         # 추가 성능 최적화 인덱스들
         Index('idx_campaign_created_at', 'created_at'),  # 기본 정렬용

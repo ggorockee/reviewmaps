@@ -11,37 +11,37 @@ import re
 
 
 
-# --- offer 정규화 유틸 ---
+# --- offer ?�규???�틸 ---
 _NUM_UNIT_PAT = re.compile(
-    r'(?P<num>\d+)\s*(?P<unit>개월|월|주|일|시간|분|회|회차|인|명|대|병|장|팩|개)'
+    r'(?P<num>\d+)\s*(?P<unit>개월|??�????�간|�????�차|??�??�|�?????�?'
 )
 
 def _normalize_money_variants(value: int) -> list[str]:
-    """정수 금액 -> 다양한 문자열 표현(숫자/쉼표/만원 단위) 목록"""
+    """?�수 금액 -> ?�양??문자???�현(?�자/?�표/만원 ?�위) 목록"""
     variants = [f"{value}", f"{value:,}"]
     if value % 10000 == 0:
         man = value // 10000
-        variants += [f"{man}만", f"{man}만원"]
+        variants += [f"{man}�?, f"{man}만원"]
     return variants
 
 
 def _extract_money_value(s: str) -> int | None:
-    """'40,000'/'40000'/'4만'/'4만원' 등에서 금액(원) 뽑기."""
+    """'40,000'/'40000'/'4�?/'4만원' ?�에??금액(?? 뽑기."""
     s = s.strip()
-    # 한글 '만/만원' 케이스
-    m = re.match(r'^(\d+)\s*만(원)?$', s)
+    # ?��? '�?만원' 케?�스
+    m = re.match(r'^(\d+)\s*�????$', s)
     if m:
         return int(m.group(1)) * 10000
-    # 숫자만/쉼표 숫자
+    # ?�자�??�표 ?�자
     digits = re.sub(r'\D', '', s)
     return int(digits) if digits else None
 
 
 def build_offer_predicates(offer_input: str, column):
     """
-    offer 입력을 의미 단위로 나눠서,
-    각 단위를 (여러 표현 OR)로 만들고, 전체는 AND로 결합하기 위한 predicate 리스트를 반환.
-    사용 예: for pred in build_offer_predicates(...): stmt = stmt.where(pred)
+    offer ?�력???��? ?�위�??�눠??
+    �??�위�?(?�러 ?�현 OR)�?만들�? ?�체??AND�?결합?�기 ?�한 predicate 리스?��? 반환.
+    ?�용 ?? for pred in build_offer_predicates(...): stmt = stmt.where(pred)
     """
     if not offer_input or not offer_input.strip():
         return []
@@ -52,63 +52,63 @@ def build_offer_predicates(offer_input: str, column):
     for term in terms:
         or_variants = []
 
-        # 1) 금액 후보
+        # 1) 금액 ?�보
         money = _extract_money_value(term)
         if money:
             for v in _normalize_money_variants(money):
                 or_variants.append(column.ilike(f"%{v}%"))
-            # 예: "4만"만 적어도 '40,000'과 매칭되도록 원본 term 자체도 포함
+            # ?? "4�?�??�어??'40,000'�?매칭?�도�??�본 term ?�체???�함
             or_variants.append(column.ilike(f"%{term}%"))
 
-        # 2) 수량/기간 (2개월, 10회, 2인, 3주, 30분, 2시간 등)
+        # 2) ?�량/기간 (2개월, 10?? 2?? 3�? 30�? 2?�간 ??
         m = _NUM_UNIT_PAT.fullmatch(term)
         if m:
             n = m.group('num')
             u = m.group('unit')
-            # 동의어/표현 다양화
+            # ?�의???�현 ?�양??
             unit_alias = {
-                '개월': ['개월', '달', '월'],
-                '월':   ['월', '개월', '달'],
-                '주':   ['주'],
-                '일':   ['일'],
-                '시간': ['시간', '시간권'],
-                '분':   ['분'],
-                '회':   ['회', '회차'],
-                '회차': ['회차', '회'],
-                '인':   ['인', '명'],
-                '명':   ['명', '인'],
-                '대':   ['대'],
-                '병':   ['병'],
-                '장':   ['장'],
-                '팩':   ['팩'],
-                '개':   ['개'],
+                '개월': ['개월', '??, '??],
+                '??:   ['??, '개월', '??],
+                '�?:   ['�?],
+                '??:   ['??],
+                '?�간': ['?�간', '?�간�?],
+                '�?:   ['�?],
+                '??:   ['??, '?�차'],
+                '?�차': ['?�차', '??],
+                '??:   ['??, '�?],
+                '�?:   ['�?, '??],
+                '?�':   ['?�'],
+                '�?:   ['�?],
+                '??:   ['??],
+                '??:   ['??],
+                '�?:   ['�?],
             }.get(u, [u])
 
             for ua in unit_alias:
-                # 공백 유무 모두
+                # 공백 ?�무 모두
                 or_variants.append(column.ilike(f"%{n}{ua}%"))
                 or_variants.append(column.ilike(f"%{n} {ua}%"))
-            # 원본 그대로
+            # ?�본 그�?�?
             or_variants.append(column.ilike(f"%{term}%"))
 
-        # 3) 일반 키워드 (헬스장, PT, 커플, 이용권 등)
-        #    숫자/단위/금액으로 잡히지 않았다면 키워드로 처리
+        # 3) ?�반 ?�워??(?�스?? PT, 커플, ?�용�???
+        #    ?�자/?�위/금액?�로 ?�히지 ?�았?�면 ?�워?�로 처리
         if not or_variants:
-            # PT 같이 대소문자 섞이는 건 ILIKE로 충분
+            # PT 같이 ?�?�문???�이??�?ILIKE�?충분
             or_variants.append(column.ilike(f"%{term}%"))
 
-            # 가벼운 동의어 추가 (필요 시 확장)
+            # 가벼운 ?�의??추�? (?�요 ???�장)
             synonym_map = {
-                '헬스장': ['헬스장', '헬스', '피트니스', '짐', 'GYM', 'fitness'],
-                'PT':    ['PT', '피티', '퍼스널트레이닝', '퍼스널', 'personal training'],
-                '커플':  ['커플', '2인', '두명'],
-                '이용권': ['이용권', '이용 쿠폰', '이용권한', '이용권증정'],
+                '?�스??: ['?�스??, '?�스', '?�트?�스', '�?, 'GYM', 'fitness'],
+                'PT':    ['PT', '?�티', '?�스?�트?�이??, '?�스??, 'personal training'],
+                '커플':  ['커플', '2??, '?�명'],
+                '?�용�?: ['?�용�?, '?�용 쿠폰', '?�용권한', '?�용권증??],
             }
             if term in synonym_map:
                 for syn in synonym_map[term]:
                     or_variants.append(column.ilike(f"%{syn}%"))
 
-        # 그룹(표현들)을 OR로 묶고, 그룹 간은 AND
+        # 그룹(?�현????OR�?묶고, 그룹 간�? AND
         predicates.append(or_(*or_variants))
 
     return predicates
@@ -119,17 +119,17 @@ async def get_campaign(db: AsyncSession, campaign_id: int) -> Campaign | None:
 
 
 def get_distance_query(lat: float, lng: float):
-    """Haversine 공식을 사용하여 SQLAlchemy 쿼리 표현식을 반환합니다."""
-    # 지구 반지름 (km)
+    """Haversine 공식???�용?�여 SQLAlchemy 쿼리 ?�현?�을 반환?�니??"""
+    # 지�?반�?�?(km)
     R = 6371
 
-    # 라디안 변환
+    # ?�디??변??
     lat_rad = func.radians(lat)
     lng_rad = func.radians(lng)
     db_lat_rad = func.radians(Campaign.lat)
     db_lng_rad = func.radians(Campaign.lng)
 
-    # 하버사인 공식
+    # ?�버?�인 공식
     dlat = db_lat_rad - lat_rad
     dlng = db_lng_rad - lng_rad
     a = func.power(func.sin(dlat / 2), 2) + func.cos(lat_rad) * func.cos(db_lat_rad) * func.power(func.sin(dlng / 2), 2)
@@ -144,17 +144,17 @@ def get_distance_query(lat: float, lng: float):
 async def list_campaigns_optimized(
     db: AsyncSession,
     *,
-    # --- 새로운 필터 파라미터 추가 ---
+    # --- ?�로???�터 ?�라미터 추�? ---
     region: Optional[str] = None,
-    offer: Optional[str] = None,  # ✨ 추가: 오퍼(텍스트) 부분검색
+    offer: Optional[str] = None,  # ??추�?: ?�퍼(?�스?? 부분�???
     campaign_type: Optional[str] = None,
     campaign_channel: Optional[str] = None,
     # ------------------------------------
-    category_id: Optional[int] = None, # ✨ 필터 파라미터 추가
+    category_id: Optional[int] = None, # ???�터 ?�라미터 추�?
     q: Optional[str] = None,
     platform: Optional[str] = None,
     company: Optional[str] = None,
-    apply_from: Optional[str] = None, # API 단에서 datetime으로 파싱된 것을 받는다고 가정
+    apply_from: Optional[str] = None, # API ?�에??datetime?�로 ?�싱??것을 받는?�고 가??
     apply_to: Optional[str] = None,
     review_from: Optional[str] = None,
     review_to: Optional[str] = None,
@@ -169,34 +169,34 @@ async def list_campaigns_optimized(
     offset: int = 0,
 ) -> Tuple[int, Sequence[Campaign]]:
     """
-    ✨ 성능 최적화된 캠페인 목록 조회
-    - idx_campaign_promo_deadline_lat_lng 인덱스 최대 활용
-    - idx_campaign_lat_lng GiST 인덱스 활용 (지도 뷰포트용)
-    - Raw SQL로 최적화된 쿼리 실행
+    ???�능 최적?�된 캠페??목록 조회
+    - idx_campaign_promo_deadline_lat_lng ?�덱??최�? ?�용
+    - idx_campaign_lat_lng GiST ?�덱???�용 (지??뷰포?�용)
+    - Raw SQL�?최적?�된 쿼리 ?�행
     """
     
-    # 기본 조건: apply_deadline >= current_date 강제 적용
+    # 기본 조건: apply_deadline >= current_date 강제 ?�용
     base_conditions = ["c.apply_deadline >= CURRENT_DATE"]
     params = {}
     
-    # 지도 뷰포트 조건 확인 (GiST 인덱스 활용 가능)
+    # 지??뷰포??조건 ?�인 (GiST ?�덱???�용 가??
     is_map_viewport = None not in (sw_lat, sw_lng, ne_lat, ne_lng)
     
     if is_map_viewport:
-        # GiST 인덱스 활용을 위한 point <@ box 조건
+        # GiST ?�덱???�용???�한 point <@ box 조건
         lat_min, lat_max = sorted([sw_lat, ne_lat])
         lng_min, lng_max = sorted([sw_lng, ne_lng])
         
-        # 넓은 범위 검색 시 GiST 인덱스 활용
+        # ?��? 범위 검????GiST ?�덱???�용
         viewport_area = (lat_max - lat_min) * (lng_max - lng_min)
-        if viewport_area > 0.01:  # 넓은 범위 (약 1km² 이상)
+        if viewport_area > 0.01:  # ?��? 범위 (??1km² ?�상)
             base_conditions.append("point(c.lng, c.lat) <@ box(point(:sw_lng, :sw_lat), point(:ne_lng, :ne_lat))")
             params.update({
                 'sw_lat': lat_min, 'sw_lng': lng_min,
                 'ne_lat': lat_max, 'ne_lng': lng_max
             })
         else:
-            # 좁은 범위는 B-Tree 인덱스 활용
+            # 좁�? 범위??B-Tree ?�덱???�용
             base_conditions.extend([
                 "c.lat BETWEEN :lat_min AND :lat_max",
                 "c.lng BETWEEN :lng_min AND :lng_max"
@@ -206,7 +206,7 @@ async def list_campaigns_optimized(
                 'lng_min': lng_min, 'lng_max': lng_max
             })
     
-    # 추가 필터 조건들
+    # 추�? ?�터 조건??
     if category_id:
         base_conditions.append("c.category_id = :category_id")
         params['category_id'] = category_id
@@ -246,9 +246,9 @@ async def list_campaigns_optimized(
         base_conditions.append("(c.company ILIKE :q OR c.offer ILIKE :q OR c.platform ILIKE :q OR c.title ILIKE :q)")
         params['q'] = f"%{q}%"
     
-    # 정렬 조건 결정
+    # ?�렬 조건 결정
     if sort == "distance" and lat is not None and lng is not None:
-        # 거리순 정렬: promotion_level 우선 + 거리순 + 의사랜덤
+        # 거리???�렬: promotion_level ?�선 + 거리??+ ?�사?�덤
         order_clause = """
             COALESCE(c.promotion_level, 0) DESC,
             ST_Distance(
@@ -260,7 +260,7 @@ async def list_campaigns_optimized(
         """
         params.update({'user_lat': lat, 'user_lng': lng})
     else:
-        # 일반 정렬: promotion_level 우선 + 의사랜덤 + 기존 정렬
+        # ?�반 ?�렬: promotion_level ?�선 + ?�사?�덤 + 기존 ?�렬
         sort_map = {
             "created_at": "c.created_at",
             "updated_at": "c.updated_at", 
@@ -278,10 +278,10 @@ async def list_campaigns_optimized(
             {sort_col} {sort_direction}
         """
     
-    # 최적화된 쿼리 실행
+    # 최적?�된 쿼리 ?�행
     where_clause = " AND ".join(base_conditions)
     
-    # 메인 쿼리 - idx_campaign_promo_deadline_lat_lng 인덱스 최대 활용
+    # 메인 쿼리 - idx_campaign_promo_deadline_lat_lng ?�덱??최�? ?�용
     main_query = text(f"""
         WITH filtered_campaigns AS (
             SELECT 
@@ -312,14 +312,14 @@ async def list_campaigns_optimized(
         LIMIT :limit OFFSET :offset
     """)
     
-    # Count 쿼리 - 동일한 필터 조건 적용
+    # Count 쿼리 - ?�일???�터 조건 ?�용
     count_query = text(f"""
         SELECT COUNT(*)
         FROM campaign c
         WHERE {where_clause}
     """)
     
-    # 파라미터 설정
+    # ?�라미터 ?�정
     params.update({
         'limit': limit,
         'offset': offset,
@@ -327,7 +327,7 @@ async def list_campaigns_optimized(
         'user_lng': lng if lng is not None else None
     })
     
-    # 쿼리 실행
+    # 쿼리 ?�행
     count_result = await db.execute(count_query, params)
     total = count_result.scalar()
     
@@ -335,17 +335,17 @@ async def list_campaigns_optimized(
     rows = []
     
     for row in main_result:
-        # Campaign 객체 생성 및 속성 설정
+        # Campaign 객체 ?�성 �??�성 ?�정
         campaign = Campaign()
         for key, value in row._mapping.items():
             if hasattr(campaign, key):
                 setattr(campaign, key, value)
         
-        # 추가 속성 설정
+        # 추�? ?�성 ?�정
         campaign.is_new = row.is_new
         campaign.distance = row.distance
         
-        # Category 객체 설정
+        # Category 객체 ?�정
         if row.category_name:
             campaign.category = Category(
                 id=row.category_id,
@@ -361,17 +361,17 @@ async def list_campaigns_optimized(
 async def list_campaigns(
     db: AsyncSession,
     *,
-    # --- 새로운 필터 파라미터 추가 ---
+    # --- ?�로???�터 ?�라미터 추�? ---
     region: Optional[str] = None,
-    offer: Optional[str] = None,  # ✨ 추가: 오퍼(텍스트) 부분검색
+    offer: Optional[str] = None,  # ??추�?: ?�퍼(?�스?? 부분�???
     campaign_type: Optional[str] = None,
     campaign_channel: Optional[str] = None,
     # ------------------------------------
-    category_id: Optional[int] = None, # ✨ 필터 파라미터 추가
+    category_id: Optional[int] = None, # ???�터 ?�라미터 추�?
     q: Optional[str] = None,
     platform: Optional[str] = None,
     company: Optional[str] = None,
-    apply_from: Optional[str] = None, # API 단에서 datetime으로 파싱된 것을 받는다고 가정
+    apply_from: Optional[str] = None, # API ?�에??datetime?�로 ?�싱??것을 받는?�고 가??
     apply_to: Optional[str] = None,
     review_from: Optional[str] = None,
     review_to: Optional[str] = None,
@@ -386,17 +386,17 @@ async def list_campaigns(
     offset: int = 0,
 ) -> Tuple[int, Sequence[Campaign]]:
     """
-    ✨ PostGIS 없이 작동하는 최적화된 캠페인 목록 조회
-    - idx_campaign_promo_deadline_lat_lng 인덱스 최대 활용
+    ??PostGIS ?�이 ?�동?�는 최적?�된 캠페??목록 조회
+    - idx_campaign_promo_deadline_lat_lng ?�덱??최�? ?�용
     - Haversine 공식 기반 거리 계산
-    - Raw SQL로 최적화된 쿼리 실행
+    - Raw SQL�?최적?�된 쿼리 ?�행
     """
     
-    # 기본 조건: apply_deadline >= current_date 강제 적용
+    # 기본 조건: apply_deadline >= current_date 강제 ?�용
     base_conditions = ["c.apply_deadline >= CURRENT_DATE"]
     params = {}
     
-    # 지도 뷰포트 조건 확인
+    # 지??뷰포??조건 ?�인
     is_map_viewport = None not in (sw_lat, sw_lng, ne_lat, ne_lng)
     
     if is_map_viewport:
@@ -412,7 +412,7 @@ async def list_campaigns(
             'lng_min': lng_min, 'lng_max': lng_max
         })
     
-    # 추가 필터 조건들
+    # 추�? ?�터 조건??
     if category_id:
         base_conditions.append("c.category_id = :category_id")
         params['category_id'] = category_id
@@ -452,18 +452,18 @@ async def list_campaigns(
         base_conditions.append("(c.company ILIKE :q OR c.offer ILIKE :q OR c.platform ILIKE :q OR c.title ILIKE :q)")
         params['q'] = f"%{q}%"
     
-    # 정렬 조건 결정
+    # ?�렬 조건 결정
     if sort == "distance" and lat is not None and lng is not None:
-        # 거리순 정렬: promotion_level 우선 + 거리순 + 의사랜덤
+        # 거리???�렬: promotion_level ?�선 + 거리??+ ?�사?�덤
         order_clause = """
             COALESCE(promotion_level, 0) DESC,
             distance ASC NULLS LAST,
-            ABS(HASH(id)) % 1000,
+            id % 1000,
             created_at DESC
         """
         params.update({'user_lat': lat, 'user_lng': lng})
     else:
-        # 일반 정렬: promotion_level 우선 + 의사랜덤 + 기존 정렬
+        # ?�반 ?�렬: promotion_level ?�선 + ?�사?�덤 + 기존 ?�렬
         sort_map = {
             "created_at": "created_at",
             "updated_at": "updated_at", 
@@ -477,14 +477,14 @@ async def list_campaigns(
         
         order_clause = f"""
             COALESCE(promotion_level, 0) DESC,
-            ABS(HASH(id)) % 1000,
+            id % 1000,
             {sort_col} {sort_direction}
         """
     
-    # 최적화된 쿼리 실행
+    # 최적?�된 쿼리 ?�행
     where_clause = " AND ".join(base_conditions)
     
-    # 메인 쿼리 - idx_campaign_promo_deadline_lat_lng 인덱스 최대 활용
+    # 메인 쿼리 - idx_campaign_promo_deadline_lat_lng ?�덱??최�? ?�용
     main_query = text(f"""
         WITH filtered_campaigns AS (
             SELECT 
@@ -494,7 +494,7 @@ async def list_campaigns(
                 (c.created_at::date >= CURRENT_DATE - INTERVAL '2 days') as is_new,
                 CASE 
                     WHEN :user_lat IS NOT NULL AND :user_lng IS NOT NULL THEN
-                        -- Haversine 공식을 사용한 거리 계산 (PostGIS 없이)
+                        -- Haversine 공식???�용??거리 계산 (PostGIS ?�이)
                         6371 * acos(
                             cos(radians(:user_lat)) * cos(radians(c.lat)) * 
                             cos(radians(c.lng) - radians(:user_lng)) + 
@@ -517,14 +517,14 @@ async def list_campaigns(
         LIMIT :limit OFFSET :offset
     """)
     
-    # Count 쿼리 - 동일한 필터 조건 적용
+    # Count 쿼리 - ?�일???�터 조건 ?�용
     count_query = text(f"""
         SELECT COUNT(*)
         FROM campaign c
         WHERE {where_clause}
     """)
     
-    # 파라미터 설정
+    # ?�라미터 ?�정
     params.update({
         'limit': limit,
         'offset': offset,
@@ -532,7 +532,7 @@ async def list_campaigns(
         'user_lng': lng if lng is not None else None
     })
     
-    # 쿼리 실행
+    # 쿼리 ?�행
     count_result = await db.execute(count_query, params)
     total = count_result.scalar()
     
@@ -540,17 +540,17 @@ async def list_campaigns(
     rows = []
     
     for row in main_result:
-        # Campaign 객체 생성 및 속성 설정
+        # Campaign 객체 ?�성 �??�성 ?�정
         campaign = Campaign()
         for key, value in row._mapping.items():
             if hasattr(campaign, key):
                 setattr(campaign, key, value)
         
-        # 추가 속성 설정
+        # 추�? ?�성 ?�정
         campaign.is_new = row.is_new
         campaign.distance = row.distance
         
-        # Category 객체 설정
+        # Category 객체 ?�정
         if row.category_name:
             campaign.category = Category(
                 id=row.category_id,
@@ -566,17 +566,17 @@ async def list_campaigns(
 async def list_campaigns_legacy(
     db: AsyncSession,
     *,
-    # --- 새로운 필터 파라미터 추가 ---
+    # --- ?�로???�터 ?�라미터 추�? ---
     region: Optional[str] = None,
-    offer: Optional[str] = None,  # ✨ 추가: 오퍼(텍스트) 부분검색
+    offer: Optional[str] = None,  # ??추�?: ?�퍼(?�스?? 부분�???
     campaign_type: Optional[str] = None,
     campaign_channel: Optional[str] = None,
     # ------------------------------------
-    category_id: Optional[int] = None, # ✨ 필터 파라미터 추가
+    category_id: Optional[int] = None, # ???�터 ?�라미터 추�?
     q: Optional[str] = None,
     platform: Optional[str] = None,
     company: Optional[str] = None,
-    apply_from: Optional[str] = None, # API 단에서 datetime으로 파싱된 것을 받는다고 가정
+    apply_from: Optional[str] = None, # API ?�에??datetime?�로 ?�싱??것을 받는?�고 가??
     apply_to: Optional[str] = None,
     review_from: Optional[str] = None,
     review_to: Optional[str] = None,
@@ -591,20 +591,20 @@ async def list_campaigns_legacy(
     offset: int = 0,
 ) -> Tuple[int, Sequence[Campaign]]:
     
-    # ✨ is_new 로직을 위한 SQL 표현식. PostgreSQL 문법 활용
-    # (created_at의 날짜 부분 - 1일)이 (오늘 날짜 - 3일)보다 크거나 같으면 true
+    # ??is_new 로직???�한 SQL ?�현?? PostgreSQL 문법 ?�용
+    # (created_at???�짜 부�?- 1????(?�늘 ?�짜 - 3??보다 ?�거??같으�?true
     is_new_expression = (
         (func.cast(Campaign.created_at, Date) >= (func.current_date() - timedelta(days=2)))
     ).label("is_new")
 
-    # 공통 필터 적용 함수 (기존 코드와 동일)
+    # 공통 ?�터 ?�용 ?�수 (기존 코드?� ?�일)
     def apply_common_filters(stmt_):
-        # ✨ 추천 체험단 API 요구사항: apply_deadline < 오늘날짜 캠페인 제외
-        # apply_deadline이 NULL이거나 오늘 이후인 캠페인만 포함
+        # ??추천 체험??API ?�구?�항: apply_deadline < ?�늘?�짜 캠페???�외
+        # apply_deadline??NULL?�거???�늘 ?�후??캠페?�만 ?�함
         stmt_ = stmt_.where(
             or_(
-                Campaign.apply_deadline.is_(None),  # 마감일이 없는 경우
-                Campaign.apply_deadline >= func.current_timestamp()  # 오늘 이후 마감인 경우
+                Campaign.apply_deadline.is_(None),  # 마감?�이 ?�는 경우
+                Campaign.apply_deadline >= func.current_timestamp()  # ?�늘 ?�후 마감??경우
             )
         )
         
@@ -622,7 +622,7 @@ async def list_campaigns_legacy(
             stmt_ = stmt_.where(Campaign.platform == platform)
         if company:
             stmt_ = stmt_.where(Campaign.company.ilike(f"%{company}%"))
-        # --- 새로운 필터 로직 추가 ---
+        # --- ?�로???�터 로직 추�? ---
         if region:
             tokens = [t.strip() for t in region.split() if t.strip()]
             for token in tokens:
@@ -631,13 +631,13 @@ async def list_campaigns_legacy(
                     (Campaign.region.ilike(like)) | (Campaign.address.ilike(like)) | (Campaign.title.ilike(like))
                 )
         if offer:
-            # 텍스트 오퍼(예: '10만원', '이용권') 부분검색
+            # ?�스???�퍼(?? '10만원', '?�용�?) 부분�???
             for pred in build_offer_predicates(offer, Campaign.offer):
                 stmt_ = stmt_.where(pred)
         if campaign_type:
             stmt_ = stmt_.where(Campaign.campaign_type == campaign_type)
         if campaign_channel:
-            # 쉼표로 구분된 여러 채널 중 하나라도 포함되면 검색 (예: 'blog,instagram')
+            # ?�표�?구분???�러 채널 �??�나?�도 ?�함?�면 검??(?? 'blog,instagram')
             tokens = [t.strip() for t in campaign_channel.split(",") if t.strip()]
             if tokens:
                 stmt_ = stmt_.where(or_(*[Campaign.campaign_channel.ilike(f"%{t}%") for t in tokens]))
@@ -661,48 +661,48 @@ async def list_campaigns_legacy(
             )
         return stmt_
 
-    # === 거리순 정렬 로직 ===
+    # === 거리???�렬 로직 ===
     if sort == "distance" and lat is not None and lng is not None:
         distance_col = get_distance_query(lat, lng)
 
-        # 좌표 유무 관계없이 모두 포함 (좌표 없는 항목도 결과에 남긴다)
+        # 좌표 ?�무 관계없??모두 ?�함 (좌표 ?�는 ??��??결과???�긴??
         stmt = (
             select(Campaign, Category, is_new_expression, distance_col)
             .outerjoin(Category, Campaign.category_id == Category.id)
         )
 
-        # 공통 필터 적용 (region/offer 등)
+        # 공통 ?�터 ?�용 (region/offer ??
         stmt = apply_common_filters(stmt)
 
-        # ✨ 성능 최적화: 거리순 정렬에서도 count 쿼리 최적화
-        # total 계산 (필터가 적용된 서브쿼리 기준)
+        # ???�능 최적?? 거리???�렬?�서??count 쿼리 최적??
+        # total 계산 (?�터가 ?�용???�브쿼리 기�?)
         count_stmt = select(func.count()).select_from(stmt.subquery())
         total = (await db.execute(count_stmt)).scalar_one()
 
-        # ✨ 거리순 정렬에서도 promotion_level 우선 정렬 적용
-        # 1순위: promotion_level 내림차순 (높은 레벨이 먼저)
-        # 2순위: 거리 오름차순 (가까운 곳이 먼저)
-        # 3순위: 동일 promotion_level + 거리 내에서 의사랜덤화 (균형 분포 보장)
+        # ??거리???�렬?�서??promotion_level ?�선 ?�렬 ?�용
+        # 1?�위: promotion_level ?�림차순 (?��? ?�벨??먼�?)
+        # 2?�위: 거리 ?�름차순 (가까운 곳이 먼�?)
+        # 3?�위: ?�일 promotion_level + 거리 ?�에???�사?�덤??(균형 분포 보장)
         
         promotion_level_coalesced = func.coalesce(Campaign.promotion_level, 0)
-        pseudo_random = func.abs(func.hash(Campaign.id)) % 1000  # ID 기반 의사랜덤
+        pseudo_random = func.abs(func.hash(Campaign.id)) % 1000  # ID 기반 ?�사?�덤
         
-        # Postgres + SQLAlchemy 2.x면 nulls_last() 지원
+        # Postgres + SQLAlchemy 2.x�?nulls_last() 지??
         try:
             order_by_clause = (
-                promotion_level_coalesced.desc(),  # 1순위: promotion_level 내림차순
-                distance_col.asc().nulls_last(),   # 2순위: 거리 오름차순 (NULL은 뒤로)
-                pseudo_random,                     # 3순위: 동일 레벨+거리 내 의사랜덤화
-                Campaign.created_at.desc(),        # 4순위: 생성일 내림차순
+                promotion_level_coalesced.desc(),  # 1?�위: promotion_level ?�림차순
+                distance_col.asc().nulls_last(),   # 2?�위: 거리 ?�름차순 (NULL?� ?�로)
+                pseudo_random,                     # 3?�위: ?�일 ?�벨+거리 ???�사?�덤??
+                Campaign.created_at.desc(),        # 4?�위: ?�성???�림차순
             )
         except Exception:
-            # DB/드라이버에서 nulls_last 미지원이면 case로 대체
+            # DB/?�라?�버?�서 nulls_last 미�??�이�?case�??��?
             order_by_clause = (
-                promotion_level_coalesced.desc(),  # 1순위: promotion_level 내림차순
-                case((distance_col.is_(None), 1), else_=0),  # NULL 먼저 플래그(1) → 뒤로 감
-                distance_col.asc(),                # 2순위: 거리 오름차순
-                pseudo_random,                     # 3순위: 동일 레벨+거리 내 의사랜덤화
-                Campaign.created_at.desc(),        # 4순위: 생성일 내림차순
+                promotion_level_coalesced.desc(),  # 1?�위: promotion_level ?�림차순
+                case((distance_col.is_(None), 1), else_=0),  # NULL 먼�? ?�래�?1) ???�로 �?
+                distance_col.asc(),                # 2?�위: 거리 ?�름차순
+                pseudo_random,                     # 3?�위: ?�일 ?�벨+거리 ???�사?�덤??
+                Campaign.created_at.desc(),        # 4?�위: ?�성???�림차순
             )
 
         stmt = stmt.order_by(*order_by_clause).limit(limit).offset(offset)
@@ -711,26 +711,26 @@ async def list_campaigns_legacy(
         rows = []
         for campaign, category, is_new, distance in result.all():
             campaign.is_new = is_new
-            campaign.distance = distance  # 좌표 없으면 None
+            campaign.distance = distance  # 좌표 ?�으�?None
             campaign.category = category
             rows.append(campaign)
 
         return total, rows
 
-    # === 일반 정렬 로직 ===
+    # === ?�반 ?�렬 로직 ===
     else:
-        # ✨ SELECT 구문에 is_new_expression, Category 추가 및 JOIN
+        # ??SELECT 구문??is_new_expression, Category 추�? �?JOIN
         stmt = select(Campaign, Category, is_new_expression)
         stmt = stmt.outerjoin(Category, Campaign.category_id == Category.id)
         stmt = apply_common_filters(stmt)
 
-        # 2. total count 계산 (필터가 모두 적용된 쿼리 기반)
-        # ✨ 성능 최적화: 대용량 데이터셋에서 count 쿼리 최적화
-        # 복잡한 필터가 있는 경우 서브쿼리 대신 직접 count 사용
+        # 2. total count 계산 (?�터가 모두 ?�용??쿼리 기반)
+        # ???�능 최적?? ?�?�량 ?�이?�셋?�서 count 쿼리 최적??
+        # 복잡???�터가 ?�는 경우 ?�브쿼리 ?�??직접 count ?�용
         count_stmt = select(func.count()).select_from(stmt.subquery())
         total = (await db.execute(count_stmt)).scalar_one()
 
-        # 3. 정렬 로직 적용 - ✨ 추천 체험단 API 요구사항 반영
+        # 3. ?�렬 로직 ?�용 - ??추천 체험??API ?�구?�항 반영
         sort_map = {
             "created_at": Campaign.created_at,
             "updated_at": Campaign.updated_at,
@@ -741,24 +741,24 @@ async def list_campaigns_legacy(
         key = sort[1:] if desc else sort
         sort_col = sort_map.get(key, Campaign.created_at)
         
-        # ✨ promotion_level 기반 우선 정렬 + 동일 레벨 내 균형 분포
-        # 1순위: promotion_level 내림차순 (높은 레벨이 먼저)
-        # 2순위: 동일 promotion_level 내에서 랜덤화된 정렬 (균형 분포 보장)
-        # 3순위: 기존 정렬 키 (created_at 등)
+        # ??promotion_level 기반 ?�선 ?�렬 + ?�일 ?�벨 ??균형 분포
+        # 1?�위: promotion_level ?�림차순 (?��? ?�벨??먼�?)
+        # 2?�위: ?�일 promotion_level ?�에???�덤?�된 ?�렬 (균형 분포 보장)
+        # 3?�위: 기존 ?�렬 ??(created_at ??
         
-        # ✨ 성능 최적화: 랜덤화를 위한 효율적인 방법
-        # PostgreSQL의 random() 함수는 성능상 부담이 될 수 있으므로
-        # ID 기반 해시를 사용한 의사랜덤 정렬로 대체
-        # 이는 일관된 결과를 보장하면서도 성능을 향상시킴
-        pseudo_random = func.abs(func.hash(Campaign.id)) % 1000  # ID 기반 의사랜덤
+        # ???�능 최적?? ?�덤?��? ?�한 ?�율?�인 방법
+        # PostgreSQL??random() ?�수???�능??부?�이 ?????�으므�?
+        # ID 기반 ?�시�??�용???�사?�덤 ?�렬�??��?
+        # ?�는 ?��???결과�?보장?�면?�도 ?�능???�상?�킴
+        pseudo_random = func.abs(func.hash(Campaign.id)) % 1000  # ID 기반 ?�사?�덤
         
-        # promotion_level이 NULL인 경우 0으로 처리하여 가장 뒤로 정렬
+        # promotion_level??NULL??경우 0?�로 처리?�여 가???�로 ?�렬
         promotion_level_coalesced = func.coalesce(Campaign.promotion_level, 0)
         
         order_by_clause = (
-            promotion_level_coalesced.desc(),  # 1순위: promotion_level 내림차순
-            pseudo_random,                     # 2순위: 동일 레벨 내 의사랜덤화
-            sort_col.desc() if desc else sort_col.asc()  # 3순위: 기존 정렬 키
+            promotion_level_coalesced.desc(),  # 1?�위: promotion_level ?�림차순
+            pseudo_random,                     # 2?�위: ?�일 ?�벨 ???�사?�덤??
+            sort_col.desc() if desc else sort_col.asc()  # 3?�위: 기존 ?�렬 ??
         )
         
         stmt = stmt.order_by(*order_by_clause)
@@ -766,7 +766,7 @@ async def list_campaigns_legacy(
         stmt = stmt.limit(limit).offset(offset)
         result = await db.execute(stmt)
         rows = []
-        # ✨ 결과 처리 로직 수정
+        # ??결과 처리 로직 ?�정
         for campaign, category, is_new in result.all():
             campaign.is_new = is_new
             campaign.category = category
@@ -776,23 +776,23 @@ async def list_campaigns_legacy(
 
 
 async def get_categories(db: AsyncSession) -> Sequence[Category]:
-    """모든 표준 카테고리 목록을 조회합니다."""
+    """모든 ?��? 카테고리 목록??조회?�니??"""
     stmt = select(Category).order_by(Category.display_order, Category.name)
     result = await db.execute(stmt)
     return result.scalars().all()
 
 async def get_category(db: AsyncSession, category_id: int) -> Category | None:
-    """ID로 단일 표준 카테고리를 조회합니다."""
+    """ID�??�일 ?��? 카테고리�?조회?�니??"""
     return await db.get(Category, category_id)
 
 async def get_category_by_name(db: AsyncSession, name: str) -> Category | None:
-    """이름으로 단일 표준 카테고리를 조회합니다."""
+    """?�름?�로 ?�일 ?��? 카테고리�?조회?�니??"""
     stmt = select(Category).where(Category.name == name)
     result = await db.execute(stmt)
     return result.scalars().first()
 
 async def create_category(db: AsyncSession, category: CategoryCreate) -> Category:
-    """새로운 표준 카테고리를 생성합니다."""
+    """?�로???��? 카테고리�??�성?�니??"""
     db_category = Category(name=category.name)
     db.add(db_category)
     await db.commit()
@@ -801,7 +801,7 @@ async def create_category(db: AsyncSession, category: CategoryCreate) -> Categor
 
 
 async def update_category(db: AsyncSession, category_id: int, category_update: CategoryCreate) -> Category | None:
-    """표준 카테고리 정보를 수정합니다."""
+    """?��? 카테고리 ?�보�??�정?�니??"""
     # SQLAlchemy 2.0 style update
     stmt = (
         update(Category)
@@ -814,16 +814,16 @@ async def update_category(db: AsyncSession, category_id: int, category_update: C
     return result.scalars().first()
 
 async def delete_category(db: AsyncSession, category_id: int) -> int:
-    """표준 카테고리를 삭제합니다."""
+    """?��? 카테고리�???��?�니??"""
     stmt = delete(Category).where(Category.id == category_id)
     result = await db.execute(stmt)
     await db.commit()
-    return result.rowcount # 삭제된 행의 수를 반환 (0 또는 1)
+    return result.rowcount # ??��???�의 ?��? 반환 (0 ?�는 1)
 
 async def get_unmapped_raw_categories(db: AsyncSession):
-    """아직 매핑되지 않은 원본 카테고리 목록을 조회합니다."""
-    # raw_categories 테이블과 category_mappings 테이블을 LEFT JOIN
-    # 매핑 정보가 없는(m.id IS NULL) 것들만 필터링
+    """?�직 매핑?��? ?��? ?�본 카테고리 목록??조회?�니??"""
+    # raw_categories ?�이블과 category_mappings ?�이블을 LEFT JOIN
+    # 매핑 ?�보가 ?�는(m.id IS NULL) 것들�??�터�?
     stmt = (
         select(RawCategory)
         .outerjoin(CategoryMapping, RawCategory.id == CategoryMapping.raw_category_id)
@@ -834,7 +834,7 @@ async def get_unmapped_raw_categories(db: AsyncSession):
     return result.scalars().all()
     
 async def create_category_mapping(db: AsyncSession, mapping: CategoryMappingCreate):
-    """새로운 카테고리 매핑을 생성합니다."""
+    """?�로??카테고리 매핑???�성?�니??"""
     db_mapping = CategoryMapping(
         raw_category_id=mapping.raw_category_id,
         standard_category_id=mapping.standard_category_id,
@@ -846,20 +846,20 @@ async def create_category_mapping(db: AsyncSession, mapping: CategoryMappingCrea
 
 async def update_category_order(db: AsyncSession, ordered_ids: List[int]) -> int:
     """
-    제공된 ID 목록 순서대로 카테고리의 display_order를 일괄 업데이트합니다.
-    SQL의 CASE 문을 사용하여 한 번의 쿼리로 효율적으로 처리합니다.
+    ?�공??ID 목록 ?�서?��?카테고리??display_order�??�괄 ?�데?�트?�니??
+    SQL??CASE 문을 ?�용?�여 ??번의 쿼리�??�율?�으�?처리?�니??
     """
     if not ordered_ids:
         return 0
 
-    # ID 목록을 기반으로 CASE 문을 생성
-    # 예: CASE WHEN id=3 THEN 1 WHEN id=1 THEN 2 ... END
+    # ID 목록??기반?�로 CASE 문을 ?�성
+    # ?? CASE WHEN id=3 THEN 1 WHEN id=1 THEN 2 ... END
     case_statement = case(
         {category_id: index + 1 for index, category_id in enumerate(ordered_ids)},
         value=Category.id,
     )
 
-    # 일괄 업데이트 쿼리 실행
+    # ?�괄 ?�데?�트 쿼리 ?�행
     stmt = (
         update(Category)
         .where(Category.id.in_(ordered_ids))
@@ -868,7 +868,7 @@ async def update_category_order(db: AsyncSession, ordered_ids: List[int]) -> int
     result = await db.execute(stmt)
     await db.commit()
 
-    return result.rowcount # 업데이트된 행의 수를 반환
+    return result.rowcount # ?�데?�트???�의 ?��? 반환
 
 
 async def explain_analyze_campaign_query(
@@ -897,34 +897,34 @@ async def explain_analyze_campaign_query(
     offset: int = 0,
 ) -> str:
     """
-    ✨ EXPLAIN ANALYZE를 통한 쿼리 성능 분석
-    - 인덱스 활용도 확인
-    - 실행 계획 분석
-    - 성능 병목 지점 식별
+    ??EXPLAIN ANALYZE�??�한 쿼리 ?�능 분석
+    - ?�덱???�용???�인
+    - ?�행 계획 분석
+    - ?�능 병목 지???�별
     """
     
-    # 기본 조건: apply_deadline >= current_date 강제 적용
+    # 기본 조건: apply_deadline >= current_date 강제 ?�용
     base_conditions = ["c.apply_deadline >= CURRENT_DATE"]
     params = {}
     
-    # 지도 뷰포트 조건 확인 (GiST 인덱스 활용 가능)
+    # 지??뷰포??조건 ?�인 (GiST ?�덱???�용 가??
     is_map_viewport = None not in (sw_lat, sw_lng, ne_lat, ne_lng)
     
     if is_map_viewport:
-        # GiST 인덱스 활용을 위한 point <@ box 조건
+        # GiST ?�덱???�용???�한 point <@ box 조건
         lat_min, lat_max = sorted([sw_lat, ne_lat])
         lng_min, lng_max = sorted([sw_lng, ne_lng])
         
-        # 넓은 범위 검색 시 GiST 인덱스 활용
+        # ?��? 범위 검????GiST ?�덱???�용
         viewport_area = (lat_max - lat_min) * (lng_max - lng_min)
-        if viewport_area > 0.01:  # 넓은 범위 (약 1km² 이상)
+        if viewport_area > 0.01:  # ?��? 범위 (??1km² ?�상)
             base_conditions.append("point(c.lng, c.lat) <@ box(point(:sw_lng, :sw_lat), point(:ne_lng, :ne_lat))")
             params.update({
                 'sw_lat': lat_min, 'sw_lng': lng_min,
                 'ne_lat': lat_max, 'ne_lng': lng_max
             })
         else:
-            # 좁은 범위는 B-Tree 인덱스 활용
+            # 좁�? 범위??B-Tree ?�덱???�용
             base_conditions.extend([
                 "c.lat BETWEEN :lat_min AND :lat_max",
                 "c.lng BETWEEN :lng_min AND :lng_max"
@@ -934,7 +934,7 @@ async def explain_analyze_campaign_query(
                 'lng_min': lng_min, 'lng_max': lng_max
             })
     
-    # 추가 필터 조건들
+    # 추�? ?�터 조건??
     if category_id:
         base_conditions.append("c.category_id = :category_id")
         params['category_id'] = category_id
@@ -974,9 +974,9 @@ async def explain_analyze_campaign_query(
         base_conditions.append("(c.company ILIKE :q OR c.offer ILIKE :q OR c.platform ILIKE :q OR c.title ILIKE :q)")
         params['q'] = f"%{q}%"
     
-    # 정렬 조건 결정
+    # ?�렬 조건 결정
     if sort == "distance" and lat is not None and lng is not None:
-        # 거리순 정렬: promotion_level 우선 + 거리순 + 의사랜덤
+        # 거리???�렬: promotion_level ?�선 + 거리??+ ?�사?�덤
         order_clause = """
             COALESCE(c.promotion_level, 0) DESC,
             ST_Distance(
@@ -988,7 +988,7 @@ async def explain_analyze_campaign_query(
         """
         params.update({'user_lat': lat, 'user_lng': lng})
     else:
-        # 일반 정렬: promotion_level 우선 + 의사랜덤 + 기존 정렬
+        # ?�반 ?�렬: promotion_level ?�선 + ?�사?�덤 + 기존 ?�렬
         sort_map = {
             "created_at": "c.created_at",
             "updated_at": "c.updated_at", 
@@ -1040,7 +1040,7 @@ async def explain_analyze_campaign_query(
         LIMIT :limit OFFSET :offset
     """)
     
-    # 파라미터 설정
+    # ?�라미터 ?�정
     params.update({
         'limit': limit,
         'offset': offset,
@@ -1048,21 +1048,21 @@ async def explain_analyze_campaign_query(
         'user_lng': lng if lng is not None else None
     })
     
-    # EXPLAIN ANALYZE 실행
+    # EXPLAIN ANALYZE ?�행
     result = await db.execute(explain_query, params)
     explain_result = result.scalar()
     
-    # JSON 결과를 문자열로 변환하여 반환
+    # JSON 결과�?문자?�로 변?�하??반환
     import json
     return json.dumps(explain_result, indent=2, ensure_ascii=False)
 
 
 async def get_index_usage_stats(db: AsyncSession) -> dict:
     """
-    ✨ 인덱스 사용 통계 조회
-    - idx_campaign_promo_deadline_lat_lng 사용률
-    - idx_campaign_lat_lng 사용률
-    - 전체 인덱스 효율성 분석
+    ???�덱???�용 ?�계 조회
+    - idx_campaign_promo_deadline_lat_lng ?�용�?
+    - idx_campaign_lat_lng ?�용�?
+    - ?�체 ?�덱???�율??분석
     """
     
     stats_query = text("""
@@ -1106,16 +1106,16 @@ async def get_index_usage_stats(db: AsyncSession) -> dict:
 
 async def benchmark_campaign_queries(db: AsyncSession) -> dict:
     """
-    ✨ 캠페인 쿼리 성능 벤치마크
-    - 추천 체험단 쿼리 성능 측정
-    - 지도 뷰포트 쿼리 성능 측정
-    - 다양한 시나리오별 성능 비교
+    ??캠페??쿼리 ?�능 벤치마크
+    - 추천 체험??쿼리 ?�능 측정
+    - 지??뷰포??쿼리 ?�능 측정
+    - ?�양???�나리오�??�능 비교
     """
     import time
     
     benchmarks = {}
     
-    # 1. 추천 체험단 쿼리 벤치마크
+    # 1. 추천 체험??쿼리 벤치마크
     start_time = time.time()
     total, rows = await list_campaigns_optimized(
         db=db,
@@ -1129,7 +1129,7 @@ async def benchmark_campaign_queries(db: AsyncSession) -> dict:
         'returned_results': len(rows)
     }
     
-    # 2. 지도 뷰포트 쿼리 벤치마크 (좁은 범위)
+    # 2. 지??뷰포??쿼리 벤치마크 (좁�? 범위)
     start_time = time.time()
     total, rows = await list_campaigns_optimized(
         db=db,
@@ -1145,7 +1145,7 @@ async def benchmark_campaign_queries(db: AsyncSession) -> dict:
         'returned_results': len(rows)
     }
     
-    # 3. 지도 뷰포트 쿼리 벤치마크 (넓은 범위)
+    # 3. 지??뷰포??쿼리 벤치마크 (?��? 범위)
     start_time = time.time()
     total, rows = await list_campaigns_optimized(
         db=db,
@@ -1161,11 +1161,11 @@ async def benchmark_campaign_queries(db: AsyncSession) -> dict:
         'returned_results': len(rows)
     }
     
-    # 4. 거리순 정렬 쿼리 벤치마크
+    # 4. 거리???�렬 쿼리 벤치마크
     start_time = time.time()
     total, rows = await list_campaigns_optimized(
         db=db,
-        lat=37.5665, lng=126.9780,  # 서울시청 좌표
+        lat=37.5665, lng=126.9780,  # ?�울?�청 좌표
         sort="distance",
         limit=20,
         offset=0

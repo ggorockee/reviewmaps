@@ -136,12 +136,30 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         final buttonHeight = t(context, 30.0.h, 30.0.h); // 버튼 높이
         final buttonBottom = buttonTop + buttonHeight; // 버튼 하단 위치
         
-        // 버튼 하단에서 약간의 여백을 두고 패널 최대 높이 설정
-        _panelMax = screenHeight - buttonBottom - 20.0; // 20px 여백
+        // 시스템 폰트 크기에 맞춰 동적으로 계산
+        final textScaleFactor = MediaQuery.of(context).textScaleFactor;
+        final systemPadding = 20.0 * textScaleFactor; // 시스템 폰트 크기에 비례한 여백
+        
+        // 로고 1개 + 다음 항목의 반이 보이도록 설정
+        // _itemMinHeight (108px) + _itemMinHeight * 0.5 (54px) = 162px
+        final desiredContentHeight = _itemMinHeight + (_itemMinHeight * 0.5);
+        final totalPanelHeight = _panelMin + _panelHeaderExtra + desiredContentHeight;
+        
+        setState(() {
+          _panelMax = screenHeight - buttonBottom - systemPadding;
+          // 최소한 로고 1개 + 반은 보이도록 보장
+          if (_panelMax < totalPanelHeight) {
+            _panelMax = totalPanelHeight;
+          }
+        });
         
         if (AppConfig.isDebugMode) {
           print('[Map][initState] 화면 높이: $screenHeight');
           print('[Map][initState] 버튼 위치: top=$buttonTop, height=$buttonHeight, bottom=$buttonBottom');
+          print('[Map][initState] 시스템 폰트 크기: $textScaleFactor');
+          print('[Map][initState] 시스템 여백: $systemPadding');
+          print('[Map][initState] 원하는 콘텐츠 높이: $desiredContentHeight');
+          print('[Map][initState] 전체 패널 높이: $totalPanelHeight');
           print('[Map][initState] 패널 최대 높이: $_panelMax');
         }
       }

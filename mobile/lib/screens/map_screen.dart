@@ -64,6 +64,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   
   // 최초 진입 여부 추적
   bool _isFirstSearch = true;
+  
+  // 패널 위치 상태 추적 대신, 실제 포지션 기억
+  double? _lastPanelPos;
 
   static const double _itemMinHeight = 108.0;
   // 핸들(_panelMin=40) + 정렬칩 영역(대략)
@@ -177,6 +180,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     
     // 패널 상태 업데이트
     _currentPanelState = PanelState.waitHeight;
+    // 실제 포지션 값도 저장
+    _lastPanelPos = position.toDouble();
   }
 
   Future<void> _animatePanelToListPeek() async {
@@ -202,40 +207,31 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     
     // 패널 상태 업데이트
     _currentPanelState = PanelState.executeHeight;
+    // 실제 포지션 값도 저장
+    _lastPanelPos = position.toDouble();
   }
 
   // 패널 위치 기억
   void _rememberPanelPosition() {
     if (panelController.isAttached) {
-      // 패널이 닫혀있으면 closed 상태로 설정
-      if (panelController.isPanelClosed) {
-        _currentPanelState = PanelState.closed;
-      } else {
-        // 패널이 열려있으면 현재 상태 유지 (변경하지 않음)
-        // 이미 _currentPanelState가 올바르게 설정되어 있음
+      _lastPanelPos = _panelPos; // 현재 패널 비율 값 저장 (0.0 ~ 1.0)
+      if (AppConfig.isDebugMode) {
+        print('[Map][_rememberPanelPosition] 저장된 패널 위치: $_lastPanelPos');
       }
     }
   }
 
   // 패널 위치 복원
   Future<void> _restorePanelPosition() async {
-    if (panelController.isAttached) {
-      // 디버그 로그 추가
+    if (panelController.isAttached && _lastPanelPos != null) {
+      final pos = _lastPanelPos!.clamp(0.0, 1.0);
       if (AppConfig.isDebugMode) {
-        print('[Map][_restorePanelPosition] 현재 패널 상태: $_currentPanelState');
+        print('[Map][_restorePanelPosition] 복원할 패널 위치: $pos');
       }
-      
-      switch (_currentPanelState) {
-        case PanelState.waitHeight:
-          await _animatePanelToSlightPeek();
-          break;
-        case PanelState.executeHeight:
-          await _animatePanelToListPeek();
-          break;
-        case PanelState.closed:
-          // 패널이 닫혀있으면 그대로 유지
-          break;
-      }
+      await panelController.animatePanelToPosition(
+        pos,
+        duration: const Duration(milliseconds: 220),
+      );
     }
   }
 
@@ -339,6 +335,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           if (panelController.isAttached) {
             panelController.animatePanelToPosition(0.0, duration: const Duration(milliseconds: 180));
             _currentPanelState = PanelState.closed;
+            _lastPanelPos = 0.0; // 패널이 닫힌 상태도 저장
           }
         }
         if (mounted) {

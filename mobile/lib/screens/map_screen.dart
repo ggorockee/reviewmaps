@@ -234,6 +234,15 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       // 더 최신 검색이 도착했다면 버린다.
       if (mySeq != _searchSeq) return;
 
+      // 디버그 로그 추가
+      if (AppConfig.isDebugMode) {
+        print('[Map][_searchInCurrentViewport] 검색된 체험단 수: ${storesInBounds.length}');
+        print('[Map][_searchInCurrentViewport] 뷰포트: south=${b.southWest.latitude}, west=${b.southWest.longitude}, north=${b.northEast.latitude}, east=${b.northEast.longitude}');
+        if (storesInBounds.isNotEmpty) {
+          print('[Map][_searchInCurrentViewport] 첫 번째 체험단: ${storesInBounds.first.title}');
+        }
+      }
+
       // 거리 계산 추가
       await _calculateDistancesForStores(storesInBounds);
 

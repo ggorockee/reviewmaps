@@ -169,193 +169,153 @@ async def list_campaigns_optimized(
     offset: int = 0,
 ) -> Tuple[int, Sequence[Campaign]]:
     """
-    ✨ 성능 최적화된 캠페인 목록 조회
-    - idx_campaign_promo_deadline_lat_lng 인덱스 최대 활용
-    - idx_campaign_lat_lng GiST 인덱스 활용 (지도 뷰포트용)
-    - Raw SQL로 최적화된 쿼리 실행
+    ✨ 성능 최적화된 캠페인 목록 조회 (SQLAlchemy ORM 기반)
+    - apply_deadline >= current_date 강제 적용
+    - promotion_level DESC 정렬 우선
+    - 동일 레벨 내 균형 분포 (id % 1000)
     """
+    from sqlalchemy import and_, or_, func, case, desc, asc, select
+    from sqlalchemy.orm import selectinload
     
-    # 기본 조건: apply_deadline >= current_date 강제 적용
-    base_conditions = ["c.apply_deadline >= CURRENT_DATE"]
-    params = {}
+    # 기본 쿼리 구성
+    query = select(Campaign).options(selectinload(Campaign.category))
     
-    # 지도 뷰포트 조건 확인 (GiST 인덱스 활용 가능)
-    is_map_viewport = None not in (sw_lat, sw_lng, ne_lat, ne_lng)
+    # WHERE 조건들
+    conditions = []
     
-    if is_map_viewport:
-        # GiST 인덱스 활용을 위한 point <@ box 조건
-        lat_min, lat_max = sorted([sw_lat, ne_lat])
-        lng_min, lng_max = sorted([sw_lng, ne_lng])
-        
-        # 넓은 범위 검색 시 GiST 인덱스 활용
-        viewport_area = (lat_max - lat_min) * (lng_max - lng_min)
-        if viewport_area > 0.01:  # 넓은 범위 (약 1km² 이상)
-            base_conditions.append("point(c.lng, c.lat) <@ box(point(:sw_lng, :sw_lat), point(:ne_lng, :ne_lat))")
-            params.update({
-                'sw_lat': lat_min, 'sw_lng': lng_min,
-                'ne_lat': lat_max, 'ne_lng': lng_max
-            })
-        else:
-            # 좁은 범위는 B-Tree 인덱스 활용
-            base_conditions.extend([
-                "c.lat BETWEEN :lat_min AND :lat_max",
-                "c.lng BETWEEN :lng_min AND :lng_max"
-            ])
-            params.update({
-                'lat_min': lat_min, 'lat_max': lat_max,
-                'lng_min': lng_min, 'lng_max': lng_max
-            })
+    # 마감일 필터 (가장 중요)
+    conditions.append(
+        or_(
+            Campaign.apply_deadline.is_(None),
+            Campaign.apply_deadline >= func.current_date()
+        )
+    )
     
-    # 추가 필터 조건들
-    if category_id:
-        base_conditions.append("c.category_id = :category_id")
-        params['category_id'] = category_id
+    # 카테고리 필터
+    if category_id is not None:
+        conditions.append(Campaign.category_id == category_id)
     
+    # 플랫폼 필터
     if platform:
-        base_conditions.append("c.platform = :platform")
-        params['platform'] = platform
+        conditions.append(Campaign.platform == platform)
     
+    # 회사 필터
     if company:
-        base_conditions.append("c.company ILIKE :company")
-        params['company'] = f"%{company}%"
+        conditions.append(Campaign.company.ilike(f"%{company}%"))
     
+    # 캠페인 타입 필터
     if campaign_type:
-        base_conditions.append("c.campaign_type = :campaign_type")
-        params['campaign_type'] = campaign_type
+        conditions.append(Campaign.campaign_type == campaign_type)
     
+    # 캠페인 채널 필터
     if campaign_channel:
         tokens = [t.strip() for t in campaign_channel.split(",") if t.strip()]
         if tokens:
             channel_conditions = []
-            for i, token in enumerate(tokens):
-                param_name = f"campaign_channel_{i}"
-                channel_conditions.append(f"c.campaign_channel ILIKE :{param_name}")
-                params[param_name] = f"%{token}%"
-            base_conditions.append(f"({' OR '.join(channel_conditions)})")
+            for token in tokens:
+                channel_conditions.append(Campaign.campaign_channel.ilike(f"%{token}%"))
+            conditions.append(or_(*channel_conditions))
     
+    # 지역 필터
     if region:
         tokens = [t.strip() for t in region.split() if t.strip()]
         region_conditions = []
-        for i, token in enumerate(tokens):
-            param_name = f"region_{i}"
-            region_conditions.append(f"(c.region ILIKE :{param_name} OR c.address ILIKE :{param_name} OR c.title ILIKE :{param_name})")
-            params[param_name] = f"%{token}%"
-        base_conditions.append(f"({' OR '.join(region_conditions)})")
+        for token in tokens:
+            region_conditions.extend([
+                Campaign.region.ilike(f"%{token}%"),
+                Campaign.address.ilike(f"%{token}%"),
+                Campaign.title.ilike(f"%{token}%")
+            ])
+        conditions.append(or_(*region_conditions))
     
+    # 검색어 필터
     if q:
-        base_conditions.append("(c.company ILIKE :q OR c.offer ILIKE :q OR c.platform ILIKE :q OR c.title ILIKE :q)")
-        params['q'] = f"%{q}%"
+        conditions.append(or_(
+            Campaign.company.ilike(f"%{q}%"),
+            Campaign.offer.ilike(f"%{q}%"),
+            Campaign.platform.ilike(f"%{q}%"),
+            Campaign.title.ilike(f"%{q}%")
+        ))
     
-    # 정렬 조건 결정
+    # 지도 뷰포트 필터
+    if sw_lat is not None and sw_lng is not None and ne_lat is not None and ne_lng is not None:
+        lat_min, lat_max = sorted([sw_lat, ne_lat])
+        lng_min, lng_max = sorted([sw_lng, ne_lng])
+        conditions.append(and_(
+            Campaign.lat.between(lat_min, lat_max),
+            Campaign.lng.between(lng_min, lng_max)
+        ))
+    
+    # 조건 적용
+    if conditions:
+        query = query.where(and_(*conditions))
+    
+    # 정렬 조건
     if sort == "distance" and lat is not None and lng is not None:
-        # 거리순 정렬: promotion_level 우선 + 거리순 + 의사랜덤
-        order_clause = """
-            COALESCE(c.promotion_level, 0) DESC,
-            ST_Distance(
-                ST_Point(c.lng, c.lat)::geography,
-                ST_Point(:user_lng, :user_lat)::geography
-            ) ASC NULLS LAST,
-            ABS(HASH(c.id)) % 1000,
-            c.created_at DESC
-        """
-        params.update({'user_lat': lat, 'user_lng': lng})
+        # 거리 계산 (Haversine 공식)
+        distance_expr = case(
+            (and_(lat.isnot(None), lng.isnot(None)), 
+             6371 * func.acos(
+                 func.cos(func.radians(lat)) * func.cos(func.radians(Campaign.lat)) *
+                 func.cos(func.radians(Campaign.lng) - func.radians(lng)) +
+                 func.sin(func.radians(lat)) * func.sin(func.radians(Campaign.lat))
+             )),
+            else_=None
+        )
+        
+        # 거리 정렬: promotion_level 우선 + 거리 + 의사랜덤 + 기존 정렬
+        query = query.order_by(
+            desc(func.coalesce(Campaign.promotion_level, 0)),
+            asc(distance_expr).nulls_last(),
+            desc(Campaign.id % 1000),  # 간단한 의사랜덤
+            desc(Campaign.created_at)
+        )
     else:
         # 일반 정렬: promotion_level 우선 + 의사랜덤 + 기존 정렬
         sort_map = {
-            "created_at": "c.created_at",
-            "updated_at": "c.updated_at", 
-            "apply_deadline": "c.apply_deadline",
-            "review_deadline": "c.review_deadline",
+            "created_at": Campaign.created_at,
+            "updated_at": Campaign.updated_at,
+            "apply_deadline": Campaign.apply_deadline,
+            "review_deadline": Campaign.review_deadline,
         }
-        desc = sort.startswith("-")
-        key = sort[1:] if desc else sort
-        sort_col = sort_map.get(key, "c.created_at")
-        sort_direction = "DESC" if desc else "ASC"
+        desc_sort = sort.startswith("-")
+        key = sort[1:] if desc_sort else sort
+        sort_field = sort_map.get(key, Campaign.created_at)
+        sort_direction = desc if desc_sort else asc
         
-        order_clause = f"""
-            COALESCE(c.promotion_level, 0) DESC,
-            ABS(HASH(c.id)) % 1000,
-            {sort_col} {sort_direction}
-        """
-    
-    # 최적화된 쿼리 실행
-    where_clause = " AND ".join(base_conditions)
-    
-    # 메인 쿼리 - idx_campaign_promo_deadline_lat_lng 인덱스 최대 활용
-    main_query = text(f"""
-        WITH filtered_campaigns AS (
-            SELECT 
-                c.*,
-                cat.name as category_name,
-                cat.display_order as category_display_order,
-                (c.created_at::date >= CURRENT_DATE - INTERVAL '2 days') as is_new,
-                CASE 
-                    WHEN :user_lat IS NOT NULL AND :user_lng IS NOT NULL THEN
-                        ST_Distance(
-                            ST_Point(c.lng, c.lat)::geography,
-                            ST_Point(:user_lng, :user_lat)::geography
-                        )
-                    ELSE NULL
-                END as distance
-            FROM campaign c
-            LEFT JOIN categories cat ON c.category_id = cat.id
-            WHERE {where_clause}
+        query = query.order_by(
+            desc(func.coalesce(Campaign.promotion_level, 0)),
+            desc(Campaign.id % 1000),  # 간단한 의사랜덤
+            sort_direction(sort_field)
         )
-        SELECT 
-            id, category_id, platform, company, company_link, offer,
-            apply_deadline, review_deadline, address, lat, lng, img_url,
-            search_text, created_at, updated_at, source, title, content_link,
-            campaign_type, region, campaign_channel, apply_from, promotion_level,
-            category_name, category_display_order, is_new, distance
-        FROM filtered_campaigns
-        ORDER BY {order_clause}
-        LIMIT :limit OFFSET :offset
-    """)
     
-    # Count 쿼리 - 동일한 필터 조건 적용
-    count_query = text(f"""
-        SELECT COUNT(*)
-        FROM campaign c
-        WHERE {where_clause}
-    """)
+    # Count 쿼리
+    count_query = select(func.count()).select_from(Campaign)
+    if conditions:
+        count_query = count_query.where(and_(*conditions))
     
-    # 파라미터 설정
-    params.update({
-        'limit': limit,
-        'offset': offset,
-        'user_lat': lat if lat is not None else None,
-        'user_lng': lng if lng is not None else None
-    })
+    # 실행
+    total_result = await db.execute(count_query)
+    total = total_result.scalar()
     
-    # 쿼리 실행
-    count_result = await db.execute(count_query, params)
-    total = count_result.scalar()
+    # 메인 쿼리 실행
+    result = await db.execute(query.offset(offset).limit(limit))
+    campaigns = result.scalars().all()
     
-    main_result = await db.execute(main_query, params)
-    rows = []
-    
-    for row in main_result:
-        # Campaign 객체 생성 및 속성 설정
-        campaign = Campaign()
-        for key, value in row._mapping.items():
-            if hasattr(campaign, key):
-                setattr(campaign, key, value)
+    # 추가 속성 설정
+    for campaign in campaigns:
+        # is_new 속성
+        campaign.is_new = func.date(campaign.created_at) >= func.current_date() - func.interval('2 days')
         
-        # 추가 속성 설정
-        campaign.is_new = row.is_new
-        campaign.distance = row.distance
-        
-        # Category 객체 설정
-        if row.category_name:
-            campaign.category = Category(
-                id=row.category_id,
-                name=row.category_name,
-                display_order=row.category_display_order
+        # distance 속성 (거리 정렬인 경우)
+        if sort == "distance" and lat is not None and lng is not None:
+            campaign.distance = 6371 * func.acos(
+                func.cos(func.radians(lat)) * func.cos(func.radians(campaign.lat)) *
+                func.cos(func.radians(campaign.lng) - func.radians(lng)) +
+                func.sin(func.radians(lat)) * func.sin(func.radians(campaign.lat))
             )
-        
-        rows.append(campaign)
     
-    return total, rows
+    return total, list(campaigns)
 
 
 async def list_campaigns(

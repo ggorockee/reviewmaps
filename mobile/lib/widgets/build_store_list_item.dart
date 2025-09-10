@@ -72,7 +72,7 @@ class StoreListItem extends StatelessWidget {
           TextSpan(
             text: store.title,
             style: TextStyle(
-              fontSize: dense ? 16.sp : 18.sp,
+              fontSize: dense ? 13.sp : 14.sp,
               fontWeight: FontWeight.w600,
               color: Colors.black87,
               height: 1.3,
@@ -132,7 +132,7 @@ class StoreListItem extends StatelessWidget {
     return Text(
       store.offer!,
       style: TextStyle(
-        fontSize: dense ? 11.sp : 13.sp,
+        fontSize: dense ? 11.sp : 11.sp,
         color: Colors.red[600],
         fontWeight: FontWeight.w500,
       ),

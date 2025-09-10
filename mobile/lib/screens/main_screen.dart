@@ -7,6 +7,7 @@ import 'package:mobile/screens/home_screen.dart';
 import 'package:mobile/screens/map_screen.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:mobile/widgets/friendly.dart';
 
 import '../widgets/exit_reward_dialog.dart';
 import '../ads/rewarded_ad_service.dart';
@@ -101,7 +102,11 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     final bool isTab = _isTablet(context);
-    return PopScope(
+    final double maxScale = isTab ? 1.10 : 1.30;
+    
+    return ClampTextScale(
+      max: maxScale,
+      child: PopScope(
       canPop: false,
       onPopInvoked: (didPop) async {
         if (didPop) return;
@@ -137,6 +142,7 @@ class _MainScreenState extends State<MainScreen> {
         unselectedFontSize: isTab ? 25.0 : 12.0,   // 선택 안된 라벨 폰트
       ),
       ),
+    ),
     );
   }
 

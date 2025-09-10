@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mobile/ads/interstitial_ad_service.dart';
 import 'package:mobile/const/colors.dart';
 import 'package:mobile/screens/main_screen.dart';
+import 'package:mobile/widgets/friendly.dart';
 
 /// SplashScreen
 /// ------------------------------------------------------------
@@ -100,85 +101,89 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Center(
-        child: AnimatedBuilder(
-          animation: _animationController,
-          builder: (context, child) {
-            return FadeTransition(
-              opacity: _fadeAnimation,
-              child: ScaleTransition(
-                scale: _scaleAnimation,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // 앱 로고
-                    Container(
-                      width: 120.w,
-                      height: 120.w,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(24.r),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 20,
-                            offset: const Offset(0, 10),
+    // 폰트 배율에 따른 반응형 디자인
+    final textScaleFactor = MediaQuery.textScalerOf(context).textScaleFactor;
+    final bool isTablet = MediaQuery.of(context).size.width > 600;
+    
+    // 폰트 배율이 클 때 로고 크기와 간격 조정
+    final logoSize = (120.w * (1.0 + (textScaleFactor - 1.0) * 0.2)).clamp(100.w, 150.w);
+    final spacingMultiplier = (1.0 + (textScaleFactor - 1.0) * 0.3).clamp(1.0, 1.5);
+    
+    return ClampTextScale(
+      max: isTablet ? 1.10 : 1.30,
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(
+          child: AnimatedBuilder(
+            animation: _animationController,
+            builder: (context, child) {
+              return FadeTransition(
+                opacity: _fadeAnimation,
+                child: ScaleTransition(
+                  scale: _scaleAnimation,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // 앱 로고 - 폰트 배율에 따라 크기 조정
+                      Container(
+                        width: logoSize,
+                        height: logoSize,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(24.r),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 20,
+                              offset: const Offset(0, 10),
+                            ),
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(24.r),
+                          child: Image.asset(
+                            'asset/image/logo/application/reviewmaps.png',
+                            width: logoSize,
+                            height: logoSize,
+                            fit: BoxFit.contain,
                           ),
-                        ],
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(24.r),
-                        child: Image.asset(
-                          'asset/image/logo/application/reviewmaps.png',
-                          width: 120.w,
-                          height: 120.w,
-                          fit: BoxFit.contain,
                         ),
                       ),
-                    ),
-                    
-                    SizedBox(height: 24.h),
-                    
-                    // 앱 이름
-                    // Text(
-                    //   '리뷰맵',
-                    //   style: TextStyle(
-                    //     fontSize: 32.sp,
-                    //     fontWeight: FontWeight.w900,
-                    //     color: PRIMARY_COLOR,
-                    //     letterSpacing: 2.0,
-                    //   ),
-                    // ),
-                    
-                    // SizedBox(height: 8.h),
-                    
-                    // 서브타이틀
-                    Text(
-                      '내 주변 체험단을 지도로 찾아보세요',
-                      style: TextStyle(
-                        fontSize: 16.sp,
-                        color: Colors.grey[600],
-                        fontWeight: FontWeight.w400,
+                      
+                      SizedBox(height: (24.h * spacingMultiplier)),
+                      
+                      // 서브타이틀 - 폰트 배율에 따라 간격 조정
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 20.w),
+                        child: Text(
+                          '내 주변 체험단을 지도로 찾아보세요',
+                          style: TextStyle(
+                            fontSize: 16.sp,
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w400,
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                    ),
-                    
-                    SizedBox(height: 60.h),
-                    
-                    // 로딩 인디케이터
-                    SizedBox(
-                      width: 30.w,
-                      height: 30.w,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 3.0,
-                        valueColor: AlwaysStoppedAnimation<Color>(PRIMARY_COLOR),
+                      
+                      SizedBox(height: (60.h * spacingMultiplier)),
+                      
+                      // 로딩 인디케이터 - 폰트 배율에 따라 크기 조정
+                      SizedBox(
+                        width: (30.w * (1.0 + (textScaleFactor - 1.0) * 0.2)).clamp(25.w, 40.w),
+                        height: (30.w * (1.0 + (textScaleFactor - 1.0) * 0.2)).clamp(25.w, 40.w),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 3.0,
+                          valueColor: AlwaysStoppedAnimation<Color>(PRIMARY_COLOR),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );

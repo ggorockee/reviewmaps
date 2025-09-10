@@ -134,31 +134,40 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
       final media = MediaQuery.of(context);
       final screenHeight = media.size.height;
+      final textScaleFactor = media.textScaleFactor;
 
-      // AppBar 높이
-      final appBarHeight = kToolbarHeight + media.padding.top;
+      // 폰트 배율에 따른 동적 조정
+      final bool isTablet = _isTablet(context);
+      final double maxScale = isTablet ? 1.10 : 1.30;
+      final double clampedScale = textScaleFactor.clamp(1.0, maxScale);
+      
+      // 폰트 배율이 클 때 더 많은 여백 필요
+      final scaleMultiplier = (1.0 + (clampedScale - 1.0) * 0.5).clamp(1.0, 1.3);
 
       // 버튼 위치와 크기 (Positioned에서 사용한 것과 동일하게 계산)
       final buttonTop = t(context, 45.0.h, 60.0.h);
       final buttonHeight = t(context, 30.0.h, 30.0.h);
       final buttonBottom = buttonTop + buttonHeight;
 
-      // 버튼을 가리지 않도록 안전 여백
-      final safePadding = 230.h;
+      // 폰트 배율에 따른 동적 안전 여백
+      final baseSafePadding = 20.h;
+      final safePadding = baseSafePadding * scaleMultiplier;
 
       // 최대 높이 = 화면 전체 높이 - (버튼 bottom + safePadding)
-      final maxAllowed = screenHeight - (buttonBottom + safePadding);
+      final maxAllowed = screenHeight - buttonBottom - safePadding;
 
-      // 최소 1.5개 아이템 보장
-      final minContent = _panelMin + _panelHeaderExtra + _itemMinHeight * 1.5;
+      // 폰트 배율에 따른 아이템 높이 조정
+      final adjustedItemHeight = _itemMinHeight * scaleMultiplier;
+      final minContent = _panelMin + _panelHeaderExtra + adjustedItemHeight * 1.5;
 
       setState(() {
-        _panelMax = maxAllowed.clamp(minContent, screenHeight);
+        _panelMax = maxAllowed.clamp(minContent, screenHeight * 0.9);
       });
 
       if (AppConfig.isDebugMode) {
-        print('📐 screen=$screenHeight, buttonBottom=$buttonBottom, safePadding=$safePadding');
-        print('👉 panelMax=$_panelMax');
+        print('📐 screen=$screenHeight, textScale=$textScaleFactor, clampedScale=$clampedScale');
+        print('📐 buttonBottom=$buttonBottom, safePadding=$safePadding, scaleMultiplier=$scaleMultiplier');
+        print('👉 panelMax=$_panelMax, adjustedItemHeight=$adjustedItemHeight');
       }
     });
 
@@ -197,18 +206,29 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     }
     if (!panelController.isAttached) return;
 
+    // 폰트 배율에 따른 동적 조정
+    final media = MediaQuery.of(context);
+    final textScaleFactor = media.textScaleFactor;
+    final bool isTablet = _isTablet(context);
+    final double maxScale = isTablet ? 1.10 : 1.30;
+    final double clampedScale = textScaleFactor.clamp(1.0, maxScale);
+    final double scaleMultiplier = (1.0 + (clampedScale - 1.0) * 0.5).clamp(1.0, 1.3);
+
+    // 폰트 배율에 따른 아이템 높이 조정
+    final adjustedItemHeight = _itemMinHeight * scaleMultiplier;
+    
     // 기본 높이 (헤더 + 1개 아이템)
-    final desiredHeight = _panelMin + _panelHeaderExtra + _itemMinHeight * 1.0;
+    final desiredHeight = _panelMin + _panelHeaderExtra + adjustedItemHeight * 1.0;
 
     // 아이템 최소 1.5개 보장
-    final minHeight = _panelMin + _panelHeaderExtra + _itemMinHeight * 1.5;
+    final minHeight = _panelMin + _panelHeaderExtra + adjustedItemHeight * 1.5;
 
     // 패널이 버튼을 절대 가리지 않도록 제한
-    final media = MediaQuery.of(context);
     final buttonTop = t(context, 45.0.h, 60.0.h);
     final buttonHeight = t(context, 30.0.h, 30.0.h);
     final buttonBottom = buttonTop + buttonHeight;
-    final safePadding = 20.h; // 충분한 여백으로 버튼 보호
+    final baseSafePadding = 20.h;
+    final safePadding = baseSafePadding * scaleMultiplier;
     final maxAllowed = media.size.height - buttonBottom - safePadding;
 
     // 최종 높이
@@ -236,18 +256,29 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     }
     if (!panelController.isAttached) return;
 
+    // 폰트 배율에 따른 동적 조정
+    final media = MediaQuery.of(context);
+    final textScaleFactor = media.textScaleFactor;
+    final bool isTablet = _isTablet(context);
+    final double maxScale = isTablet ? 1.10 : 1.30;
+    final double clampedScale = textScaleFactor.clamp(1.0, maxScale);
+    final double scaleMultiplier = (1.0 + (clampedScale - 1.0) * 0.5).clamp(1.0, 1.3);
+
+    // 폰트 배율에 따른 아이템 높이 조정
+    final adjustedItemHeight = _itemMinHeight * scaleMultiplier;
+    
     // 기본 높이 (헤더 + 2개 아이템)
-    final desiredHeight = _panelMin + _panelHeaderExtra + _itemMinHeight * 2.0;
+    final desiredHeight = _panelMin + _panelHeaderExtra + adjustedItemHeight * 2.0;
 
     // 아이템 최소 1.5개 보장
-    final minHeight = _panelMin + _panelHeaderExtra + _itemMinHeight * 1.5;
+    final minHeight = _panelMin + _panelHeaderExtra + adjustedItemHeight * 1.5;
 
     // 패널이 버튼을 절대 가리지 않도록 제한
-    final media = MediaQuery.of(context);
     final buttonTop = t(context, 45.0.h, 60.0.h);
     final buttonHeight = t(context, 30.0.h, 30.0.h);
     final buttonBottom = buttonTop + buttonHeight;
-    final safePadding = 20.h; // 충분한 여백으로 버튼 보호
+    final baseSafePadding = 20.h;
+    final safePadding = baseSafePadding * scaleMultiplier;
     final maxAllowed = media.size.height - buttonBottom - safePadding;
 
     // 최종 높이
@@ -437,7 +468,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   // UI
   @override
   Widget build(BuildContext context) {
+    final bool isTablet = _isTablet(context);
+    final double maxScale = isTablet ? 1.10 : 1.30;
+    
     return ClampTextScale(
+      max: maxScale,
       child: Scaffold(
         appBar: AppBar(
           backgroundColor: Colors.white, // 배경 흰색

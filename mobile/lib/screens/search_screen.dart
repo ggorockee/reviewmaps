@@ -58,30 +58,6 @@ class RecentSearchesNotifier extends AsyncNotifier<List<String>> {
   }
 }
 
-// =============== 검색어 입력 -======================
-// 검색어 추천 목록 데이터 (실제 앱에서는 서버에서 가져옴)
-// const List<String> _searchKeywords = [
-//   '검정원피스', '검정치마lp', '검정치마', '검도', '검정블라우스', '검도호구', '검정고시', '검도복',
-//   '김포맛집', '김포공항', '김포카페', '김포 현대아울렛',
-//   '서울여행', '서울맛집', '서울페스타', '서울의 봄',
-//   '애플워치', '에어팟', '아이패드', '아이폰',
-// ];
-
-// 연관 검색어를 제공하는 FutureProvider.family
-// final suggestionsProvider = FutureProvider.family<List<String>, String>((ref, query) async {
-//   // 쿼리가 비어있으면 빈 리스트 반환
-//   if (query.isEmpty) {
-//     return [];
-//   }
-//
-//   // 네트워크 지연 시뮬레이션
-//   await Future.delayed(const Duration(milliseconds: 200));
-//
-//   // 쿼리를 포함하는 키워드 필터링
-//   return _searchKeywords.where((keyword) => keyword.toLowerCase().contains(query.toLowerCase())).toList();
-// });
-// =======================================================
-
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
 
@@ -207,14 +183,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-
   // 카테고리 이름에 맞는 아이콘 반환 (클라이언트에서 관리)
   Widget _getIconForCategory(String categoryName) {
-    // 아이콘 크기 (폰트 크기에 반응하도록 .sp 사용)
-    // 이전 답변에서 .sp로 변경했던 것을 유지합니다.
-    // final double iconSize = 18.sp; // Tab
-
-    final double iconSize = t(context, 15.sp, 18.sp);
+    // 폰트 배율에 따른 아이콘 크기 조정
+    final textScaleFactor = MediaQuery.textScalerOf(context).textScaleFactor;
+    final baseIconSize = t(context, 15.sp, 18.sp);
+    final iconSize = baseIconSize * (1.0 + (textScaleFactor - 1.0) * 0.3).clamp(1.0, 1.2);
 
     switch (categoryName) {
       case '맛집':
@@ -248,92 +222,102 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // final currentQuery = ref.watch(searchQueryProvider);
+    final bool isTablet = _isTablet(context);
+    final double maxScale = isTablet ? 1.10 : 1.30;
 
-    return Scaffold(
-      appBar: AppBar(
-        leading: const SizedBox.shrink(),
-        leadingWidth: 0,
-        titleSpacing: t(context, 16.w, 15.w),
-        toolbarHeight: t(context, 56.h, 72.h),
-        title: Padding(
-          padding: EdgeInsets.only(
-            top: t(context, 4.h, 8.h),
-            bottom: t(context, 6.h, 10.h),
-            // 필요하면 오른쪽도: right: t(context, 16.w, 24.w),
-          ),
-          child: TextField(
-            controller: _searchController,
-            autofocus: true,
-            textInputAction: TextInputAction.search, // 선택
-            decoration: InputDecoration(
-              hintText: '찾고 있는 장소나 가게 이름이 있나요?',
-              hintStyle: TextStyle(
-                fontSize: t(context, 16.sp, 9.5.sp),
-              ),
-              border: InputBorder.none,
-            ),
-            onSubmitted: _handleSearch,
-            onChanged: (value) {
-              _debounce?.cancel();
-              _debounce = Timer(const Duration(milliseconds: 300), () {
-                if (!mounted) return;
-                // ✅ read만 쓰기 (리빌드 유발 X)
-                ref.read(searchQueryProvider.notifier).state = value;
-              });
-            },
-          ),
-        ),
-        actions: [
-          Padding(
+    return ClampTextScale(
+      max: maxScale,
+      child: Scaffold(
+        appBar: AppBar(
+          leading: const SizedBox.shrink(),
+          leadingWidth: 0,
+          titleSpacing: t(context, 16.w, 15.w),
+          toolbarHeight: t(context, 56.h, 72.h),
+          title: Padding(
             padding: EdgeInsets.only(
-                right: t(context, 16.sp, 8.sp),
+              top: t(context, 4.h, 8.h),
+              bottom: t(context, 6.h, 10.h),
+              // 필요하면 오른쪽도: right: t(context, 16.w, 24.w),
             ),
-            child: TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(
-                  '닫기',
-                style: TextStyle(
-                  fontSize: t(context, 16.sp, 8.sp),
+            child: TextField(
+              controller: _searchController,
+              autofocus: true,
+              textInputAction: TextInputAction.search, // 선택
+              decoration: InputDecoration(
+                hintText: '찾고 있는 장소나 가게 이름이 있나요?',
+                hintStyle: TextStyle(
+                  fontSize: t(context, 16.sp, 9.5.sp),
+                ),
+                border: InputBorder.none,
+              ),
+              onSubmitted: _handleSearch,
+              onChanged: (value) {
+                _debounce?.cancel();
+                _debounce = Timer(const Duration(milliseconds: 300), () {
+                  if (!mounted) return;
+                  // ✅ read만 쓰기 (리빌드 유발 X)
+                  ref.read(searchQueryProvider.notifier).state = value;
+                });
+              },
+            ),
+          ),
+          actions: [
+            Padding(
+              padding: EdgeInsets.only(
+                  right: t(context, 16.sp, 8.sp),
+              ),
+              child: TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text(
+                    '닫기',
+                  style: TextStyle(
+                    fontSize: t(context, 16.sp, 8.sp),
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
-      ),
-      // 👇 [수정] body를 Stack과 Visibility로 변경하여 화면 구조 안정화
-      body: Consumer(
-        builder: (context, wref, _) {
-          final currentQuery = wref.watch(searchQueryProvider);
-          return Stack(
-            children: [
-              Visibility(
-                visible: currentQuery.isEmpty,
-                maintainState: true,
-                child: _buildRecentAndRecommendedSearches(wref),
-              ),
-              if (_loading) Positioned.fill(child: _loadingOverlay()),
-            ],
-          );
-        },
+          ],
+        ),
+        // 👇 [수정] body를 Stack과 Visibility로 변경하여 화면 구조 안정화
+        body: Consumer(
+          builder: (context, wref, _) {
+            final currentQuery = wref.watch(searchQueryProvider);
+            return Stack(
+              children: [
+                Visibility(
+                  visible: currentQuery.isEmpty,
+                  maintainState: true,
+                  child: _buildRecentAndRecommendedSearches(wref),
+                ),
+                if (_loading) Positioned.fill(child: _loadingOverlay()),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
 
   Widget _buildSectionHeader(String title, {VoidCallback? onClearAll}) {
+    // 폰트 배율에 따른 제목 크기 조정
+    final textScaleFactor = MediaQuery.textScalerOf(context).textScaleFactor;
+    final baseFontSize = 16.sp;
+    final titleFontSize = baseFontSize * (1.0 + (textScaleFactor - 1.0) * 0.5).clamp(1.0, 1.3);
+    final subtitleFontSize = 13.sp * (1.0 + (textScaleFactor - 1.0) * 0.5).clamp(1.0, 1.3);
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
           title,
-          style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold),
+          style: TextStyle(fontSize: titleFontSize, fontWeight: FontWeight.bold),
         ),
         if (onClearAll != null)
           GestureDetector(
             onTap: onClearAll,
             child: Text(
               '전체 삭제',
-              style: TextStyle(fontSize: 13.sp, color: Colors.grey),
+              style: TextStyle(fontSize: subtitleFontSize, color: Colors.grey),
             ),
           ),
       ],
@@ -341,10 +325,18 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Widget _buildRecentSearchItem(String term) {
+    // 폰트 배율에 따른 텍스트 크기 조정
+    final textScaleFactor = MediaQuery.textScalerOf(context).textScaleFactor;
+    final baseFontSize = 16.sp;
+    final fontSize = baseFontSize * (1.0 + (textScaleFactor - 1.0) * 0.5).clamp(1.0, 1.3);
+
     return ListTile(
       onTap: () => _handleSearch(term),
       leading: const Icon(Icons.access_time),
-      title: Text(term),
+      title: Text(
+        term,
+        style: TextStyle(fontSize: fontSize),
+      ),
       trailing: IconButton(
         icon: const Icon(Icons.close),
         onPressed: () =>
@@ -404,11 +396,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                               children: [
                                 _getIconForCategory(categoryName),
                                 SizedBox(height: 4.h),
+                                // 카테고리 텍스트 줄바꿈 방지 및 폰트 배율 대응
                                 Text(
-                                    categoryName,
-                                    style: TextStyle(
-                                        fontSize: t(context, 13.sp, 8.5.sp),
-                                    )),
+                                  categoryName,
+                                  style: TextStyle(
+                                    fontSize: t(context, 13.sp, 8.5.sp),
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 2, // 최대 2줄까지 허용
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ],
                             ),
                           ),
@@ -423,7 +420,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (err, stack) => const Center(child: Text('카테고리를 불러올 수 없습니다.')),
         ),
-        // const Divider(),
         SizedBox(height: 8.h),
         Padding(
           padding: EdgeInsets.symmetric(horizontal: 16.w),
@@ -456,30 +452,4 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       ],
     );
   }
-
-  // Widget _buildSuggestionsList(String query) {
-  //   final suggestionsAsync = ref.watch(suggestionsProvider(query));
-  //   return suggestionsAsync.when(
-  //     data: (suggestions) {
-  //       if (suggestions.isEmpty) {
-  //         return const Center(child: Text('연관 검색어가 없습니다.'));
-  //       }
-  //       return ListView.builder(
-  //         itemCount: suggestions.length,
-  //         itemBuilder: (context, index) {
-  //           final suggestion = suggestions[index];
-  //           return ListTile(
-  //             leading: const Icon(Icons.search),
-  //             title: _buildHighlightedText(suggestion, query),
-  //             onTap: () => _handleSearch(suggestion),
-  //           );
-  //         },
-  //       );
-  //     },
-  //     loading: () => const Center(child: LinearProgressIndicator()),
-  //     error: (err, stack) => const Center(child: Text('검색어를 불러올 수 없습니다.')),
-  //   );
-  // }
-
-  // 사용하지 않는 메서드 제거됨
 }

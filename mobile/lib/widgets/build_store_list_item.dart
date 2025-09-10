@@ -141,11 +141,64 @@ class StoreListItem extends StatelessWidget {
     );
   }
 
-  // 세번째줄: D-day + 거리정보
+  // 세번째줄: 플랫폼명 + D-day + 거리정보
   Widget _buildMetaRow() {
-    return DeadlineChips(
-      store: store,
-      dense: dense,
+    return Row(
+      children: [
+        // 9개 상자 아이콘
+        Icon(
+          Icons.apps, // 9개 상자가 있는 더보기 아이콘
+          size: 16.sp,
+          color: Colors.grey[600],
+        ),
+        
+        SizedBox(width: 4.w),
+        
+        // 플랫폼 이름
+        Text(
+          store.platform,
+          style: TextStyle(
+            fontSize: dense ? 12.sp : 14.sp,
+            color: Colors.grey[600],
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        
+        SizedBox(width: 8.w),
+        
+        // D-day와 거리 칩들
+        Expanded(
+          child: DeadlineChips(
+            store: store,
+            dense: dense,
+          ),
+        ),
+        
+        // 거리 정보가 없으면 "거리정보없음" 표시
+        if (store.distance == null)
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: dense ? 6.w : 8.w,
+              vertical: dense ? 2.h : 3.h,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.grey.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(dense ? 8.r : 10.r),
+              border: Border.all(
+                color: Colors.grey.withOpacity(0.3),
+                width: 0.5,
+              ),
+            ),
+            child: Text(
+              '거리정보없음',
+              style: TextStyle(
+                fontSize: dense ? 9.sp : 10.sp,
+                fontWeight: FontWeight.w500,
+                color: Colors.grey[700],
+              ),
+            ),
+          ),
+      ],
     );
   }
 
@@ -209,6 +262,7 @@ class StoreListItem extends StatelessWidget {
     
     return logoMap[platform] ?? 'asset/image/logo/default_log.png';
   }
+
 
 }
 

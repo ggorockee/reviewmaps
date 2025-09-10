@@ -16,6 +16,8 @@ import '../widgets/build_store_list_item.dart';
 import '../widgets/friendly.dart';
 import 'map_search_screen.dart';
 
+// 패널 위치 상태 추적
+enum PanelState { closed, waitHeight, executeHeight }
 
 List<Widget> buildChannelIcons(String? channelStr, {double size = 16}) {
   if (channelStr == null || channelStr.isEmpty) return [];
@@ -58,7 +60,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   String _currentSortOrder = '-created_at';
   
   // 패널 위치 상태 추적
-  enum PanelState { closed, waitHeight, executeHeight }
   PanelState _currentPanelState = PanelState.closed;
   
   // 최초 진입 여부 추적
@@ -201,6 +202,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     
     // 패널 상태 업데이트
     _currentPanelState = PanelState.executeHeight;
+  }
 
   // 패널 위치 기억
   void _rememberPanelPosition() {

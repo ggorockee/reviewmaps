@@ -1,6 +1,6 @@
 from __future__ import annotations
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-from sqlalchemy import String, BigInteger, TIMESTAMP, Numeric, text, Text,ForeignKey, Integer
+from sqlalchemy import String, BigInteger, TIMESTAMP, Numeric, text, Text, ForeignKey, Integer, Index
 
 class Base(DeclarativeBase):
     pass
@@ -35,6 +35,19 @@ class Campaign(Base):
     campaign_channel: Mapped[str | None] = mapped_column(String(255)) # 여러 채널(,) 대비
     apply_from: Mapped[object | None] = mapped_column(TIMESTAMP(timezone=True))
     promotion_level: Mapped[int | None] = mapped_column(Integer, server_default=text("0"))
+
+    # ✨ 성능 최적화를 위한 인덱스 정의
+    __table_args__ = (
+        # 추천 체험단 API 최적화: promotion_level + apply_deadline 복합 인덱스
+        # 1. promotion_level 내림차순 정렬 최적화
+        # 2. apply_deadline >= 현재시간 필터링 최적화
+        Index('idx_campaign_promotion_deadline', 'promotion_level', 'apply_deadline'),
+        
+        # 추가 성능 최적화 인덱스들
+        Index('idx_campaign_created_at', 'created_at'),  # 기본 정렬용
+        Index('idx_campaign_category_id', 'category_id'),  # 카테고리 필터링용
+        Index('idx_campaign_apply_deadline', 'apply_deadline'),  # 마감일 필터링용
+    )
 
 class Category(Base):
     __tablename__ = "categories"

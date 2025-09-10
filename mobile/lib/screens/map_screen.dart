@@ -143,16 +143,22 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       // 시스템 폰트 크기에 따라 가변 여백
       final safePadding = 24.0 * textScale;
 
+      // 아이템 최소 1.5개 보장 높이
+      final minContent = _panelMin + _panelHeaderExtra + _itemMinHeight * 1.5;
+
       setState(() {
+        // 버튼 bottom 밑에서 safePadding만큼 띄운 뒤 → 아이템 1.5개 이상 확보
         _panelMax = screenHeight - buttonBottom - safePadding;
-        
-        // 아이템 1.5개는 무조건 보장
-        final minContent = _panelMin + _panelHeaderExtra + _itemMinHeight * 1.5;
-        if (_panelMax < minContent) _panelMax = minContent;
+
+        // 최소 콘텐츠 높이 보장 (버튼이 아이템을 가리지 않도록)
+        if (_panelMax < minContent) {
+          _panelMax = minContent;
+        }
       });
 
       if (AppConfig.isDebugMode) {
         print('📐 screen=$screenHeight, buttonBottom=$buttonBottom, safePadding=$safePadding');
+        print('📏 minContent=$minContent');
         print('👉 panelMax=$_panelMax');
       }
     });

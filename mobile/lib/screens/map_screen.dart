@@ -144,7 +144,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       final buttonBottom = buttonTop + buttonHeight;
       
       // 버튼 아래 여백 추가 (버튼을 절대 가리지 않도록)
-      final safePadding = 8.h; // 최소 여백만 유지
+      final safePadding = 20.h; // 충분한 여백으로 버튼 보호
 
       // 패널이 버튼을 절대 가리지 않도록 제한
       final maxAllowed = screenHeight - buttonBottom - safePadding;
@@ -214,7 +214,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final buttonTop = t(context, 45.0.h, 60.0.h);
     final buttonHeight = t(context, 30.0.h, 30.0.h);
     final buttonBottom = buttonTop + buttonHeight;
-    final safePadding = 8.h; // 최소 여백만 유지하여 버튼 보호
+    final safePadding = 20.h; // 충분한 여백으로 버튼 보호
     final maxAllowed = media.size.height - buttonBottom - safePadding;
 
     // 최종 높이
@@ -253,7 +253,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final buttonTop = t(context, 45.0.h, 60.0.h);
     final buttonHeight = t(context, 30.0.h, 30.0.h);
     final buttonBottom = buttonTop + buttonHeight;
-    final safePadding = 8.h; // 최소 여백만 유지하여 버튼 보호
+    final safePadding = 20.h; // 충분한 여백으로 버튼 보호
     final maxAllowed = media.size.height - buttonBottom - safePadding;
 
     // 최종 높이
@@ -682,7 +682,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         final buttonTop = t(context, 45.0.h, 60.0.h);
         final buttonHeight = t(context, 30.0.h, 30.0.h);
         final buttonBottom = buttonTop + buttonHeight;
-        final safePadding = 8.h; // 최소 여백만 유지하여 버튼 보호
+        final safePadding = 20.h; // 충분한 여백으로 버튼 보호
         final maxAllowed = constraints.maxHeight - buttonBottom - safePadding;
 
         // 최소 1.5개 아이템 보장

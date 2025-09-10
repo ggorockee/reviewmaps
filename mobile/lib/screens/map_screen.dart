@@ -128,13 +128,21 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   void initState() {
     super.initState();
     
-    // 화면 높이에 따라 패널 최대 높이 설정
+    // 화면 높이에 따라 패널 최대 높이 설정 - "이 위치로 검색" 버튼 아래까지
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         final screenHeight = MediaQuery.of(context).size.height;
-        _panelMax = screenHeight * 0.8; // 화면 높이의 80%
+        final buttonTop = t(context, 45.0.h, 60.0.h); // 버튼 상단 위치
+        final buttonHeight = t(context, 30.0.h, 30.0.h); // 버튼 높이
+        final buttonBottom = buttonTop + buttonHeight; // 버튼 하단 위치
+        
+        // 버튼 하단에서 약간의 여백을 두고 패널 최대 높이 설정
+        _panelMax = screenHeight - buttonBottom - 20.0; // 20px 여백
+        
         if (AppConfig.isDebugMode) {
-          print('[Map][initState] 화면 높이: $screenHeight, 패널 최대 높이: $_panelMax');
+          print('[Map][initState] 화면 높이: $screenHeight');
+          print('[Map][initState] 버튼 위치: top=$buttonTop, height=$buttonHeight, bottom=$buttonBottom');
+          print('[Map][initState] 패널 최대 높이: $_panelMax');
         }
       }
     });

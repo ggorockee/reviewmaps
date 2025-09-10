@@ -27,22 +27,34 @@ class StoreListItem extends StatelessWidget {
       child: Container(
         constraints: BoxConstraints(minHeight: 80.h), // 최소 높이 설정
         padding: EdgeInsets.symmetric(vertical: 16.h, horizontal: 16.w), // 위아래 같은 여백 + 좌우 패딩
-        child: Column(
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 첫째줄: 타이틀 + 채널 + NEW (2줄까지 가능)
-            _buildTitleRow(),
+            // 가장 왼쪽: 플랫폼 로고 (크게)
+            _buildPlatformLogo(store.platform),
+            SizedBox(width: 16.w),
             
-            SizedBox(height: 4.h),
-            
-            // 두번째줄: offer (폰트 작게 붉은색)
-            if (store.offer != null && store.offer!.isNotEmpty)
-              _buildOfferRow(),
-            
-            SizedBox(height: 8.h),
-            
-            // 세번째줄: 플랫폼 + D-day + 거리정보
-            _buildMetaRow(),
+            // 오른쪽: 텍스트 정보들
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 첫째줄: 타이틀 + 채널 + NEW (2줄까지 가능)
+                  _buildTitleRow(),
+                  
+                  SizedBox(height: 4.h),
+                  
+                  // 두번째줄: offer (폰트 작게 붉은색)
+                  if (store.offer != null && store.offer!.isNotEmpty)
+                    _buildOfferRow(),
+                  
+                  SizedBox(height: 8.h),
+                  
+                  // 세번째줄: 플랫폼명 + D-day + 거리정보
+                  _buildMetaRow(),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -129,64 +141,40 @@ class StoreListItem extends StatelessWidget {
     );
   }
 
-  // 세번째줄: 플랫폼 + D-day + 거리정보
+  // 세번째줄: D-day + 거리정보
   Widget _buildMetaRow() {
-    return Row(
-      children: [
-        // 플랫폼 로고 (실제 로고 이미지 사용)
-        _buildPlatformLogo(store.platform),
-        
-        SizedBox(width: 8.w),
-        
-        // 플랫폼 이름
-        Text(
-          store.platform,
-          style: TextStyle(
-            fontSize: dense ? 12.sp : 14.sp,
-            color: Colors.grey[600],
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        
-        SizedBox(width: 8.w),
-        
-        // D-day와 거리 칩들 (홈화면과 동일한 로직)
-        Expanded(
-          child: DeadlineChips(
-            store: store,
-            dense: dense,
-          ),
-        ),
-      ],
+    return DeadlineChips(
+      store: store,
+      dense: dense,
     );
   }
 
-  // 플랫폼 로고 (asset 이미지)
+  // 플랫폼 로고 (asset 이미지) - 크게 표시
   Widget _buildPlatformLogo(String platform) {
     final String logoAssetPath = _getLogoPathForPlatform(platform);
     
     return Container(
-      width: 20.w,
-      height: 20.h,
+      width: 48.w,
+      height: 48.h,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(4.r),
+        borderRadius: BorderRadius.circular(8.r),
         color: Colors.grey[100],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(4.r),
+        borderRadius: BorderRadius.circular(8.r),
         child: Image.asset(
           logoAssetPath,
-          width: 20.w,
-          height: 20.h,
+          width: 48.w,
+          height: 48.h,
           fit: BoxFit.contain,
           errorBuilder: (_, __, ___) => Container(
-            width: 20.w,
-            height: 20.h,
+            width: 48.w,
+            height: 48.h,
             color: Colors.grey[200],
             child: Icon(
               Icons.image_not_supported,
               color: Colors.grey[400],
-              size: 10.sp,
+              size: 20.sp,
             ),
           ),
         ),

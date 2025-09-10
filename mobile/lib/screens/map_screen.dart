@@ -56,6 +56,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   late final NaverMapController _naverController;
   final PanelController panelController = PanelController();
   String _currentSortOrder = '-created_at';
+  
+  // 패널 위치 기억 변수
+  double? _rememberedPanelPosition;
 
   static const double _itemMinHeight = 108.0;
   // 핸들(_panelMin=40) + 정렬칩 영역(대략)
@@ -157,8 +160,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     }
     if (!panelController.isAttached) return;
 
-    // 살짝만 올리기 (헤더 + 0.5개 아이템 높이)
-    final desiredHeight = _panelMin + _panelHeaderExtra + _itemMinHeight * 0.5;
+    // 살짝만 올리기 (헤더 + 1개 아이템 높이로 조정하여 컨텐츠 일부 보이게)
+    final desiredHeight = _panelMin + _panelHeaderExtra + _itemMinHeight * 1.0;
     final clamped = desiredHeight.clamp(_panelMin, _panelMax);
     final position = (clamped - _panelMin) / (_panelMax - _panelMin);
 
@@ -190,6 +193,22 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     );
   }
 
+  // 패널 위치 기억
+  void _rememberPanelPosition() {
+    if (panelController.isAttached) {
+      _rememberedPanelPosition = panelController.position;
+    }
+  }
+
+  // 패널 위치 복원
+  Future<void> _restorePanelPosition() async {
+    if (_rememberedPanelPosition != null && panelController.isAttached) {
+      await panelController.animatePanelToPosition(
+        _rememberedPanelPosition!,
+        duration: const Duration(milliseconds: 220),
+      );
+    }
+  }
 
   // 현재 뷰포트 검색
   Future<void> _searchInCurrentViewport({bool programmatic = false, bool shouldOpenPanel = true}) async {
@@ -247,11 +266,18 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       await _naverController.addOverlayAll(overlays);
 
       if (storesInBounds.isNotEmpty) {
-        // 패널 열기 (사용자가 직접 검색한 경우에만, 그리고 패널을 열어야 하는 경우에만)
+        // 패널 위치 처리
         if (!programmatic && shouldOpenPanel) {
+          // 사용자가 직접 검색한 경우에만 패널 열기
           WidgetsBinding.instance.addPostFrameCallback((_) async {
             if (!mounted) return;
             await _animatePanelToListPeek();
+          });
+        } else if (programmatic) {
+          // 프로그램적으로 호출된 경우 (정렬 변경 등) 패널 위치 유지
+          WidgetsBinding.instance.addPostFrameCallback((_) async {
+            if (!mounted) return;
+            await _restorePanelPosition();
           });
         }
         if (mounted) setState(() => _showEmptyResultMessage = false);
@@ -565,11 +591,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly, // 균등 분배
                 children: [
-                  _buildSortChip('최신등록순', '-created_at'),
-                  _buildSortChip('마감임박순', 'apply_deadline'),
-                  _buildSortChip('거리순', 'distance'),
+                  Expanded(child: _buildSortChip('최신등록순', '-created_at')),
+                  Expanded(child: _buildSortChip('마감임박순', 'apply_deadline')),
+                  Expanded(child: _buildSortChip('거리순', 'distance')),
                 ],
               ),
             ),
@@ -790,8 +815,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           final List<Widget> chips = [
             _buildCategoryChip('전체', _selectedCategoryId == null, () {
               if (_selectedCategoryId != null) {
+                _rememberPanelPosition();
                 setState(() => _selectedCategoryId = null);
-                _searchInCurrentViewport();
+                _searchInCurrentViewport(programmatic: true);
               }
             }),
             ...categories.map((category) {
@@ -801,8 +827,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               final isSelected = _selectedCategoryId == categoryId;
               return _buildCategoryChip(wittyName, isSelected, () {
                 if (!isSelected) {
+                  _rememberPanelPosition();
                   setState(() => _selectedCategoryId = categoryId);
-                  _searchInCurrentViewport();
+                  _searchInCurrentViewport(programmatic: true);
                 }
               });
             })
@@ -879,17 +906,17 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   Widget _buildSortChip(String label, String sortValue) {
     final bool isSelected = _currentSortOrder == sortValue;
 
-    return Container(
-      width: 100.w, // 고정 너비 설정
-      child: ChoiceChip(
+    return ChoiceChip(
         label: Text(label),
         selected: isSelected,
         onSelected: (selected) {
           if (selected) {
+            // 패널 위치 기억
+            _rememberPanelPosition();
             setState(() {
               _currentSortOrder = sortValue;
             });
-            _searchInCurrentViewport(); // 정렬 변경 시 데이터 다시 불러오기
+            _searchInCurrentViewport(programmatic: true); // 정렬 변경 시 데이터 다시 불러오기
           }
         },
         // --- 👇 스타일링 수정 ---
@@ -918,7 +945,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         // 그림자 효과 제거
         elevation: 0,
         pressElevation: 0,
-      ),
     );
   }
 

@@ -182,13 +182,16 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       final b = await _naverController.getContentBounds(withPadding: true);
       final service = ref.read(campaignServiceProvider);
 
+      // 거리순이 아닌 경우에만 서버에서 정렬, 거리순은 클라이언트에서 처리
+      final sortParam = _currentSortOrder == 'distance' ? '-created_at' : _currentSortOrder;
+      
       final storesInBounds = await service.fetchInBounds(
         south: b.southWest.latitude,
         west: b.southWest.longitude,
         north: b.northEast.latitude,
         east: b.northEast.longitude,
         categoryId: _selectedCategoryId,
-        sort: _currentSortOrder,
+        sort: sortParam,
       );
 
       // 더 최신 검색이 도착했다면 버린다.
@@ -196,6 +199,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
       // 거리 계산 추가
       await _calculateDistancesForStores(storesInBounds);
+
+      // 정렬 적용
+      _applySorting(storesInBounds);
 
       setState(() {
         _allStoresInView
@@ -547,6 +553,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   _buildSortChip('최신등록순', '-created_at'),
                   const SizedBox(width: 8),
                   _buildSortChip('마감임박순', 'apply_deadline'),
+                  const SizedBox(width: 8),
+                  _buildSortChip('거리순', 'distance'),
                 ],
               ),
             ),
@@ -1022,6 +1030,36 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       const SizedBox(width: 4),
       ddayChip,
     ]);
+  }
+
+  // 정렬 적용 함수
+  void _applySorting(List<Store> stores) {
+    switch (_currentSortOrder) {
+      case 'distance':
+        // 거리순 정렬 (클라이언트 사이드)
+        stores.sort((a, b) {
+          final distanceA = a.distance ?? double.maxFinite;
+          final distanceB = b.distance ?? double.maxFinite;
+          return distanceA.compareTo(distanceB);
+        });
+        break;
+      case 'apply_deadline':
+        // 마감임박순 정렬 (클라이언트 사이드)
+        stores.sort((a, b) {
+          if (a.applyDeadline == null && b.applyDeadline == null) return 0;
+          if (a.applyDeadline == null) return 1;
+          if (b.applyDeadline == null) return -1;
+          return a.applyDeadline!.compareTo(b.applyDeadline!);
+        });
+        break;
+      case '-created_at':
+        // 최신등록순 정렬 (클라이언트 사이드)
+        stores.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        break;
+      default:
+        // 기본값은 서버에서 처리된 정렬 유지
+        break;
+    }
   }
 
   // 거리 계산 유틸리티 (홈화면과 동일)

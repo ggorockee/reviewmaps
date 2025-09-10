@@ -206,12 +206,25 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   // 패널 위치 기억
   void _rememberPanelPosition() {
-    // 현재 패널 상태를 기억 (변경하지 않음)
+    if (panelController.isAttached) {
+      // 패널이 닫혀있으면 closed 상태로 설정
+      if (panelController.isPanelClosed) {
+        _currentPanelState = PanelState.closed;
+      } else {
+        // 패널이 열려있으면 현재 상태 유지 (변경하지 않음)
+        // 이미 _currentPanelState가 올바르게 설정되어 있음
+      }
+    }
   }
 
   // 패널 위치 복원
   Future<void> _restorePanelPosition() async {
     if (panelController.isAttached) {
+      // 디버그 로그 추가
+      if (AppConfig.isDebugMode) {
+        print('[Map][_restorePanelPosition] 현재 패널 상태: $_currentPanelState');
+      }
+      
       switch (_currentPanelState) {
         case PanelState.waitHeight:
           await _animatePanelToSlightPeek();

@@ -30,86 +30,86 @@ class ExperienceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final platformColor = platformBadgeColor(store.platform);
     final bool isTab = MediaQuery.of(context).size.shortestSide >= 600;
-
-    // 카드 내부에서만 텍스트 스케일을 1.0~1.3으로 제한
-    final scaler = MediaQuery.textScalerOf(context);
-    final localScaler = TextScaler.linear(scaler.textScaleFactor.clamp(1.0, 1.3));
+    
+    // 폰트 배율에 따른 동적 크기 조정
+    final textScaleFactor = MediaQuery.textScalerOf(context).textScaleFactor;
+    final bool isTablet = isTab;
+    final double maxScale = isTablet ? 1.10 : 1.30;
+    final double clampedScale = textScaleFactor.clamp(1.0, maxScale);
+    final double scaleMultiplier = (1.0 + (clampedScale - 1.0) * 0.5).clamp(1.0, 1.3);
 
     // [ScreenUtil] 여백 프리셋 - 간격 조정
     final double pad = dense ? 10.w : 12.w;
     final double gapBadgeBody = dense ? 2.h : 3.h;
     final double gapTitleOffer = dense ? 2.h : 3.h;
 
-
-    return MediaQuery(
-      data: MediaQuery.of(context).copyWith(textScaler: localScaler),
-      child: InkWell(
-        onTap: (store.contentLink ?? '').isEmpty ? null : () => openLink(store.contentLink!),
-        child: SizedBox(
-          width: width,
-          child: Padding(
-            padding: EdgeInsets.all(pad),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ---------- 플랫폼 뱃지 ----------
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 3.h),
-                  decoration: BoxDecoration(
-                    color: platformColor,
-                    borderRadius: BorderRadius.circular(4.r),
-                  ),
-                  child: Text(
-                    store.platform,
-                    style: TextStyle(
-                      fontSize: isTab ? 8.sp : 8.5.sp,
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      height: 1.0,
-                    ),
+    return InkWell(
+      onTap: (store.contentLink ?? '').isEmpty ? null : () => openLink(store.contentLink!),
+      child: SizedBox(
+        width: width,
+        child: Padding(
+          padding: EdgeInsets.all(pad),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ---------- 플랫폼 뱃지 ----------
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 3.h),
+                decoration: BoxDecoration(
+                  color: platformColor,
+                  borderRadius: BorderRadius.circular(4.r),
+                ),
+                child: Text(
+                  store.platform,
+                  style: TextStyle(
+                    fontSize: (isTab ? 8.sp : 8.5.sp) * scaleMultiplier,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    height: 1.0,
                   ),
                 ),
-                SizedBox(height: gapBadgeBody),
+              ),
+              SizedBox(height: gapBadgeBody),
 
-                // ---------- 업체명(배지/채널 아이콘 포함) ----------
-                // 제목은 2줄까지만, 폭을 확보해 줄바꿈 보장
-                TitleWithBadges(
-                  store: store,
-                  dense: dense,
-                ),
+              // ---------- 업체명(배지/채널 아이콘 포함) ----------
+              // 제목은 2줄까지만, 폭을 확보해 줄바꿈 보장
+              TitleWithBadges(
+                store: store,
+                dense: dense,
+                scaleMultiplier: scaleMultiplier,
+              ),
 
-                SizedBox(height: gapTitleOffer),
+              SizedBox(height: gapTitleOffer),
 
-                // ---------- 제공내역(있을 때) ----------
-                if ((store.offer ?? '').isNotEmpty)
-                  Text(
-                    store.offer!,
-                    maxLines: isTab ? 2 : (compact ? 1 : 2),
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: isTab ? 8.5.sp : 9.5.sp,
-                      color: Colors.red,
-                      height: isTab ? 1.05 : 1.2,
-                    ),
+              // ---------- 제공내역(있을 때) ----------
+              if ((store.offer ?? '').isNotEmpty)
+                Text(
+                  store.offer!,
+                  maxLines: isTab ? 2 : (compact ? 1 : 2),
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: (isTab ? 8.5.sp : 9.5.sp) * scaleMultiplier,
+                    color: Colors.red,
+                    height: isTab ? 1.05 : 1.2,
                   ),
-
-                // ---------- 오퍼와 D-day 사이의 일정한 간격 ----------
-                SizedBox(height: isTab ? 8.h : 10.h),
-
-                // 검색 결과(1열)에서는 타이틀 폰트 기준 1.5배 간격, 
-                // 카테고리(2열)에서는 카드 하단 고정으로 정렬 유지
-                if (bottomAlignMeta)
-                  const Spacer()
-                else
-                  SizedBox(height: _offerMetaGap(isTab, MediaQuery.textScalerOf(context).textScaleFactor)),
-
-                // ---------- 마감일 및 거리 칩들 ----------
-                Padding(
-                  padding: EdgeInsets.only(bottom: 1.h),
-                  child: DeadlineChips(store: store, dense: dense),
                 ),
-              ],
-            ),
+
+              // ---------- 오퍼와 D-day 사이의 일정한 간격 ----------
+              SizedBox(height: isTab ? 8.h : 10.h),
+
+              // 검색 결과(1열)에서는 타이틀 폰트 기준 1.5배 간격, 
+              // 카테고리(2열)에서는 카드 하단 고정으로 정렬 유지
+              if (bottomAlignMeta)
+                const Spacer()
+              else
+                SizedBox(height: _offerMetaGap(isTab, textScaleFactor)),
+
+              // ---------- 마감일 및 거리 칩들 ----------
+              Padding(
+                padding: EdgeInsets.only(bottom: 1.h),
+                child: DeadlineChips(store: store, dense: dense),
+              ),
+            ],
           ),
         ),
       ),

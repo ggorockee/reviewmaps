@@ -8,11 +8,13 @@ import 'package:mobile/screens/home_screen.dart';
 class TitleWithBadges extends StatelessWidget {
   final Store store;
   final bool dense;
+  final double scaleMultiplier;
 
   const TitleWithBadges({
     super.key,
     required this.store,
     this.dense = false,
+    this.scaleMultiplier = 1.0,
   });
 
   @override
@@ -28,9 +30,9 @@ class TitleWithBadges extends StatelessWidget {
           TextSpan(
             text: store.title,
             style: TextStyle(
-              fontSize: dense 
+              fontSize: (dense 
                   ? (isTab ? 10.sp : 11.sp)
-                  : (isTab ? 12.sp : 15.sp),
+                  : (isTab ? 12.sp : 15.sp)) * scaleMultiplier,
               fontWeight: FontWeight.w600,
               color: Colors.black87,
               height: 1.3,
@@ -76,6 +78,7 @@ class SimpleTitle extends StatelessWidget {
   final bool dense;
   final int maxLines;
   final TextStyle? style;
+  final double scaleMultiplier;
 
   const SimpleTitle({
     super.key,
@@ -83,6 +86,7 @@ class SimpleTitle extends StatelessWidget {
     this.dense = false,
     this.maxLines = 2,
     this.style,
+    this.scaleMultiplier = 1.0,
   });
 
   @override
@@ -92,9 +96,9 @@ class SimpleTitle extends StatelessWidget {
     return Text(
       title,
       style: style ?? TextStyle(
-        fontSize: dense 
+        fontSize: (dense 
             ? (isTab ? 10.sp : 13.sp)
-            : (isTab ? 12.sp : 15.sp),
+            : (isTab ? 12.sp : 15.sp)) * scaleMultiplier,
         fontWeight: FontWeight.w600,
         color: Colors.black87,
         height: 1.3,

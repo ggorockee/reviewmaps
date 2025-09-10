@@ -215,7 +215,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final buttonTop = t(context, 45.0.h, 60.0.h);
     final buttonHeight = t(context, 30.0.h, 30.0.h);
     final buttonBottom = buttonTop + buttonHeight;
-    final safePadding = 24.0 * media.textScaleFactor;
+    final safePadding = 12.h; // 간단한 여백
     final maxAllowed = media.size.height - buttonBottom - safePadding;
 
     // 최종 높이
@@ -228,7 +228,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     );
 
     _currentPanelState = PanelState.waitHeight;
-    _lastPanelHeight = _currentPanelHeight();
+    _panelPos = position;
+    _lastPanelHeight = clamped; // 픽셀 높이 직접 저장
   }
 
   Future<void> _animatePanelToListPeek() async {
@@ -253,7 +254,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final buttonTop = t(context, 45.0.h, 60.0.h);
     final buttonHeight = t(context, 30.0.h, 30.0.h);
     final buttonBottom = buttonTop + buttonHeight;
-    final safePadding = 24.0 * media.textScaleFactor;
+    final safePadding = 12.h; // 간단한 여백
     final maxAllowed = media.size.height - buttonBottom - safePadding;
 
     // 최종 높이
@@ -266,7 +267,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     );
 
     _currentPanelState = PanelState.executeHeight;
-    _lastPanelHeight = _currentPanelHeight();
+    _panelPos = position;
+    _lastPanelHeight = clamped; // 픽셀 높이 직접 저장
   }
 
   // 패널 위치 기억
@@ -274,24 +276,24 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     if (panelController.isAttached) {
       _lastPanelHeight = _currentPanelHeight();
       if (AppConfig.isDebugMode) {
-        print('[Map][_rememberPanelPosition] 저장된 패널 높이: $_lastPanelHeight');
+        print('[Map][_rememberPanelPosition] 저장된 패널 높이(px): $_lastPanelHeight');
       }
     }
   }
 
-  // 패널 위치 복원
+  // 패널 위치 복원 (저장된 픽셀값 → 현재 maxHeight 기준 비율로 변환)
   Future<void> _restorePanelPosition() async {
     if (panelController.isAttached && _lastPanelHeight != null) {
-      final pos = (_lastPanelHeight! - _panelMin) / (_panelMax - _panelMin);
-      final clamped = pos.clamp(0.0, 1.0);
+      final height = _lastPanelHeight!.clamp(_panelMin, _panelMax);
+      final pos = (height - _panelMin) / (_panelMax - _panelMin);
       if (AppConfig.isDebugMode) {
-        print('[Map][_restorePanelPosition] 복원할 비율: $clamped');
+        print('[Map][_restorePanelPosition] 복원할 비율: $pos');
       }
       await panelController.animatePanelToPosition(
-        clamped,
+        pos,
         duration: const Duration(milliseconds: 220),
       );
-      _panelPos = clamped;
+      _panelPos = pos;
     }
   }
 

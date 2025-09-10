@@ -153,7 +153,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       final minContent = _panelMin + _panelHeaderExtra + _itemMinHeight * 1.5;
 
       setState(() {
-        _panelMax = maxAllowed.clamp(minContent, screenHeight);
+        // 패널이 버튼을 절대 가리지 않도록 maxAllowed로 직접 제한
+        _panelMax = maxAllowed;
+        
+        // 최소 콘텐츠가 maxAllowed보다 크면 maxAllowed를 최소 콘텐츠로 설정
+        if (maxAllowed < minContent) {
+          _panelMax = minContent;
+        }
       });
 
       if (AppConfig.isDebugMode) {

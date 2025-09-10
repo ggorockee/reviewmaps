@@ -66,7 +66,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   bool _isFirstSearch = true;
   
   // 패널 위치 상태 추적 대신, 실제 포지션 기억
-  double? _lastPanelPos;
+  double _panelPos = 0.0;           // 패널 비율 (0.0~1.0)
+  double? _lastPanelHeight;          // 실제 픽셀 높이 저장
 
   static const double _itemMinHeight = 108.0;
   // 핸들(_panelMin=40) + 정렬칩 영역(대략)
@@ -227,7 +228,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     );
 
     _currentPanelState = PanelState.waitHeight;
-    _lastPanelPos = position;
+    _lastPanelHeight = _currentPanelHeight();
   }
 
   Future<void> _animatePanelToListPeek() async {
@@ -265,30 +266,32 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     );
 
     _currentPanelState = PanelState.executeHeight;
-    _lastPanelPos = position;
+    _lastPanelHeight = _currentPanelHeight();
   }
 
   // 패널 위치 기억
   void _rememberPanelPosition() {
     if (panelController.isAttached) {
-      _lastPanelPos = _panelPos; // 현재 패널 비율 값 저장 (0.0 ~ 1.0)
+      _lastPanelHeight = _currentPanelHeight();
       if (AppConfig.isDebugMode) {
-        print('[Map][_rememberPanelPosition] 저장된 패널 위치: $_lastPanelPos');
+        print('[Map][_rememberPanelPosition] 저장된 패널 높이: $_lastPanelHeight');
       }
     }
   }
 
   // 패널 위치 복원
   Future<void> _restorePanelPosition() async {
-    if (panelController.isAttached && _lastPanelPos != null) {
-      final pos = _lastPanelPos!.clamp(0.0, 1.0);
+    if (panelController.isAttached && _lastPanelHeight != null) {
+      final pos = (_lastPanelHeight! - _panelMin) / (_panelMax - _panelMin);
+      final clamped = pos.clamp(0.0, 1.0);
       if (AppConfig.isDebugMode) {
-        print('[Map][_restorePanelPosition] 복원할 패널 위치: $pos');
+        print('[Map][_restorePanelPosition] 복원할 비율: $clamped');
       }
       await panelController.animatePanelToPosition(
-        pos,
+        clamped,
         duration: const Duration(milliseconds: 220),
       );
+      _panelPos = clamped;
     }
   }
 
@@ -390,7 +393,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           if (panelController.isAttached) {
             panelController.animatePanelToPosition(0.0, duration: const Duration(milliseconds: 180));
             _currentPanelState = PanelState.closed;
-            _lastPanelPos = 0.0; // 패널이 닫힌 상태도 저장
+            _lastPanelHeight = _panelMin; // 패널이 닫힌 상태도 저장
           }
         }
         if (mounted) {
@@ -668,81 +671,86 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
 
   Widget _buildPanel() {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(24.0),
-          topRight: Radius.circular(24.0),
-        ),
-      ),
-      child: Column(
-        children: [
-          // 핸들
-          SizedBox(
-            height: _panelMin,
-            child: Center(
-              child: Container(
-                width: 40,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: Colors.grey[500],
-                  borderRadius: BorderRadius.circular(12.0),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // 현재 패널 높이 (픽셀 단위)
+        final currentHeight = _currentPanelHeight();
+
+        // 버튼 영역
+        final buttonTop = t(context, 45.0.h, 60.0.h);
+        final buttonHeight = t(context, 30.0.h, 30.0.h);
+        final buttonBottom = buttonTop + buttonHeight;
+        final safePadding = 12.h;
+
+        // 최대 높이 = 버튼 위까지만
+        final maxAllowed = constraints.maxHeight - buttonBottom - safePadding;
+
+        // 최소 1.5개 아이템 보장
+        final minContent = _panelMin + _panelHeaderExtra + _itemMinHeight * 1.5;
+
+        // 현재 높이에 맞는 리스트 영역
+        final listHeight = (currentHeight - _panelMin - _panelHeaderExtra)
+            .clamp(_itemMinHeight * 1.5, maxAllowed);
+
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(24.0),
+              topRight: Radius.circular(24.0),
+            ),
+          ),
+          child: Column(
+            children: [
+              // 핸들
+              SizedBox(
+                height: _panelMin,
+                child: Center(
+                  child: Container(
+                    width: 40,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[500],
+                      borderRadius: BorderRadius.circular(12.0),
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-          // 정렬칩 영역
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                _buildSortChip('최신등록순', '-created_at'),
-                const SizedBox(width: 8),
-                _buildSortChip('마감임박순', 'apply_deadline'),
-                const SizedBox(width: 8),
-                _buildSortChip('거리순', 'distance'),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8), // 필터와 목록 사이 간격
-
-          // 목록
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                // 현재 패널이 차지하는 실제 높이
-                final currentHeight = _currentPanelHeight();
-
-                // 버튼 위까지만 허용되는 최대 높이
-                final maxListHeight = _panelMax - _panelMin - _panelHeaderExtra;
-
-                // 현재 높이에서 헤더(핸들+칩) 빼고 → 실제 리스트 가능한 높이
-                final availableHeight = (currentHeight - _panelMin - _panelHeaderExtra)
-                    .clamp(0.0, maxListHeight);
-
-                return SizedBox(
-                  height: availableHeight,
-                  child: _displayedStores.isEmpty
-                      ? const Center(child: Text("먼저 '이 위치로 검색'을 눌러주세요."))
-                      : ListView.separated(
-                          padding: EdgeInsets.only(bottom: 12.h),
-                          itemCount: _displayedStores.length,
-                          itemBuilder: (context, index) =>
-                              StoreListItem(store: _displayedStores[index]),
-                          separatorBuilder: (context, index) => Divider(
-                            indent: 16,
-                            endIndent: 16,
-                            color: Colors.grey.shade100,
-                          ),
+              // 정렬칩
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Row(
+                  children: [
+                    _buildSortChip('최신등록순', '-created_at'),
+                    const SizedBox(width: 8),
+                    _buildSortChip('마감임박순', 'apply_deadline'),
+                    const SizedBox(width: 8),
+                    _buildSortChip('거리순', 'distance'),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              // 리스트
+              SizedBox(
+                height: listHeight,
+                child: _displayedStores.isEmpty
+                    ? const Center(child: Text("먼저 '이 위치로 검색'을 눌러주세요."))
+                    : ListView.separated(
+                        padding: EdgeInsets.only(bottom: 12.h),
+                        itemCount: _displayedStores.length,
+                        itemBuilder: (context, index) =>
+                            StoreListItem(store: _displayedStores[index]),
+                        separatorBuilder: (context, index) => Divider(
+                          indent: 16,
+                          endIndent: 16,
+                          color: Colors.grey.shade100,
                         ),
-                );
-              },
-            ),
+                      ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 

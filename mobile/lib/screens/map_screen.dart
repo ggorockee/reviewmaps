@@ -145,6 +145,29 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       _panelMin + (_panelMax - _panelMin) * _panelPos;
 
 
+  // 패널을 살짝만 올리는 함수 (지도 터치 시 사용)
+  Future<void> _animatePanelToSlightPeek() async {
+    if (!panelController.isAttached) {
+      // 패널 컨트롤러 붙을 때까지 잠깐 대기 (최대 ~160ms)
+      int guard = 0;
+      while (!panelController.isAttached && guard < 10) {
+        await Future.delayed(const Duration(milliseconds: 16));
+        guard++;
+      }
+    }
+    if (!panelController.isAttached) return;
+
+    // 살짝만 올리기 (헤더 + 0.5개 아이템 높이)
+    final desiredHeight = _panelMin + _panelHeaderExtra + _itemMinHeight * 0.5;
+    final clamped = desiredHeight.clamp(_panelMin, _panelMax);
+    final position = (clamped - _panelMin) / (_panelMax - _panelMin);
+
+    await panelController.animatePanelToPosition(
+      position.toDouble(),
+      duration: const Duration(milliseconds: 220),
+    );
+  }
+
   Future<void> _animatePanelToListPeek() async {
     if (!panelController.isAttached) {
       // 패널 컨트롤러 붙을 때까지 잠깐 대기 (최대 ~160ms)
@@ -169,7 +192,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
 
   // 현재 뷰포트 검색
-  Future<void> _searchInCurrentViewport({bool programmatic = false}) async {
+  Future<void> _searchInCurrentViewport({bool programmatic = false, bool shouldOpenPanel = true}) async {
     if (!_mapReady) { showFriendlySnack(context, '지도를 준비 중이에요. 잠시만요 🧭'); return; }
     if (_searchInFlight) return; // 중복 막기
 
@@ -224,20 +247,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       await _naverController.addOverlayAll(overlays);
 
       if (storesInBounds.isNotEmpty) {
-        // 패널 열기 (동일)
-        WidgetsBinding.instance.addPostFrameCallback((_) async {
-          if (!mounted) return;
-          // int guard = 0;
-          // while (!panelController.isAttached && guard < 10) {
-          //   await Future.delayed(const Duration(milliseconds: 16));
-          //   guard++;
-          // }
-          // final desiredHeight = _panelMin + _panelHeaderExtra + _itemMinHeight * 1.5;
-          // final clamped = desiredHeight.clamp(_panelMin, _panelMax);
-          // final position = (clamped - _panelMin) / (_panelMax - _panelMin);
-          // panelController.animatePanelToPosition(position.toDouble(), duration: const Duration(milliseconds: 220));
-          await _animatePanelToListPeek();
-        });
+        // 패널 열기 (사용자가 직접 검색한 경우에만, 그리고 패널을 열어야 하는 경우에만)
+        if (!programmatic && shouldOpenPanel) {
+          WidgetsBinding.instance.addPostFrameCallback((_) async {
+            if (!mounted) return;
+            await _animatePanelToListPeek();
+          });
+        }
         if (mounted) setState(() => _showEmptyResultMessage = false);
       } else {
         // 빈 결과 처리 (중복 로직 정리)
@@ -345,7 +361,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               onMapTapped: (NPoint point, NLatLng latLng) async {
                 if (!panelController.isAttached) return;
                 if (_displayedStores.isNotEmpty) {
-                  await _animatePanelToListPeek();
+                  await _animatePanelToSlightPeek(); // 살짝만 올리기
                 } else {
                   panelController.animatePanelToPosition(
                     0.0,
@@ -438,7 +454,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     minHeight: _isTablet(context) ? 30.h  : 30.h,
                   ),
                   child: ElevatedButton.icon(
-                    onPressed: _isCameraMoving ? null : () => _searchInCurrentViewport(programmatic: false),
+                    onPressed: _isCameraMoving ? null : () => _searchInCurrentViewport(programmatic: false, shouldOpenPanel: false),
                     icon: Icon(
                       Icons.refresh,
                       size: _isTablet(context) ? 11.sp : 18.sp,
@@ -549,11 +565,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly, // 균등 분배
                 children: [
                   _buildSortChip('최신등록순', '-created_at'),
-                  const SizedBox(width: 8),
                   _buildSortChip('마감임박순', 'apply_deadline'),
-                  const SizedBox(width: 8),
                   _buildSortChip('거리순', 'distance'),
                 ],
               ),
@@ -864,40 +879,46 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   Widget _buildSortChip(String label, String sortValue) {
     final bool isSelected = _currentSortOrder == sortValue;
 
-    return ChoiceChip(
-      label: Text(label),
-      selected: isSelected,
-      onSelected: (selected) {
-        if (selected) {
-          setState(() {
-            _currentSortOrder = sortValue;
-          });
-          _searchInCurrentViewport(); // 정렬 변경 시 데이터 다시 불러오기
-        }
-      },
-      // --- 👇 스타일링 수정 ---
-      // 선택되었을 때의 배경색
-      selectedColor: PRIMARY_COLOR,
-      // 선택되지 않았을 때의 배경색 (흰색으로 깔끔하게)
-      backgroundColor: Colors.white,
-      // 선택되지 않았을 때만 테두리를 표시
-      side: isSelected
-          ? BorderSide.none
-          : BorderSide(color: Colors.grey.shade300),
-      // 글자 스타일
-      labelStyle: TextStyle(
-        color: isSelected ? Colors.white : Colors.black87,
-        fontWeight: FontWeight.w500,
+    return Container(
+      width: 100.w, // 고정 너비 설정
+      child: ChoiceChip(
+        label: Text(label),
+        selected: isSelected,
+        onSelected: (selected) {
+          if (selected) {
+            setState(() {
+              _currentSortOrder = sortValue;
+            });
+            _searchInCurrentViewport(); // 정렬 변경 시 데이터 다시 불러오기
+          }
+        },
+        // --- 👇 스타일링 수정 ---
+        // 선택되었을 때의 배경색
+        selectedColor: PRIMARY_COLOR,
+        // 선택되지 않았을 때의 배경색 (흰색으로 깔끔하게)
+        backgroundColor: Colors.white,
+        // 선택되지 않았을 때만 테두리를 표시
+        side: isSelected
+            ? BorderSide.none
+            : BorderSide(color: Colors.grey.shade300),
+        // 패딩 줄이기
+        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+        // 글자 스타일 - 폰트 크기 키우기
+        labelStyle: TextStyle(
+          color: isSelected ? Colors.white : Colors.black87,
+          fontWeight: FontWeight.w500,
+          fontSize: 15.sp, // 폰트 크기 키움
+        ),
+        // 동그란 '약' 모양으로 변경
+        shape: const StadiumBorder(),
+        // 체크 아이콘은 표시하지 않음
+        showCheckmark: false,
+        // 내부 여백 조절
+        padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 6.0),
+        // 그림자 효과 제거
+        elevation: 0,
+        pressElevation: 0,
       ),
-      // 동그란 '약' 모양으로 변경
-      shape: const StadiumBorder(),
-      // 체크 아이콘은 표시하지 않음
-      showCheckmark: false,
-      // 내부 여백 조절
-      padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 6.0),
-      // 그림자 효과 제거
-      elevation: 0,
-      pressElevation: 0,
     );
   }
 

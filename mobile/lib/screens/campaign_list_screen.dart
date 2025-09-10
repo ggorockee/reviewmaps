@@ -438,8 +438,6 @@ class _CampaignListScreenState extends ConsumerState<CampaignListScreen> {
   /// 정렬 옵션 칩들을 표시하는 위젯 (최적화된 버전)
   Widget _buildSortChips(CampaignListSortOption currentSort) {
     final isTab = _isTablet(context);
-    final hasLocation = widget.userPosition != null;
-    // 화면 너비는 필요시 사용
     
     return Container(
       height: isTab ? 50.h : 44.h, // 높이 줄임
@@ -454,63 +452,33 @@ class _CampaignListScreenState extends ConsumerState<CampaignListScreen> {
         mainAxisAlignment: MainAxisAlignment.start, // 왼쪽 정렬
         children: CampaignListSortOption.values.map((option) {
           final isSelected = currentSort == option;
-          final isDistanceOption = option == CampaignListSortOption.nearest;
-          final canUseDistance = hasLocation;
           
           return Padding(
             padding: EdgeInsets.only(right: 8.w), // 버튼 간격
-            child: SizedBox(
-              width: isTab ? 85.w : 75.w, // 동일한 너비 설정
-              child: ChoiceChip(
-                label: Center(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (isDistanceOption && !canUseDistance)
-                        Icon(
-                          Icons.location_off,
-                          size: 12.w,
-                          color: Colors.grey[400],
-                        ),
-                      if (isDistanceOption && !canUseDistance)
-                        SizedBox(width: 3.w),
-                      Flexible(
-                        child: Text(
-                          option.displayName,
-                          style: TextStyle(
-                            fontSize: isTab ? 9.sp : 11.sp,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          textAlign: TextAlign.center,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                selected: isSelected,
-                onSelected: (selected) {
-                  if (selected) {
-                    ref.read(campaignListSortProvider.notifier).state = option;
-                  }
-                },
-                selectedColor: PRIMARY_COLOR,
-                backgroundColor: Colors.grey[100],
-                labelStyle: TextStyle(
-                  color: isSelected ? Colors.white : Colors.grey[700],
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16.r),
-                ),
-                showCheckmark: false,
-                padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 1.h),
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                // 거리순이지만 위치 정보가 없으면 비활성화
-                side: (isDistanceOption && !canUseDistance)
-                    ? BorderSide(color: Colors.grey[300]!)
-                    : null,
+            child: ChoiceChip(
+              label: Text(option.displayName),
+              selected: isSelected,
+              onSelected: (selected) {
+                if (selected) {
+                  ref.read(campaignListSortProvider.notifier).state = option;
+                }
+              },
+              // map_screen.dart와 동일한 스타일링
+              selectedColor: PRIMARY_COLOR,
+              backgroundColor: Colors.white,
+              side: isSelected
+                  ? BorderSide.none
+                  : BorderSide(color: Colors.grey.shade300),
+              padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 2.0),
+              labelStyle: TextStyle(
+                color: isSelected ? Colors.white : Colors.black87,
+                fontWeight: FontWeight.w500,
+                fontSize: 13.sp,
               ),
+              shape: const StadiumBorder(),
+              showCheckmark: false,
+              elevation: 0,
+              pressElevation: 0,
             ),
           );
         }).toList(),

@@ -286,63 +286,33 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
               child: Row(
                 children: SearchSortOption.values.map((option) {
                   final isSelected = currentSort == option;
-                  final isDistanceOption = option == SearchSortOption.nearest;
-                  final canUseDistance = userLocation != null;
                   
                   return Padding(
                     padding: EdgeInsets.only(right: 8.w),
-                    child: SizedBox(
-                      width: isTab ? 85.w : 90.w, // 균일한 칩 폭
-                      child: ChoiceChip(
-                        label: Center(
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              if (isDistanceOption && !canUseDistance)
-                                Icon(
-                                  Icons.location_off,
-                                  size: 12.w,
-                                  color: Colors.grey[400],
-                                ),
-                              if (isDistanceOption && !canUseDistance)
-                                SizedBox(width: 3.w),
-                              Flexible(
-                                child: Text(
-                                  option.displayName,
-                                  style: TextStyle(
-                                    fontSize: isTab ? 9.sp : 14.sp,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        selected: isSelected,
-                        onSelected: (selected) {
-                          if (selected) {
-                            _onSortOptionChanged(option);
-                          }
-                        },
-                        selectedColor: PRIMARY_COLOR,
-                        backgroundColor: Colors.grey[100],
-                        labelStyle: TextStyle(
-                          color: isSelected ? Colors.white : Colors.grey[700],
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16.r),
-                        ),
-                        showCheckmark: false,
-                        padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 1.h),
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        // 거리순이지만 위치 정보가 없으면 비활성화
-                        side: (isDistanceOption && !canUseDistance)
-                            ? BorderSide(color: Colors.grey[300]!)
-                            : null,
+                    child: ChoiceChip(
+                      label: Text(option.displayName),
+                      selected: isSelected,
+                      onSelected: (selected) {
+                        if (selected) {
+                          _onSortOptionChanged(option);
+                        }
+                      },
+                      // map_screen.dart와 동일한 스타일링
+                      selectedColor: PRIMARY_COLOR,
+                      backgroundColor: Colors.white,
+                      side: isSelected
+                          ? BorderSide.none
+                          : BorderSide(color: Colors.grey.shade300),
+                      padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 2.0),
+                      labelStyle: TextStyle(
+                        color: isSelected ? Colors.white : Colors.black87,
+                        fontWeight: FontWeight.w500,
+                        fontSize: 13.sp,
                       ),
+                      shape: const StadiumBorder(),
+                      showCheckmark: false,
+                      elevation: 0,
+                      pressElevation: 0,
                     ),
                   );
                 }).toList(),

@@ -91,10 +91,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   NLatLng? _pendingTarget;
 
   // 패널/지도 패딩
-  double _panelPos = 0.0;
-  static const double _panelMin = 40.0;
-  double _panelMax = 600.0; // 화면 높이에 따라 동적으로 조정 가능
-  double _mapBottomPadding = 80.0;
+  // 중복 선언된 _panelPos 제거 (위에서 이미 선언됨)
+  static const double _panelMin = 40.0;      // 패널 최소 높이(핸들)
+  double _panelMax = 600.0;                  // 패널 최대 높이(화면에 따라 동적 조정)
+  double _mapBottomPadding = 80.0;           // 지도 하단 패딩(패널/버튼 등 UI 요소 고려)
 
   // 초기 카메라
   static const double _initialLat = 37.6345;
@@ -134,37 +134,22 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
       final media = MediaQuery.of(context);
       final screenHeight = media.size.height;
-      final textScale = media.textScaleFactor;
 
-      // "이 위치로 검색" 버튼 위치
-      final buttonTop = t(context, 45.0.h, 60.0.h);
-      final buttonHeight = t(context, 30.0.h, 30.0.h);
-      final buttonBottom = buttonTop + buttonHeight;
+      // AppBar(검색창) 전체 높이
+      final appBarHeight = kToolbarHeight + media.padding.top; 
 
-      // 시스템 폰트 크기에 따라 가변 여백
-      final safePadding = 12.h; // 버튼 아래 여백만
+      // 버튼은 고려하지 않고, 검색창 아래까지만
+      final maxAllowed = screenHeight - appBarHeight;
 
       // 아이템 최소 1.5개 보장 높이
       final minContent = _panelMin + _panelHeaderExtra + _itemMinHeight * 1.5;
 
       setState(() {
-        final available = screenHeight - buttonBottom - safePadding;
-
-        // 아이템 최소 1.5개 보장
-        final minContent = _panelMin + _panelHeaderExtra + _itemMinHeight * 1.5;
-
-        // ✅ 버튼 바로 위까지만 패널 최대치 보장
-        _panelMax = available;
-
-        // 혹시라도 너무 작으면 최소 보장
-        if (_panelMax < minContent) {
-          _panelMax = minContent;
-        }
+        _panelMax = maxAllowed.clamp(minContent, screenHeight);
       });
 
       if (AppConfig.isDebugMode) {
-        print('📐 screen=$screenHeight, buttonBottom=$buttonBottom, safePadding=$safePadding');
-        print('📏 minContent=$minContent');
+        print('📐 screen=$screenHeight, appBarHeight=$appBarHeight');
         print('👉 panelMax=$_panelMax');
       }
     });
@@ -210,13 +195,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     // 아이템 최소 1.5개 보장
     final minHeight = _panelMin + _panelHeaderExtra + _itemMinHeight * 1.5;
 
-    // 버튼 bottom - 여백
+    // AppBar 기준 최대 높이
     final media = MediaQuery.of(context);
-    final buttonTop = t(context, 45.0.h, 60.0.h);
-    final buttonHeight = t(context, 30.0.h, 30.0.h);
-    final buttonBottom = buttonTop + buttonHeight;
-    final safePadding = 12.h; // 간단한 여백
-    final maxAllowed = media.size.height - buttonBottom - safePadding;
+    final appBarHeight = kToolbarHeight + media.padding.top;
+    final maxAllowed = media.size.height - appBarHeight;
 
     // 최종 높이
     final clamped = desiredHeight.clamp(minHeight, maxAllowed);
@@ -249,13 +231,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     // 아이템 최소 1.5개 보장
     final minHeight = _panelMin + _panelHeaderExtra + _itemMinHeight * 1.5;
 
-    // 버튼 bottom - 여백
+    // AppBar 기준 최대 높이
     final media = MediaQuery.of(context);
-    final buttonTop = t(context, 45.0.h, 60.0.h);
-    final buttonHeight = t(context, 30.0.h, 30.0.h);
-    final buttonBottom = buttonTop + buttonHeight;
-    final safePadding = 12.h; // 간단한 여백
-    final maxAllowed = media.size.height - buttonBottom - safePadding;
+    final appBarHeight = kToolbarHeight + media.padding.top;
+    final maxAllowed = media.size.height - appBarHeight;
 
     // 최종 높이
     final clamped = desiredHeight.clamp(minHeight, maxAllowed);
@@ -678,14 +657,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         // 현재 패널 높이 (픽셀 단위)
         final currentHeight = _currentPanelHeight();
 
-        // 버튼 영역
-        final buttonTop = t(context, 45.0.h, 60.0.h);
-        final buttonHeight = t(context, 30.0.h, 30.0.h);
-        final buttonBottom = buttonTop + buttonHeight;
-        final safePadding = 12.h;
-
-        // 최대 높이 = 버튼 위까지만
-        final maxAllowed = constraints.maxHeight - buttonBottom - safePadding;
+        // AppBar 기준 최대 높이
+        final media = MediaQuery.of(context);
+        final appBarHeight = kToolbarHeight + media.padding.top;
+        final maxAllowed = constraints.maxHeight - appBarHeight;
 
         // 최소 1.5개 아이템 보장
         final minContent = _panelMin + _panelHeaderExtra + _itemMinHeight * 1.5;

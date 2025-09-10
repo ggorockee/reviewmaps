@@ -160,7 +160,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     }
     if (!panelController.isAttached) return;
 
-    // 살짝만 올리기 (헤더 + 1개 아이템 높이로 조정하여 컨텐츠 일부 보이게)
+    // 대기높이로 올리기 (헤더 + 1개 아이템 높이로 조정하여 컨텐츠 일부 보이게)
     final desiredHeight = _panelMin + _panelHeaderExtra + _itemMinHeight * 1.0;
     final clamped = desiredHeight.clamp(_panelMin, _panelMax);
     final position = (clamped - _panelMin) / (_panelMax - _panelMin);
@@ -182,7 +182,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     }
     if (!panelController.isAttached) return;
 
-    // 검색 성공 시 쓰던 계산식 그대로 재사용
+    // 실행높이로 올리기 (검색 성공 시 쓰던 계산식 그대로 재사용)
     final desiredHeight = _panelMin + _panelHeaderExtra + _itemMinHeight * 1.5;
     final clamped = desiredHeight.clamp(_panelMin, _panelMax);
     final position = (clamped - _panelMin) / (_panelMax - _panelMin);
@@ -391,7 +391,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               onMapTapped: (NPoint point, NLatLng latLng) async {
                 if (!panelController.isAttached) return;
                 if (_displayedStores.isNotEmpty) {
-                  await _animatePanelToSlightPeek(); // 살짝만 올리기
+                  await _animatePanelToSlightPeek(); // 대기높이로 올리기
                 } else {
                   panelController.animatePanelToPosition(
                     0.0,
@@ -484,7 +484,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     minHeight: _isTablet(context) ? 30.h  : 30.h,
                   ),
                   child: ElevatedButton.icon(
-                    onPressed: _isCameraMoving ? null : () => _searchInCurrentViewport(programmatic: false, shouldOpenPanel: false),
+                    onPressed: _isCameraMoving ? null : () => _searchInCurrentViewport(programmatic: false, shouldOpenPanel: true),
                     icon: Icon(
                       Icons.refresh,
                       size: _isTablet(context) ? 11.sp : 18.sp,
@@ -595,12 +595,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                mainAxisAlignment: MainAxisAlignment.start,
                 children: [
                   _buildSortChip('최신등록순', '-created_at'),
-                  const SizedBox(width: 4),
+                  const SizedBox(width: 8),
                   _buildSortChip('마감임박순', 'apply_deadline'),
-                  const SizedBox(width: 4),
+                  const SizedBox(width: 8),
                   _buildSortChip('거리순', 'distance'),
                 ],
               ),
@@ -937,11 +937,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             : BorderSide(color: Colors.grey.shade300),
         // 패딩 더 줄이기
         padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 2.0),
-        // 글자 스타일 - 폰트 크기 키우기
+        // 글자 스타일 - 폰트 크기 약간 줄이기
         labelStyle: TextStyle(
           color: isSelected ? Colors.white : Colors.black87,
           fontWeight: FontWeight.w500,
-          fontSize: 15.sp, // 폰트 크기 키움
+          fontSize: 13.sp, // 폰트 크기 약간 줄임
         ),
         // 동그란 '약' 모양으로 변경
         shape: const StadiumBorder(),

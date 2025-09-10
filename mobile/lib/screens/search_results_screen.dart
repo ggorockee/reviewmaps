@@ -94,7 +94,12 @@ final searchResultsProvider = FutureProvider.family.autoDispose<List<Store>, Str
         results.sort((a, b) => b.createdAt.compareTo(a.createdAt));
         break;
       case SearchSortOption.nearest:
-        // 기본 정렬 유지
+        // 거리순 정렬 - 거리가 없는 항목은 후순위로
+        results.sort((a, b) {
+          final distanceA = a.distance ?? double.maxFinite;
+          final distanceB = b.distance ?? double.maxFinite;
+          return distanceA.compareTo(distanceB);
+        });
         break;
     }
   }

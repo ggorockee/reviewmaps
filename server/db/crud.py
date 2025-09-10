@@ -254,7 +254,7 @@ async def list_campaigns_optimized(
     if sort == "distance" and lat is not None and lng is not None:
         # 거리 계산 (Haversine 공식)
         distance_expr = case(
-            (and_(lat.isnot(None), lng.isnot(None)), 
+            (and_(lat is not None, lng is not None), 
              6371 * func.acos(
                  func.cos(func.radians(lat)) * func.cos(func.radians(Campaign.lat)) *
                  func.cos(func.radians(Campaign.lng) - func.radians(lng)) +

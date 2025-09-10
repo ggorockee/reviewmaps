@@ -28,7 +28,7 @@ class StoreListItem extends StatelessWidget {
         constraints: BoxConstraints(minHeight: 80.h), // 최소 높이 설정
         padding: EdgeInsets.symmetric(vertical: 16.h, horizontal: 16.w), // 위아래 같은 여백 + 좌우 패딩
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             // 가장 왼쪽: 플랫폼 로고 (크게)
             _buildPlatformLogo(store.platform),

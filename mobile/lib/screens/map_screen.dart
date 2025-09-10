@@ -147,10 +147,15 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       final minContent = _panelMin + _panelHeaderExtra + _itemMinHeight * 1.5;
 
       setState(() {
-        // 버튼 bottom 밑에서 safePadding만큼 띄운 뒤 → 아이템 1.5개 이상 확보
-        _panelMax = screenHeight - buttonBottom - safePadding;
+        final available = screenHeight - buttonBottom - safePadding;
 
-        // 최소 콘텐츠 높이 보장 (버튼이 아이템을 가리지 않도록)
+        // 아이템 최소 1.5개 보장
+        final minContent = _panelMin + _panelHeaderExtra + _itemMinHeight * 1.5;
+
+        // ✅ 버튼 바로 위까지만 패널 최대치 보장
+        _panelMax = available;
+
+        // 혹시라도 너무 작으면 최소 보장
         if (_panelMax < minContent) {
           _panelMax = minContent;
         }
@@ -706,24 +711,29 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             const SizedBox(height: 8), // 필터와 목록 사이 간격
             // 목록
             Expanded(
-              child: Stack(
-                children: [
-                  _displayedStores.isEmpty
-                      ? const Center(child: Text("먼저 '이 위치로 검색'을 눌러주세요."))
-                      : ListView.separated(
-                    // padding: EdgeInsets.zero,
-                    padding: EdgeInsets.only(bottom: 12.h), // 패널 하단 패딩
-                    cacheExtent: 500, // 스크롤 성능
-                    itemCount: _displayedStores.length,
-                    itemBuilder: (context, index) => StoreListItem(
-                      store: _displayedStores[index],
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  // ✅ 버튼 위까지만 보이도록 제한
+                  maxHeight: _panelMax - _panelMin,
+                ),
+                child: Stack(
+                  children: [
+                    _displayedStores.isEmpty
+                        ? const Center(child: Text("먼저 '이 위치로 검색'을 눌러주세요."))
+                        : ListView.separated(
+                      // padding: EdgeInsets.zero,
+                      padding: EdgeInsets.only(bottom: 12.h), // 패널 하단 패딩
+                      cacheExtent: 500, // 스크롤 성능
+                      itemCount: _displayedStores.length,
+                      itemBuilder: (context, index) => StoreListItem(
+                        store: _displayedStores[index],
+                      ),
+                      separatorBuilder: (context, index) => Divider(
+                        indent: 16,
+                        endIndent: 16,
+                        color: Colors.grey.shade100,
+                      ),
                     ),
-                    separatorBuilder: (context, index) => Divider(
-                      indent: 16,
-                      endIndent: 16,
-                      color: Colors.grey.shade100,
-                    ),
-                  ),
                   Positioned(
                     left: 0, right: 0, bottom: 0,
                     child: IgnorePointer(
@@ -744,6 +754,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     ),
                   ),
                 ],
+                ),
               ),
             ),
           ]

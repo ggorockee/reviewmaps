@@ -20,9 +20,9 @@ final campaignServiceProvider = Provider<CampaignService>((ref) {
 
 /// 검색 정렬 옵션 열거형
 enum SearchSortOption {
-  nearest('거리순', 'distance'),
+  newest('신규등록순', '-created_at'),
   deadline('마감임박순', 'apply_deadline'),
-  newest('신규등록순', '-created_at');
+  nearest('거리순', 'distance');
 
   const SearchSortOption(this.displayName, this.apiValue);
   final String displayName;
@@ -30,7 +30,7 @@ enum SearchSortOption {
 }
 
 // 2. 검색 정렬 상태를 관리하는 Provider
-final searchSortProvider = StateProvider.autoDispose<SearchSortOption>((ref) => SearchSortOption.nearest);
+final searchSortProvider = StateProvider.autoDispose<SearchSortOption>((ref) => SearchSortOption.newest);
 
 // 3. 사용자 위치 상태를 관리하는 Provider
 final userLocationProvider = StateProvider<Position?>((ref) => null);

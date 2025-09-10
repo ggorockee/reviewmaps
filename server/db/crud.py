@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Optional, Sequence, Tuple, List
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, update, delete, Date, case, or_, and_
+from sqlalchemy import select, func, update, delete, Date, case, or_, and_, text
 from datetime import timedelta
 from .models import Campaign, Category, RawCategory, CategoryMapping
 from schemas.category import CategoryMappingCreate,CategoryCreate
@@ -141,7 +141,283 @@ def get_distance_query(lat: float, lng: float):
 
 
 
+async def list_campaigns_optimized(
+    db: AsyncSession,
+    *,
+    # --- 새로운 필터 파라미터 추가 ---
+    region: Optional[str] = None,
+    offer: Optional[str] = None,  # ✨ 추가: 오퍼(텍스트) 부분검색
+    campaign_type: Optional[str] = None,
+    campaign_channel: Optional[str] = None,
+    # ------------------------------------
+    category_id: Optional[int] = None, # ✨ 필터 파라미터 추가
+    q: Optional[str] = None,
+    platform: Optional[str] = None,
+    company: Optional[str] = None,
+    apply_from: Optional[str] = None, # API 단에서 datetime으로 파싱된 것을 받는다고 가정
+    apply_to: Optional[str] = None,
+    review_from: Optional[str] = None,
+    review_to: Optional[str] = None,
+    sw_lat: Optional[float] = None,
+    sw_lng: Optional[float] = None,
+    ne_lat: Optional[float] = None,
+    ne_lng: Optional[float] = None,
+    lat: Optional[float] = None,
+    lng: Optional[float] = None,
+    sort: str = "-created_at",
+    limit: int = 20,
+    offset: int = 0,
+) -> Tuple[int, Sequence[Campaign]]:
+    """
+    ✨ 성능 최적화된 캠페인 목록 조회
+    - idx_campaign_promo_deadline_lat_lng 인덱스 최대 활용
+    - idx_campaign_lat_lng GiST 인덱스 활용 (지도 뷰포트용)
+    - Raw SQL로 최적화된 쿼리 실행
+    """
+    
+    # 기본 조건: apply_deadline >= current_date 강제 적용
+    base_conditions = ["c.apply_deadline >= CURRENT_DATE"]
+    params = {}
+    
+    # 지도 뷰포트 조건 확인 (GiST 인덱스 활용 가능)
+    is_map_viewport = None not in (sw_lat, sw_lng, ne_lat, ne_lng)
+    
+    if is_map_viewport:
+        # GiST 인덱스 활용을 위한 point <@ box 조건
+        lat_min, lat_max = sorted([sw_lat, ne_lat])
+        lng_min, lng_max = sorted([sw_lng, ne_lng])
+        
+        # 넓은 범위 검색 시 GiST 인덱스 활용
+        viewport_area = (lat_max - lat_min) * (lng_max - lng_min)
+        if viewport_area > 0.01:  # 넓은 범위 (약 1km² 이상)
+            base_conditions.append("point(c.lng, c.lat) <@ box(point(:sw_lng, :sw_lat), point(:ne_lng, :ne_lat))")
+            params.update({
+                'sw_lat': lat_min, 'sw_lng': lng_min,
+                'ne_lat': lat_max, 'ne_lng': lng_max
+            })
+        else:
+            # 좁은 범위는 B-Tree 인덱스 활용
+            base_conditions.extend([
+                "c.lat BETWEEN :lat_min AND :lat_max",
+                "c.lng BETWEEN :lng_min AND :lng_max"
+            ])
+            params.update({
+                'lat_min': lat_min, 'lat_max': lat_max,
+                'lng_min': lng_min, 'lng_max': lng_max
+            })
+    
+    # 추가 필터 조건들
+    if category_id:
+        base_conditions.append("c.category_id = :category_id")
+        params['category_id'] = category_id
+    
+    if platform:
+        base_conditions.append("c.platform = :platform")
+        params['platform'] = platform
+    
+    if company:
+        base_conditions.append("c.company ILIKE :company")
+        params['company'] = f"%{company}%"
+    
+    if campaign_type:
+        base_conditions.append("c.campaign_type = :campaign_type")
+        params['campaign_type'] = campaign_type
+    
+    if campaign_channel:
+        tokens = [t.strip() for t in campaign_channel.split(",") if t.strip()]
+        if tokens:
+            channel_conditions = []
+            for i, token in enumerate(tokens):
+                param_name = f"campaign_channel_{i}"
+                channel_conditions.append(f"c.campaign_channel ILIKE :{param_name}")
+                params[param_name] = f"%{token}%"
+            base_conditions.append(f"({' OR '.join(channel_conditions)})")
+    
+    if region:
+        tokens = [t.strip() for t in region.split() if t.strip()]
+        region_conditions = []
+        for i, token in enumerate(tokens):
+            param_name = f"region_{i}"
+            region_conditions.append(f"(c.region ILIKE :{param_name} OR c.address ILIKE :{param_name} OR c.title ILIKE :{param_name})")
+            params[param_name] = f"%{token}%"
+        base_conditions.append(f"({' OR '.join(region_conditions)})")
+    
+    if q:
+        base_conditions.append("(c.company ILIKE :q OR c.offer ILIKE :q OR c.platform ILIKE :q OR c.title ILIKE :q)")
+        params['q'] = f"%{q}%"
+    
+    # 정렬 조건 결정
+    if sort == "distance" and lat is not None and lng is not None:
+        # 거리순 정렬: promotion_level 우선 + 거리순 + 의사랜덤
+        order_clause = """
+            COALESCE(c.promotion_level, 0) DESC,
+            ST_Distance(
+                ST_Point(c.lng, c.lat)::geography,
+                ST_Point(:user_lng, :user_lat)::geography
+            ) ASC NULLS LAST,
+            ABS(HASH(c.id)) % 1000,
+            c.created_at DESC
+        """
+        params.update({'user_lat': lat, 'user_lng': lng})
+    else:
+        # 일반 정렬: promotion_level 우선 + 의사랜덤 + 기존 정렬
+        sort_map = {
+            "created_at": "c.created_at",
+            "updated_at": "c.updated_at", 
+            "apply_deadline": "c.apply_deadline",
+            "review_deadline": "c.review_deadline",
+        }
+        desc = sort.startswith("-")
+        key = sort[1:] if desc else sort
+        sort_col = sort_map.get(key, "c.created_at")
+        sort_direction = "DESC" if desc else "ASC"
+        
+        order_clause = f"""
+            COALESCE(c.promotion_level, 0) DESC,
+            ABS(HASH(c.id)) % 1000,
+            {sort_col} {sort_direction}
+        """
+    
+    # 최적화된 쿼리 실행
+    where_clause = " AND ".join(base_conditions)
+    
+    # 메인 쿼리 - idx_campaign_promo_deadline_lat_lng 인덱스 최대 활용
+    main_query = text(f"""
+        WITH filtered_campaigns AS (
+            SELECT 
+                c.*,
+                cat.name as category_name,
+                cat.display_order as category_display_order,
+                (c.created_at::date >= CURRENT_DATE - INTERVAL '2 days') as is_new,
+                CASE 
+                    WHEN :user_lat IS NOT NULL AND :user_lng IS NOT NULL THEN
+                        ST_Distance(
+                            ST_Point(c.lng, c.lat)::geography,
+                            ST_Point(:user_lng, :user_lat)::geography
+                        )
+                    ELSE NULL
+                END as distance
+            FROM campaign c
+            LEFT JOIN categories cat ON c.category_id = cat.id
+            WHERE {where_clause}
+        )
+        SELECT 
+            id, category_id, platform, company, company_link, offer,
+            apply_deadline, review_deadline, address, lat, lng, img_url,
+            search_text, created_at, updated_at, source, title, content_link,
+            campaign_type, region, campaign_channel, apply_from, promotion_level,
+            category_name, category_display_order, is_new, distance
+        FROM filtered_campaigns
+        ORDER BY {order_clause}
+        LIMIT :limit OFFSET :offset
+    """)
+    
+    # Count 쿼리 - 동일한 필터 조건 적용
+    count_query = text(f"""
+        SELECT COUNT(*)
+        FROM campaign c
+        WHERE {where_clause}
+    """)
+    
+    # 파라미터 설정
+    params.update({
+        'limit': limit,
+        'offset': offset,
+        'user_lat': lat if lat is not None else None,
+        'user_lng': lng if lng is not None else None
+    })
+    
+    # 쿼리 실행
+    count_result = await db.execute(count_query, params)
+    total = count_result.scalar()
+    
+    main_result = await db.execute(main_query, params)
+    rows = []
+    
+    for row in main_result:
+        # Campaign 객체 생성 및 속성 설정
+        campaign = Campaign()
+        for key, value in row._mapping.items():
+            if hasattr(campaign, key):
+                setattr(campaign, key, value)
+        
+        # 추가 속성 설정
+        campaign.is_new = row.is_new
+        campaign.distance = row.distance
+        
+        # Category 객체 설정
+        if row.category_name:
+            campaign.category = Category(
+                id=row.category_id,
+                name=row.category_name,
+                display_order=row.category_display_order
+            )
+        
+        rows.append(campaign)
+    
+    return total, rows
+
+
 async def list_campaigns(
+    db: AsyncSession,
+    *,
+    # --- 새로운 필터 파라미터 추가 ---
+    region: Optional[str] = None,
+    offer: Optional[str] = None,  # ✨ 추가: 오퍼(텍스트) 부분검색
+    campaign_type: Optional[str] = None,
+    campaign_channel: Optional[str] = None,
+    # ------------------------------------
+    category_id: Optional[int] = None, # ✨ 필터 파라미터 추가
+    q: Optional[str] = None,
+    platform: Optional[str] = None,
+    company: Optional[str] = None,
+    apply_from: Optional[str] = None, # API 단에서 datetime으로 파싱된 것을 받는다고 가정
+    apply_to: Optional[str] = None,
+    review_from: Optional[str] = None,
+    review_to: Optional[str] = None,
+    sw_lat: Optional[float] = None,
+    sw_lng: Optional[float] = None,
+    ne_lat: Optional[float] = None,
+    ne_lng: Optional[float] = None,
+    lat: Optional[float] = None,
+    lng: Optional[float] = None,
+    sort: str = "-created_at",
+    limit: int = 20,
+    offset: int = 0,
+) -> Tuple[int, Sequence[Campaign]]:
+    """
+    ✨ 성능 최적화된 캠페인 목록 조회 (메인 함수)
+    - idx_campaign_promo_deadline_lat_lng 인덱스 최대 활용
+    - idx_campaign_lat_lng GiST 인덱스 활용 (지도 뷰포트용)
+    - Raw SQL로 최적화된 쿼리 실행
+    """
+    return await list_campaigns_optimized(
+        db=db,
+        region=region,
+        offer=offer,
+        campaign_type=campaign_type,
+        campaign_channel=campaign_channel,
+        category_id=category_id,
+        q=q,
+        platform=platform,
+        company=company,
+        apply_from=apply_from,
+        apply_to=apply_to,
+        review_from=review_from,
+        review_to=review_to,
+        sw_lat=sw_lat,
+        sw_lng=sw_lng,
+        ne_lat=ne_lat,
+        ne_lng=ne_lng,
+        lat=lat,
+        lng=lng,
+        sort=sort,
+        limit=limit,
+        offset=offset,
+    )
+
+
+async def list_campaigns_legacy(
     db: AsyncSession,
     *,
     # --- 새로운 필터 파라미터 추가 ---
@@ -447,3 +723,312 @@ async def update_category_order(db: AsyncSession, ordered_ids: List[int]) -> int
     await db.commit()
 
     return result.rowcount # 업데이트된 행의 수를 반환
+
+
+async def explain_analyze_campaign_query(
+    db: AsyncSession,
+    *,
+    region: Optional[str] = None,
+    offer: Optional[str] = None,
+    campaign_type: Optional[str] = None,
+    campaign_channel: Optional[str] = None,
+    category_id: Optional[int] = None,
+    q: Optional[str] = None,
+    platform: Optional[str] = None,
+    company: Optional[str] = None,
+    apply_from: Optional[str] = None,
+    apply_to: Optional[str] = None,
+    review_from: Optional[str] = None,
+    review_to: Optional[str] = None,
+    sw_lat: Optional[float] = None,
+    sw_lng: Optional[float] = None,
+    ne_lat: Optional[float] = None,
+    ne_lng: Optional[float] = None,
+    lat: Optional[float] = None,
+    lng: Optional[float] = None,
+    sort: str = "-created_at",
+    limit: int = 20,
+    offset: int = 0,
+) -> str:
+    """
+    ✨ EXPLAIN ANALYZE를 통한 쿼리 성능 분석
+    - 인덱스 활용도 확인
+    - 실행 계획 분석
+    - 성능 병목 지점 식별
+    """
+    
+    # 기본 조건: apply_deadline >= current_date 강제 적용
+    base_conditions = ["c.apply_deadline >= CURRENT_DATE"]
+    params = {}
+    
+    # 지도 뷰포트 조건 확인 (GiST 인덱스 활용 가능)
+    is_map_viewport = None not in (sw_lat, sw_lng, ne_lat, ne_lng)
+    
+    if is_map_viewport:
+        # GiST 인덱스 활용을 위한 point <@ box 조건
+        lat_min, lat_max = sorted([sw_lat, ne_lat])
+        lng_min, lng_max = sorted([sw_lng, ne_lng])
+        
+        # 넓은 범위 검색 시 GiST 인덱스 활용
+        viewport_area = (lat_max - lat_min) * (lng_max - lng_min)
+        if viewport_area > 0.01:  # 넓은 범위 (약 1km² 이상)
+            base_conditions.append("point(c.lng, c.lat) <@ box(point(:sw_lng, :sw_lat), point(:ne_lng, :ne_lat))")
+            params.update({
+                'sw_lat': lat_min, 'sw_lng': lng_min,
+                'ne_lat': lat_max, 'ne_lng': lng_max
+            })
+        else:
+            # 좁은 범위는 B-Tree 인덱스 활용
+            base_conditions.extend([
+                "c.lat BETWEEN :lat_min AND :lat_max",
+                "c.lng BETWEEN :lng_min AND :lng_max"
+            ])
+            params.update({
+                'lat_min': lat_min, 'lat_max': lat_max,
+                'lng_min': lng_min, 'lng_max': lng_max
+            })
+    
+    # 추가 필터 조건들
+    if category_id:
+        base_conditions.append("c.category_id = :category_id")
+        params['category_id'] = category_id
+    
+    if platform:
+        base_conditions.append("c.platform = :platform")
+        params['platform'] = platform
+    
+    if company:
+        base_conditions.append("c.company ILIKE :company")
+        params['company'] = f"%{company}%"
+    
+    if campaign_type:
+        base_conditions.append("c.campaign_type = :campaign_type")
+        params['campaign_type'] = campaign_type
+    
+    if campaign_channel:
+        tokens = [t.strip() for t in campaign_channel.split(",") if t.strip()]
+        if tokens:
+            channel_conditions = []
+            for i, token in enumerate(tokens):
+                param_name = f"campaign_channel_{i}"
+                channel_conditions.append(f"c.campaign_channel ILIKE :{param_name}")
+                params[param_name] = f"%{token}%"
+            base_conditions.append(f"({' OR '.join(channel_conditions)})")
+    
+    if region:
+        tokens = [t.strip() for t in region.split() if t.strip()]
+        region_conditions = []
+        for i, token in enumerate(tokens):
+            param_name = f"region_{i}"
+            region_conditions.append(f"(c.region ILIKE :{param_name} OR c.address ILIKE :{param_name} OR c.title ILIKE :{param_name})")
+            params[param_name] = f"%{token}%"
+        base_conditions.append(f"({' OR '.join(region_conditions)})")
+    
+    if q:
+        base_conditions.append("(c.company ILIKE :q OR c.offer ILIKE :q OR c.platform ILIKE :q OR c.title ILIKE :q)")
+        params['q'] = f"%{q}%"
+    
+    # 정렬 조건 결정
+    if sort == "distance" and lat is not None and lng is not None:
+        # 거리순 정렬: promotion_level 우선 + 거리순 + 의사랜덤
+        order_clause = """
+            COALESCE(c.promotion_level, 0) DESC,
+            ST_Distance(
+                ST_Point(c.lng, c.lat)::geography,
+                ST_Point(:user_lng, :user_lat)::geography
+            ) ASC NULLS LAST,
+            ABS(HASH(c.id)) % 1000,
+            c.created_at DESC
+        """
+        params.update({'user_lat': lat, 'user_lng': lng})
+    else:
+        # 일반 정렬: promotion_level 우선 + 의사랜덤 + 기존 정렬
+        sort_map = {
+            "created_at": "c.created_at",
+            "updated_at": "c.updated_at", 
+            "apply_deadline": "c.apply_deadline",
+            "review_deadline": "c.review_deadline",
+        }
+        desc = sort.startswith("-")
+        key = sort[1:] if desc else sort
+        sort_col = sort_map.get(key, "c.created_at")
+        sort_direction = "DESC" if desc else "ASC"
+        
+        order_clause = f"""
+            COALESCE(c.promotion_level, 0) DESC,
+            ABS(HASH(c.id)) % 1000,
+            {sort_col} {sort_direction}
+        """
+    
+    # EXPLAIN ANALYZE 쿼리
+    where_clause = " AND ".join(base_conditions)
+    
+    explain_query = text(f"""
+        EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
+        WITH filtered_campaigns AS (
+            SELECT 
+                c.*,
+                cat.name as category_name,
+                cat.display_order as category_display_order,
+                (c.created_at::date >= CURRENT_DATE - INTERVAL '2 days') as is_new,
+                CASE 
+                    WHEN :user_lat IS NOT NULL AND :user_lng IS NOT NULL THEN
+                        ST_Distance(
+                            ST_Point(c.lng, c.lat)::geography,
+                            ST_Point(:user_lng, :user_lat)::geography
+                        )
+                    ELSE NULL
+                END as distance
+            FROM campaign c
+            LEFT JOIN categories cat ON c.category_id = cat.id
+            WHERE {where_clause}
+        )
+        SELECT 
+            id, category_id, platform, company, company_link, offer,
+            apply_deadline, review_deadline, address, lat, lng, img_url,
+            search_text, created_at, updated_at, source, title, content_link,
+            campaign_type, region, campaign_channel, apply_from, promotion_level,
+            category_name, category_display_order, is_new, distance
+        FROM filtered_campaigns
+        ORDER BY {order_clause}
+        LIMIT :limit OFFSET :offset
+    """)
+    
+    # 파라미터 설정
+    params.update({
+        'limit': limit,
+        'offset': offset,
+        'user_lat': lat if lat is not None else None,
+        'user_lng': lng if lng is not None else None
+    })
+    
+    # EXPLAIN ANALYZE 실행
+    result = await db.execute(explain_query, params)
+    explain_result = result.scalar()
+    
+    # JSON 결과를 문자열로 변환하여 반환
+    import json
+    return json.dumps(explain_result, indent=2, ensure_ascii=False)
+
+
+async def get_index_usage_stats(db: AsyncSession) -> dict:
+    """
+    ✨ 인덱스 사용 통계 조회
+    - idx_campaign_promo_deadline_lat_lng 사용률
+    - idx_campaign_lat_lng 사용률
+    - 전체 인덱스 효율성 분석
+    """
+    
+    stats_query = text("""
+        SELECT 
+            schemaname,
+            tablename,
+            indexname,
+            idx_scan as index_scans,
+            idx_tup_read as tuples_read,
+            idx_tup_fetch as tuples_fetched,
+            pg_size_pretty(pg_relation_size(indexrelid)) as index_size
+        FROM pg_stat_user_indexes 
+        WHERE tablename = 'campaign'
+        AND indexname IN (
+            'idx_campaign_promo_deadline_lat_lng',
+            'idx_campaign_lat_lng',
+            'idx_campaign_promotion_deadline',
+            'idx_campaign_created_at',
+            'idx_campaign_category_id',
+            'idx_campaign_apply_deadline'
+        )
+        ORDER BY idx_scan DESC;
+    """)
+    
+    result = await db.execute(stats_query)
+    stats = []
+    
+    for row in result:
+        stats.append({
+            'schema': row.schemaname,
+            'table': row.tablename,
+            'index': row.indexname,
+            'scans': row.index_scans,
+            'tuples_read': row.tuples_read,
+            'tuples_fetched': row.tuples_fetched,
+            'size': row.index_size
+        })
+    
+    return {'index_stats': stats}
+
+
+async def benchmark_campaign_queries(db: AsyncSession) -> dict:
+    """
+    ✨ 캠페인 쿼리 성능 벤치마크
+    - 추천 체험단 쿼리 성능 측정
+    - 지도 뷰포트 쿼리 성능 측정
+    - 다양한 시나리오별 성능 비교
+    """
+    import time
+    
+    benchmarks = {}
+    
+    # 1. 추천 체험단 쿼리 벤치마크
+    start_time = time.time()
+    total, rows = await list_campaigns_optimized(
+        db=db,
+        limit=20,
+        offset=0
+    )
+    recommendation_time = (time.time() - start_time) * 1000
+    benchmarks['recommendation_query'] = {
+        'execution_time_ms': recommendation_time,
+        'total_results': total,
+        'returned_results': len(rows)
+    }
+    
+    # 2. 지도 뷰포트 쿼리 벤치마크 (좁은 범위)
+    start_time = time.time()
+    total, rows = await list_campaigns_optimized(
+        db=db,
+        sw_lat=37.5, sw_lng=127.0,
+        ne_lat=37.6, ne_lng=127.1,
+        limit=20,
+        offset=0
+    )
+    map_narrow_time = (time.time() - start_time) * 1000
+    benchmarks['map_viewport_narrow'] = {
+        'execution_time_ms': map_narrow_time,
+        'total_results': total,
+        'returned_results': len(rows)
+    }
+    
+    # 3. 지도 뷰포트 쿼리 벤치마크 (넓은 범위)
+    start_time = time.time()
+    total, rows = await list_campaigns_optimized(
+        db=db,
+        sw_lat=37.0, sw_lng=126.0,
+        ne_lat=38.0, ne_lng=128.0,
+        limit=20,
+        offset=0
+    )
+    map_wide_time = (time.time() - start_time) * 1000
+    benchmarks['map_viewport_wide'] = {
+        'execution_time_ms': map_wide_time,
+        'total_results': total,
+        'returned_results': len(rows)
+    }
+    
+    # 4. 거리순 정렬 쿼리 벤치마크
+    start_time = time.time()
+    total, rows = await list_campaigns_optimized(
+        db=db,
+        lat=37.5665, lng=126.9780,  # 서울시청 좌표
+        sort="distance",
+        limit=20,
+        offset=0
+    )
+    distance_sort_time = (time.time() - start_time) * 1000
+    benchmarks['distance_sort_query'] = {
+        'execution_time_ms': distance_sort_time,
+        'total_results': total,
+        'returned_results': len(rows)
+    }
+    
+    return benchmarks

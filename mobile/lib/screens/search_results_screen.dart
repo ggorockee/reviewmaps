@@ -63,29 +63,28 @@ final searchResultsProvider = FutureProvider.family.autoDispose<List<Store>, Str
       return store;
     }).toList();
   }
-    
-    // 클라이언트 사이드 정렬 (서버에서 지원하지 않는 경우)
-    switch (sortOption) {
-      case SearchSortOption.deadline:
-        results.sort((a, b) {
-          if (a.applyDeadline == null && b.applyDeadline == null) return 0;
-          if (a.applyDeadline == null) return 1;
-          if (b.applyDeadline == null) return -1;
-          return a.applyDeadline!.compareTo(b.applyDeadline!);
-        });
-        break;
-      case SearchSortOption.newest:
-        results.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-        break;
-      case SearchSortOption.nearest:
-        // 거리순 정렬 - 거리가 없는 항목은 후순위로
-        results.sort((a, b) {
-          final distanceA = a.distance ?? double.maxFinite;
-          final distanceB = b.distance ?? double.maxFinite;
-          return distanceA.compareTo(distanceB);
-        });
-        break;
-    }
+  
+  // 클라이언트 사이드 정렬 (서버에서 지원하지 않는 경우)
+  switch (sortOption) {
+    case SearchSortOption.deadline:
+      results.sort((a, b) {
+        if (a.applyDeadline == null && b.applyDeadline == null) return 0;
+        if (a.applyDeadline == null) return 1;
+        if (b.applyDeadline == null) return -1;
+        return a.applyDeadline!.compareTo(b.applyDeadline!);
+      });
+      break;
+    case SearchSortOption.newest:
+      results.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      break;
+    case SearchSortOption.nearest:
+      // 거리순 정렬 - 거리가 없는 항목은 후순위로
+      results.sort((a, b) {
+        final distanceA = a.distance ?? double.maxFinite;
+        final distanceB = b.distance ?? double.maxFinite;
+        return distanceA.compareTo(distanceB);
+      });
+      break;
   }
   
   return results;

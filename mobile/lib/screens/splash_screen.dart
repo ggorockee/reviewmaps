@@ -141,17 +141,17 @@ class _SplashScreenState extends State<SplashScreen>
                     SizedBox(height: 24.h),
                     
                     // 앱 이름
-                    Text(
-                      '리뷰맵',
-                      style: TextStyle(
-                        fontSize: 32.sp,
-                        fontWeight: FontWeight.w900,
-                        color: PRIMARY_COLOR,
-                        letterSpacing: 2.0,
-                      ),
-                    ),
+                    // Text(
+                    //   '리뷰맵',
+                    //   style: TextStyle(
+                    //     fontSize: 32.sp,
+                    //     fontWeight: FontWeight.w900,
+                    //     color: PRIMARY_COLOR,
+                    //     letterSpacing: 2.0,
+                    //   ),
+                    // ),
                     
-                    SizedBox(height: 8.h),
+                    // SizedBox(height: 8.h),
                     
                     // 서브타이틀
                     Text(

@@ -135,31 +135,25 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       final media = MediaQuery.of(context);
       final screenHeight = media.size.height;
 
-      // AppBar(검색창) 전체 높이
-      final appBarHeight = kToolbarHeight + media.padding.top; 
-      
-      // 버튼 위치 계산
+      // AppBar 높이
+      final appBarHeight = kToolbarHeight + media.padding.top;
+
+      // 버튼 위치와 크기 (Positioned에서 사용한 것과 동일하게 계산)
       final buttonTop = t(context, 45.0.h, 60.0.h);
       final buttonHeight = t(context, 30.0.h, 30.0.h);
       final buttonBottom = buttonTop + buttonHeight;
-      
-      // 버튼 아래 여백 추가 (버튼을 절대 가리지 않도록)
-      final safePadding = 20.h; // 충분한 여백으로 버튼 보호
 
-      // 패널이 버튼을 절대 가리지 않도록 제한
-      final maxAllowed = screenHeight - buttonBottom - safePadding;
+      // 버튼을 가리지 않도록 안전 여백
+      final safePadding = 230.h;
 
-      // 아이템 최소 1.5개 보장 높이
+      // 최대 높이 = 화면 전체 높이 - (버튼 bottom + safePadding)
+      final maxAllowed = screenHeight - (buttonBottom + safePadding);
+
+      // 최소 1.5개 아이템 보장
       final minContent = _panelMin + _panelHeaderExtra + _itemMinHeight * 1.5;
 
       setState(() {
-        // 패널이 버튼을 절대 가리지 않도록 maxAllowed로 직접 제한
-        _panelMax = maxAllowed;
-        
-        // 최소 콘텐츠가 maxAllowed보다 크면 maxAllowed를 최소 콘텐츠로 설정
-        if (maxAllowed < minContent) {
-          _panelMax = minContent;
-        }
+        _panelMax = maxAllowed.clamp(minContent, screenHeight);
       });
 
       if (AppConfig.isDebugMode) {

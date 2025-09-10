@@ -315,10 +315,15 @@ async def list_campaigns_optimized(
         if sort == "distance" and lat is not None and lng is not None:
             # Haversine 공식으로 거리 계산
             R = 6371  # 지구 반지름 (km)
+            
+            # Decimal을 float로 변환하여 타입 통일
+            campaign_lat = float(campaign.lat)
+            campaign_lng = float(campaign.lng)
+            
             lat1_rad = math.radians(lat)
-            lat2_rad = math.radians(campaign.lat)
-            delta_lat = math.radians(campaign.lat - lat)
-            delta_lng = math.radians(campaign.lng - lng)
+            lat2_rad = math.radians(campaign_lat)
+            delta_lat = math.radians(campaign_lat - lat)
+            delta_lng = math.radians(campaign_lng - lng)
             
             a = (math.sin(delta_lat / 2) ** 2 + 
                  math.cos(lat1_rad) * math.cos(lat2_rad) * 

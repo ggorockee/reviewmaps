@@ -57,8 +57,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   final PanelController panelController = PanelController();
   String _currentSortOrder = '-created_at';
   
-  // 패널 위치 기억 변수
-  double? _rememberedPanelPosition;
+  // 패널 위치 기억 변수 (패널이 열려있는지 여부)
+  bool _isPanelOpen = false;
 
   static const double _itemMinHeight = 108.0;
   // 핸들(_panelMin=40) + 정렬칩 영역(대략)
@@ -195,18 +195,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   // 패널 위치 기억
   void _rememberPanelPosition() {
-    if (panelController.isAttached) {
-      _rememberedPanelPosition = panelController.position;
-    }
+    _isPanelOpen = !panelController.isPanelClosed;
   }
 
   // 패널 위치 복원
   Future<void> _restorePanelPosition() async {
-    if (_rememberedPanelPosition != null && panelController.isAttached) {
-      await panelController.animatePanelToPosition(
-        _rememberedPanelPosition!,
-        duration: const Duration(milliseconds: 220),
-      );
+    if (_isPanelOpen && panelController.isAttached) {
+      await _animatePanelToListPeek();
     }
   }
 
@@ -283,8 +278,17 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         if (mounted) setState(() => _showEmptyResultMessage = false);
       } else {
         // 빈 결과 처리 (중복 로직 정리)
-        if (panelController.isAttached) {
-          panelController.animatePanelToPosition(0.0, duration: const Duration(milliseconds: 180));
+        if (programmatic) {
+          // 프로그램적으로 호출된 경우 패널 위치 유지
+          WidgetsBinding.instance.addPostFrameCallback((_) async {
+            if (!mounted) return;
+            await _restorePanelPosition();
+          });
+        } else {
+          // 사용자가 직접 검색한 경우에만 패널 내리기
+          if (panelController.isAttached) {
+            panelController.animatePanelToPosition(0.0, duration: const Duration(milliseconds: 180));
+          }
         }
         if (mounted) {
           setState(() => _showEmptyResultMessage = true);
@@ -591,10 +595,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  Expanded(child: _buildSortChip('최신등록순', '-created_at')),
-                  Expanded(child: _buildSortChip('마감임박순', 'apply_deadline')),
-                  Expanded(child: _buildSortChip('거리순', 'distance')),
+                  _buildSortChip('최신등록순', '-created_at'),
+                  const SizedBox(width: 4),
+                  _buildSortChip('마감임박순', 'apply_deadline'),
+                  const SizedBox(width: 4),
+                  _buildSortChip('거리순', 'distance'),
                 ],
               ),
             ),
@@ -928,8 +935,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         side: isSelected
             ? BorderSide.none
             : BorderSide(color: Colors.grey.shade300),
-        // 패딩 줄이기
-        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+        // 패딩 더 줄이기
+        padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 2.0),
         // 글자 스타일 - 폰트 크기 키우기
         labelStyle: TextStyle(
           color: isSelected ? Colors.white : Colors.black87,
@@ -940,8 +947,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         shape: const StadiumBorder(),
         // 체크 아이콘은 표시하지 않음
         showCheckmark: false,
-        // 내부 여백 조절
-        padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 6.0),
         // 그림자 효과 제거
         elevation: 0,
         pressElevation: 0,

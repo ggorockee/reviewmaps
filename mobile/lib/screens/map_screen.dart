@@ -554,8 +554,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               ),
 
               boxShadow: const <BoxShadow>[],
-              panelSnapping: true,     // 스냅 활성화
-              snapPoint: 0.55,          // 중간 고정 지점(원하면 조정/삭제 가능)
+              panelSnapping: false,     // 스냅 비활성화하여 maxHeight 제한이 제대로 작동하도록
               onPanelSlide: (pos) async {
                 // setState(() {
                 //   _panelPos = pos;

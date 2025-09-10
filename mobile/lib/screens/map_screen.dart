@@ -141,7 +141,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       final buttonBottom = buttonTop + buttonHeight;
 
       // 시스템 폰트 크기에 따라 가변 여백
-      final safePadding = 24.0 * textScale;
+      final safePadding = 12.h; // 버튼 아래 여백만
 
       // 아이템 최소 1.5개 보장 높이
       final minContent = _panelMin + _panelHeaderExtra + _itemMinHeight * 1.5;
@@ -667,9 +667,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 
 
-
-
-  // 패널 내용
   Widget _buildPanel() {
     return Container(
       decoration: const BoxDecoration(
@@ -680,88 +677,77 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         ),
       ),
       child: Column(
-          children: [
-            // 핸들
-            SizedBox(
-              height: _panelMin,
-              child: Center(
-                child: Container(
-                  width: 40,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[500],
-                    borderRadius: BorderRadius.circular(12.0),
-                  ),
+        children: [
+          // 핸들
+          SizedBox(
+            height: _panelMin,
+            child: Center(
+              child: Container(
+                width: 40,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.grey[500],
+                  borderRadius: BorderRadius.circular(12.0),
                 ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.start,
-                children: [
-                  _buildSortChip('최신등록순', '-created_at'),
-                  const SizedBox(width: 8),
-                  _buildSortChip('마감임박순', 'apply_deadline'),
-                  const SizedBox(width: 8),
-                  _buildSortChip('거리순', 'distance'),
-                ],
-              ),
+          ),
+          // 정렬칩 영역
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                _buildSortChip('최신등록순', '-created_at'),
+                const SizedBox(width: 8),
+                _buildSortChip('마감임박순', 'apply_deadline'),
+                const SizedBox(width: 8),
+                _buildSortChip('거리순', 'distance'),
+              ],
             ),
-            const SizedBox(height: 8), // 필터와 목록 사이 간격
-            // 목록
-            Expanded(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  // ✅ 버튼 위까지만 보이도록 제한
-                  maxHeight: _panelMax - _panelMin,
-                ),
-                child: Stack(
-                  children: [
-                    _displayedStores.isEmpty
-                        ? const Center(child: Text("먼저 '이 위치로 검색'을 눌러주세요."))
-                        : ListView.separated(
-                      // padding: EdgeInsets.zero,
-                      padding: EdgeInsets.only(bottom: 12.h), // 패널 하단 패딩
-                      cacheExtent: 500, // 스크롤 성능
-                      itemCount: _displayedStores.length,
-                      itemBuilder: (context, index) => StoreListItem(
-                        store: _displayedStores[index],
-                      ),
-                      separatorBuilder: (context, index) => Divider(
-                        indent: 16,
-                        endIndent: 16,
-                        color: Colors.grey.shade100,
-                      ),
-                    ),
-                  Positioned(
-                    left: 0, right: 0, bottom: 0,
-                    child: IgnorePointer(
-                      ignoring: true,
-                      child: Container(
-                        height: 18,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.white.withOpacity(0.0),
-                              Colors.white,
-                            ],
+          ),
+          const SizedBox(height: 8), // 필터와 목록 사이 간격
+
+          // 목록
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // 현재 패널이 차지하는 실제 높이
+                final currentHeight = _currentPanelHeight();
+
+                // 버튼 위까지만 허용되는 최대 높이
+                final maxListHeight = _panelMax - _panelMin - _panelHeaderExtra;
+
+                // 현재 높이에서 헤더(핸들+칩) 빼고 → 실제 리스트 가능한 높이
+                final availableHeight = (currentHeight - _panelMin - _panelHeaderExtra)
+                    .clamp(0.0, maxListHeight);
+
+                return SizedBox(
+                  height: availableHeight,
+                  child: _displayedStores.isEmpty
+                      ? const Center(child: Text("먼저 '이 위치로 검색'을 눌러주세요."))
+                      : ListView.separated(
+                          padding: EdgeInsets.only(bottom: 12.h),
+                          itemCount: _displayedStores.length,
+                          itemBuilder: (context, index) =>
+                              StoreListItem(store: _displayedStores[index]),
+                          separatorBuilder: (context, index) => Divider(
+                            indent: 16,
+                            endIndent: 16,
+                            color: Colors.grey.shade100,
                           ),
                         ),
-                      ),
-                    ),
-                  ),
-                ],
-                ),
-              ),
+                );
+              },
             ),
-          ]
+          ),
+        ],
       ),
     );
   }
 
+  // 패널 내용
+  
   // 개별 아이템
   // Widget _buildStoreListItem(Store store) {
   //   final String logoAssetPath = getLogoPathForPlatform(store.platform);

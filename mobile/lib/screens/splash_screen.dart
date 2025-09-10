@@ -118,20 +118,23 @@ class _SplashScreenState extends State<SplashScreen>
                       width: 120.w,
                       height: 120.w,
                       decoration: BoxDecoration(
-                        color: PRIMARY_COLOR,
                         borderRadius: BorderRadius.circular(24.r),
                         boxShadow: [
                           BoxShadow(
-                            color: PRIMARY_COLOR.withOpacity(0.3),
+                            color: Colors.black.withOpacity(0.1),
                             blurRadius: 20,
                             offset: const Offset(0, 10),
                           ),
                         ],
                       ),
-                      child: Icon(
-                        Icons.map_outlined,
-                        size: 60.w,
-                        color: Colors.white,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(24.r),
+                        child: Image.asset(
+                          'asset/image/logo/application/reviewmaps.png',
+                          width: 120.w,
+                          height: 120.w,
+                          fit: BoxFit.contain,
+                        ),
                       ),
                     ),
                     
@@ -142,7 +145,7 @@ class _SplashScreenState extends State<SplashScreen>
                       '리뷰맵',
                       style: TextStyle(
                         fontSize: 32.sp,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w900,
                         color: PRIMARY_COLOR,
                         letterSpacing: 2.0,
                       ),

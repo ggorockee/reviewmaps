@@ -92,7 +92,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   // 패널/지도 패딩
   double _panelPos = 0.0;
   static const double _panelMin = 40.0;
-  static const double _panelMax = 500.0;
+  static const double _panelMax = 200.0; // "이 위치로 검색" 버튼 바로 밑까지
   double _mapBottomPadding = 80.0;
 
   // 초기 카메라

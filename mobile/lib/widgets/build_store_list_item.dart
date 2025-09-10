@@ -158,7 +158,7 @@ class StoreListItem extends StatelessWidget {
         Text(
           store.platform,
           style: TextStyle(
-            fontSize: dense ? 12.sp : 14.sp,
+            fontSize: dense ? 12.sp : 12.sp,
             color: Colors.grey[600],
             fontWeight: FontWeight.w500,
           ),

@@ -192,20 +192,31 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     }
     if (!panelController.isAttached) return;
 
-    // 대기높이로 올리기 (헤더 + 1개 아이템 높이로 조정하여 컨텐츠 일부 보이게)
+    // 기본 높이 (헤더 + 1개 아이템)
     final desiredHeight = _panelMin + _panelHeaderExtra + _itemMinHeight * 1.0;
-    final clamped = desiredHeight.clamp(_panelMin, _panelMax);
+
+    // 아이템 최소 1.5개 보장
+    final minHeight = _panelMin + _panelHeaderExtra + _itemMinHeight * 1.5;
+
+    // 버튼 bottom - 여백
+    final media = MediaQuery.of(context);
+    final buttonTop = t(context, 45.0.h, 60.0.h);
+    final buttonHeight = t(context, 30.0.h, 30.0.h);
+    final buttonBottom = buttonTop + buttonHeight;
+    final safePadding = 24.0 * media.textScaleFactor;
+    final maxAllowed = media.size.height - buttonBottom - safePadding;
+
+    // 최종 높이
+    final clamped = desiredHeight.clamp(minHeight, maxAllowed);
     final position = (clamped - _panelMin) / (_panelMax - _panelMin);
 
     await panelController.animatePanelToPosition(
-      position.toDouble(),
+      position,
       duration: const Duration(milliseconds: 220),
     );
-    
-    // 패널 상태 업데이트
+
     _currentPanelState = PanelState.waitHeight;
-    // 실제 포지션 값도 저장
-    _lastPanelPos = position.toDouble();
+    _lastPanelPos = position;
   }
 
   Future<void> _animatePanelToListPeek() async {
@@ -219,20 +230,31 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     }
     if (!panelController.isAttached) return;
 
-    // 실행높이로 올리기 - "이 위치로 검색" 버튼 바로 밑까지
-    final desiredHeight = _panelMin + _panelHeaderExtra + _itemMinHeight * 0.8;
-    final clamped = desiredHeight.clamp(_panelMin, _panelMax);
+    // 기본 높이 (헤더 + 2개 아이템)
+    final desiredHeight = _panelMin + _panelHeaderExtra + _itemMinHeight * 2.0;
+
+    // 아이템 최소 1.5개 보장
+    final minHeight = _panelMin + _panelHeaderExtra + _itemMinHeight * 1.5;
+
+    // 버튼 bottom - 여백
+    final media = MediaQuery.of(context);
+    final buttonTop = t(context, 45.0.h, 60.0.h);
+    final buttonHeight = t(context, 30.0.h, 30.0.h);
+    final buttonBottom = buttonTop + buttonHeight;
+    final safePadding = 24.0 * media.textScaleFactor;
+    final maxAllowed = media.size.height - buttonBottom - safePadding;
+
+    // 최종 높이
+    final clamped = desiredHeight.clamp(minHeight, maxAllowed);
     final position = (clamped - _panelMin) / (_panelMax - _panelMin);
 
     await panelController.animatePanelToPosition(
-      position.toDouble(),
+      position,
       duration: const Duration(milliseconds: 220),
     );
-    
-    // 패널 상태 업데이트
+
     _currentPanelState = PanelState.executeHeight;
-    // 실제 포지션 값도 저장
-    _lastPanelPos = position.toDouble();
+    _lastPanelPos = position;
   }
 
   // 패널 위치 기억

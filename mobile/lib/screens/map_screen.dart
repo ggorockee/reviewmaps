@@ -146,7 +146,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       // 버튼 아래 여백 추가
       final safePadding = 12.h;
 
-      // 버튼 아래까지만 패널이 올라가도록 제한
+      // 패널이 버튼 아래에서 시작하도록 제한
       final maxAllowed = screenHeight - buttonBottom - safePadding;
 
       // 아이템 최소 1.5개 보장 높이
@@ -203,7 +203,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     // 아이템 최소 1.5개 보장
     final minHeight = _panelMin + _panelHeaderExtra + _itemMinHeight * 1.5;
 
-    // 버튼 아래까지만 패널이 올라가도록 제한
+    // 패널이 버튼 아래에서 시작하도록 제한
     final media = MediaQuery.of(context);
     final buttonTop = t(context, 45.0.h, 60.0.h);
     final buttonHeight = t(context, 30.0.h, 30.0.h);
@@ -242,7 +242,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     // 아이템 최소 1.5개 보장
     final minHeight = _panelMin + _panelHeaderExtra + _itemMinHeight * 1.5;
 
-    // 버튼 아래까지만 패널이 올라가도록 제한
+    // 패널이 버튼 아래에서 시작하도록 제한
     final media = MediaQuery.of(context);
     final buttonTop = t(context, 45.0.h, 60.0.h);
     final buttonHeight = t(context, 30.0.h, 30.0.h);
@@ -671,7 +671,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         // 현재 패널 높이 (픽셀 단위)
         final currentHeight = _currentPanelHeight();
 
-        // 버튼 아래까지만 패널이 올라가도록 제한
+        // 패널이 버튼 아래에서 시작하도록 제한
         final media = MediaQuery.of(context);
         final buttonTop = t(context, 45.0.h, 60.0.h);
         final buttonHeight = t(context, 30.0.h, 30.0.h);

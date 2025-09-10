@@ -57,8 +57,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   final PanelController panelController = PanelController();
   String _currentSortOrder = '-created_at';
   
-  // 패널 위치 기억 변수 (패널이 열려있는지 여부)
-  bool _isPanelOpen = false;
+  // 패널 위치 상태 추적
+  enum PanelState { closed, waitHeight, executeHeight }
+  PanelState _currentPanelState = PanelState.closed;
+  
+  // 최초 진입 여부 추적
+  bool _isFirstSearch = true;
 
   static const double _itemMinHeight = 108.0;
   // 핸들(_panelMin=40) + 정렬칩 영역(대략)
@@ -169,6 +173,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       position.toDouble(),
       duration: const Duration(milliseconds: 220),
     );
+    
+    // 패널 상태 업데이트
+    _currentPanelState = PanelState.waitHeight;
   }
 
   Future<void> _animatePanelToListPeek() async {
@@ -191,17 +198,29 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       position.toDouble(),
       duration: const Duration(milliseconds: 220),
     );
-  }
+    
+    // 패널 상태 업데이트
+    _currentPanelState = PanelState.executeHeight;
 
   // 패널 위치 기억
   void _rememberPanelPosition() {
-    _isPanelOpen = !panelController.isPanelClosed;
+    // 현재 패널 상태를 기억 (변경하지 않음)
   }
 
   // 패널 위치 복원
   Future<void> _restorePanelPosition() async {
-    if (_isPanelOpen && panelController.isAttached) {
-      await _animatePanelToListPeek();
+    if (panelController.isAttached) {
+      switch (_currentPanelState) {
+        case PanelState.waitHeight:
+          await _animatePanelToSlightPeek();
+          break;
+        case PanelState.executeHeight:
+          await _animatePanelToListPeek();
+          break;
+        case PanelState.closed:
+          // 패널이 닫혀있으면 그대로 유지
+          break;
+      }
     }
   }
 
@@ -272,10 +291,17 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       if (storesInBounds.isNotEmpty) {
         // 패널 위치 처리
         if (!programmatic && shouldOpenPanel) {
-          // 사용자가 직접 검색한 경우에만 패널 열기
+          // 사용자가 직접 검색한 경우
           WidgetsBinding.instance.addPostFrameCallback((_) async {
             if (!mounted) return;
-            await _animatePanelToListPeek();
+            if (_isFirstSearch) {
+              // 최초 검색인 경우 대기높이로
+              await _animatePanelToSlightPeek();
+              _isFirstSearch = false;
+            } else {
+              // 이후 검색인 경우 실행높이로
+              await _animatePanelToListPeek();
+            }
           });
         } else if (programmatic) {
           // 프로그램적으로 호출된 경우 (정렬 변경 등) 패널 위치 유지
@@ -297,6 +323,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           // 사용자가 직접 검색한 경우에만 패널 내리기
           if (panelController.isAttached) {
             panelController.animatePanelToPosition(0.0, duration: const Duration(milliseconds: 180));
+            _currentPanelState = PanelState.closed;
           }
         }
         if (mounted) {

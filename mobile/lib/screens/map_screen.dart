@@ -302,20 +302,18 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       if (storesInBounds.isNotEmpty) {
         // 패널 위치 처리
         if (!programmatic && shouldOpenPanel) {
-          // 사용자가 직접 검색한 경우
+          // 사용자가 직접 "이 위치로 검색" 버튼을 눌렀을 때만 패널 높이 변경
           WidgetsBinding.instance.addPostFrameCallback((_) async {
             if (!mounted) return;
             if (_isFirstSearch) {
-              // 최초 검색인 경우 대기높이로
-              await _animatePanelToSlightPeek();
+              await _animatePanelToSlightPeek(); // 첫 검색 → 대기높이
               _isFirstSearch = false;
             } else {
-              // 이후 검색인 경우 실행높이로
-              await _animatePanelToListPeek();
+              await _animatePanelToListPeek(); // 이후 검색 → 실행높이
             }
           });
         } else if (programmatic) {
-          // 프로그램적으로 호출된 경우 (정렬 변경 등) 패널 위치 유지
+          // 정렬/필터 클릭 시 → 저장된 패널 위치 그대로 유지
           WidgetsBinding.instance.addPostFrameCallback((_) async {
             if (!mounted) return;
             await _restorePanelPosition();
@@ -323,9 +321,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         }
         if (mounted) setState(() => _showEmptyResultMessage = false);
       } else {
-        // 빈 결과 처리 (중복 로직 정리)
+        // 빈 결과 처리
         if (programmatic) {
-          // 프로그램적으로 호출된 경우 패널 위치 유지
+          // 정렬/필터 클릭 시 → 저장된 패널 위치 그대로 유지
           WidgetsBinding.instance.addPostFrameCallback((_) async {
             if (!mounted) return;
             await _restorePanelPosition();
@@ -966,12 +964,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         selected: isSelected,
         onSelected: (selected) {
           if (selected) {
-            // 패널 위치 기억
+            // 🔹 현재 패널 위치 저장
             _rememberPanelPosition();
             setState(() {
               _currentSortOrder = sortValue;
             });
-            _searchInCurrentViewport(programmatic: true); // 정렬 변경 시 데이터 다시 불러오기
+            // 정렬 변경 → 프로그램적 이동 (패널 위치 유지)
+            _searchInCurrentViewport(programmatic: true);
           }
         },
         // --- 👇 스타일링 수정 ---

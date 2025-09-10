@@ -143,10 +143,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       final buttonHeight = t(context, 30.0.h, 30.0.h);
       final buttonBottom = buttonTop + buttonHeight;
       
-      // 버튼 아래 여백 추가
-      final safePadding = 12.h;
+      // 버튼 아래 여백 추가 (줄여서 패널이 더 높게 올라갈 수 있도록)
+      final safePadding = 4.h;
 
-      // 패널이 버튼 아래에서 시작하도록 제한
+      // 패널이 더 높게 올라갈 수 있도록 제한 완화
       final maxAllowed = screenHeight - buttonBottom - safePadding;
 
       // 아이템 최소 1.5개 보장 높이
@@ -203,12 +203,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     // 아이템 최소 1.5개 보장
     final minHeight = _panelMin + _panelHeaderExtra + _itemMinHeight * 1.5;
 
-    // 패널이 버튼 아래에서 시작하도록 제한
+    // 패널이 더 높게 올라갈 수 있도록 제한 완화
     final media = MediaQuery.of(context);
     final buttonTop = t(context, 45.0.h, 60.0.h);
     final buttonHeight = t(context, 30.0.h, 30.0.h);
     final buttonBottom = buttonTop + buttonHeight;
-    final safePadding = 12.h;
+    final safePadding = 4.h; // 여백 줄여서 더 높게 올라갈 수 있도록
     final maxAllowed = media.size.height - buttonBottom - safePadding;
 
     // 최종 높이
@@ -242,12 +242,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     // 아이템 최소 1.5개 보장
     final minHeight = _panelMin + _panelHeaderExtra + _itemMinHeight * 1.5;
 
-    // 패널이 버튼 아래에서 시작하도록 제한
+    // 패널이 더 높게 올라갈 수 있도록 제한 완화
     final media = MediaQuery.of(context);
     final buttonTop = t(context, 45.0.h, 60.0.h);
     final buttonHeight = t(context, 30.0.h, 30.0.h);
     final buttonBottom = buttonTop + buttonHeight;
-    final safePadding = 12.h;
+    final safePadding = 4.h; // 여백 줄여서 더 높게 올라갈 수 있도록
     final maxAllowed = media.size.height - buttonBottom - safePadding;
 
     // 최종 높이
@@ -671,12 +671,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         // 현재 패널 높이 (픽셀 단위)
         final currentHeight = _currentPanelHeight();
 
-        // 패널이 버튼 아래에서 시작하도록 제한
+        // 패널이 더 높게 올라갈 수 있도록 제한 완화
         final media = MediaQuery.of(context);
         final buttonTop = t(context, 45.0.h, 60.0.h);
         final buttonHeight = t(context, 30.0.h, 30.0.h);
         final buttonBottom = buttonTop + buttonHeight;
-        final safePadding = 12.h;
+        final safePadding = 4.h; // 여백 줄여서 더 높게 올라갈 수 있도록
         final maxAllowed = constraints.maxHeight - buttonBottom - safePadding;
 
         // 최소 1.5개 아이템 보장

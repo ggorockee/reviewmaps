@@ -303,17 +303,30 @@ async def list_campaigns_optimized(
     campaigns = result.scalars().all()
     
     # 추가 속성 설정
+    from datetime import datetime, timedelta
+    import math
+    
     for campaign in campaigns:
-        # is_new 속성
-        campaign.is_new = func.date(campaign.created_at) >= func.current_date() - func.interval('2 days')
+        # is_new 속성 (실제 Python 값으로 계산)
+        two_days_ago = datetime.now().date() - timedelta(days=2)
+        campaign.is_new = campaign.created_at.date() >= two_days_ago
         
-        # distance 속성 (거리 정렬인 경우)
+        # distance 속성 (거리 정렬인 경우, 실제 Python 값으로 계산)
         if sort == "distance" and lat is not None and lng is not None:
-            campaign.distance = 6371 * func.acos(
-                func.cos(func.radians(lat)) * func.cos(func.radians(campaign.lat)) *
-                func.cos(func.radians(campaign.lng) - func.radians(lng)) +
-                func.sin(func.radians(lat)) * func.sin(func.radians(campaign.lat))
-            )
+            # Haversine 공식으로 거리 계산
+            R = 6371  # 지구 반지름 (km)
+            lat1_rad = math.radians(lat)
+            lat2_rad = math.radians(campaign.lat)
+            delta_lat = math.radians(campaign.lat - lat)
+            delta_lng = math.radians(campaign.lng - lng)
+            
+            a = (math.sin(delta_lat / 2) ** 2 + 
+                 math.cos(lat1_rad) * math.cos(lat2_rad) * 
+                 math.sin(delta_lng / 2) ** 2)
+            c = 2 * math.asin(math.sqrt(a))
+            campaign.distance = R * c
+        else:
+            campaign.distance = None
     
     return total, list(campaigns)
 

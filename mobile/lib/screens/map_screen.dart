@@ -92,7 +92,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   // 패널/지도 패딩
   double _panelPos = 0.0;
   static const double _panelMin = 40.0;
-  static const double _panelMax = 400.0; // 화면 높이의 약 60% 정도
+  double _panelMax = 600.0; // 화면 높이에 따라 동적으로 조정 가능
   double _mapBottomPadding = 80.0;
 
   // 초기 카메라
@@ -127,11 +127,17 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   @override
   void initState() {
     super.initState();
-    // _service = CampaignService(
-    //   AppConfig.ReviewMapbaseUrl,
-    //   apiKey: AppConfig.ReviewMapApiKey,
-    // );
-    // _service.healthCheck();
+    
+    // 화면 높이에 따라 패널 최대 높이 설정
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final screenHeight = MediaQuery.of(context).size.height;
+        _panelMax = screenHeight * 0.8; // 화면 높이의 80%
+        if (AppConfig.isDebugMode) {
+          print('[Map][initState] 화면 높이: $screenHeight, 패널 최대 높이: $_panelMax');
+        }
+      }
+    });
 
     // 지도 탭 처음 들어올 때만 내 위치로 이동 시도
     _centerToMyLocationOnFirstOpen();

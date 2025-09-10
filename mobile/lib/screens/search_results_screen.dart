@@ -46,39 +46,23 @@ final searchResultsProvider = FutureProvider.family.autoDispose<List<Store>, Str
   
   List<Store> results;
   
-  // 거리순 정렬이면서 위치 정보가 있는 경우
-  if (sortOption == SearchSortOption.nearest && userLocation != null) {
-    results = await campaignService.fetchNearest(
-      lat: userLocation.latitude,
-      lng: userLocation.longitude,
-      limit: 100,
-    );
-    
-    // 검색어로 필터링
-    if (query.isNotEmpty) {
-      results = results.where((store) {
-        return store.title.toLowerCase().contains(query.toLowerCase()) ||
-               (store.offer?.toLowerCase().contains(query.toLowerCase()) ?? false);
-      }).toList();
-    }
-  } else {
-    // 일반 검색
-    results = await campaignService.searchCampaigns(query: query);
-    
-    // 위치 정보가 있으면 거리 계산 추가
-    if (userLocation != null) {
-      results = results.map((store) {
-        if (store.lat != null && store.lng != null) {
-          final distance = Geolocator.distanceBetween(
-            userLocation.latitude, userLocation.longitude, 
-            store.lat!, store.lng!,
-          ) / 1000; // 미터를 킬로미터로 변환
-          
-          return store.copyWith(distance: distance);
-        }
-        return store;
-      }).toList();
-    }
+  // 일반 검색 (모든 정렬 옵션에 대해 동일한 방식 사용)
+  results = await campaignService.searchCampaigns(query: query);
+  
+  // 위치 정보가 있으면 거리 계산 추가
+  if (userLocation != null) {
+    results = results.map((store) {
+      if (store.lat != null && store.lng != null) {
+        final distance = Geolocator.distanceBetween(
+          userLocation.latitude, userLocation.longitude, 
+          store.lat!, store.lng!,
+        ) / 1000; // 미터를 킬로미터로 변환
+        
+        return store.copyWith(distance: distance);
+      }
+      return store;
+    }).toList();
+  }
     
     // 클라이언트 사이드 정렬 (서버에서 지원하지 않는 경우)
     switch (sortOption) {

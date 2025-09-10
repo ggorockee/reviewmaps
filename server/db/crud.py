@@ -346,181 +346,33 @@ async def list_campaigns(
     offset: int = 0,
 ) -> Tuple[int, Sequence[Campaign]]:
     """
-    ✨ PostGIS 없이 작동하는 최적화된 캠페인 목록 조회
-    - idx_campaign_promo_deadline_lat_lng 인덱스 최대 활용
-    - Haversine 공식 기반 거리 계산
-    - Raw SQL로 최적화된 쿼리 실행
+    ✨ 최적화된 캠페인 목록 조회 (ORM 기반)
+    - list_campaigns_optimized 함수를 호출하여 일관성 유지
     """
-    
-    # 기본 조건: apply_deadline >= current_date 강제 적용
-    base_conditions = ["c.apply_deadline >= CURRENT_DATE"]
-    params = {}
-    
-    # 지도 뷰포트 조건 확인
-    is_map_viewport = None not in (sw_lat, sw_lng, ne_lat, ne_lng)
-    
-    if is_map_viewport:
-        lat_min, lat_max = sorted([sw_lat, ne_lat])
-        lng_min, lng_max = sorted([sw_lng, ne_lng])
-        
-        base_conditions.extend([
-            "c.lat BETWEEN :lat_min AND :lat_max",
-            "c.lng BETWEEN :lng_min AND :lng_max"
-        ])
-        params.update({
-            'lat_min': lat_min, 'lat_max': lat_max,
-            'lng_min': lng_min, 'lng_max': lng_max
-        })
-    
-    # 추가 필터 조건들
-    if category_id:
-        base_conditions.append("c.category_id = :category_id")
-        params['category_id'] = category_id
-    
-    if platform:
-        base_conditions.append("c.platform = :platform")
-        params['platform'] = platform
-    
-    if company:
-        base_conditions.append("c.company ILIKE :company")
-        params['company'] = f"%{company}%"
-    
-    if campaign_type:
-        base_conditions.append("c.campaign_type = :campaign_type")
-        params['campaign_type'] = campaign_type
-    
-    if campaign_channel:
-        tokens = [t.strip() for t in campaign_channel.split(",") if t.strip()]
-        if tokens:
-            channel_conditions = []
-            for i, token in enumerate(tokens):
-                param_name = f"campaign_channel_{i}"
-                channel_conditions.append(f"c.campaign_channel ILIKE :{param_name}")
-                params[param_name] = f"%{token}%"
-            base_conditions.append(f"({' OR '.join(channel_conditions)})")
-    
-    if region:
-        tokens = [t.strip() for t in region.split() if t.strip()]
-        region_conditions = []
-        for i, token in enumerate(tokens):
-            param_name = f"region_{i}"
-            region_conditions.append(f"(c.region ILIKE :{param_name} OR c.address ILIKE :{param_name} OR c.title ILIKE :{param_name})")
-            params[param_name] = f"%{token}%"
-        base_conditions.append(f"({' OR '.join(region_conditions)})")
-    
-    if q:
-        base_conditions.append("(c.company ILIKE :q OR c.offer ILIKE :q OR c.platform ILIKE :q OR c.title ILIKE :q)")
-        params['q'] = f"%{q}%"
-    
-    # 정렬 조건 결정
-    if sort == "distance" and lat is not None and lng is not None:
-        # 거리순 정렬: promotion_level 우선 + 거리순 + 의사랜덤
-        order_clause = """
-            COALESCE(promotion_level, 0) DESC,
-            distance ASC NULLS LAST,
-            ABS(HASH(id)) % 1000,
-            created_at DESC
-        """
-        params.update({'user_lat': lat, 'user_lng': lng})
-    else:
-        # 일반 정렬: promotion_level 우선 + 의사랜덤 + 기존 정렬
-        sort_map = {
-            "created_at": "created_at",
-            "updated_at": "updated_at", 
-            "apply_deadline": "apply_deadline",
-            "review_deadline": "review_deadline",
-        }
-        desc = sort.startswith("-")
-        key = sort[1:] if desc else sort
-        sort_col = sort_map.get(key, "created_at")
-        sort_direction = "DESC" if desc else "ASC"
-        
-        order_clause = f"""
-            COALESCE(promotion_level, 0) DESC,
-            ABS(HASH(id)) % 1000,
-            {sort_col} {sort_direction}
-        """
-    
-    # 최적화된 쿼리 실행
-    where_clause = " AND ".join(base_conditions)
-    
-    # 메인 쿼리 - idx_campaign_promo_deadline_lat_lng 인덱스 최대 활용
-    main_query = text(f"""
-        WITH filtered_campaigns AS (
-            SELECT 
-                c.*,
-                cat.name as category_name,
-                cat.display_order as category_display_order,
-                (c.created_at::date >= CURRENT_DATE - INTERVAL '2 days') as is_new,
-                CASE 
-                    WHEN :user_lat IS NOT NULL AND :user_lng IS NOT NULL THEN
-                        -- Haversine 공식을 사용한 거리 계산 (PostGIS 없이)
-                        6371 * acos(
-                            cos(radians(:user_lat)) * cos(radians(c.lat)) * 
-                            cos(radians(c.lng) - radians(:user_lng)) + 
-                            sin(radians(:user_lat)) * sin(radians(c.lat))
-                        )
-                    ELSE NULL
-                END as distance
-            FROM campaign c
-            LEFT JOIN categories cat ON c.category_id = cat.id
-            WHERE {where_clause}
-        )
-        SELECT 
-            id, category_id, platform, company, company_link, offer,
-            apply_deadline, review_deadline, address, lat, lng, img_url,
-            search_text, created_at, updated_at, source, title, content_link,
-            campaign_type, region, campaign_channel, apply_from, promotion_level,
-            category_name, category_display_order, is_new, distance
-        FROM filtered_campaigns
-        ORDER BY {order_clause}
-        LIMIT :limit OFFSET :offset
-    """)
-    
-    # Count 쿼리 - 동일한 필터 조건 적용
-    count_query = text(f"""
-        SELECT COUNT(*)
-        FROM campaign c
-        WHERE {where_clause}
-    """)
-    
-    # 파라미터 설정
-    params.update({
-        'limit': limit,
-        'offset': offset,
-        'user_lat': lat if lat is not None else None,
-        'user_lng': lng if lng is not None else None
-    })
-    
-    # 쿼리 실행
-    count_result = await db.execute(count_query, params)
-    total = count_result.scalar()
-    
-    main_result = await db.execute(main_query, params)
-    rows = []
-    
-    for row in main_result:
-        # Campaign 객체 생성 및 속성 설정
-        campaign = Campaign()
-        for key, value in row._mapping.items():
-            if hasattr(campaign, key):
-                setattr(campaign, key, value)
-        
-        # 추가 속성 설정
-        campaign.is_new = row.is_new
-        campaign.distance = row.distance
-        
-        # Category 객체 설정
-        if row.category_name:
-            campaign.category = Category(
-                id=row.category_id,
-                name=row.category_name,
-                display_order=row.category_display_order
-            )
-        
-        rows.append(campaign)
-    
-    return total, rows
+    return await list_campaigns_optimized(
+        db=db,
+        region=region,
+        offer=offer,
+        campaign_type=campaign_type,
+        campaign_channel=campaign_channel,
+        category_id=category_id,
+        q=q,
+        platform=platform,
+        company=company,
+        apply_from=apply_from,
+        apply_to=apply_to,
+        review_from=review_from,
+        review_to=review_to,
+        sw_lat=sw_lat,
+        sw_lng=sw_lng,
+        ne_lat=ne_lat,
+        ne_lng=ne_lng,
+        lat=lat,
+        lng=lng,
+        sort=sort,
+        limit=limit,
+        offset=offset,
+    )
 
 
 async def list_campaigns_legacy(

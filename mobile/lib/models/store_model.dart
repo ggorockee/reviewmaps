@@ -171,25 +171,24 @@ const Map<String, String> _platformLogoFile = {
   '스토리앤미디어': 'storymedia.png',
   '링블': 'ringble.png',
   '캐시노트': 'cashnote.png',
-  '놀러와': 'noleowa.png', // 프로젝트 내 실제 파일명 확인
   '체허미': 'chehumi.png',
-  '링뷰': 'ringvue.png',
-  '미블': 'mrble.png',
   '체험뷰': 'chehumview.png',
-  '강남맛집': 'gannam.png',
+  '체리뷰': 'cherryview.png',
+  '디너의여왕': 'dinnerqueen.png',
   '가보자': 'gaboja.png',
-  '레뷰': 'revu.png',
-  '포블로그': '4blog2.png',
+  '강남맛집': 'gannam.png',
+  '구구다스': 'gugudas.png',
+  '미블': 'mrble.png',
+  '놀러와': 'noleowa.png', // 프로젝트 내 실제 파일명 확인
+  '오마이블로그': 'ohmyblog.png',
   '포포몬': 'popomon.png',
   '리뷰노트': 'reviewnote.png',
   '리뷰플레이스': 'reviewplace.png',
-  '디너의여왕': 'dinnerqueen.png',
+  '레뷰': 'revu.png',
+  '링뷰': 'ringvue.png',
+  '포블로그': '4blog2.png',
   '아싸뷰': 'assaview.png',
-  '체리뷰': 'cherryview.png',
-  '오마이블로그': 'ohmyblog.png',
-  '구구다스': 'gugudas.png',
   '티블': 'tble.png',
-  // ------
   '디노단': 'dinodan.png',
   '데일리뷰': 'dailiview.png',
   '똑똑체험단': 'ddokddok.png',
@@ -218,8 +217,7 @@ const Map<String, String> _platformLogoFile = {
   '파블로체험단': 'pablochehum.png',
   '후기업': 'whogiup.png',
   '플레이체험단': 'playchehum.png',
-  '태그바이': 'tagby.png',
-
+  '태그바이': 'tagby.png',  
 };
 
 

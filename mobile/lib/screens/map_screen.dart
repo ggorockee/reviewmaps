@@ -489,63 +489,66 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         ),
         body: Stack(
           children: [
-            NaverMap(
-              onMapReady: (controller) async {
-                _naverController = controller;
-                _mapReady = true;
-                _naverController.setLocationTrackingMode(NLocationTrackingMode.none);
-                if (_pendingTarget != null && !_autoCenteredOnce) {
-                  await _naverController.updateCamera(
-                    NCameraUpdate.scrollAndZoomTo(target: _pendingTarget!, zoom: 15),
-                  );
-                  _naverController.setLocationTrackingMode(NLocationTrackingMode.follow);
-                  _autoCenteredOnce = true;
-                  _pendingTarget = null;
-                }
-              },
-              onCameraChange: (reason, isAnimated) {
-                _isCameraMoving = true;
-                // setState(() {}); // 버튼 disabled 반영 (선택)
-              },
-              onCameraIdle: () {
-                _isCameraMoving = false;
-                if (mounted) setState(() {});
+            Container(
+              color: Colors.white,
+              child: NaverMap(
+                onMapReady: (controller) async {
+                  _naverController = controller;
+                  _mapReady = true;
+                  _naverController.setLocationTrackingMode(NLocationTrackingMode.none);
+                  if (_pendingTarget != null && !_autoCenteredOnce) {
+                    await _naverController.updateCamera(
+                      NCameraUpdate.scrollAndZoomTo(target: _pendingTarget!, zoom: 15),
+                    );
+                    _naverController.setLocationTrackingMode(NLocationTrackingMode.follow);
+                    _autoCenteredOnce = true;
+                    _pendingTarget = null;
+                  }
+                },
+                onCameraChange: (reason, isAnimated) {
+                  _isCameraMoving = true;
+                  // setState(() {}); // 버튼 disabled 반영 (선택)
+                },
+                onCameraIdle: () {
+                  _isCameraMoving = false;
+                  if (mounted) setState(() {});
 
-                // 💡 사용자가 직접 움직였을 땐 아무 것도 하지 않는다.
-                // 💡 프로그램적으로 움직였을 때만 자동검색 실행
-                if (_moveByProgram) {
-                  _moveByProgram = false;
-                  Future.delayed(const Duration(milliseconds: 1500), () {
-                    if (mounted) {
-                      _searchInCurrentViewport(programmatic: true);
-                    }
-                  });
+                  // 💡 사용자가 직접 움직였을 땐 아무 것도 하지 않는다.
+                  // 💡 프로그램적으로 움직였을 때만 자동검색 실행
+                  if (_moveByProgram) {
+                    _moveByProgram = false;
+                    Future.delayed(const Duration(milliseconds: 1500), () {
+                      if (mounted) {
+                        _searchInCurrentViewport(programmatic: true);
+                      }
+                    });
 
-                  // _searchInCurrentViewport(programmatic: true); // 토스트 억제
-                }
-              },
-              onMapTapped: (NPoint point, NLatLng latLng) async {
-                if (!panelController.isAttached) return;
-                if (_displayedStores.isNotEmpty) {
-                  await _animatePanelToSlightPeek(); // 대기높이로 올리기
-                } else {
-                  panelController.animatePanelToPosition(
-                    0.0,
-                    duration: const Duration(milliseconds: 180),
-                  );
-                }
-              },
-              options: NaverMapViewOptions(
-                initialCameraPosition: const NCameraPosition(
-                  target: NLatLng(_initialLat, _initialLng),
-                  zoom: _initialZoom,
+                    // _searchInCurrentViewport(programmatic: true); // 토스트 억제
+                  }
+                },
+                onMapTapped: (NPoint point, NLatLng latLng) async {
+                  if (!panelController.isAttached) return;
+                  if (_displayedStores.isNotEmpty) {
+                    await _animatePanelToSlightPeek(); // 대기높이로 올리기
+                  } else {
+                    panelController.animatePanelToPosition(
+                      0.0,
+                      duration: const Duration(milliseconds: 180),
+                    );
+                  }
+                },
+                options: NaverMapViewOptions(
+                  initialCameraPosition: const NCameraPosition(
+                    target: NLatLng(_initialLat, _initialLng),
+                    zoom: _initialZoom,
+                  ),
+                  locationButtonEnable: false,
+                  rotationGesturesEnable: true,
+                  scrollGesturesEnable: true,
+                  tiltGesturesEnable: true,
+                  zoomGesturesEnable: true,
+                  contentPadding: EdgeInsets.only(bottom: _mapBottomPadding),
                 ),
-                locationButtonEnable: false,
-                rotationGesturesEnable: true,
-                scrollGesturesEnable: true,
-                tiltGesturesEnable: true,
-                zoomGesturesEnable: true,
-                contentPadding: EdgeInsets.only(bottom: _mapBottomPadding),
               ),
             ),
 
@@ -722,7 +725,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
         return Container(
           decoration: const BoxDecoration(
-            color: Colors.transparent,
+            color: Colors.white,
             borderRadius: BorderRadius.only(
               topLeft: Radius.circular(24.0),
               topRight: Radius.circular(24.0),

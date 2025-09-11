@@ -47,10 +47,6 @@ export const metadata: Metadata = {
     ],
     locale: 'ko_KR',
     type: 'website',
-    publishedTime: '2024-01-01T00:00:00.000Z',
-    modifiedTime: new Date().toISOString(),
-    section: 'Mobile App',
-    tags: ['체험단', '리뷰', '지도', '모바일앱'],
   },
   twitter: {
     card: 'summary_large_image',

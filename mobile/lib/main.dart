@@ -22,20 +22,53 @@ import 'package:flutter_screenutil/flutter_screenutil.dart'; // 반응형 사이
 import 'package:mobile/config/config.dart';      // AppConfig: .env를 읽어 상수로 노출
 import 'package:mobile/const/colors.dart';       // PRIMARY_COLOR 등 앱 공통 컬러
 import 'package:mobile/screens/splash_screen.dart'; // 스플래시 화면
-import 'package:mobile/ads/interstitial_ad_service.dart'; // 전면광고 서비스
+import 'package:mobile/services/ad_service.dart'; // 광고 서비스
+import 'package:mobile/services/interstitial_ad_manager.dart'; // 전면광고 매니저
 import 'package:mobile/services/firebase_service.dart'; // Firebase 통합 서비스
 import 'package:mobile/services/notification_service.dart'; // 알림 서비스
 
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 
 // 비동기 초기화가 필요하므로 main을 async로 선언
 Future<void> main() async {
   // 플러그인 채널 바인딩. runApp 이전에 비동기 초기화(예: dotenv, 지도 SDK)를 안전하게 수행하기 위해 필요
   WidgetsFlutterBinding.ensureInitialized();
-  await MobileAds.instance.initialize();
 
-  // 1) .env 로드
+  // 1) Firebase 초기화
+  try {
+    await Firebase.initializeApp();
+    print('[Main] Firebase 초기화 완료');
+  } catch (e) {
+    print('[Main] Firebase 초기화 실패: $e');
+  }
+
+  // 2) AdMob 초기화
+  try {
+    await MobileAds.instance.initialize();
+    print('[Main] AdMob 초기화 완료');
+  } catch (e) {
+    print('[Main] AdMob 초기화 실패: $e');
+  }
+
+  // 3) 광고 서비스 초기화
+  try {
+    await AdService().initialize();
+    print('[Main] 광고 서비스 초기화 완료');
+  } catch (e) {
+    print('[Main] 광고 서비스 초기화 실패: $e');
+  }
+
+  // 4) 전면광고 매니저 초기화
+  try {
+    await InterstitialAdManager().initialize();
+    print('[Main] 전면광고 매니저 초기화 완료');
+  } catch (e) {
+    print('[Main] 전면광고 매니저 초기화 실패: $e');
+  }
+
+  // 5) .env 로드
   // - pubspec.yaml의 assets에 .env 등록되어 있어야 함.
   // - 예:
   //   flutter:
@@ -43,7 +76,7 @@ Future<void> main() async {
   //       - .env
   await dotenv.load(fileName: ".env");
 
-  // 2) Naver Map SDK 초기화
+  // 6) Naver Map SDK 초기화
   // - clientId는 AppConfig에서 가져옴(AppConfig가 .env를 읽어 제공)
   // - onAuthFailed는 배포용에서 불필요한 콘솔 로그를 남기지 않도록 비워둠
   await FlutterNaverMap().init(
@@ -51,22 +84,18 @@ Future<void> main() async {
     onAuthFailed: (_) {}, // 배포: 로깅/예외 토스트 등 UI 노이즈 최소화(필요시 Sentry 등으로 전환)
   );
 
-  // 3) Firebase 서비스 초기화
+  // 7) Firebase 서비스 초기화
   try {
     await FirebaseService.instance.initialize();
     
-    // 4) 알림 서비스 초기화
+    // 8) 알림 서비스 초기화
     await NotificationService.instance.initialize();
   } catch (e) {
     // Firebase 초기화 실패해도 앱은 계속 실행
     debugPrint('Firebase/Notification initialization failed, continuing: $e');
   }
 
-  // 5) 전면광고 서비스 초기화 및 첫 광고 로드
-  final interstitialAdService = InterstitialAdService();
-  await interstitialAdService.loadAd();
-
-  // 6) Flutter 앱 실행
+  // 9) Flutter 앱 실행
   runApp(
     // ProviderScope를 추가하여 앱 전체에서 Riverpod Provider를 사용
     const ProviderScope(

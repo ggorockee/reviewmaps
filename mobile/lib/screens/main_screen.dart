@@ -8,6 +8,7 @@ import 'package:mobile/screens/map_screen.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:mobile/widgets/friendly.dart';
+import 'package:mobile/widgets/banner_ad_widget.dart';
 
 import '../widgets/exit_reward_dialog.dart';
 import '../ads/rewarded_ad_service.dart';
@@ -117,11 +118,19 @@ class _MainScreenState extends State<MainScreen> {
       },
       child: Scaffold(
       // ✅ IndexedStack: 현재 탭만 보이되, 나머지 탭도 트리에 남아 상태 보존
-      body: IndexedStack(
-        index: _selectedIndex,
+      body: Column(
         children: [
-          _tabs[0]!,
-          _tabs[1] ?? const SizedBox.shrink(),
+          Expanded(
+            child: IndexedStack(
+              index: _selectedIndex,
+              children: [
+                _tabs[0]!,
+                _tabs[1] ?? const SizedBox.shrink(),
+              ],
+            ),
+          ),
+          // 하단 배너 광고
+          const BottomBannerAdWidget(),
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(

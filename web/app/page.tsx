@@ -9,7 +9,6 @@ export default function Home() {
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
-  const [showPopup, setShowPopup] = useState(false);
   const sliderRef = useRef<HTMLDivElement>(null);
   const animationRef = useRef<number | null>(null);
 
@@ -49,11 +48,6 @@ export default function Home() {
     }
   };
 
-  const handleGooglePlayClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setShowPopup(true);
-    setTimeout(() => setShowPopup(false), 3000);
-  };
 
   const startAutoScroll = useCallback(() => {
     if (!sliderRef.current) return;
@@ -92,29 +86,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Popup */}
-      {showPopup && (
-        <div className="fixed inset-0 bg-white/15 backdrop-blur-[2px] flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-8 max-w-sm mx-4 shadow-2xl animate-fade-in">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">준비 중입니다</h3>
-              <p className="text-gray-600 mb-6">Google Play Store 버전은 현재 준비 중입니다.<br />곧 출시될 예정이니 조금만 기다려주세요!</p>
-              <button 
-                onClick={() => setShowPopup(false)}
-                className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors"
-              >
-                확인
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-sm shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

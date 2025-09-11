@@ -244,7 +244,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               autofocus: true,
               textInputAction: TextInputAction.search, // 선택
               decoration: InputDecoration(
-                hintText: '찾고 있는 장소나 가게 이름이 있나요?',
+                hintText: '지역, 업체, 제안 검색',
                 hintStyle: TextStyle(
                   fontSize: t(context, 16.sp, 9.5.sp),
                 ),

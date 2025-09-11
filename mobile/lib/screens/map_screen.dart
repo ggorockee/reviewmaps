@@ -576,7 +576,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               panel: _buildPanel(),
               minHeight: _panelMin,
               maxHeight: _panelMax,
-              color: Colors.white,
+              color: Colors.transparent,
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(24),
                 topRight: Radius.circular(24),
@@ -722,7 +722,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
         return Container(
           decoration: const BoxDecoration(
-            color: Colors.white,
+            color: Colors.transparent,
             borderRadius: BorderRadius.only(
               topLeft: Radius.circular(24.0),
               topRight: Radius.circular(24.0),

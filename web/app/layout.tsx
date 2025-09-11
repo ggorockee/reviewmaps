@@ -28,6 +28,9 @@ export const metadata: Metadata = {
   alternates: {
     canonical: '/',
   },
+  verification: {
+    google: 'your-google-verification-code',
+  },
   openGraph: {
     title: "리뷰맵 - 내 주변 체험단을 한 번에",
     description: "리뷰맵은 내 현재 위치를 기준으로 가까운 체험단을 지도와 리스트로 모아 보여주는 앱입니다.",
@@ -35,20 +38,23 @@ export const metadata: Metadata = {
     siteName: '리뷰맵',
     images: [
       {
-        url: '/assets/images/app-screenshot-1.png',
+        url: 'https://review-maps.com/assets/images/app-screenshot-1.png',
         width: 1200,
         height: 630,
         alt: '리뷰맵 앱 화면 - 내 주변 체험단을 한 번에',
+        type: 'image/png',
       },
     ],
     locale: 'ko_KR',
     type: 'website',
+    publishedTime: '2024-01-01T00:00:00.000Z',
+    modifiedTime: new Date().toISOString(),
   },
   twitter: {
     card: 'summary_large_image',
     title: "리뷰맵 - 내 주변 체험단을 한 번에",
     description: "리뷰맵은 내 현재 위치를 기준으로 가까운 체험단을 지도와 리스트로 모아 보여주는 앱입니다.",
-    images: ['/assets/images/app-screenshot-1.png'],
+    images: ['https://review-maps.com/assets/images/app-screenshot-1.png'],
   },
   robots: {
     index: true,

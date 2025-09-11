@@ -150,7 +150,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       final buttonBottom = buttonTop + buttonHeight;
 
       // 폰트 배율에 따른 동적 안전 여백
-      final baseSafePadding = 20.h;
+      final baseSafePadding = 200.h;
       final safePadding = baseSafePadding * scaleMultiplier;
 
       // 최대 높이 = 화면 전체 높이 - (버튼 bottom + safePadding)
@@ -398,8 +398,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               await _animatePanelToListPeek(); // 이후 검색 → 실행높이
             }
           });
-        } else if (programmatic) {
-          // 정렬/필터 클릭 시 → 저장된 패널 위치 그대로 유지
+        } else if (programmatic || !shouldOpenPanel) {
+          // 정렬/필터 클릭 시 또는 shouldOpenPanel이 false일 때 → 저장된 패널 위치 그대로 유지
           WidgetsBinding.instance.addPostFrameCallback((_) async {
             if (!mounted) return;
             await _restorePanelPosition();
@@ -408,8 +408,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         if (mounted) setState(() => _showEmptyResultMessage = false);
       } else {
         // 빈 결과 처리
-        if (programmatic) {
-          // 정렬/필터 클릭 시 → 저장된 패널 위치 그대로 유지
+        if (programmatic || !shouldOpenPanel) {
+          // 정렬/필터 클릭 시 또는 shouldOpenPanel이 false일 때 → 저장된 패널 위치 그대로 유지
           WidgetsBinding.instance.addPostFrameCallback((_) async {
             if (!mounted) return;
             await _restorePanelPosition();
@@ -622,7 +622,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     minHeight: _isTablet(context) ? 30.h  : 30.h,
                   ),
                   child: ElevatedButton.icon(
-                    onPressed: _isCameraMoving ? null : () => _searchInCurrentViewport(programmatic: false, shouldOpenPanel: true),
+                    onPressed: _isCameraMoving ? null : () {
+                      _rememberPanelPosition(); // 현재 패널 위치 저장
+                      _searchInCurrentViewport(programmatic: false, shouldOpenPanel: false);
+                    },
                     icon: Icon(
                       Icons.refresh,
                       size: _isTablet(context) ? 11.sp : 18.sp,

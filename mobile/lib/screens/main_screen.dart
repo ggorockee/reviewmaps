@@ -126,9 +126,15 @@ class _MainScreenState extends State<MainScreen> {
       ),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed, // 탭 3개 이상일 때도 안정
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: '홈'),
-          BottomNavigationBarItem(icon: Icon(Icons.map_outlined), label: '지도'),
+        items: [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_outlined, size: (isTab ? 32.0 : 24.0) * (1.0 + (MediaQuery.textScalerOf(context).textScaleFactor - 1.0) * 0.3).clamp(1.0, 1.2)),
+            label: '홈'
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.map_outlined, size: (isTab ? 32.0 : 24.0) * (1.0 + (MediaQuery.textScalerOf(context).textScaleFactor - 1.0) * 0.3).clamp(1.0, 1.2)),
+            label: '지도'
+          ),
           // BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: '마이'),
         ],
         currentIndex: _selectedIndex,
@@ -136,10 +142,10 @@ class _MainScreenState extends State<MainScreen> {
         onTap: _onItemTapped,
         showUnselectedLabels: true,
 
-        // 📌 태블릿에서만 키움
-        iconSize: isTab ? 32.0 : 24.0,             // 아이콘 크기
-        selectedFontSize: isTab ? 25.0 : 12.0,     // 선택된 라벨 폰트
-        unselectedFontSize: isTab ? 25.0 : 12.0,   // 선택 안된 라벨 폰트
+        // 📌 폰트 배율에 따른 동적 크기 조정
+        iconSize: (isTab ? 32.0 : 24.0) * (1.0 + (MediaQuery.textScalerOf(context).textScaleFactor - 1.0) * 0.3).clamp(1.0, 1.2),
+        selectedFontSize: (isTab ? 25.0 : 12.0) * (1.0 + (MediaQuery.textScalerOf(context).textScaleFactor - 1.0) * 0.5).clamp(1.0, 1.3),
+        unselectedFontSize: (isTab ? 25.0 : 12.0) * (1.0 + (MediaQuery.textScalerOf(context).textScaleFactor - 1.0) * 0.5).clamp(1.0, 1.3),
       ),
       ),
     ),

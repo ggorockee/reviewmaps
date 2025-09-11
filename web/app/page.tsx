@@ -9,7 +9,6 @@ export default function Home() {
   const [startX, setStartX] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
-  const [showPopup, setShowPopup] = useState(false);
   const sliderRef = useRef<HTMLDivElement>(null);
   const animationRef = useRef<number | null>(null);
 
@@ -49,11 +48,6 @@ export default function Home() {
     }
   };
 
-  const handleGooglePlayClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setShowPopup(true);
-    setTimeout(() => setShowPopup(false), 3000);
-  };
 
   const startAutoScroll = useCallback(() => {
     if (!sliderRef.current) return;
@@ -92,29 +86,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Popup */}
-      {showPopup && (
-        <div className="fixed inset-0 bg-white/15 backdrop-blur-[2px] flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-8 max-w-sm mx-4 shadow-2xl animate-fade-in">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">준비 중입니다</h3>
-              <p className="text-gray-600 mb-6">Google Play Store 버전은 현재 준비 중입니다.<br />곧 출시될 예정이니 조금만 기다려주세요!</p>
-              <button 
-                onClick={() => setShowPopup(false)}
-                className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors"
-              >
-                확인
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-sm shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -150,12 +121,13 @@ export default function Home() {
               </span>
             </h1>
             <p className="text-lg sm:text-xl text-gray-600 mb-8 max-w-3xl mx-auto leading-relaxed px-4">
-              리뷰할 곳, 아직도 여기저기 돌아다니며 찾고 있나요?<br />
-              리뷰맵은 내 현재 위치를 기준으로 가까운 체험단을 지도와 리스트로 모아 보여주는 앱입니다.
+              체험단 어디에 뭐가 있는지 잘 모르겠나요?<br />
+              리뷰맵은 내 현재 위치를 기준으로 가까운 <br />
+              체험단을 지도와 리스트로 모아 보여주는 앱입니다.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center">
               <div className="flex gap-3 sm:hidden">
-                <button onClick={handleGooglePlayClick} className="inline-block">
+                <a href="https://play.google.com/store/apps/details?id=com.reviewmaps.mobile" target="_blank" rel="noopener noreferrer" className="inline-block">
                   <Image
                     src="/assets/images/google-play-badge.png"
                     alt="Google Play에서 다운로드"
@@ -163,7 +135,7 @@ export default function Home() {
                     height={60}
                     className="h-10 w-auto hover:opacity-80 transition-opacity"
                   />
-                </button>
+                </a>
                 <a href="https://apps.apple.com/us/app/%EB%A6%AC%EB%B7%B0%EB%A7%B5/id6751343880" target="_blank" rel="noopener noreferrer" className="inline-block">
                   <Image
                     src="/assets/images/app-store-badge.png"
@@ -175,7 +147,7 @@ export default function Home() {
                 </a>
               </div>
               <div className="hidden sm:flex gap-4 items-center">
-                <button onClick={handleGooglePlayClick} className="inline-block">
+                <a href="https://play.google.com/store/apps/details?id=com.reviewmaps.mobile" target="_blank" rel="noopener noreferrer" className="inline-block">
                   <Image
                     src="/assets/images/google-play-badge.png"
                     alt="Google Play에서 다운로드"
@@ -183,7 +155,7 @@ export default function Home() {
                     height={60}
                     className="h-14 w-auto hover:opacity-80 transition-opacity"
                   />
-                </button>
+                </a>
                 <a href="https://apps.apple.com/us/app/%EB%A6%AC%EB%B7%B0%EB%A7%B5/id6751343880" target="_blank" rel="noopener noreferrer" className="inline-block">
                   <Image
                     src="/assets/images/app-store-badge.png"
@@ -208,8 +180,8 @@ export default function Home() {
           </div>
           
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 animate-fade-in-up">
-            <div className="bg-white p-6 sm:p-8 rounded-2xl border border-gray-200 card-hover">
-              <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mb-6">
+            <div className="bg-white p-6 sm:p-8 rounded-2xl border border-gray-200 card-hover text-center">
+              <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mb-6 mx-auto">
                 <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -219,8 +191,8 @@ export default function Home() {
               <p className="text-gray-600">위치 권한을 허용하면 지금 있는 곳 주변의 모집 정보를 우선 노출합니다.</p>
             </div>
 
-            <div className="bg-white p-6 sm:p-8 rounded-2xl border border-gray-200 card-hover">
-              <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mb-6">
+            <div className="bg-white p-6 sm:p-8 rounded-2xl border border-gray-200 card-hover text-center">
+              <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mb-6 mx-auto">
                 <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
                 </svg>
@@ -229,8 +201,8 @@ export default function Home() {
               <p className="text-gray-600">지도를 드래그한 뒤 이 위치로 검색 → 화면 범위 안의 캠페인만 깔끔하게 보기</p>
             </div>
 
-            <div className="bg-white p-6 sm:p-8 rounded-2xl border border-gray-200 card-hover">
-              <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mb-6">
+            <div className="bg-white p-6 sm:p-8 rounded-2xl border border-gray-200 card-hover text-center">
+              <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mb-6 mx-auto">
                 <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
@@ -239,8 +211,8 @@ export default function Home() {
               <p className="text-gray-600">제공 내역, 마감일(~MM.DD), 거리(km) 등을 카드 형태로 간결하게 표시</p>
             </div>
 
-            <div className="bg-white p-6 sm:p-8 rounded-2xl border border-gray-200 card-hover">
-              <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mb-6">
+            <div className="bg-white p-6 sm:p-8 rounded-2xl border border-gray-200 card-hover text-center">
+              <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mb-6 mx-auto">
                 <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                 </svg>
@@ -249,8 +221,8 @@ export default function Home() {
               <p className="text-gray-600">상세 확인/신청은 플랫폼의 원본 페이지로 바로 연결</p>
             </div>
 
-            <div className="bg-white p-6 sm:p-8 rounded-2xl border border-gray-200 card-hover">
-              <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mb-6">
+            <div className="bg-white p-6 sm:p-8 rounded-2xl border border-gray-200 card-hover text-center">
+              <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mb-6 mx-auto">
                 <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
@@ -259,8 +231,8 @@ export default function Home() {
               <p className="text-gray-600">복잡한 회원가입 없이 바로 탐색 가능</p>
             </div>
 
-            <div className="bg-white p-6 sm:p-8 rounded-2xl border border-gray-200 card-hover">
-              <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mb-6">
+            <div className="bg-white p-6 sm:p-8 rounded-2xl border border-gray-200 card-hover text-center">
+              <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mb-6 mx-auto">
                 <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>

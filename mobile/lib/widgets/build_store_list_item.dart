@@ -186,7 +186,7 @@ class StoreListItem extends StatelessWidget {
       height: 48.h,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8.r),
-        color: Colors.grey[100],
+        color: Colors.white,
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8.r),
@@ -198,7 +198,7 @@ class StoreListItem extends StatelessWidget {
           errorBuilder: (_, __, ___) => Container(
             width: 48.w,
             height: 48.h,
-            color: Colors.grey[200],
+            color: Colors.white,
             child: Icon(
               Icons.image_not_supported,
               color: Colors.grey[400],

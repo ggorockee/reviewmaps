@@ -38,7 +38,7 @@ export const metadata: Metadata = {
     siteName: '리뷰맵',
     images: [
       {
-        url: 'https://review-maps.com/assets/images/app-screenshot-2.png',
+        url: 'https://review-maps.com/assets/images/logo.png',
         width: 1200,
         height: 630,
         alt: '리뷰맵 앱 화면 - 내 주변 체험단을 한 번에',
@@ -56,7 +56,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: "리뷰맵 - 내 주변 체험단을 한 번에",
     description: "리뷰맵은 내 현재 위치를 기준으로 가까운 체험단을 지도와 리스트로 모아 보여주는 앱입니다.",
-    images: ['https://review-maps.com/assets/images/app-screenshot-2.png'],
+    images: ['https://review-maps.com/assets/images/logo.png'],
   },
   robots: {
     index: true,

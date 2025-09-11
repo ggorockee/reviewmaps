@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>리뷰맵 썸네일 생성</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Arial', sans-serif;
+            background: #f8fafc;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .thumbnail {
+            width: 1200px;
+            height: 630px;
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #ec4899 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+            border-radius: 20px;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.3);
+        }
+        .content {
+            text-align: center;
+            z-index: 2;
+            position: relative;
+        }
+        .logo-container {
+            width: 180px;
+            height: 180px;
+            background: white;
+            border-radius: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            position: relative;
+        }
+        .logo-container::before {
+            content: '';
+            position: absolute;
+            top: -5px;
+            left: -5px;
+            right: -5px;
+            bottom: -5px;
+            background: linear-gradient(45deg, #4f46e5, #7c3aed, #ec4899);
+            border-radius: 45px;
+            z-index: -1;
+        }
+        .logo {
+            width: 100px;
+            height: 100px;
+            background: url('/assets/images/logo.png') center/contain no-repeat;
+        }
+        .title {
+            color: white;
+            font-size: 64px;
+            font-weight: 800;
+            margin-bottom: 20px;
+            text-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            letter-spacing: -1px;
+        }
+        .subtitle {
+            color: rgba(255,255,255,0.95);
+            font-size: 32px;
+            font-weight: 400;
+            margin-bottom: 30px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .description {
+            color: rgba(255,255,255,0.9);
+            font-size: 24px;
+            font-weight: 300;
+            max-width: 800px;
+            line-height: 1.4;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .decoration {
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.1);
+            animation: float 6s ease-in-out infinite;
+        }
+        .decoration:nth-child(1) {
+            top: -150px;
+            right: -150px;
+            animation-delay: 0s;
+        }
+        .decoration:nth-child(2) {
+            bottom: -200px;
+            left: -200px;
+            width: 400px;
+            height: 400px;
+            animation-delay: 2s;
+        }
+        .decoration:nth-child(3) {
+            top: 50%;
+            left: -100px;
+            width: 200px;
+            height: 200px;
+            animation-delay: 4s;
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(180deg); }
+        }
+        .badge {
+            position: absolute;
+            top: 30px;
+            right: 30px;
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+            padding: 12px 24px;
+            border-radius: 25px;
+            color: white;
+            font-size: 18px;
+            font-weight: 600;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="thumbnail">
+        <div class="decoration"></div>
+        <div class="decoration"></div>
+        <div class="decoration"></div>
+        <div class="badge">NEW</div>
+        <div class="content">
+            <div class="logo-container">
+                <div class="logo"></div>
+            </div>
+            <div class="title">리뷰맵</div>
+            <div class="subtitle">내 주변 체험단을 한 번에</div>
+            <div class="description">지도에서 가까운 체험단을 찾고<br>원본 페이지로 바로 이동하세요</div>
+        </div>
+    </div>
+</body>
+</html>

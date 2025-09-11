@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>리뷰맵 썸네일 생성기</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .thumbnail {
+            width: 1200px;
+            height: 630px;
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .logo {
+            width: 200px;
+            height: 200px;
+            background: white;
+            border-radius: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+        .logo img {
+            width: 120px;
+            height: 120px;
+        }
+        .title {
+            color: white;
+            font-size: 72px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 20px;
+            text-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+        .subtitle {
+            color: rgba(255,255,255,0.9);
+            font-size: 36px;
+            text-align: center;
+            font-weight: 300;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .decoration {
+            position: absolute;
+            top: -50px;
+            right: -50px;
+            width: 200px;
+            height: 200px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 50%;
+        }
+        .decoration:nth-child(2) {
+            bottom: -100px;
+            left: -100px;
+            width: 300px;
+            height: 300px;
+        }
+    </style>
+</head>
+<body>
+    <div class="thumbnail">
+        <div class="decoration"></div>
+        <div class="decoration"></div>
+        <div class="logo">
+            <img src="/assets/images/logo.png" alt="리뷰맵 로고">
+        </div>
+        <div class="title">리뷰맵</div>
+        <div class="subtitle">내 주변 체험단을 한 번에</div>
+    </div>
+</body>
+</html>

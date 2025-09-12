@@ -30,20 +30,31 @@ class RewardedAdService {
     
     _isLoading = true;
     
+    // 빌드 모드에 따른 디버깅 정보 출력
+    if (kDebugMode) {
+      debugPrint('🎯 [RewardedAd] DEBUG 모드에서 리워드광고 로드 시작 - 테스트 광고 표시 예상');
+    } else {
+      debugPrint('🎯 [RewardedAd] RELEASE 모드에서 리워드광고 로드 시작 - 실제 광고 표시 예상');
+    }
+    
     try {
       await RewardedAd.load(
         adUnitId: _adUnitId,
         request: const AdRequest(),
         rewardedAdLoadCallback: RewardedAdLoadCallback(
           onAdLoaded: (RewardedAd ad) {
-            debugPrint('🎁 [RewardedAd] 리워드 광고 로드 완료');
+            if (kDebugMode) {
+              debugPrint('✅ [RewardedAd] 테스트 리워드광고 로드 완료 (DEBUG 모드)');
+            } else {
+              debugPrint('✅ [RewardedAd] 실제 리워드광고 로드 완료 (RELEASE 모드)');
+            }
             _rewardedAd = ad;
             _isAdReady = true;
             _isLoading = false;
             _setAdCallbacks();
           },
           onAdFailedToLoad: (LoadAdError error) {
-            debugPrint('❌ [RewardedAd] 리워드 광고 로드 실패: $error');
+            debugPrint('❌ [RewardedAd] 리워드광고 로드 실패: $error');
             _rewardedAd = null;
             _isAdReady = false;
             _isLoading = false;
@@ -51,7 +62,7 @@ class RewardedAdService {
         ),
       );
     } catch (e) {
-      debugPrint('❌ [RewardedAd] 리워드 광고 로드 예외: $e');
+      debugPrint('❌ [RewardedAd] 리워드광고 로드 예외: $e');
       _isLoading = false;
     }
   }

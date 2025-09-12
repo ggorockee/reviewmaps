@@ -41,18 +41,18 @@ class StoreListItem extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // 첫째줄: 타이틀 + 채널 + NEW (2줄까지 가능)
-                  _buildTitleRow(),
+                  _buildTitleRow(isTablet),
                   
                   SizedBox(height: 4.h),
                   
                   // 두번째줄: offer (폰트 작게 붉은색)
                   if (store.offer != null && store.offer!.isNotEmpty)
-                    _buildOfferRow(),
+                    _buildOfferRow(isTablet),
                   
                   SizedBox(height: 8.h),
                   
                   // 세번째줄: 플랫폼명 + D-day + 거리정보
-                  _buildMetaRow(),
+                  _buildMetaRow(isTablet),
                 ],
               ),
             ),
@@ -68,7 +68,7 @@ class StoreListItem extends StatelessWidget {
   }
 
   // 첫째줄: 타이틀 + 채널 + NEW (2줄까지 가능)
-  Widget _buildTitleRow() {
+  Widget _buildTitleRow(bool isTablet) {
     return RichText(
       maxLines: 2,
       overflow: TextOverflow.ellipsis,
@@ -134,7 +134,7 @@ class StoreListItem extends StatelessWidget {
   }
 
   // 두번째줄: offer (폰트 작게 붉은색)
-  Widget _buildOfferRow() {
+  Widget _buildOfferRow(bool isTablet) {
     return Text(
       store.offer!,
       style: TextStyle(
@@ -148,7 +148,7 @@ class StoreListItem extends StatelessWidget {
   }
 
   // 세번째줄: 플랫폼명 + D-day + 거리정보
-  Widget _buildMetaRow() {
+  Widget _buildMetaRow(bool isTablet) {
     return Row(
       children: [
         // 9개 상자 아이콘
@@ -346,11 +346,6 @@ class MapStoreListItem extends StatelessWidget {
         ),
       ),
     );
-  }
-  
-  /// 태블릿 여부 확인
-  bool _isTablet(BuildContext context) {
-    return MediaQuery.of(context).size.shortestSide >= 600;
   }
 }
 

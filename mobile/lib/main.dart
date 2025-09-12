@@ -14,6 +14,7 @@
  */
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';           // kDebugMode 사용을 위해 추가
 import 'package:flutter_dotenv/flutter_dotenv.dart';         // .env 환경변수 로드
 import 'package:flutter_naver_map/flutter_naver_map.dart';   // 네이버 지도 SDK 플러그인
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -46,7 +47,13 @@ Future<void> main() async {
   // 2) AdMob 초기화
   try {
     await MobileAds.instance.initialize();
-    print('[Main] AdMob 초기화 완료');
+    
+    // 빌드 모드에 따른 디버깅 정보 출력
+    if (kDebugMode) {
+      print('[Main] AdMob 초기화 완료 (DEBUG 모드 - 테스트 광고 표시)');
+    } else {
+      print('[Main] AdMob 초기화 완료 (RELEASE 모드 - 실제 광고 표시)');
+    }
   } catch (e) {
     print('[Main] AdMob 초기화 실패: $e');
   }

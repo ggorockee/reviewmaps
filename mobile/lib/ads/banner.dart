@@ -55,6 +55,13 @@ class _MyBannerAdWidgetState extends State<MyBannerAdWidget> {
 
   /// Loads a banner ad.
   void _loadAd() {
+    // 빌드 모드에 따른 디버깅 정보 출력
+    if (kDebugMode) {
+      debugPrint('🎯 [BannerAd] DEBUG 모드에서 광고 로드 시작 - 테스트 광고 표시 예상');
+    } else {
+      debugPrint('🎯 [BannerAd] RELEASE 모드에서 광고 로드 시작 - 실제 광고 표시 예상');
+    }
+    
     final bannerAd = BannerAd(
       size: widget.adSize,
       adUnitId: widget.adUnitId,
@@ -66,13 +73,21 @@ class _MyBannerAdWidgetState extends State<MyBannerAdWidget> {
             ad.dispose();
             return;
           }
+          
+          // 광고 로드 성공 시 빌드 모드 정보 출력
+          if (kDebugMode) {
+            debugPrint('✅ [BannerAd] 테스트 광고 로드 완료 (DEBUG 모드)');
+          } else {
+            debugPrint('✅ [BannerAd] 실제 광고 로드 완료 (RELEASE 모드)');
+          }
+          
           setState(() {
             _bannerAd = ad as BannerAd;
           });
         },
         // Called when an ad request failed.
         onAdFailedToLoad: (ad, error) {
-          debugPrint('BannerAd failed to load: $error');
+          debugPrint('❌ [BannerAd] 광고 로드 실패: $error');
           ad.dispose();
         },
       ),

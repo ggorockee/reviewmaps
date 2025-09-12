@@ -30,13 +30,24 @@ class InterstitialAdService {
     
     _isLoading = true;
     
+    // 빌드 모드에 따른 디버깅 정보 출력
+    if (kDebugMode) {
+      debugPrint('🎯 [InterstitialAd] DEBUG 모드에서 전면광고 로드 시작 - 테스트 광고 표시 예상');
+    } else {
+      debugPrint('🎯 [InterstitialAd] RELEASE 모드에서 전면광고 로드 시작 - 실제 광고 표시 예상');
+    }
+    
     try {
       await InterstitialAd.load(
         adUnitId: _adUnitId,
         request: const AdRequest(),
         adLoadCallback: InterstitialAdLoadCallback(
           onAdLoaded: (InterstitialAd ad) {
-            debugPrint('🎯 [InterstitialAd] 전면광고 로드 완료');
+            if (kDebugMode) {
+              debugPrint('✅ [InterstitialAd] 테스트 전면광고 로드 완료 (DEBUG 모드)');
+            } else {
+              debugPrint('✅ [InterstitialAd] 실제 전면광고 로드 완료 (RELEASE 모드)');
+            }
             _interstitialAd = ad;
             _isAdReady = true;
             _isLoading = false;

@@ -48,7 +48,7 @@ class DeadlineChips extends StatelessWidget {
     // 태블릿에서 시스템 폰트 크기에 따라 동적 조정
     final double baseHorizontalPadding = dense ? 6.0 : (isTablet ? 10.0 : 8.0);
     final double baseVerticalPadding = dense ? 2.0 : (isTablet ? 4.0 : 3.0);
-    final double baseFontSize = dense ? 9.0 : (isTablet ? 13.0 : 10.0);
+    final double baseFontSize = dense ? 9.0 : (isTablet ? 15.0 : 10.0);
     final double baseBorderRadius = dense ? 8.0 : (isTablet ? 12.0 : 10.0);
     
     final adjustedHorizontalPadding = (baseHorizontalPadding * textScaleFactor.clamp(0.8, 1.4)).w;

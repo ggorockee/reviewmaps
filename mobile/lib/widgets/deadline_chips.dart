@@ -15,16 +15,18 @@ class DeadlineChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isTablet = _isTablet(context);
+    final textScaleFactor = MediaQuery.textScalerOf(context).textScaleFactor;
     final List<Widget> chips = [];
 
     // 마감일 칩
     if (store.applyDeadline != null) {
-      chips.add(_buildDeadlineChip(store.applyDeadline!));
+      chips.add(_buildDeadlineChip(store.applyDeadline!, isTablet, textScaleFactor));
     }
 
     // 거리 칩
     if (store.distance != null) {
-      chips.add(_buildDistanceChip(store.distance!));
+      chips.add(_buildDistanceChip(store.distance!, isTablet, textScaleFactor));
     }
 
     if (chips.isEmpty) {
@@ -32,25 +34,36 @@ class DeadlineChips extends StatelessWidget {
     }
 
     return Wrap(
-      spacing: 4.w,
-      runSpacing: 4.h,
+      spacing: isTablet ? 6.w : 4.w,
+      runSpacing: isTablet ? 6.h : 4.h,
       children: chips,
     );
   }
 
-  Widget _buildDeadlineChip(DateTime deadline) {
+  Widget _buildDeadlineChip(DateTime deadline, bool isTablet, double textScaleFactor) {
     // D-day 계산
     final dDay = _calculateDDay(deadline);
     final isUrgent = dDay != null && dDay <= 3;
 
+    // 태블릿에서 시스템 폰트 크기에 따라 동적 조정
+    final double baseHorizontalPadding = dense ? 6.0 : (isTablet ? 10.0 : 8.0);
+    final double baseVerticalPadding = dense ? 2.0 : (isTablet ? 4.0 : 3.0);
+    final double baseFontSize = dense ? 9.0 : (isTablet ? 13.0 : 10.0);
+    final double baseBorderRadius = dense ? 8.0 : (isTablet ? 12.0 : 10.0);
+    
+    final adjustedHorizontalPadding = (baseHorizontalPadding * textScaleFactor.clamp(0.8, 1.4)).w;
+    final adjustedVerticalPadding = (baseVerticalPadding * textScaleFactor.clamp(0.8, 1.4)).h;
+    final adjustedFontSize = (baseFontSize * textScaleFactor.clamp(0.8, 1.4));
+    final adjustedBorderRadius = (baseBorderRadius * textScaleFactor.clamp(0.8, 1.4)).r;
+
     return Container(
       padding: EdgeInsets.symmetric(
-        horizontal: dense ? 6.w : 8.w,
-        vertical: dense ? 2.h : 3.h,
+        horizontal: adjustedHorizontalPadding,
+        vertical: adjustedVerticalPadding,
       ),
       decoration: BoxDecoration(
         color: isUrgent ? Colors.red.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(dense ? 8.r : 10.r),
+        borderRadius: BorderRadius.circular(adjustedBorderRadius),
         border: Border.all(
           color: isUrgent ? Colors.red.withOpacity(0.3) : Colors.grey.withOpacity(0.3),
           width: 0.5,
@@ -59,27 +72,39 @@ class DeadlineChips extends StatelessWidget {
       child: Text(
         dDay != null ? 'D-$dDay' : '마감임박',
         style: TextStyle(
-          fontSize: dense ? 9.sp : 10.sp,
+          fontSize: adjustedFontSize,
           fontWeight: FontWeight.w500,
           color: isUrgent ? Colors.red : Colors.grey[700],
+          height: 1.2, // 줄 간격 추가로 텍스트 클리핑 방지
         ),
       ),
     );
   }
 
-  Widget _buildDistanceChip(double distance) {
+  Widget _buildDistanceChip(double distance, bool isTablet, double textScaleFactor) {
     final distanceText = distance >= 1 
         ? '${distance.toStringAsFixed(1)}km'
         : '${(distance * 1000).round()}m';
 
+    // 태블릿에서 시스템 폰트 크기에 따라 동적 조정
+    final double baseHorizontalPadding = dense ? 6.0 : (isTablet ? 10.0 : 8.0);
+    final double baseVerticalPadding = dense ? 2.0 : (isTablet ? 4.0 : 3.0);
+    final double baseFontSize = dense ? 9.0 : (isTablet ? 13.0 : 10.0);
+    final double baseBorderRadius = dense ? 8.0 : (isTablet ? 12.0 : 10.0);
+    
+    final adjustedHorizontalPadding = (baseHorizontalPadding * textScaleFactor.clamp(0.8, 1.4)).w;
+    final adjustedVerticalPadding = (baseVerticalPadding * textScaleFactor.clamp(0.8, 1.4)).h;
+    final adjustedFontSize = (baseFontSize * textScaleFactor.clamp(0.8, 1.4));
+    final adjustedBorderRadius = (baseBorderRadius * textScaleFactor.clamp(0.8, 1.4)).r;
+
     return Container(
       padding: EdgeInsets.symmetric(
-        horizontal: dense ? 6.w : 8.w,
-        vertical: dense ? 2.h : 3.h,
+        horizontal: adjustedHorizontalPadding,
+        vertical: adjustedVerticalPadding,
       ),
       decoration: BoxDecoration(
         color: Colors.blue.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(dense ? 8.r : 10.r),
+        borderRadius: BorderRadius.circular(adjustedBorderRadius),
         border: Border.all(
           color: Colors.blue.withOpacity(0.3),
           width: 0.5,
@@ -88,9 +113,10 @@ class DeadlineChips extends StatelessWidget {
       child: Text(
         distanceText,
         style: TextStyle(
-          fontSize: dense ? 9.sp : 10.sp,
+          fontSize: adjustedFontSize,
           fontWeight: FontWeight.w500,
           color: Colors.blue[700],
+          height: 1.2, // 줄 간격 추가로 텍스트 클리핑 방지
         ),
       ),
     );
@@ -100,6 +126,11 @@ class DeadlineChips extends StatelessWidget {
     final now = DateTime.now();
     final difference = deadline.difference(now).inDays;
     return difference >= 0 ? difference : null;
+  }
+  
+  /// 태블릿 여부 확인
+  bool _isTablet(BuildContext context) {
+    return MediaQuery.of(context).size.shortestSide >= 600;
   }
 }
 
@@ -116,17 +147,30 @@ class DeadlineChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isTablet = _isTablet(context);
+    final textScaleFactor = MediaQuery.textScalerOf(context).textScaleFactor;
     final dDay = _calculateDDay(deadline);
     final isUrgent = dDay != null && dDay <= 3;
 
+    // 태블릿에서 시스템 폰트 크기에 따라 동적 조정
+    final double baseHorizontalPadding = dense ? 6.0 : (isTablet ? 10.0 : 8.0);
+    final double baseVerticalPadding = dense ? 2.0 : (isTablet ? 4.0 : 3.0);
+    final double baseFontSize = dense ? 9.0 : (isTablet ? 13.0 : 10.0);
+    final double baseBorderRadius = dense ? 8.0 : (isTablet ? 12.0 : 10.0);
+    
+    final adjustedHorizontalPadding = (baseHorizontalPadding * textScaleFactor.clamp(0.8, 1.4)).w;
+    final adjustedVerticalPadding = (baseVerticalPadding * textScaleFactor.clamp(0.8, 1.4)).h;
+    final adjustedFontSize = (baseFontSize * textScaleFactor.clamp(0.8, 1.4));
+    final adjustedBorderRadius = (baseBorderRadius * textScaleFactor.clamp(0.8, 1.4)).r;
+
     return Container(
       padding: EdgeInsets.symmetric(
-        horizontal: dense ? 6.w : 8.w,
-        vertical: dense ? 2.h : 3.h,
+        horizontal: adjustedHorizontalPadding,
+        vertical: adjustedVerticalPadding,
       ),
       decoration: BoxDecoration(
         color: isUrgent ? Colors.red.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(dense ? 8.r : 10.r),
+        borderRadius: BorderRadius.circular(adjustedBorderRadius),
         border: Border.all(
           color: isUrgent ? Colors.red.withOpacity(0.3) : Colors.grey.withOpacity(0.3),
           width: 0.5,
@@ -135,9 +179,10 @@ class DeadlineChip extends StatelessWidget {
       child: Text(
         dDay != null ? 'D-$dDay' : '마감임박',
         style: TextStyle(
-          fontSize: dense ? 9.sp : 10.sp,
+          fontSize: adjustedFontSize,
           fontWeight: FontWeight.w500,
           color: isUrgent ? Colors.red : Colors.grey[700],
+          height: 1.2, // 줄 간격 추가로 텍스트 클리핑 방지
         ),
       ),
     );
@@ -147,6 +192,11 @@ class DeadlineChip extends StatelessWidget {
     final now = DateTime.now();
     final difference = deadline.difference(now).inDays;
     return difference >= 0 ? difference : null;
+  }
+  
+  /// 태블릿 여부 확인
+  bool _isTablet(BuildContext context) {
+    return MediaQuery.of(context).size.shortestSide >= 600;
   }
 }
 
@@ -163,18 +213,31 @@ class DistanceChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isTablet = _isTablet(context);
+    final textScaleFactor = MediaQuery.textScalerOf(context).textScaleFactor;
     final distanceText = distance >= 1 
         ? '${distance.toStringAsFixed(1)}km'
         : '${(distance * 1000).round()}m';
 
+    // 태블릿에서 시스템 폰트 크기에 따라 동적 조정
+    final double baseHorizontalPadding = dense ? 6.0 : (isTablet ? 10.0 : 8.0);
+    final double baseVerticalPadding = dense ? 2.0 : (isTablet ? 4.0 : 3.0);
+    final double baseFontSize = dense ? 9.0 : (isTablet ? 13.0 : 10.0);
+    final double baseBorderRadius = dense ? 8.0 : (isTablet ? 12.0 : 10.0);
+    
+    final adjustedHorizontalPadding = (baseHorizontalPadding * textScaleFactor.clamp(0.8, 1.4)).w;
+    final adjustedVerticalPadding = (baseVerticalPadding * textScaleFactor.clamp(0.8, 1.4)).h;
+    final adjustedFontSize = (baseFontSize * textScaleFactor.clamp(0.8, 1.4));
+    final adjustedBorderRadius = (baseBorderRadius * textScaleFactor.clamp(0.8, 1.4)).r;
+
     return Container(
       padding: EdgeInsets.symmetric(
-        horizontal: dense ? 6.w : 8.w,
-        vertical: dense ? 2.h : 3.h,
+        horizontal: adjustedHorizontalPadding,
+        vertical: adjustedVerticalPadding,
       ),
       decoration: BoxDecoration(
         color: Colors.blue.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(dense ? 8.r : 10.r),
+        borderRadius: BorderRadius.circular(adjustedBorderRadius),
         border: Border.all(
           color: Colors.blue.withOpacity(0.3),
           width: 0.5,
@@ -183,11 +246,17 @@ class DistanceChip extends StatelessWidget {
       child: Text(
         distanceText,
         style: TextStyle(
-          fontSize: dense ? 9.sp : 10.sp,
+          fontSize: adjustedFontSize,
           fontWeight: FontWeight.w500,
           color: Colors.blue[700],
+          height: 1.2, // 줄 간격 추가로 텍스트 클리핑 방지
         ),
       ),
     );
+  }
+  
+  /// 태블릿 여부 확인
+  bool _isTablet(BuildContext context) {
+    return MediaQuery.of(context).size.shortestSide >= 600;
   }
 }

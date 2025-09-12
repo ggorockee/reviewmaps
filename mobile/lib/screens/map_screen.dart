@@ -178,7 +178,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       final buttonBottom = buttonTop + buttonHeight;
 
       // 폰트 배율에 따른 동적 안전 여백
-      final baseSafePadding = 200.h;
+      final baseSafePadding = 250.h;
       final safePadding = baseSafePadding * scaleMultiplier;
 
       // 최대 높이 = 화면 전체 높이 - (버튼 bottom + safePadding)

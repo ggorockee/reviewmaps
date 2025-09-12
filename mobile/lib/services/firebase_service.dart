@@ -6,7 +6,6 @@ import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_performance/firebase_performance.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 
 /// FirebaseService
 /// ------------------------------------------------------------
@@ -15,7 +14,6 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 /// - Crashlytics: 크래시 리포팅
 /// - Performance: 성능 모니터링
 /// - Remote Config: 원격 설정 관리
-/// - Messaging: 푸시 알림
 class FirebaseService {
   static FirebaseService? _instance;
   static FirebaseService get instance => _instance ??= FirebaseService._internal();
@@ -26,7 +24,6 @@ class FirebaseService {
   late FirebaseCrashlytics _crashlytics;
   late FirebasePerformance _performance;
   late FirebaseRemoteConfig _remoteConfig;
-  late FirebaseMessaging _messaging;
 
   bool _isInitialized = false;
 
@@ -43,7 +40,6 @@ class FirebaseService {
       _crashlytics = FirebaseCrashlytics.instance;
       _performance = FirebasePerformance.instance;
       _remoteConfig = FirebaseRemoteConfig.instance;
-      _messaging = FirebaseMessaging.instance;
 
       // Crashlytics 설정
       await _setupCrashlytics();
@@ -51,8 +47,6 @@ class FirebaseService {
       // Remote Config 설정
       await _setupRemoteConfig();
       
-      // FCM 설정
-      await _setupMessaging();
 
       _isInitialized = true;
       debugPrint('🔥 Firebase initialized successfully');
@@ -110,40 +104,6 @@ class FirebaseService {
     }
   }
 
-  /// FCM 설정
-  Future<void> _setupMessaging() async {
-    try {
-      // 알림 권한 요청
-      NotificationSettings settings = await _messaging.requestPermission(
-        alert: true,
-        announcement: false,
-        badge: true,
-        carPlay: false,
-        criticalAlert: false,
-        provisional: false,
-        sound: true,
-      );
-
-      if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-        debugPrint('🔥 FCM permission granted');
-        
-        // FCM 토큰 가져오기
-        String? token = await _messaging.getToken();
-        debugPrint('🔥 FCM Token: $token');
-        
-        // 토큰 새로고침 리스너
-        _messaging.onTokenRefresh.listen((newToken) {
-          debugPrint('🔥 FCM Token refreshed: $newToken');
-          // 서버에 새 토큰 업데이트 로직 추가 가능
-        });
-
-      } else {
-        debugPrint('⚠️ FCM permission denied');
-      }
-    } catch (e) {
-      debugPrint('⚠️ FCM setup failed: $e');
-    }
-  }
 
   // ==================== Analytics ====================
 
@@ -278,24 +238,6 @@ class FirebaseService {
     } catch (e) {
       debugPrint('⚠️ Remote Config refresh failed: $e');
     }
-  }
-
-  // ==================== Messaging ====================
-
-  /// 포그라운드 메시지 리스너 설정
-  void setupForegroundMessageListener(Function(RemoteMessage) onMessage) {
-    FirebaseMessaging.onMessage.listen(onMessage);
-  }
-
-  /// 백그라운드 메시지 리스너 설정
-  void setupBackgroundMessageListener(Function(RemoteMessage) onMessage) {
-    FirebaseMessaging.onMessageOpenedApp.listen(onMessage);
-  }
-
-  /// FCM 토큰 가져오기
-  Future<String?> getFCMToken() async {
-    if (!_isInitialized) return null;
-    return await _messaging.getToken();
   }
 
   // ==================== Utility ====================

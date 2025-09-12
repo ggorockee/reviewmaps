@@ -266,9 +266,11 @@ class AdService {
 
   /// 사용자 행동 이벤트 로깅
   Future<void> logUserAction(String action, Map<String, dynamic> parameters) async {
+    // logEvent의 parameters는 Map<String, Object>? 타입이어야 하므로,
+    // Map<String, dynamic>을 Map<String, Object>로 변환하여 전달합니다.
     await _analytics.logEvent(
       name: action,
-      parameters: parameters,
+      parameters: parameters.map((key, value) => MapEntry(key, value as Object)),
     );
   }
 }

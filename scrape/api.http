@@ -1,0 +1,7 @@
+https://mymilky.co.kr/api/campaigns?page=2&limit=19&q=%EB%8C%80%EA%B5%AC&channel&region&type&order=recent&types&tags
+
+
+###
+GET https://mymilky.co.kr/api/campaigns?page=2&limit=19&q=%EB%8C%80%EA%B5%AC
+content-type: application/json
+

@@ -21,11 +21,13 @@ class MetaBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isTablet = _isTablet(context);
+    final textScaleFactor = MediaQuery.textScalerOf(context).textScaleFactor;
     final List<Widget> items = [];
 
     // 플랫폼 정보
     if (showPlatform && store.platform.isNotEmpty) {
-      items.add(_buildPlatformChip(store.platform));
+      items.add(_buildPlatformChip(store.platform, isTablet, textScaleFactor));
     }
 
     // 마감일 및 거리 칩들
@@ -44,14 +46,14 @@ class MetaBar extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Wrap(
-          spacing: 6.w,
-          runSpacing: 4.h,
+          spacing: isTablet ? 8.w : 6.w,
+          runSpacing: isTablet ? 6.h : 4.h,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: items,
         ),
         // 채널 아이콘들
         if (store.campaignChannel != null && store.campaignChannel!.isNotEmpty) ...[
-          SizedBox(height: 4.h),
+          SizedBox(height: isTablet ? 6.h : 4.h),
           Row(
             children: buildChannelIcons(store.campaignChannel),
           ),
@@ -60,15 +62,26 @@ class MetaBar extends StatelessWidget {
     );
   }
 
-  Widget _buildPlatformChip(String platform) {
+  Widget _buildPlatformChip(String platform, bool isTablet, double textScaleFactor) {
+    // 태블릿에서 시스템 폰트 크기에 따라 동적 조정
+    final double baseHorizontalPadding = dense ? 4.0 : (isTablet ? 8.0 : 6.0);
+    final double baseVerticalPadding = dense ? 1.0 : (isTablet ? 3.0 : 2.0);
+    final double baseFontSize = dense ? 8.0 : (isTablet ? 12.0 : 9.0);
+    final double baseBorderRadius = dense ? 6.0 : (isTablet ? 10.0 : 8.0);
+    
+    final adjustedHorizontalPadding = (baseHorizontalPadding * textScaleFactor.clamp(0.8, 1.4)).w;
+    final adjustedVerticalPadding = (baseVerticalPadding * textScaleFactor.clamp(0.8, 1.4)).h;
+    final adjustedFontSize = (baseFontSize * textScaleFactor.clamp(0.8, 1.4));
+    final adjustedBorderRadius = (baseBorderRadius * textScaleFactor.clamp(0.8, 1.4)).r;
+    
     return Container(
       padding: EdgeInsets.symmetric(
-        horizontal: dense ? 4.w : 6.w,
-        vertical: dense ? 1.h : 2.h,
+        horizontal: adjustedHorizontalPadding,
+        vertical: adjustedVerticalPadding,
       ),
       decoration: BoxDecoration(
         color: Colors.grey.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(dense ? 6.r : 8.r),
+        borderRadius: BorderRadius.circular(adjustedBorderRadius),
         border: Border.all(
           color: Colors.grey.withOpacity(0.3),
           width: 0.5,
@@ -77,12 +90,18 @@ class MetaBar extends StatelessWidget {
       child: Text(
         platform,
         style: TextStyle(
-          fontSize: dense ? 8.sp : 9.sp,
+          fontSize: adjustedFontSize,
           fontWeight: FontWeight.w500,
           color: Colors.grey[700],
+          height: 1.2, // 줄 간격 추가로 텍스트 클리핑 방지
         ),
       ),
     );
+  }
+  
+  /// 태블릿 여부 확인
+  bool _isTablet(BuildContext context) {
+    return MediaQuery.of(context).size.shortestSide >= 600;
   }
 }
 
@@ -101,14 +120,28 @@ class SimpleMeta extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isTablet = _isTablet(context);
+    final textScaleFactor = MediaQuery.textScalerOf(context).textScaleFactor;
+    
+    // 태블릿에서 시스템 폰트 크기에 따라 동적 조정
+    final double baseHorizontalPadding = dense ? 4.0 : (isTablet ? 8.0 : 6.0);
+    final double baseVerticalPadding = dense ? 1.0 : (isTablet ? 3.0 : 2.0);
+    final double baseFontSize = dense ? 8.0 : (isTablet ? 12.0 : 9.0);
+    final double baseBorderRadius = dense ? 6.0 : (isTablet ? 10.0 : 8.0);
+    
+    final adjustedHorizontalPadding = (baseHorizontalPadding * textScaleFactor.clamp(0.8, 1.4)).w;
+    final adjustedVerticalPadding = (baseVerticalPadding * textScaleFactor.clamp(0.8, 1.4)).h;
+    final adjustedFontSize = (baseFontSize * textScaleFactor.clamp(0.8, 1.4));
+    final adjustedBorderRadius = (baseBorderRadius * textScaleFactor.clamp(0.8, 1.4)).r;
+    
     return Container(
       padding: EdgeInsets.symmetric(
-        horizontal: dense ? 4.w : 6.w,
-        vertical: dense ? 1.h : 2.h,
+        horizontal: adjustedHorizontalPadding,
+        vertical: adjustedVerticalPadding,
       ),
       decoration: BoxDecoration(
         color: (color ?? Colors.grey).withOpacity(0.1),
-        borderRadius: BorderRadius.circular(dense ? 6.r : 8.r),
+        borderRadius: BorderRadius.circular(adjustedBorderRadius),
         border: Border.all(
           color: (color ?? Colors.grey).withOpacity(0.3),
           width: 0.5,
@@ -117,11 +150,17 @@ class SimpleMeta extends StatelessWidget {
       child: Text(
         text,
         style: TextStyle(
-          fontSize: dense ? 8.sp : 9.sp,
+          fontSize: adjustedFontSize,
           fontWeight: FontWeight.w500,
           color: color ?? Colors.grey[700],
+          height: 1.2, // 줄 간격 추가로 텍스트 클리핑 방지
         ),
       ),
     );
+  }
+  
+  /// 태블릿 여부 확인
+  bool _isTablet(BuildContext context) {
+    return MediaQuery.of(context).size.shortestSide >= 600;
   }
 }

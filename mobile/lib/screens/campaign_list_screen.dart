@@ -244,12 +244,12 @@ class _CampaignListScreenState extends ConsumerState<CampaignListScreen> {
     // 리스트 레이아웃에서는 동적 높이 불필요
 
     // 정렬 옵션이 변경되었을 때 처리
-    if (_lastSortOption != null && _lastSortOption != currentSort) {
+    if (_lastSortOption != null && _lastSortOption != CampaignListSortHelper.toCampaignListSort(currentSort)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _applySorting(currentSort);
       });
     }
-    _lastSortOption = currentSort;
+    _lastSortOption = CampaignListSortHelper.toCampaignListSort(currentSort);
 
     return ClampTextScale(
       child: Scaffold(

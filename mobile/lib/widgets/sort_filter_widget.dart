@@ -126,7 +126,7 @@ class SortFilterWidget extends StatelessWidget {
             Text(
               option.displayName,
               style: TextStyle(
-                fontSize: (isTablet ? 14.0 : 13.0) * textScaleFactor.clamp(0.8, 1.4),
+                fontSize: (isTablet ? 24.0 : 13.0) * textScaleFactor.clamp(0.8, 1.4),
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                 color: isSelected ? Colors.white : Colors.grey.shade700,
                 letterSpacing: -0.2,

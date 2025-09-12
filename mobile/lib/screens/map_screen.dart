@@ -35,7 +35,7 @@ class MapSortHelper {
     }
   }
 
-  static String toString(SortOption option) {
+  static String toSortString(SortOption option) {
     switch (option) {
       case SortOption.newest:
         return '-created_at';
@@ -784,12 +784,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 onSortChanged: (newSort) {
                   _rememberPanelPosition();
                   setState(() {
-                    _currentSortOrder = MapSortHelper.toString(newSort);
+                    _currentSortOrder = MapSortHelper.toSortString(newSort);
                   });
                   // 정렬 변경 → 프로그램적 이동 (패널 위치 유지)
                   _searchInCurrentViewport(programmatic: true);
                 },
-                userPosition: _currentPosition,
+                userPosition: null,
                 onLocationRequest: () {
                   showFriendlySnack(context, '위치 권한이 필요합니다. 설정에서 허용해주세요.');
                 },

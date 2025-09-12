@@ -199,7 +199,7 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
           title: Text(
             "'${widget.query}' 검색 결과",
             style: TextStyle(
-              fontSize: isTab ? 14.sp : 18.sp,
+              fontSize: isTab ? 22.sp : 18.sp,
               fontWeight: FontWeight.w600,
             ),
           ),

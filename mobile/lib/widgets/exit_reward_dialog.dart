@@ -35,6 +35,7 @@ class ExitRewardDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isTablet = _isTablet(context);
     final rewardedAdService = RewardedAdService();
 
     return Dialog(
@@ -71,7 +72,7 @@ class ExitRewardDialog extends StatelessWidget {
             Text(
               '잠깐만요! 🎁',
               style: TextStyle(
-                fontSize: 24.sp,
+                fontSize: isTablet ? 28.sp : 24.sp,
                 fontWeight: FontWeight.bold,
                 color: Colors.black87,
               ),
@@ -84,7 +85,7 @@ class ExitRewardDialog extends StatelessWidget {
             Text(
               '광고를 보시면 더 많은 프리미엄\n체험단 정보를 확인하실 수 있어요!',
               style: TextStyle(
-                fontSize: 16.sp,
+                fontSize: isTablet ? 18.sp : 16.sp,
                 color: Colors.grey[600],
                 height: 1.4,
               ),
@@ -116,7 +117,7 @@ class ExitRewardDialog extends StatelessWidget {
                   Text(
                     '신규 체험단 정보 + 특별 혜택',
                     style: TextStyle(
-                      fontSize: 14.sp,
+                      fontSize: isTablet ? 16.sp : 14.sp,
                       color: Colors.orange[800],
                       fontWeight: FontWeight.w600,
                     ),
@@ -144,7 +145,7 @@ class ExitRewardDialog extends StatelessWidget {
                     child: Text(
                       '나가기',
                       style: TextStyle(
-                        fontSize: 16.sp,
+                        fontSize: isTablet ? 18.sp : 16.sp,
                         color: Colors.grey[600],
                         fontWeight: FontWeight.w500,
                       ),
@@ -180,7 +181,7 @@ class ExitRewardDialog extends StatelessWidget {
                         Text(
                           '광고 보기',
                           style: TextStyle(
-                            fontSize: 16.sp,
+                            fontSize: isTablet ? 18.sp : 16.sp,
                             color: Colors.white,
                             fontWeight: FontWeight.w600,
                           ),
@@ -198,7 +199,7 @@ class ExitRewardDialog extends StatelessWidget {
             Text(
               '광고는 30초 정도 소요됩니다',
               style: TextStyle(
-                fontSize: 12.sp,
+                fontSize: isTablet ? 14.sp : 12.sp,
                 color: Colors.grey[500],
               ),
             ),
@@ -237,5 +238,10 @@ class ExitRewardDialog extends StatelessWidget {
         }
       },
     );
+  }
+  
+  /// 태블릿 여부 확인
+  bool _isTablet(BuildContext context) {
+    return MediaQuery.of(context).size.shortestSide >= 600;
   }
 }

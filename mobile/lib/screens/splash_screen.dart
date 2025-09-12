@@ -168,7 +168,7 @@ class _SplashScreenState extends State<SplashScreen>
                         child: Text(
                           '내 주변 체험단을 지도로 찾아보세요',
                           style: TextStyle(
-                            fontSize: 16.sp,
+                            fontSize: isTablet ? 18.sp : 16.sp,
                             color: Colors.grey[600],
                             fontWeight: FontWeight.w400,
                           ),

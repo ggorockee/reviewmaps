@@ -589,7 +589,7 @@ class _HomeScreenState extends State<HomeScreen> {
           },
           child: Row(
             children: [
-              Text('더보기', style: TextStyle(color: Colors.grey[600], fontSize: 13.sp)),
+              Text('더보기', style: TextStyle(color: Colors.grey[600], fontSize: isTab ? 15.sp : 13.sp)),
               SizedBox(width: 2.w),
               Icon(Icons.arrow_forward_ios, size: 12.sp, color: Colors.grey),
               SizedBox(width: 8.w),
@@ -640,7 +640,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     Text('더보기',
                         style:
-                        TextStyle(color: Colors.grey[600], fontSize: 13.sp)),
+                        TextStyle(color: Colors.grey[600], fontSize: isTab ? 15.sp : 13.sp)),
                     SizedBox(width: 2.w),
                     Icon(Icons.arrow_forward_ios, size: 12.sp, color: Colors.grey),
                     SizedBox(width: 8.w),
@@ -674,7 +674,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           '내 주변 체험단을 보여드릴게요!\n아래 버튼을 눌러 위치 권한을 허용해 주세요 😊',
                           style: TextStyle(
                             color: Colors.blue[900],
-                            fontSize: isTab ? 11.sp : 11.sp, // ← 태블릿에서 크게
+                            fontSize: isTab ? 13.sp : 11.sp, // ← 태블릿에서 크게
                           ),
                         ),
                       ),
@@ -682,7 +682,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         onPressed: _requestAndLoadNearest,
                         child: Text('보여주기',
                           style: TextStyle(
-                            fontSize: isTab ? 11.sp : 11.sp, // ← 태블릿에서 크게
+                            fontSize: isTab ? 13.sp : 11.sp, // ← 태블릿에서 크게
                           ),
                         ),
                       ),
@@ -807,7 +807,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final double t = denom == 0 ? 0 : ((ts - 1.0) / denom).clamp(0.0, 1.0);
 
     final double minH = isTab ? 175.h : 145.h;
-    final double maxH = isTab ? 170.h : 190.h;
+    final double maxH = isTab ? 180.h : 190.h;
 
     return ui.lerpDouble(minH, maxH, t)!;
   }

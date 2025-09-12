@@ -257,7 +257,7 @@ class _CampaignListScreenState extends ConsumerState<CampaignListScreen> {
           title: Text(
               widget.title,
               style: TextStyle(
-                fontSize: isTab ? 15.sp : 18.sp,
+                fontSize: isTab ? 22.sp : 18.sp,
                 fontWeight: FontWeight.w700,
               ),
           ),

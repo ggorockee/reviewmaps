@@ -1068,7 +1068,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       child: Text(
         name,
         style: TextStyle(
-          fontSize: 14.sp,
+          fontSize: _isTablet(context) ? 16.sp : 14.sp,
           color: isSelected ? selectedColor : unselectedColor,
           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
           decoration: isSelected ? TextDecoration.underline : TextDecoration.none,
@@ -1191,7 +1191,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         color: Colors.grey.shade200,
         borderRadius: BorderRadius.circular(6),
       ),
-      child: Text(DateFormat('~MM.dd').format(deadline), style: TextStyle(fontSize: 12.sp)),
+      child: Text(DateFormat('~MM.dd').format(deadline), style: TextStyle(fontSize: _isTablet(context) ? 14.sp : 12.sp)),
     );
 
     final ddayChip = Container(
@@ -1200,7 +1200,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         color: dBg,
         borderRadius: BorderRadius.circular(6),
       ),
-      child: Text(dLabel, style: TextStyle(fontSize: 12.sp, color: dColor, fontWeight: FontWeight.w600)),
+      child: Text(dLabel, style: TextStyle(fontSize: _isTablet(context) ? 14.sp : 12.sp, color: dColor, fontWeight: FontWeight.w600)),
     );
 
     return Row(children: [

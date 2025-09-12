@@ -17,6 +17,7 @@ class UpdatePillBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isTablet = _isTablet(context);
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
       padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
@@ -40,7 +41,7 @@ class UpdatePillBanner extends StatelessWidget {
             child: Text(
               message,
               style: TextStyle(
-                fontSize: 13.sp,
+                fontSize: isTablet ? 15.sp : 13.sp,
                 color: PRIMARY_COLOR,
                 fontWeight: FontWeight.w500,
               ),
@@ -58,7 +59,7 @@ class UpdatePillBanner extends StatelessWidget {
                 child: Text(
                   '업데이트',
                   style: TextStyle(
-                    fontSize: 12.sp,
+                    fontSize: isTablet ? 14.sp : 12.sp,
                     color: Colors.white,
                     fontWeight: FontWeight.w600,
                   ),
@@ -79,6 +80,11 @@ class UpdatePillBanner extends StatelessWidget {
         ],
       ),
     );
+  }
+  
+  /// 태블릿 여부 확인
+  bool _isTablet(BuildContext context) {
+    return MediaQuery.of(context).size.shortestSide >= 600;
   }
 }
 
@@ -128,7 +134,7 @@ class UpdateBanner extends StatelessWidget {
                 child: Text(
                   title,
                   style: TextStyle(
-                    fontSize: 16.sp,
+                    fontSize: isTablet ? 18.sp : 16.sp,
                     fontWeight: FontWeight.bold,
                     color: Colors.black87,
                   ),
@@ -149,7 +155,7 @@ class UpdateBanner extends StatelessWidget {
           Text(
             message,
             style: TextStyle(
-              fontSize: 14.sp,
+              fontSize: isTablet ? 16.sp : 14.sp,
               color: Colors.black54,
               height: 1.4,
             ),
@@ -170,7 +176,7 @@ class UpdateBanner extends StatelessWidget {
                 child: Text(
                   '업데이트 하기',
                   style: TextStyle(
-                    fontSize: 14.sp,
+                    fontSize: isTablet ? 16.sp : 14.sp,
                     fontWeight: FontWeight.w600,
                     color: Colors.white,
                   ),
@@ -181,5 +187,10 @@ class UpdateBanner extends StatelessWidget {
         ],
       ),
     );
+  }
+  
+  /// 태블릿 여부 확인
+  bool _isTablet(BuildContext context) {
+    return MediaQuery.of(context).size.shortestSide >= 600;
   }
 }

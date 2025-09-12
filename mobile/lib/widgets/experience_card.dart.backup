@@ -88,14 +88,14 @@ class ExperienceCard extends StatelessWidget {
                   maxLines: isTab ? 2 : (compact ? 1 : 2),
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: (isTab ? 6.5.sp : 9.5.sp) * scaleMultiplier,
+                    fontSize: (isTab ? 8.5.sp : 9.5.sp) * scaleMultiplier,
                     color: Colors.red,
                     height: isTab ? 1.05 : 1.2,
                   ),
                 ),
 
               // ---------- 오퍼와 D-day 사이의 일정한 간격 ----------
-              SizedBox(height: isTab ? 13.h : 10.h),
+              SizedBox(height: isTab ? 8.h : 10.h),
 
               // 검색 결과(1열)에서는 타이틀 폰트 기준 1.5배 간격, 
               // 카테고리(2열)에서는 카드 하단 고정으로 정렬 유지

@@ -61,6 +61,11 @@ class StoreListItem extends StatelessWidget {
       ),
     );
   }
+  
+  /// 태블릿 여부 확인
+  bool _isTablet(BuildContext context) {
+    return MediaQuery.of(context).size.shortestSide >= 600;
+  }
 
   // 첫째줄: 타이틀 + 채널 + NEW (2줄까지 가능)
   Widget _buildTitleRow() {

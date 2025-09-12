@@ -65,26 +65,35 @@ class AdService {
     }
   }
 
-  /// iOS App Tracking Transparency 권한 요청
+  /// iOS App Tracking Transparency 권한 요청 (앱 업데이트 시 중복 방지)
   Future<void> _requestTrackingPermission() async {
     try {
       final status = await AppTrackingTransparency.trackingAuthorizationStatus;
       
+      // 이미 결정된 상태면 권한 요청하지 않음 (중복 방지)
       if (status == TrackingStatus.notDetermined) {
         final newStatus = await AppTrackingTransparency.requestTrackingAuthorization();
         _isTrackingPermissionGranted = newStatus == TrackingStatus.authorized;
+        
+        await _analytics.logEvent(
+          name: 'tracking_permission_requested',
+          parameters: {
+            'status': _isTrackingPermissionGranted ? 'granted' : 'denied',
+          },
+        );
       } else {
         _isTrackingPermissionGranted = status == TrackingStatus.authorized;
+        
+        await _analytics.logEvent(
+          name: 'tracking_permission_status',
+          parameters: {
+            'status': _isTrackingPermissionGranted ? 'granted' : 'denied',
+            'already_determined': true,
+          },
+        );
       }
-
-      await _analytics.logEvent(
-        name: 'tracking_permission_result',
-        parameters: {
-          'status': _isTrackingPermissionGranted ? 'granted' : 'denied',
-        },
-      );
     } catch (e) {
-      print('[AdService] 추적 권한 요청 실패: $e');
+      print('[AdService] 추적 권한 확인 실패: $e');
     }
   }
 
@@ -120,8 +129,8 @@ class AdService {
 
   /// 디버그 모드 확인
   bool _isDebugMode() {
-    // 실제 배포 시에는 false로 변경
-    return true; // 개발 중이므로 테스트 광고 사용
+    // 릴리즈 빌드에서는 실제 광고 사용
+    return false; // 프로덕션 배포 시 실제 광고 사용
   }
 
   /// 전면광고 로드

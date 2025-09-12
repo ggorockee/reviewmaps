@@ -33,9 +33,14 @@ class SortFilterWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isTablet = _isTablet(context);
+    final textScaleFactor = MediaQuery.textScalerOf(context).textScaleFactor;
+    
+    // 태블릿에서 시스템 폰트 크기에 따라 높이 동적 조정
+    final double baseHeight = isTablet ? 56.0 : 48.0;
+    final adjustedHeight = (baseHeight * textScaleFactor.clamp(0.8, 1.4)).h;
     
     return Container(
-      height: isTablet ? 56.h : 48.h,
+      height: adjustedHeight,
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(
@@ -81,6 +86,16 @@ class SortFilterWidget extends StatelessWidget {
   ) {
     final bool isSelected = currentSort == option;
     final bool isLocationRequired = option == SortOption.nearest && userPosition == null;
+    final textScaleFactor = MediaQuery.textScalerOf(context).textScaleFactor;
+    
+    // 시스템 폰트 크기에 따라 칩 높이와 패딩 동적 조정
+    final double baseChipHeight = isTablet ? 36.0 : 32.0;
+    final adjustedChipHeight = (baseChipHeight * textScaleFactor.clamp(0.8, 1.4)).h;
+    
+    final double baseHorizontalPadding = isTablet ? 16.0 : 14.0;
+    final double baseVerticalPadding = isTablet ? 8.0 : 6.0;
+    final adjustedHorizontalPadding = (baseHorizontalPadding * textScaleFactor.clamp(0.8, 1.4)).w;
+    final adjustedVerticalPadding = (baseVerticalPadding * textScaleFactor.clamp(0.8, 1.4)).h;
 
     return GestureDetector(
       onTap: () {
@@ -92,10 +107,10 @@ class SortFilterWidget extends StatelessWidget {
         }
       },
       child: Container(
-        height: isTablet ? 36.h : 32.h,
+        height: adjustedChipHeight,
         padding: EdgeInsets.symmetric(
-          horizontal: isTablet ? 16.w : 14.w,
-          vertical: isTablet ? 8.h : 6.h,
+          horizontal: adjustedHorizontalPadding,
+          vertical: adjustedVerticalPadding,
         ),
         decoration: BoxDecoration(
           color: isSelected ? PRIMARY_COLOR : Colors.grey.shade100,
@@ -111,17 +126,18 @@ class SortFilterWidget extends StatelessWidget {
             Text(
               option.displayName,
               style: TextStyle(
-                fontSize: isTablet ? 14.sp : 13.sp,
+                fontSize: (isTablet ? 14.0 : 13.0) * textScaleFactor.clamp(0.8, 1.4),
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                 color: isSelected ? Colors.white : Colors.grey.shade700,
                 letterSpacing: -0.2,
+                height: 1.2, // 줄 간격 추가로 텍스트 클리핑 방지
               ),
             ),
             if (isLocationRequired) ...[
-              SizedBox(width: 4.w),
+              SizedBox(width: (4.0 * textScaleFactor.clamp(0.8, 1.4)).w),
               Icon(
                 Icons.location_off_outlined,
-                size: isTablet ? 16.sp : 14.sp,
+                size: (isTablet ? 16.0 : 14.0) * textScaleFactor.clamp(0.8, 1.4),
                 color: isSelected ? Colors.white70 : Colors.grey.shade500,
               ),
             ],

@@ -781,21 +781,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               // 통일된 정렬 필터
               SortFilterWidget(
                 currentSort: MapSortHelper.fromString(_currentSortOrder),
-                onSortChanged: (newSort) async {
+                onSortChanged: (newSort) {
                   _rememberPanelPosition();
-                  
-                  // 거리순 정렬인 경우 위치 권한 미리 체크
-                  if (newSort == SortOption.nearest) {
-                    final permission = await Geolocator.checkPermission();
-                    if (permission != LocationPermission.always && permission != LocationPermission.whileInUse) {
-                      debugPrint('🚫 [MapScreen] 거리순 정렬 시 위치 권한 없음: $permission');
-                      if (mounted) {
-                        showFriendlySnack(context, '위치 권한이 필요합니다. 설정에서 허용해주세요.');
-                      }
-                      return; // 권한이 없으면 정렬 변경하지 않음
-                    }
-                  }
-                  
                   setState(() {
                     _currentSortOrder = MapSortHelper.toSortString(newSort);
                   });
@@ -1259,10 +1246,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       // 위치 권한 확인
       final permission = await Geolocator.checkPermission();
       if (permission != LocationPermission.always && permission != LocationPermission.whileInUse) {
-        debugPrint('🚫 [MapScreen] 위치 권한 없음: $permission');
-        if (mounted) {
-          showFriendlySnack(context, '위치 권한이 필요합니다. 설정에서 허용해주세요.');
-        }
         return; // 권한이 없으면 거리 계산하지 않음
       }
 
@@ -1270,8 +1253,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       final position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       ).timeout(const Duration(seconds: 5));
-      
-      debugPrint('📍 [MapScreen] 현재 위치 획득: ${position.latitude}, ${position.longitude}');
 
       // 각 스토어에 대해 거리 계산하고 리스트 업데이트
       for (int i = 0; i < stores.length; i++) {
@@ -1288,11 +1269,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           stores[i] = store.copyWith(distance: distance);
         }
       }
-    } catch (e) {
-      debugPrint('❌ [MapScreen] 위치 정보 획득 실패: $e');
-      if (mounted) {
-        showFriendlySnack(context, '위치 정보를 가져올 수 없습니다. 잠시 후 다시 시도해주세요.');
-      }
+    } catch (_) {
       // 위치 정보를 가져올 수 없으면 거리 계산하지 않음
     }
   }

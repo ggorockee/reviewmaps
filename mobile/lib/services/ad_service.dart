@@ -240,23 +240,31 @@ class AdService {
 
   /// 앱 세션 시작 이벤트 로깅
   Future<void> logSessionStart() async {
-    await _analytics.logEvent(
-      name: 'session_start',
-      parameters: {
-        'platform': Platform.isIOS ? 'ios' : 'android',
-        'tracking_permission': _isTrackingPermissionGranted,
-      },
-    );
+    try {
+      await _analytics.logEvent(
+        name: 'app_session_start',
+        parameters: {
+          'platform': Platform.isIOS ? 'ios' : 'android',
+          'tracking_permission': _isTrackingPermissionGranted ? 'granted' : 'denied',
+        },
+      );
+    } catch (e) {
+      debugPrint('⚠️ Analytics session start logging failed: $e');
+    }
   }
 
   /// 앱 세션 종료 이벤트 로깅
   Future<void> logSessionEnd() async {
-    await _analytics.logEvent(
-      name: 'session_end',
-      parameters: {
-        'platform': Platform.isIOS ? 'ios' : 'android',
-      },
-    );
+    try {
+      await _analytics.logEvent(
+        name: 'app_session_end',
+        parameters: {
+          'platform': Platform.isIOS ? 'ios' : 'android',
+        },
+      );
+    } catch (e) {
+      debugPrint('⚠️ Analytics session end logging failed: $e');
+    }
   }
 
   /// 스크린 뷰 이벤트 로깅

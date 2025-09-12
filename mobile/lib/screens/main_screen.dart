@@ -8,7 +8,6 @@ import 'package:mobile/screens/map_screen.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:mobile/widgets/friendly.dart';
-import 'package:mobile/widgets/banner_ad_widget.dart';
 
 import '../widgets/exit_reward_dialog.dart';
 import '../ads/rewarded_ad_service.dart';
@@ -129,8 +128,6 @@ class _MainScreenState extends State<MainScreen> {
               ],
             ),
           ),
-          // 하단 배너 광고
-          const BottomBannerAdWidget(),
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(

@@ -249,7 +249,7 @@ class AdService {
         },
       );
     } catch (e) {
-      debugPrint('⚠️ Analytics session start logging failed: $e');
+      print('⚠️ Analytics session start logging failed: $e');
     }
   }
 
@@ -263,7 +263,7 @@ class AdService {
         },
       );
     } catch (e) {
-      debugPrint('⚠️ Analytics session end logging failed: $e');
+      print('⚠️ Analytics session end logging failed: $e');
     }
   }
 

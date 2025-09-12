@@ -11,8 +11,35 @@ import '../models/store_model.dart';
 import '../services/campaign_service.dart';
 import '../widgets/experience_card.dart';
 import '../widgets/friendly.dart';
+import '../widgets/sort_filter_widget.dart';
 
-/// 캠페인 리스트 정렬 옵션 (관련도순 제거)
+/// 캠페인 리스트 정렬 옵션 (통일된 SortOption 사용)
+// CampaignListSortOption을 SortOption으로 매핑하는 헬퍼
+class CampaignListSortHelper {
+  static SortOption fromCampaignListSort(CampaignListSortOption option) {
+    switch (option) {
+      case CampaignListSortOption.newest:
+        return SortOption.newest;
+      case CampaignListSortOption.deadline:
+        return SortOption.deadline;
+      case CampaignListSortOption.nearest:
+        return SortOption.nearest;
+    }
+  }
+
+  static CampaignListSortOption toCampaignListSort(SortOption option) {
+    switch (option) {
+      case SortOption.newest:
+        return CampaignListSortOption.newest;
+      case SortOption.deadline:
+        return CampaignListSortOption.deadline;
+      case SortOption.nearest:
+        return CampaignListSortOption.nearest;
+    }
+  }
+}
+
+// 기존 enum 유지 (API 호출용)
 enum CampaignListSortOption {
   nearest('거리순', 'distance'),
   deadline('마감임박순', 'apply_deadline'),
@@ -23,8 +50,8 @@ enum CampaignListSortOption {
   final String apiValue;
 }
 
-// 정렬 상태를 관리하는 Provider
-final campaignListSortProvider = StateProvider.autoDispose<CampaignListSortOption>((ref) => CampaignListSortOption.nearest);
+// 정렬 상태를 관리하는 Provider (통일된 SortOption 사용)
+final campaignListSortProvider = StateProvider.autoDispose<SortOption>((ref) => SortOption.newest);
 
 /// 캠페인 리스트 화면
 /// ------------------------------------------------------------
@@ -98,12 +125,12 @@ class _CampaignListScreenState extends ConsumerState<CampaignListScreen> {
   }
 
   /// 정렬 적용
-  void _applySorting(CampaignListSortOption sortOption) {
+  void _applySorting(SortOption sortOption) {
     setState(() {
       final sortedStores = List<Store>.from(_originalStores);
       
       switch (sortOption) {
-        case CampaignListSortOption.nearest:
+        case SortOption.nearest:
           if (widget.userPosition != null) {
             sortedStores.sort((a, b) {
               final distanceA = a.distance ?? double.maxFinite;
@@ -112,7 +139,7 @@ class _CampaignListScreenState extends ConsumerState<CampaignListScreen> {
             });
           }
           break;
-        case CampaignListSortOption.deadline:
+        case SortOption.deadline:
           sortedStores.sort((a, b) {
             if (a.applyDeadline == null && b.applyDeadline == null) return 0;
             if (a.applyDeadline == null) return 1;
@@ -120,7 +147,7 @@ class _CampaignListScreenState extends ConsumerState<CampaignListScreen> {
             return a.applyDeadline!.compareTo(b.applyDeadline!);
           });
           break;
-        case CampaignListSortOption.newest:
+        case SortOption.newest:
           sortedStores.sort((a, b) => b.createdAt.compareTo(a.createdAt));
           break;
       }
@@ -243,8 +270,17 @@ class _CampaignListScreenState extends ConsumerState<CampaignListScreen> {
         backgroundColor: Colors.white,
         body: Column(
           children: [
-            // 정렬 옵션 칩들
-            _buildSortChips(currentSort),
+            // 통일된 정렬 필터
+            SortFilterWidget(
+              currentSort: currentSort,
+              onSortChanged: (newSort) {
+                ref.read(campaignListSortProvider.notifier).state = newSort;
+              },
+              userPosition: widget.userPosition,
+              onLocationRequest: () {
+                showFriendlySnack(context, '위치 권한이 필요합니다. 설정에서 허용해주세요.');
+              },
+            ),
             
             // 목록
             Expanded(
@@ -435,54 +471,4 @@ class _CampaignListScreenState extends ConsumerState<CampaignListScreen> {
   //   }
   // }
 
-  /// 정렬 옵션 칩들을 표시하는 위젯 (최적화된 버전)
-  Widget _buildSortChips(CampaignListSortOption currentSort) {
-    final isTab = _isTablet(context);
-    
-    return Container(
-      height: isTab ? 50.h : 44.h, // 높이 줄임
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 6.h), // 패딩 줄임
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(
-          bottom: BorderSide(color: Colors.grey.shade200),
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.start, // 왼쪽 정렬
-        children: CampaignListSortOption.values.map((option) {
-          final isSelected = currentSort == option;
-          
-          return Padding(
-            padding: EdgeInsets.only(right: 8.w), // 버튼 간격
-            child: ChoiceChip(
-              label: Text(option.displayName),
-              selected: isSelected,
-              onSelected: (selected) {
-                if (selected) {
-                  ref.read(campaignListSortProvider.notifier).state = option;
-                }
-              },
-              // map_screen.dart와 동일한 스타일링
-              selectedColor: PRIMARY_COLOR,
-              backgroundColor: Colors.white,
-              side: isSelected
-                  ? BorderSide.none
-                  : BorderSide(color: Colors.grey.shade300),
-              padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 2.0),
-              labelStyle: TextStyle(
-                color: isSelected ? Colors.white : Colors.black87,
-                fontWeight: FontWeight.w500,
-                fontSize: 13.sp,
-              ),
-              shape: const StadiumBorder(),
-              showCheckmark: false,
-              elevation: 0,
-              pressElevation: 0,
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
 }

@@ -9,6 +9,7 @@ import 'package:mobile/models/store_model.dart';
 import 'package:mobile/services/campaign_service.dart';
 import '../widgets/experience_card.dart';
 import '../widgets/friendly.dart';
+import '../widgets/sort_filter_widget.dart';
 
 // 1. CampaignService를 제공하는 Provider 정의 (의존성 주입)
 final campaignServiceProvider = Provider<CampaignService>((ref) {
@@ -21,10 +22,8 @@ final campaignServiceProvider = Provider<CampaignService>((ref) {
 // 2. 사용자 위치를 저장하는 Provider
 final userLocationProvider = StateProvider<Position?>((ref) => null);
 
-// 3. 검색 정렬 옵션을 관리하는 Provider
-enum SearchSortOption { newest, deadline, nearest }
-
-final searchSortProvider = StateProvider<SearchSortOption>((ref) => SearchSortOption.newest);
+// 3. 검색 정렬 옵션을 관리하는 Provider (통일된 SortOption 사용)
+final searchSortProvider = StateProvider<SortOption>((ref) => SortOption.newest);
 
 // 4. 검색 결과를 제공하는 Provider (정렬 옵션에 따라 동적으로 변경)
 final searchResultsProvider = FutureProvider.family.autoDispose<List<Store>, String>((ref, query) async {
@@ -37,9 +36,9 @@ final searchResultsProvider = FutureProvider.family.autoDispose<List<Store>, Str
 
   // 정렬 적용
   switch (sortOption) {
-    case SearchSortOption.newest:
+    case SortOption.newest:
       return results;
-    case SearchSortOption.deadline:
+    case SortOption.deadline:
       return results..sort((a, b) {
         final aDeadline = a.applyDeadline;
         final bDeadline = b.applyDeadline;
@@ -50,7 +49,7 @@ final searchResultsProvider = FutureProvider.family.autoDispose<List<Store>, Str
         
         return aDeadline.compareTo(bDeadline);
       });
-    case SearchSortOption.nearest:
+    case SortOption.nearest:
       if (userLocation == null) {
         // 위치 정보가 없으면 거리순 정렬 불가능
         return results;
@@ -144,8 +143,8 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
   }
 
   /// 정렬 옵션 선택 시 위치 권한 확인
-  Future<void> _onSortOptionChanged(SearchSortOption option) async {
-    if (option == SearchSortOption.nearest) {
+  Future<void> _onSortOptionChanged(SortOption option) async {
+    if (option == SortOption.nearest) {
       final userLocation = ref.read(userLocationProvider);
       if (userLocation == null) {
         // 위치 정보가 없으면 다시 시도
@@ -209,8 +208,15 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
         ),
         body: Column(
           children: [
-            // 정렬 옵션 칩들
-            _buildSortChips(currentSort, userLocation),
+            // 통일된 정렬 필터
+            SortFilterWidget(
+              currentSort: currentSort,
+              onSortChanged: _onSortOptionChanged,
+              userPosition: userLocation,
+              onLocationRequest: () {
+                showFriendlySnack(context, '위치 권한이 필요합니다. 설정에서 허용해주세요.');
+              },
+            ),
             
             // 검색 결과 목록
             Expanded(
@@ -266,56 +272,4 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
     );
   }
 
-  /// 정렬 옵션 칩들을 표시하는 위젯
-  Widget _buildSortChips(SearchSortOption currentSort, Position? userLocation) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            _buildSortChip('신규등록순', SearchSortOption.newest, currentSort),
-            SizedBox(width: 8.w),
-            _buildSortChip('마감임박순', SearchSortOption.deadline, currentSort),
-            SizedBox(width: 8.w),
-            _buildSortChip('거리순', SearchSortOption.nearest, currentSort, userLocation),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// 개별 정렬 칩을 생성하는 위젯
-  Widget _buildSortChip(String label, SearchSortOption option, SearchSortOption currentSort, [Position? userLocation]) {
-    final isTab = _isTablet(context);
-    final bool isSelected = currentSort == option;
-
-    return ChoiceChip(
-      label: Text(
-        label,
-        style: TextStyle(
-          fontSize: isTab ? 12.sp : 14.sp,
-          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-          color: isSelected ? Colors.white : Colors.black87,
-        ),
-      ),
-      selected: isSelected,
-      onSelected: (selected) {
-        if (selected) {
-          _onSortOptionChanged(option);
-        }
-      },
-      selectedColor: PRIMARY_COLOR,
-      backgroundColor: Colors.grey[100],
-      side: BorderSide(
-        color: isSelected ? PRIMARY_COLOR : Colors.grey[300]!,
-        width: 1.0,
-      ),
-      padding: EdgeInsets.symmetric(
-        horizontal: isTab ? 12.w : 16.w,
-        vertical: isTab ? 6.h : 8.h,
-      ),
-      pressElevation: 0,
-    );
-  }
 }

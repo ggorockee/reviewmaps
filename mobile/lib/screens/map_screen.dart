@@ -14,10 +14,38 @@ import '../models/store_model.dart';
 import '../providers/category_provider.dart';
 import '../widgets/build_store_list_item.dart';
 import '../widgets/friendly.dart';
+import '../widgets/sort_filter_widget.dart';
 import 'map_search_screen.dart';
 
 // 패널 위치 상태 추적
 enum PanelState { closed, waitHeight, executeHeight }
+
+/// MapScreen 정렬 옵션 매핑 헬퍼
+class MapSortHelper {
+  static SortOption fromString(String sortValue) {
+    switch (sortValue) {
+      case '-created_at':
+        return SortOption.newest;
+      case 'apply_deadline':
+        return SortOption.deadline;
+      case 'distance':
+        return SortOption.nearest;
+      default:
+        return SortOption.newest;
+    }
+  }
+
+  static String toString(SortOption option) {
+    switch (option) {
+      case SortOption.newest:
+        return '-created_at';
+      case SortOption.deadline:
+        return 'apply_deadline';
+      case SortOption.nearest:
+        return 'distance';
+    }
+  }
+}
 
 List<Widget> buildChannelIcons(String? channelStr, {double size = 16}) {
   if (channelStr == null || channelStr.isEmpty) return [];
@@ -750,18 +778,21 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   ),
                 ),
               ),
-              // 정렬칩
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: Row(
-                  children: [
-                    _buildSortChip('최신등록순', '-created_at'),
-                    const SizedBox(width: 8),
-                    _buildSortChip('마감임박순', 'apply_deadline'),
-                    const SizedBox(width: 8),
-                    _buildSortChip('거리순', 'distance'),
-                  ],
-                ),
+              // 통일된 정렬 필터
+              SortFilterWidget(
+                currentSort: MapSortHelper.fromString(_currentSortOrder),
+                onSortChanged: (newSort) {
+                  _rememberPanelPosition();
+                  setState(() {
+                    _currentSortOrder = MapSortHelper.toString(newSort);
+                  });
+                  // 정렬 변경 → 프로그램적 이동 (패널 위치 유지)
+                  _searchInCurrentViewport(programmatic: true);
+                },
+                userPosition: _currentPosition,
+                onLocationRequest: () {
+                  showFriendlySnack(context, '위치 권한이 필요합니다. 설정에서 허용해주세요.');
+                },
               ),
               const SizedBox(height: 8),
               // 리스트
@@ -1045,49 +1076,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           decorationThickness: 2.0,
         ),
       ),
-    );
-  }
-  Widget _buildSortChip(String label, String sortValue) {
-    final bool isSelected = _currentSortOrder == sortValue;
-
-    return ChoiceChip(
-        label: Text(label),
-        selected: isSelected,
-        onSelected: (selected) {
-          if (selected) {
-            // 🔹 현재 패널 위치 저장
-            _rememberPanelPosition();
-            setState(() {
-              _currentSortOrder = sortValue;
-            });
-            // 정렬 변경 → 프로그램적 이동 (패널 위치 유지)
-            _searchInCurrentViewport(programmatic: true);
-          }
-        },
-        // --- 👇 스타일링 수정 ---
-        // 선택되었을 때의 배경색
-        selectedColor: PRIMARY_COLOR,
-        // 선택되지 않았을 때의 배경색 (흰색으로 깔끔하게)
-        backgroundColor: Colors.white,
-        // 선택되지 않았을 때만 테두리를 표시
-        side: isSelected
-            ? BorderSide.none
-            : BorderSide(color: Colors.grey.shade300),
-        // 패딩 더 줄이기
-        padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 2.0),
-        // 글자 스타일 - 폰트 크기 약간 줄이기
-        labelStyle: TextStyle(
-          color: isSelected ? Colors.white : Colors.black87,
-          fontWeight: FontWeight.w500,
-          fontSize: 13.sp, // 폰트 크기 약간 줄임
-        ),
-        // 동그란 '약' 모양으로 변경
-        shape: const StadiumBorder(),
-        // 체크 아이콘은 표시하지 않음
-        showCheckmark: false,
-        // 그림자 효과 제거
-        elevation: 0,
-        pressElevation: 0,
     );
   }
 

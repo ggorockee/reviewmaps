@@ -113,6 +113,10 @@ class InflexerScraper(BaseScraper):
         base_df['review_deadline'] = pd.to_datetime(df["pub_due_dt"], errors="coerce")
 
         base_df['apply_from'] = pd.to_datetime(df["apl_stt_dt"], errors="coerce")
+        
+        # region과 search_text 필드 설정
+        base_df['region'] = df['region']
+        base_df['search_text'] = df['search_text']
 
         result = base_df.copy()
         

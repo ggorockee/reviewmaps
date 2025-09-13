@@ -10,6 +10,7 @@ import 'package:mobile/services/campaign_service.dart';
 import '../widgets/experience_card.dart';
 import '../widgets/friendly.dart';
 import '../widgets/sort_filter_widget.dart';
+import '../providers/location_provider.dart';
 
 // 1. CampaignService를 제공하는 Provider 정의 (의존성 주입)
 final campaignServiceProvider = Provider<CampaignService>((ref) {
@@ -19,65 +20,100 @@ final campaignServiceProvider = Provider<CampaignService>((ref) {
   );
 });
 
-// 2. 사용자 위치를 저장하는 Provider
-final userLocationProvider = StateProvider<Position?>((ref) => null);
-
-// 3. 검색 정렬 옵션을 관리하는 Provider (통일된 SortOption 사용)
+// 2. 검색 정렬 옵션을 관리하는 Provider (통일된 SortOption 사용)
 final searchSortProvider = StateProvider<SortOption>((ref) => SortOption.newest);
+
+// 3. 거리 계산 헬퍼 함수
+List<Store> _calculateDistances(List<Store> stores, Position? userPosition) {
+  if (userPosition == null) {
+    return stores.map((store) => store.copyWith(distance: null)).toList();
+  }
+  
+  return stores.map((store) {
+    if (store.lat == null || store.lng == null) {
+      return store.copyWith(distance: null);
+    }
+    
+    final distance = Geolocator.distanceBetween(
+      userPosition.latitude,
+      userPosition.longitude,
+      store.lat!,
+      store.lng!,
+    );
+    
+    return store.copyWith(distance: distance / 1000); // km 단위로 변환
+  }).toList();
+}
 
 // 4. 검색 결과를 제공하는 Provider (정렬 옵션에 따라 동적으로 변경)
 final searchResultsProvider = FutureProvider.family.autoDispose<List<Store>, String>((ref, query) async {
   final service = ref.read(campaignServiceProvider);
   final sortOption = ref.watch(searchSortProvider);
-  final userLocation = ref.watch(userLocationProvider);
+  final locationState = ref.watch(locationProvider);
 
   // 검색 실행
   final results = await service.searchCampaigns(query: query);
 
+  // 모든 정렬에서 거리 계산 (요청사항에 따라)
+  final resultsWithDistance = _calculateDistances(results, locationState.position);
+
   // 정렬 적용
   switch (sortOption) {
     case SortOption.newest:
-      return results;
+      // 1. 최신등록순: createdAt 최신순, 거리는 표시용으로만 사용
+      return resultsWithDistance..sort((a, b) {
+        final aCreated = a.createdAt;
+        final bCreated = b.createdAt;
+        
+        if (aCreated == null && bCreated == null) return 0;
+        if (aCreated == null) return 1;
+        if (bCreated == null) return -1;
+        
+        return bCreated.compareTo(aCreated); // 최신순 (내림차순)
+      });
+      
     case SortOption.deadline:
-      return results..sort((a, b) {
+      // 2. 마감임박순: applyDeadline 오름차순, deadline 같으면 distance 있는 게 우선
+      return resultsWithDistance..sort((a, b) {
         final aDeadline = a.applyDeadline;
         final bDeadline = b.applyDeadline;
         
+        // 마감일 비교
         if (aDeadline == null && bDeadline == null) return 0;
         if (aDeadline == null) return 1;
         if (bDeadline == null) return -1;
         
-        return aDeadline.compareTo(bDeadline);
-      });
-    case SortOption.nearest:
-      if (userLocation == null) {
-        // 위치 정보가 없으면 거리순 정렬 불가능
-        return results;
-      }
-      
-      // 거리 계산 및 정렬
-      final resultsWithDistance = results.map((store) {
-        if (store.lat == null || store.lng == null) {
-          return MapEntry(store, double.infinity);
+        final deadlineCompare = aDeadline.compareTo(bDeadline);
+        if (deadlineCompare != 0) return deadlineCompare;
+        
+        // 마감일이 같으면 거리 있는 게 우선
+        final aHasDistance = a.distance != null;
+        final bHasDistance = b.distance != null;
+        
+        if (aHasDistance && !bHasDistance) return -1;
+        if (!aHasDistance && bHasDistance) return 1;
+        
+        // 둘 다 거리가 있으면 실제 거리 값 비교
+        if (aHasDistance && bHasDistance) {
+          return a.distance!.compareTo(b.distance!);
         }
-        final distance = Geolocator.distanceBetween(
-          userLocation.latitude,
-          userLocation.longitude,
-          store.lat!,
-          store.lng!,
-        );
-        return MapEntry(store, distance);
-      }).toList();
-      
-      // 거리순으로 정렬 (거리가 없는 항목은 마지막에)
-      resultsWithDistance.sort((a, b) {
-        if (a.value == double.infinity && b.value == double.infinity) return 0;
-        if (a.value == double.infinity) return 1;
-        if (b.value == double.infinity) return -1;
-        return a.value.compareTo(b.value);
+        
+        return 0;
       });
       
-      return resultsWithDistance.map((entry) => entry.key).toList();
+    case SortOption.nearest:
+      // 3. 거리순: distance 오름차순, distance 없는 건 맨 뒤로
+      return resultsWithDistance..sort((a, b) {
+        final aDistance = a.distance;
+        final bDistance = b.distance;
+        
+        // 거리가 없는 경우를 맨 뒤로
+        if (aDistance == null && bDistance == null) return 0;
+        if (aDistance == null) return 1;
+        if (bDistance == null) return -1;
+        
+        return aDistance.compareTo(bDistance);
+      });
   }
 });
 
@@ -115,46 +151,41 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
   @override
   void initState() {
     super.initState();
-    // 위치 정보 가져오기 시도 (백그라운드에서)
-    _tryGetUserLocation();
+    // Provider를 통한 위치 정보 업데이트
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(locationProvider.notifier).update();
+    });
   }
 
-  /// 사용자 위치 가져오기 (에러 시 조용히 무시)
-  Future<void> _tryGetUserLocation() async {
-    try {
-      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) return;
-
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.deniedForever ||
-          permission == LocationPermission.denied) return;
-
-      final position = await Geolocator.getCurrentPosition();
-      if (mounted) {
-        ref.read(userLocationProvider.notifier).state = position;
-      }
-    } catch (e) {
-      // 위치 가져오기 실패는 조용히 무시
-      debugPrint('위치 가져오기 실패: $e');
-    }
-  }
-
-  /// 정렬 옵션 선택 시 위치 권한 확인
+  /// 정렬 옵션 선택 시 위치 권한 확인 (Provider 사용)
   Future<void> _onSortOptionChanged(SortOption option) async {
     if (option == SortOption.nearest) {
-      final userLocation = ref.read(userLocationProvider);
-      if (userLocation == null) {
-        // 위치 정보가 없으면 다시 시도
-        try {
-          await _requestLocationPermission();
-        } catch (e) {
+      final locationState = ref.read(locationProvider);
+      if (!locationState.isGranted || locationState.position == null) {
+        // Provider를 통한 위치 권한 요청
+        await ref.read(locationProvider.notifier).update();
+        final updatedLocationState = ref.read(locationProvider);
+        
+        if (!updatedLocationState.isGranted) {
           if (mounted) {
-            showFriendlySnack(context, '위치 권한이 필요합니다. 설정에서 허용해주세요.');
+            showFriendlySnack(
+              context, 
+              '위치 권한이 필요합니다.',
+              actionLabel: '설정 열기',
+              onAction: () => ref.read(locationProvider.notifier).openAppSettings(),
+            );
           }
-          return; // 위치 획득 실패 시 정렬 변경하지 않음
+          return;
+        } else if (updatedLocationState.position == null) {
+          if (mounted) {
+            showFriendlySnack(
+              context, 
+              '위치 정보를 가져올 수 없습니다.',
+              actionLabel: '설정 열기',
+              onAction: () => ref.read(locationProvider.notifier).openLocationSettings(),
+            );
+          }
+          return;
         }
       }
     }
@@ -162,32 +193,11 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
     ref.read(searchSortProvider.notifier).state = option;
   }
 
-  /// 위치 권한 요청
-  Future<void> _requestLocationPermission() async {
-    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      throw Exception('위치 서비스를 켜주세요');
-    }
-
-    var permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-    }
-    
-    if (permission == LocationPermission.deniedForever ||
-        permission == LocationPermission.denied) {
-      throw Exception('위치 권한을 허용해주세요');
-    }
-
-    final position = await Geolocator.getCurrentPosition();
-    ref.read(userLocationProvider.notifier).state = position;
-  }
-
   @override
   Widget build(BuildContext context) {
     final searchResultsAsync = ref.watch(searchResultsProvider(widget.query));
     final currentSort = ref.watch(searchSortProvider);
-    final userLocation = ref.watch(userLocationProvider);
+    final locationState = ref.watch(locationProvider);
     final isTab = _isTablet(context);
     final itemHeight = _calcItemHeight(context);
     final double maxScale = isTab ? 1.10 : 1.30;
@@ -212,9 +222,27 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
             SortFilterWidget(
               currentSort: currentSort,
               onSortChanged: _onSortOptionChanged,
-              userPosition: userLocation,
-              onLocationRequest: () {
-                showFriendlySnack(context, '위치 권한이 필요합니다. 설정에서 허용해주세요.');
+              userPosition: locationState.position,
+              onLocationRequest: () async {
+                // Provider를 통한 위치 권한 요청
+                await ref.read(locationProvider.notifier).update();
+                final updatedLocationState = ref.read(locationProvider);
+                
+                if (!updatedLocationState.isGranted) {
+                  showFriendlySnack(
+                    context, 
+                    '위치 권한이 필요합니다.',
+                    actionLabel: '설정 열기',
+                    onAction: () => ref.read(locationProvider.notifier).openAppSettings(),
+                  );
+                } else if (updatedLocationState.position == null) {
+                  showFriendlySnack(
+                    context, 
+                    '위치 정보를 가져올 수 없습니다.',
+                    actionLabel: '설정 열기',
+                    onAction: () => ref.read(locationProvider.notifier).openLocationSettings(),
+                  );
+                }
               },
             ),
             

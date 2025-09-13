@@ -15,6 +15,8 @@ import '../providers/category_provider.dart';
 import '../widgets/build_store_list_item.dart';
 import '../widgets/friendly.dart';
 import '../widgets/sort_filter_widget.dart';
+import '../providers/location_provider.dart';
+
 import 'map_search_screen.dart';
 
 // 패널 위치 상태 추적
@@ -203,18 +205,17 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     _centerToMyLocationOnFirstOpen();
   }
 
-  // 권한 체크
+  // 권한 체크 (Provider 사용)
   Future<void> checkPermission() async {
-    final isLocationEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!isLocationEnabled) {
-      throw Exception('위치 기능을 활성화 해주세요');
-    }
-    LocationPermission p = await Geolocator.checkPermission();
-    if (p == LocationPermission.denied) {
-      p = await Geolocator.requestPermission();
-    }
-    if (p != LocationPermission.always && p != LocationPermission.whileInUse) {
+    await ref.read(locationProvider.notifier).update();
+    final locationState = ref.read(locationProvider);
+    
+    if (!locationState.isGranted) {
       throw Exception('위치 권한을 허가해주세요');
+    }
+    
+    if (locationState.position == null) {
+      throw Exception('위치 정보를 가져올 수 없어요');
     }
   }
 
@@ -473,8 +474,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   Future<void> _goToMyLocation() async {
     if (!_mapReady) return;
     try {
-      await checkPermission();
-      final loc = await Geolocator.getCurrentPosition();
+      await ref.read(locationProvider.notifier).update();
+      final loc = ref.read(locationProvider).position;
+
+      if (loc == null) throw Exception('위치 정보를 가져올 수 없어요.');
+
       await _naverController.updateCamera(
         NCameraUpdate.scrollAndZoomTo(
           target: NLatLng(loc.latitude, loc.longitude),
@@ -488,7 +492,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         context,
         '내 위치로 이동할 수 없어요: ${e.toString().replaceFirst('Exception: ', '')}',
         actionLabel: '설정 열기',
-        onAction: () => Geolocator.openAppSettings(),
+        onAction: () => ref.read(locationProvider.notifier).openAppSettings(),
       );
     }
   }
@@ -943,22 +947,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     if (_autoCenteredOnce) return;
     try {
       // 권한 체크/요청
-      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) throw Exception('위치 서비스를 켜주세요.');
-
-      var perm = await Geolocator.checkPermission();
-      if (perm == LocationPermission.denied) {
-        perm = await Geolocator.requestPermission();
-      }
-      if (perm != LocationPermission.always &&
-          perm != LocationPermission.whileInUse) {
-        throw Exception('위치 권한을 허용해주세요.');
-      }
-
-      // 현재 위치
-      final pos = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      ).timeout(const Duration(seconds: 8));
+      await ref.read(locationProvider.notifier).update();
+      final pos = ref.read(locationProvider).position;
+      if (pos == null) throw Exception('위치 정보를 가져올 수 없어요.');
 
       final target = NLatLng(pos.latitude, pos.longitude);
 
@@ -1244,23 +1235,23 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   Future<void> _calculateDistancesForStores(List<Store> stores) async {
     try {
       // 위치 권한 확인
-      final permission = await Geolocator.checkPermission();
-      if (permission != LocationPermission.always && permission != LocationPermission.whileInUse) {
-        return; // 권한이 없으면 거리 계산하지 않음
-      }
+      // final permission = await Geolocator.checkPermission();
+      // if (permission != LocationPermission.always && permission != LocationPermission.whileInUse) {
+      //   return; // 권한이 없으면 거리 계산하지 않음
+      // }
 
       // 현재 위치 가져오기
-      final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      ).timeout(const Duration(seconds: 5));
+      final pos = ref.read(locationProvider).position;
+      if (pos == null) throw Exception('위치 정보를 가져올 수 없어요.');
+
 
       // 각 스토어에 대해 거리 계산하고 리스트 업데이트
       for (int i = 0; i < stores.length; i++) {
         final store = stores[i];
         if (store.lat != null && store.lng != null) {
           final distance = Geolocator.distanceBetween(
-            position.latitude,
-            position.longitude,
+            pos.latitude,
+            pos.longitude,
             store.lat!,
             store.lng!,
           ) / 1000; // km 단위로 변환

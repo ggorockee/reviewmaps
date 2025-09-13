@@ -5,6 +5,7 @@ import 'package:mobile/services/ad_service.dart';
 import 'package:mobile/const/colors.dart';
 import 'package:mobile/screens/main_screen.dart';
 import 'package:mobile/widgets/friendly.dart';
+import 'package:mobile/widgets/notice_dialog.dart';
 
 /// SplashScreen
 /// ------------------------------------------------------------
@@ -88,8 +89,8 @@ class _SplashScreenState extends State<SplashScreen>
       },
     );
 
-    // 4. 메인 화면으로 이동 (광고와 관계없이)
-    _navigateToMain();
+    // 4. 공지사항 팝업 표시 후 메인 화면으로 이동
+    _showNoticeAndNavigate();
   }
 
   /// 메인 화면으로 이동
@@ -108,6 +109,17 @@ class _SplashScreenState extends State<SplashScreen>
         transitionDuration: const Duration(milliseconds: 500),
       ),
     );
+  }
+
+  /// 공지사항 팝업 표시 후 메인 화면으로 이동
+  Future<void> _showNoticeAndNavigate() async {
+    // 공지사항 팝업 표시
+    await NoticeDialog.show(context);
+    
+    // 공지사항 팝업이 닫힌 후 메인 화면으로 이동
+    if (mounted) {
+      _navigateToMain();
+    }
   }
 
   @override

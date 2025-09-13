@@ -26,6 +26,7 @@ import 'package:mobile/screens/splash_screen.dart'; // 스플래시 화면
 import 'package:mobile/services/ad_service.dart'; // 광고 서비스
 import 'package:mobile/services/interstitial_ad_manager.dart'; // 전면광고 매니저
 import 'package:mobile/services/firebase_service.dart'; // Firebase 통합 서비스
+import 'package:mobile/services/remote_config_service.dart'; // Firebase Remote Config 서비스
 
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -97,6 +98,14 @@ Future<void> main() async {
   } catch (e) {
     // Firebase 초기화 실패해도 앱은 계속 실행
     debugPrint('Firebase initialization failed, continuing: $e');
+  }
+
+  // 8) Firebase Remote Config 초기화
+  try {
+    await RemoteConfigService().initialize();
+    print('[Main] Firebase Remote Config 초기화 완료');
+  } catch (e) {
+    print('[Main] Firebase Remote Config 초기화 실패: $e');
   }
 
   // 9) Flutter 앱 실행

@@ -8,6 +8,9 @@ import 'package:mobile/screens/map_screen.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:mobile/widgets/friendly.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/providers/location_provider.dart';
+
 
 import '../widgets/exit_reward_dialog.dart';
 import '../ads/rewarded_ad_service.dart';
@@ -19,14 +22,14 @@ import '../ads/rewarded_ad_service.dart';
 /// - 탭: 홈 / 지도
 /// - 상태 보존: IndexedStack 사용 → 탭 전환 시 각 화면의 상태(스크롤, 지도 컨트롤러 등) 유지
 /// - 배포: 미사용 import/코드 제거, 최소 로직
-class MainScreen extends StatefulWidget {
+class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
 
   @override
-  State<MainScreen> createState() => _MainScreenState();
+  ConsumerState<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class _MainScreenState extends ConsumerState<MainScreen> {
   /// 현재 선택된 탭 인덱스
   int _selectedIndex = 0;
 
@@ -37,8 +40,6 @@ class _MainScreenState extends State<MainScreen> {
   static const String _iosAppId   = '6751343880';        // App Store Connect의 Apple ID (숫자)
   static const String _bundleId   = 'com.reviewmaps.mobile'; // 네 iOS 번들ID
   static const String _country    = 'kr';                // 스토어 국가코드
-
-
 
   /// 탭별 루트 화면
   /// - const 생성자로 만들어 불필요한 리빌드 방지
@@ -54,6 +55,11 @@ class _MainScreenState extends State<MainScreen> {
     // 디버그 포함: 첫 프레임 이후, 홈 탭일 때 1회만 업데이트 체크
     // 리워드 광고 미리 로드
     RewardedAdService().loadAd();
+
+    // 앱 시작 시 권한/위치 초기화
+    Future.microtask(() async{
+      await ref.read(locationProvider.notifier).update();
+    });
 
     _tabs = [
       const HomeScreen(),
@@ -101,6 +107,8 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // 전역 위치 상태 구독 (원한다면)
+    final locationState = ref.watch(locationProvider);
     final bool isTab = _isTablet(context);
     final double maxScale = isTab ? 1.10 : 1.30;
     

@@ -37,7 +37,9 @@ class SortFilterWidget extends StatelessWidget {
     
     // 태블릿에서 시스템 폰트 크기에 따라 높이 동적 조정
     final double baseHeight = isTablet ? 56.0 : 48.0;
-    final adjustedHeight = (baseHeight * textScaleFactor.clamp(0.8, 1.4)).h;
+    // final adjustedHeight = (baseHeight * textScaleFactor.clamp(0.8, 1.4)).h;
+    final adjustedHeight = (baseHeight * textScaleFactor.clamp(0.8, 1.4)).h 
+                       + (3.0 * (textScaleFactor - 1.0)).h;
     
     return Container(
       height: adjustedHeight,
@@ -61,7 +63,7 @@ class SortFilterWidget extends StatelessWidget {
                 child: Row(
                   children: SortOption.values.map((option) {
                     return Padding(
-                      padding: EdgeInsets.only(right: 8.w),
+                      padding: EdgeInsets.fromLTRB(0,0, 8.w, 8.h), 
                       child: _buildSortChip(
                         context,
                         option,
@@ -106,7 +108,13 @@ class SortFilterWidget extends StatelessWidget {
           onSortChanged(option);
         }
       },
-      child: Container(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          minWidth: isTablet ? 120.w : 70.w, // ✅ 버튼 최소 너비 동일
+          minHeight: isTablet ? 45.h : 45.h,  // ✅ 버튼 높이 동일
+        ),
+        child: Container(
+          alignment: Alignment.center,
         height: adjustedChipHeight,
         padding: EdgeInsets.symmetric(
           horizontal: adjustedHorizontalPadding,
@@ -125,8 +133,11 @@ class SortFilterWidget extends StatelessWidget {
           children: [
             Text(
               option.displayName,
+              maxLines: 1,
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: (isTablet ? 24.0 : 13.0) * textScaleFactor.clamp(0.8, 1.4),
+                fontSize: (isTablet ? 24.0 : 18.0) * textScaleFactor.clamp(0.8, 1.4),
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                 color: isSelected ? Colors.white : Colors.grey.shade700,
                 letterSpacing: -0.2,
@@ -143,6 +154,7 @@ class SortFilterWidget extends StatelessWidget {
             ],
           ],
         ),
+      ),
       ),
     );
   }

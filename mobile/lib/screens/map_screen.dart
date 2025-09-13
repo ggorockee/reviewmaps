@@ -793,9 +793,27 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   // 정렬 변경 → 프로그램적 이동 (패널 위치 유지)
                   _searchInCurrentViewport(programmatic: true);
                 },
-                userPosition: null,
-                onLocationRequest: () {
-                  showFriendlySnack(context, '위치 권한이 필요합니다. 설정에서 허용해주세요.');
+                userPosition: ref.watch(locationProvider).position,
+                onLocationRequest: () async {
+                  // Provider를 통한 위치 권한 요청
+                  await ref.read(locationProvider.notifier).update();
+                  final locationState = ref.read(locationProvider);
+                  
+                  if (!locationState.isGranted) {
+                    showFriendlySnack(
+                      context, 
+                      '위치 권한이 필요합니다.',
+                      actionLabel: '설정 열기',
+                      onAction: () => ref.read(locationProvider.notifier).openAppSettings(),
+                    );
+                  } else if (locationState.position == null) {
+                    showFriendlySnack(
+                      context, 
+                      '위치 정보를 가져올 수 없습니다.',
+                      actionLabel: '설정 열기',
+                      onAction: () => ref.read(locationProvider.notifier).openLocationSettings(),
+                    );
+                  }
                 },
               ),
               const SizedBox(height: 8),

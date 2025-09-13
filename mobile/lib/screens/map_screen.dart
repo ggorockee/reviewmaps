@@ -818,8 +818,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               ),
               const SizedBox(height: 8),
               // 리스트
-              SizedBox(
-                height: listHeight,
+              Expanded(
                 child: _displayedStores.isEmpty
                     ? const Center(child: Text("먼저 '이 위치로 검색'을 눌러주세요."))
                     : ListView.separated(

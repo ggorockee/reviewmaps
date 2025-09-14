@@ -153,22 +153,23 @@ class _SplashScreenState extends State<SplashScreen>
                         height: logoSize,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(24.r),
+                          color: Colors.white, // 컨테이너 배경을 흰색으로 설정
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 20,
-                              offset: const Offset(0, 10),
+                              color: Colors.black.withOpacity(0.05), // 그림자 투명도 줄임
+                              blurRadius: 10, // 블러 반경 줄임
+                              offset: const Offset(0, 5), // 그림자 오프셋 줄임
                             ),
                           ],
                         ),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(24.r),
-                              child: Image.asset(
-                                'asset/image/logo/application/splashloading_logo.png',
-                                width: logoSize,
-                                height: logoSize,
-                                fit: BoxFit.contain,
-                              ),
+                          child: Image.asset(
+                            'asset/image/logo/application/reviewmaps.png',
+                            width: logoSize,
+                            height: logoSize,
+                            fit: BoxFit.contain,
+                          ),
                         ),
                       ),
                       

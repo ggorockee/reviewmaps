@@ -110,8 +110,8 @@ class SortFilterWidget extends StatelessWidget {
       },
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          minWidth: isTablet ? 120.w : 70.w, // ✅ 버튼 최소 너비 동일
-          minHeight: isTablet ? 45.h : 45.h,  // ✅ 버튼 높이 동일
+          minWidth: isTablet ? 120.w : 60.w, // ✅ 버튼 최소 너비 동일
+          minHeight: isTablet ? 45.h : 25.h,  // ✅ 버튼 높이 동일
         ),
         child: Container(
           alignment: Alignment.center,
@@ -137,7 +137,7 @@ class SortFilterWidget extends StatelessWidget {
               textAlign: TextAlign.center,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: (isTablet ? 24.0 : 18.0) * textScaleFactor.clamp(0.8, 1.4),
+                fontSize: (isTablet ? 24.0.sp : 13.5.sp) * textScaleFactor.clamp(0.8, 1.4),
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                 color: isSelected ? Colors.white : Colors.grey.shade700,
                 letterSpacing: -0.2,

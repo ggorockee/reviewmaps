@@ -195,8 +195,15 @@ class MyMilkyScraper(BaseScraper):
             key = (row["platform"], row["title"], row["offer"], row["campaign_channel"])
             db_row = existing.get(key)
 
-            title = (row["title"] or "").replace("[", "").replace("]", " ").strip()
-            cur_addr = (row.get("address") or "").strip() or None
+            # pandas NA 값 안전 처리
+            title_val = row.get("title")
+            if pd.isna(title_val):
+                title = ""
+            else:
+                title = (title_val or "").replace("[", "").replace("]", " ").strip()
+
+            addr_val = row.get("address")
+            cur_addr = None if pd.isna(addr_val) else ((addr_val or "").strip() or None)
             cur_lat  = row.get("lat")
             cur_lng  = row.get("lng")
             if pd.isna(cur_lat): cur_lat = None

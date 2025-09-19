@@ -178,7 +178,9 @@ class InflexerScraper(BaseScraper):
             key = (row["platform"], row["title"], row["offer"], row["campaign_channel"])
             db_row = existing.get(key)
 
-            cur_addr = (row.get("address") or "").strip() or None
+            # pandas NA 값 안전 처리
+            addr_val = row.get("address")
+            cur_addr = None if pd.isna(addr_val) else ((addr_val or "").strip() or None)
             cur_lat = row.get("lat") or row.get("lat_map")
             cur_lng = row.get("lng") or row.get("lng_map")
             if pd.isna(cur_lat): cur_lat = None

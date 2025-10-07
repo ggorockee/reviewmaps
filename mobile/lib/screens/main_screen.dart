@@ -12,8 +12,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/providers/location_provider.dart';
 
 
-import '../widgets/exit_reward_dialog.dart';
-import '../ads/rewarded_ad_service.dart';
+// import '../widgets/exit_reward_dialog.dart';
+// import '../ads/rewarded_ad_service.dart';
 
 
 /// MainScreen
@@ -53,8 +53,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   void initState() {
     super.initState();
     // 디버그 포함: 첫 프레임 이후, 홈 탭일 때 1회만 업데이트 체크
-    // 리워드 광고 미리 로드
-    RewardedAdService().loadAd();
+    // 리워드 광고 미리 로드 (비활성화)
+    // RewardedAdService().loadAd();
 
     // 앱 시작 시 권한/위치 초기화
     Future.microtask(() async{
@@ -85,7 +85,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     // 탭 전환 시에는 업데이트 체크 트리거 금지 (홈 초회만)
   }
 
-  /// 뒤로가기 버튼 처리 (앱 종료 시 리워드 광고 표시)
+  /// 뒤로가기 버튼 처리 (리워드 광고 비활성화)
   Future<bool> _onWillPop() async {
     // 홈 탭이 아니면 홈으로 이동
     if (_selectedIndex != 0) {
@@ -93,16 +93,18 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       return false;
     }
 
-    // 홈 탭에서 뒤로가기 시 리워드 광고 다이얼로그 표시
-    final shouldExit = await ExitRewardDialog.show(
-      context,
-      onRewardEarned: () {
-        // 보상 지급 로직 (예: 프리미엄 정보 해제, 쿠폰 지급 등)
-        debugPrint('🎁 사용자가 리워드를 획득했습니다!');
-      },
-    );
+    // 홈 탭에서 뒤로가기 시 바로 종료
+    return true;
 
-    return shouldExit ?? false;
+    // 리워드 광고 다이얼로그 표시 (비활성화)
+    // final shouldExit = await ExitRewardDialog.show(
+    //   context,
+    //   onRewardEarned: () {
+    //     // 보상 지급 로직 (예: 프리미엄 정보 해제, 쿠폰 지급 등)
+    //     debugPrint('🎁 사용자가 리워드를 획득했습니다!');
+    //   },
+    // );
+    // return shouldExit ?? false;
   }
 
   @override

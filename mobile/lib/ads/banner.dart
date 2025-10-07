@@ -1,20 +1,11 @@
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import '../services/ad_service.dart';
 
 class MyBannerAdWidget extends StatefulWidget {
   /// The requested size of the banner. Defaults to [AdSize.banner].
   final AdSize adSize;
-
-  /// The AdMob ad unit to show.
-  ///
-  /// TODO: replace this test ad unit with your own ad unit
-  final String adUnitId = Platform.isAndroid
-  // Use this ad unit on Android...
-      ? 'ca-app-pub-3219791135582658/4571348868'
-  // ... or this one on iOS.
-      : 'ca-app-pub-3219791135582658/2356249060';
 
   MyBannerAdWidget({super.key, this.adSize = AdSize.banner});
 
@@ -25,6 +16,7 @@ class MyBannerAdWidget extends StatefulWidget {
 class _MyBannerAdWidgetState extends State<MyBannerAdWidget> {
   /// The banner ad to show. This is `null` until the ad is actually loaded.
   BannerAd? _bannerAd;
+  final AdService _adService = AdService();
 
   @override
   Widget build(BuildContext context) {
@@ -55,16 +47,20 @@ class _MyBannerAdWidgetState extends State<MyBannerAdWidget> {
 
   /// Loads a banner ad.
   void _loadAd() {
+    final adUnitId = _adService.bannerAdId;
+
     // 빌드 모드에 따른 디버깅 정보 출력
     if (kDebugMode) {
-      debugPrint('🎯 [BannerAd] DEBUG 모드에서 광고 로드 시작 - 테스트 광고 표시 예상');
+      debugPrint('🎯 [BannerAd] DEBUG 모드에서 광고 로드 시작 - 테스트 광고 표시');
+      debugPrint('   Ad Unit ID: $adUnitId');
     } else {
-      debugPrint('🎯 [BannerAd] RELEASE 모드에서 광고 로드 시작 - 실제 광고 표시 예상');
+      debugPrint('🎯 [BannerAd] RELEASE 모드에서 광고 로드 시작 - 실제 광고 표시');
+      debugPrint('   Ad Unit ID: $adUnitId');
     }
-    
+
     final bannerAd = BannerAd(
       size: widget.adSize,
-      adUnitId: widget.adUnitId,
+      adUnitId: adUnitId,
       request: const AdRequest(),
       listener: BannerAdListener(
         // Called when an ad is successfully received.

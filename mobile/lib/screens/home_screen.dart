@@ -20,6 +20,7 @@ import '../ads/banner.dart';
 import '../models/store_model.dart';
 import '../widgets/experience_card.dart';
 import '../widgets/friendly.dart'; // ← ClampTextScale, showFriendlySnack 여기서 사용
+import '../widgets/native_ad_widget.dart'; // ← 네이티브 광고 위젯
 import 'campaign_list_screen.dart';
 
 
@@ -495,51 +496,13 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               SliverToBoxAdapter(child: SizedBox(height: 12.h)),
 
-              // 추천 그리드
+              // 추천 그리드 (네이티브 광고 포함)
               if (_isLoading && _visibleCampaigns.isEmpty)
                 const SliverToBoxAdapter(
                   child: Center(child: CircularProgressIndicator()),
                 )
               else
-                SliverPadding(
-                  padding: EdgeInsets.symmetric(horizontal: 16.w),
-                  sliver: SliverGrid(
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 0.1.w,  // [ScreenUtil]
-                      mainAxisSpacing: 0.1.w,   // [ScreenUtil]
-                      childAspectRatio: _gridAspectRatioRecommended(context),
-                    ),
-                    delegate: SliverChildBuilderDelegate(
-                          (context, index) {
-                        final gridLineColor = Colors.grey.shade300;
-                        final bool isLeftColumn = index % 2 == 0;
-                        final int totalRows = (_visibleCampaigns.length / 2).ceil();
-                        final int currentRow = (index / 2).floor();
-                        final bool isLastRow = currentRow == totalRows - 1;
-
-                        final border = Border(
-                          right: isLeftColumn
-                              ? BorderSide(color: gridLineColor, width: 0.7.w)
-                              : BorderSide.none,
-                          bottom: !isLastRow
-                              ? BorderSide(color: gridLineColor, width: 0.7.w)
-                              : BorderSide.none,
-                        );
-
-                        return Container(
-                          key: ValueKey(_visibleCampaigns[index].id), // id는 non-null
-                          decoration: BoxDecoration(border: border),
-                          child: ExperienceCard(
-                            store: _visibleCampaigns[index],
-                            dense: true,
-                          ),
-                        );
-                      },
-                      childCount: _visibleCampaigns.length,
-                    ),
-                  ),
-                ),
+                ..._buildRecommendedGridWithAds(),
 
               // 하단 로딩 인디케이터
               if (_isLoading && _visibleCampaigns.isNotEmpty)
@@ -810,6 +773,78 @@ class _HomeScreenState extends State<HomeScreen> {
     final double maxH = isTab ? 180.h : 190.h;
 
     return ui.lerpDouble(minH, maxH, t)!;
+  }
+
+  // 추천 그리드와 네이티브 광고를 조합하여 반환
+  // 10개 체험단마다 네이티브 광고 1개 삽입 (정책상 안전)
+  List<Widget> _buildRecommendedGridWithAds() {
+    final List<Widget> slivers = [];
+    const int itemsPerGrid = 10; // 2열 그리드 × 5행 = 10개
+
+    for (int i = 0; i < _visibleCampaigns.length; i += itemsPerGrid) {
+      final int endIndex = math.min(i + itemsPerGrid, _visibleCampaigns.length);
+      final List<Store> chunk = _visibleCampaigns.sublist(i, endIndex);
+
+      // 체험단 그리드
+      slivers.add(
+        SliverPadding(
+          padding: EdgeInsets.symmetric(horizontal: 16.w),
+          sliver: SliverGrid(
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 0.1.w,
+              mainAxisSpacing: 0.1.w,
+              childAspectRatio: _gridAspectRatioRecommended(context),
+            ),
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final gridLineColor = Colors.grey.shade300;
+                final bool isLeftColumn = index % 2 == 0;
+                final int totalRows = (chunk.length / 2).ceil();
+                final int currentRow = (index / 2).floor();
+                final bool isLastRow = currentRow == totalRows - 1;
+
+                final border = Border(
+                  right: isLeftColumn
+                      ? BorderSide(color: gridLineColor, width: 0.7.w)
+                      : BorderSide.none,
+                  bottom: !isLastRow
+                      ? BorderSide(color: gridLineColor, width: 0.7.w)
+                      : BorderSide.none,
+                );
+
+                return Container(
+                  key: ValueKey(chunk[index].id),
+                  decoration: BoxDecoration(border: border),
+                  child: ExperienceCard(
+                    store: chunk[index],
+                    dense: true,
+                  ),
+                );
+              },
+              childCount: chunk.length,
+            ),
+          ),
+        ),
+      );
+
+      // 10개마다 네이티브 광고 삽입 (마지막 청크는 제외)
+      if (endIndex < _visibleCampaigns.length) {
+        slivers.add(
+          SliverToBoxAdapter(
+            child: Column(
+              children: [
+                SizedBox(height: 16.h),
+                const NativeAdListItem(),
+                SizedBox(height: 16.h),
+              ],
+            ),
+          ),
+        );
+      }
+    }
+
+    return slivers;
   }
 }
 

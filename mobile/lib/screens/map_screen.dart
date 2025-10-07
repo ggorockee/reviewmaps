@@ -9,6 +9,7 @@ import 'package:mobile/const/colors.dart';
 import 'package:mobile/screens/search_results_screen.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/store_model.dart';
 import '../providers/category_provider.dart';
@@ -825,7 +826,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                         padding: EdgeInsets.only(bottom: 12.h),
                         itemCount: _displayedStores.length,
                         itemBuilder: (context, index) =>
-                            StoreListItem(store: _displayedStores[index]),
+                            StoreListItem(
+                              store: _displayedStores[index],
+                              onTap: () => _openStoreLink(_displayedStores[index]),
+                            ),
                         separatorBuilder: (context, index) => Divider(
                           indent: 16,
                           endIndent: 16,
@@ -1107,6 +1111,41 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 
 
+
+  // 스토어 링크 열기
+  Future<void> _openStoreLink(Store store) async {
+    try {
+      final link = store.contentLink;
+      if (link == null || link.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('연결할 수 있는 링크가 없습니다.')),
+          );
+        }
+        return;
+      }
+      
+      String url = link.trim();
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'https://$url';
+      }
+      
+      final uri = Uri.parse(Uri.encodeFull(url));
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('연결할 수 없는 링크입니다.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('링크를 열 수 없습니다.')),
+        );
+      }
+    }
+  }
 
   // 검색 박스
   Widget _buildAppBarSearchField() {

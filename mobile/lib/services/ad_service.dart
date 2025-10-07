@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:app_tracking_transparency/app_tracking_transparency.dart';
@@ -128,9 +129,9 @@ class AdService {
   }
 
   /// 디버그 모드 확인
+  /// kDebugMode를 사용하여 자동으로 디버그/릴리즈 구분
   bool _isDebugMode() {
-    // 릴리즈 빌드에서는 실제 광고 사용
-    return false; // 프로덕션 배포 시 실제 광고 사용
+    return kDebugMode; // 디버그 빌드에서는 테스트 광고, 릴리즈에서는 실제 광고
   }
 
   /// 전면광고 로드

@@ -73,31 +73,6 @@ class AppConfig {
   // - 로깅/테스트용 분기처리에 활용.
   static final bool isDebugMode = dotenv.env['DEBUG_MODE']?.toLowerCase() == 'true';
 
-  // 📌 AdMob 관련 설정
-  // - 위험 플로우 토글 (기본 OFF, 릴리스 전 반드시 false 확인)
-  static const bool INTERSTITIAL_ON_ENTRY = false; // 앱 진입 직후 전면광고 금지
-  static const bool NATIVE_ON_EXIT = false; // 종료 UX와 광고 결합 금지
-
-  // AdMob App ID (Android)
-  static const String ADMOB_APP_ID_ANDROID = 'ca-app-pub-3219791135582658~5531424356';
-  
-  // AdMob Ad Unit IDs (Android)
-  static const String ADMOB_BANNER_ID_ANDROID = 'ca-app-pub-3219791135582658/4571348868';
-  static const String ADMOB_NATIVE_ID_ANDROID = 'ca-app-pub-3219791135582658/3299920799';
-  static const String ADMOB_INTERSTITIAL_ID_ANDROID = 'ca-app-pub-3219791135582658/2389577075';
-  
-  // 추가 검증용 하단 배너 ID (지도 검색 시)
-  static const String ADMOB_BOTTOM_BANNER_ID_ANDROID = 'ca-app-pub-3219791135582658/2605199497';
-  
-  // AdMob App ID (iOS) - 기존 설정 확인용
-  static const String ADMOB_APP_ID_IOS = 'ca-app-pub-3219791135582658~2537889532';
-  
-  // AdMob Ad Unit IDs (iOS) - 기존 설정 확인용
-  static const String ADMOB_BANNER_ID_IOS = 'ca-app-pub-3219791135582658/4571348868';
-  static const String ADMOB_NATIVE_ID_IOS = 'ca-app-pub-3219791135582658/3299920799';
-  static const String ADMOB_INTERSTITIAL_ID_IOS = 'ca-app-pub-3219791135582658/2389577075';
-  static const String ADMOB_BOTTOM_BANNER_ID_IOS = 'ca-app-pub-3219791135582658/4572925277';
-
   /// 내부 함수: .env 값 조회
   /// --------------------------------------------
   /// [key]에 해당하는 환경 변수를 .env에서 읽어옴.

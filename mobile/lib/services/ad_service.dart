@@ -16,12 +16,12 @@ class AdService {
   static const String _iosAppId = 'ca-app-pub-3219791135582658~2537889532';
 
   // 광고 단위 ID
-  static const String _androidBannerAdId = 'ca-app-pub-3219791135582658/4571348868';
-  static const String _iosBannerAdId = 'ca-app-pub-3219791135582658/2356249060';
-  static const String _androidInterstitialAdId = 'ca-app-pub-3219791135582658/2389577075';
-  static const String _iosInterstitialAdId = 'ca-app-pub-3219791135582658/7482692471';
-  static const String _androidNativeAdId = 'ca-app-pub-3219791135582658/3299920799';
-  static const String _iosNativeAdId = 'ca-app-pub-3219791135582658/4720797760';
+  static const String _androidBannerAdId = 'ca-app-pub-3219791135582658/5314633015';
+  static const String _iosBannerAdId = 'ca-app-pub-3219791135582658/7554300460';
+  static const String _androidInterstitialAdId = 'ca-app-pub-3219791135582658/4509350635';
+  static const String _iosInterstitialAdId = 'ca-app-pub-3219791135582658/6241218794';
+  static const String _androidNativeAdId = 'ca-app-pub-3219791135582658/2361166614';
+  static const String _iosNativeAdId = 'ca-app-pub-3219791135582658/9682496708';
 
   // 테스트용 광고 단위 ID (개발 시 사용)
   static const String _testBannerAdId = 'ca-app-pub-3940256099942544/6300978111';

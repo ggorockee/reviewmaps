@@ -70,10 +70,20 @@ android {
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
             signingConfig = signingConfigs.getByName("release")
+
+            // ProGuard 규칙 적용
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
 }
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // Unity Ads SDK
+    implementation("com.unity3d.ads:unity-ads:4.12.2")
+    // Unity Ads Mediation Adapter
+    implementation("com.google.ads.mediation:unity:4.12.2.0")
 }

@@ -128,9 +128,6 @@ class AdService {
   }
 
   /// 전면광고 표시 (앱 진입 시 3-5초 지연 후)
-  /// 
-  /// 참고: flutter_adfit 플러그인에는 전면광고가 없어서 현재 구현되지 않음
-  /// 향후 네이티브 코드로 직접 구현하거나 배너를 Dialog로 표시하는 방식으로 구현 가능
   Future<void> showInterstitialAd() async {
     if (!_isInterstitialAdLoaded) {
       print('[AdService] 전면광고가 로드되지 않음');
@@ -147,8 +144,29 @@ class AdService {
         },
       );
 
-      print('[AdService] 전면광고는 현재 구현되지 않음 (flutter_adfit 플러그인 제한)');
-      _isInterstitialAdLoaded = false;
+      // AdFit 전면광고 표시 (플랫폼 채널 사용)
+      try {
+        const platform = MethodChannel('flutter_adfit/interstitial');
+        await platform.invokeMethod('showInterstitialAd', {
+          'adId': interstitialAdId,
+        });
+        
+        print('[AdService] 전면광고 표시 요청 완료');
+        // 광고 표시 후 상태 초기화
+        _isInterstitialAdLoaded = false;
+      } catch (e) {
+        print('[AdService] 전면광고 표시 중 오류: $e');
+        await _analytics.logEvent(
+          name: 'interstitial_ad_show_error',
+          parameters: {
+            'error': e.toString(),
+            'ad_provider': 'adfit',
+          },
+        );
+        _isInterstitialAdLoaded = false;
+      }
+      
+      print('[AdService] 전면광고 표시 완료');
     } catch (e) {
       print('[AdService] 전면광고 표시 실패: $e');
       await _analytics.logEvent(

@@ -82,6 +82,6 @@ flutter {
 }
 
 dependencies {
-    // 카카오 AdFit SDK 3.19.5
-    implementation("com.kakao.adfit:ads-base:3.19.5")
+    // 카카오 AdFit SDK 3.21.10 (팝업 광고 API 포함)
+    implementation("com.kakao.adfit:ads-base:3.21.10")
 }

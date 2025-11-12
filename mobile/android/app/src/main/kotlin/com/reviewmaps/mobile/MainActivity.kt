@@ -30,6 +30,7 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onDestroy() {
+        interstitialChannel?.dispose()
         interstitialChannel = null
         super.onDestroy()
     }

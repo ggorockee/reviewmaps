@@ -1,24 +1,20 @@
 package com.reviewmaps.mobile
 
 import android.app.Activity
-import android.app.Dialog
-import android.graphics.Color
-import android.graphics.drawable.ColorDrawable
 import android.util.Log
-import android.view.Gravity
-import android.view.ViewGroup
-import android.view.Window
-import android.widget.FrameLayout
-import android.widget.ImageButton
-import android.widget.ImageView
-import com.kakao.adfit.ads.AdListener
-import com.kakao.adfit.ads.ba.BannerAdView
+import androidx.fragment.app.FragmentActivity
+import com.kakao.adfit.ads.popup.AdFitPopupAd
+import com.kakao.adfit.ads.popup.AdFitPopupAdDialogFragment
+import com.kakao.adfit.ads.popup.AdFitPopupAdLoader
+import com.kakao.adfit.ads.popup.AdFitPopupAdRequest
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
 /**
  * 카카오 AdFit 앱 전환형 광고 플랫폼 채널 핸들러
- * AdFit SDK 3.19.5 기반
+ * AdFit SDK 3.19.5 공식 API 사용
+ * 
+ * 참고: https://github.com/adfit/adfit-android-sdk/blob/master/docs/app-transition-ad.md
  */
 class AdFitInterstitialChannel(private val activity: Activity) : MethodChannel.MethodCallHandler {
     
@@ -27,15 +23,15 @@ class AdFitInterstitialChannel(private val activity: Activity) : MethodChannel.M
         const val CHANNEL_NAME = "flutter_adfit/interstitial"
     }
 
-    private var adDialog: Dialog? = null
-    private var bannerAdView: BannerAdView? = null
+    private var popupAdLoader: AdFitPopupAdLoader? = null
+    private var methodResult: MethodChannel.Result? = null
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "showInterstitialAd" -> {
                 val adId = call.argument<String>("adId")
                 if (adId != null) {
-                    showInterstitialAd(adId, result)
+                    loadAndShowInterstitialAd(adId, result)
                 } else {
                     result.error("INVALID_ARGUMENT", "adId is required", null)
                 }
@@ -47,131 +43,124 @@ class AdFitInterstitialChannel(private val activity: Activity) : MethodChannel.M
     }
 
     /**
-     * 앱 전환형 광고 표시
-     * 
-     * AdFit에는 전면광고가 없으므로 배너 광고를 Dialog로 전체 화면 형태로 표시
+     * 앱 전환형 광고 로드 및 표시
+     * AdFit 공식 API 사용: AdFitPopupAdLoader + AdFitPopupAdDialogFragment
      */
-    private fun showInterstitialAd(adId: String, result: MethodChannel.Result) {
+    private fun loadAndShowInterstitialAd(adId: String, result: MethodChannel.Result) {
         try {
-            Log.d(TAG, "앱 전환형 광고 표시 요청: adId=$adId")
+            Log.d(TAG, "앱 전환형 광고 로드 시작: adId=$adId")
+            
+            // Activity가 FragmentActivity가 아니면 에러 반환
+            if (activity !is FragmentActivity) {
+                result.error("INVALID_ACTIVITY", "Activity must extend FragmentActivity", null)
+                return
+            }
             
             activity.runOnUiThread {
                 try {
-                    // 기존 Dialog가 있으면 닫기
-                    dismissAd()
+                    // 결과 콜백 저장
+                    methodResult = result
                     
-                    // Dialog 생성
-                    adDialog = Dialog(activity, android.R.style.Theme_Black_NoTitleBar_Fullscreen).apply {
-                        requestWindowFeature(Window.FEATURE_NO_TITLE)
-                        window?.setBackgroundDrawable(ColorDrawable(Color.argb(220, 0, 0, 0)))
-                        setCancelable(true)
-                        setOnCancelListener {
-                            Log.d(TAG, "앱 전환형 광고 Dialog 취소됨")
-                            dismissAd()
-                        }
+                    // AdFitPopupAdLoader 생성 (이미 있으면 재사용)
+                    if (popupAdLoader == null) {
+                        popupAdLoader = AdFitPopupAdLoader.create(activity, adId)
+                        Log.d(TAG, "AdFitPopupAdLoader 생성됨")
                     }
                     
-                    // 컨테이너 레이아웃 생성
-                    val container = FrameLayout(activity).apply {
-                        layoutParams = ViewGroup.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.MATCH_PARENT
+                    // 광고 요청 전 확인 사항
+                    if (activity.isFinishing || activity.isDestroyed) {
+                        Log.w(TAG, "Activity가 종료 중이거나 파괴됨")
+                        result.error("ACTIVITY_FINISHING", "Activity is finishing or destroyed", null)
+                        return@runOnUiThread
+                    }
+                    
+                    popupAdLoader?.let { loader ->
+                        // 중복 요청 방지
+                        if (loader.isLoading) {
+                            Log.w(TAG, "이미 광고를 로딩 중입니다")
+                            result.error("ALREADY_LOADING", "Ad is already loading", null)
+                            return@runOnUiThread
+                        }
+                        
+                        // 요청 정책 확인 (빈도 제한, 오늘 그만보기 등)
+                        if (loader.isBlockedByRequestPolicy) {
+                            Log.w(TAG, "광고 요청이 정책에 의해 차단됨 (빈도 제한 또는 오늘 그만보기)")
+                            result.error("BLOCKED_BY_POLICY", "Ad request blocked by policy", null)
+                            return@runOnUiThread
+                        }
+                        
+                        // 앱 전환형 광고 요청
+                        Log.d(TAG, "광고 요청 시작")
+                        loader.loadAd(
+                            AdFitPopupAdRequest.build(AdFitPopupAd.Type.Transition),
+                            object : AdFitPopupAdLoader.OnAdLoadListener {
+                                override fun onAdLoaded(ad: AdFitPopupAd) {
+                                    Log.d(TAG, "앱 전환형 광고 로드 성공")
+                                    
+                                    // Activity 상태 재확인
+                                    if (activity.isFinishing || activity.isDestroyed) {
+                                        Log.w(TAG, "광고 로드 후 Activity가 종료됨")
+                                        methodResult?.error("ACTIVITY_FINISHING", "Activity finished before showing ad", null)
+                                        methodResult = null
+                                        return
+                                    }
+                                    
+                                    try {
+                                        // AdFitPopupAdDialogFragment로 광고 표시
+                                        AdFitPopupAdDialogFragment(ad).show(
+                                            activity.supportFragmentManager,
+                                            AdFitPopupAdDialogFragment.TAG
+                                        )
+                                        
+                                        Log.d(TAG, "앱 전환형 광고 표시 완료")
+                                        methodResult?.success(true)
+                                        methodResult = null
+                                        
+                                    } catch (e: Exception) {
+                                        Log.e(TAG, "광고 표시 중 오류", e)
+                                        methodResult?.error("AD_SHOW_ERROR", e.message, null)
+                                        methodResult = null
+                                    }
+                                }
+
+                                override fun onAdLoadError(errorCode: Int) {
+                                    Log.e(TAG, "앱 전환형 광고 로드 실패: errorCode=$errorCode")
+                                    
+                                    val errorMessage = when (errorCode) {
+                                        202 -> "네트워크 오류"
+                                        301 -> "앱 전환 광고 소재 없음"
+                                        302 -> "노출 가능한 광고 없음"
+                                        else -> "광고 로드 실패"
+                                    }
+                                    
+                                    methodResult?.error("AD_LOAD_FAILED", "$errorMessage: $errorCode", null)
+                                    methodResult = null
+                                }
+                            }
                         )
+                        
+                    } ?: run {
+                        Log.e(TAG, "AdFitPopupAdLoader가 null입니다")
+                        result.error("LOADER_NULL", "AdFitPopupAdLoader is null", null)
                     }
                     
-                    // 배너 광고 뷰 생성 (앱 전환형 - 큰 사이즈)
-                    bannerAdView = BannerAdView(activity).apply {
-                        layoutParams = FrameLayout.LayoutParams(
-                            FrameLayout.LayoutParams.MATCH_PARENT,
-                            dpToPx(500)
-                        ).apply {
-                            gravity = Gravity.CENTER
-                            setMargins(dpToPx(20), dpToPx(20), dpToPx(20), dpToPx(20))
-                        }
-                        setClientId(adId)
-                        setAdListener(object : AdListener {
-                            override fun onAdLoaded() {
-                                Log.d(TAG, "앱 전환형 광고 로드 완료")
-                                adDialog?.show()
-                                result.success(true)
-                            }
-
-                            override fun onAdFailed(errorCode: Int) {
-                                Log.e(TAG, "앱 전환형 광고 로드 실패: errorCode=$errorCode")
-                                dismissAd()
-                                result.error("AD_LOAD_FAILED", "광고 로드 실패: $errorCode", null)
-                            }
-
-                            override fun onAdClicked() {
-                                Log.d(TAG, "앱 전환형 광고 클릭됨")
-                            }
-                        })
-                    }
-                    
-                    // 닫기 버튼 생성
-                    val closeButton = ImageButton(activity).apply {
-                        layoutParams = FrameLayout.LayoutParams(
-                            dpToPx(48),
-                            dpToPx(48)
-                        ).apply {
-                            gravity = Gravity.TOP or Gravity.END
-                            setMargins(dpToPx(16), dpToPx(16), dpToPx(16), dpToPx(16))
-                        }
-                        setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
-                        setBackgroundColor(Color.argb(180, 255, 255, 255))
-                        scaleType = ImageView.ScaleType.CENTER_INSIDE
-                        setPadding(dpToPx(8), dpToPx(8), dpToPx(8), dpToPx(8))
-                        setOnClickListener {
-                            Log.d(TAG, "앱 전환형 광고 닫기 버튼 클릭됨")
-                            dismissAd()
-                        }
-                    }
-                    
-                    container.addView(bannerAdView)
-                    container.addView(closeButton)
-                    
-                    adDialog?.setContentView(container)
-                    
-                    // 광고 로드
-                    bannerAdView?.loadAd()
                 } catch (e: Exception) {
-                    Log.e(TAG, "앱 전환형 광고 표시 실패", e)
-                    dismissAd()
-                    result.error("AD_SHOW_ERROR", e.message, null)
+                    Log.e(TAG, "앱 전환형 광고 로드 중 오류", e)
+                    result.error("AD_LOAD_ERROR", e.message, null)
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "앱 전환형 광고 표시 중 오류", e)
-            result.error("AD_SHOW_ERROR", e.message, null)
+            Log.e(TAG, "앱 전환형 광고 요청 중 오류", e)
+            result.error("AD_REQUEST_ERROR", e.message, null)
         }
-    }
-    
-    /**
-     * 광고 닫기 및 리소스 해제
-     */
-    private fun dismissAd() {
-        try {
-            adDialog?.dismiss()
-            adDialog = null
-            bannerAdView?.destroy()
-            bannerAdView = null
-            Log.d(TAG, "앱 전환형 광고 리소스 해제")
-        } catch (e: Exception) {
-            Log.e(TAG, "앱 전환형 광고 리소스 해제 중 오류", e)
-        }
-    }
-    
-    /**
-     * DP를 픽셀로 변환
-     */
-    private fun dpToPx(dp: Int): Int {
-        return (dp * activity.resources.displayMetrics.density).toInt()
     }
     
     /**
      * 리소스 정리
      */
     fun dispose() {
-        dismissAd()
+        popupAdLoader = null
+        methodResult = null
+        Log.d(TAG, "리소스 정리 완료")
     }
 }

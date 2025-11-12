@@ -16,11 +16,11 @@ import 'package:mobile/services/campaign_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../ads/banner.dart';
 import '../models/store_model.dart';
 import '../widgets/experience_card.dart';
 import '../widgets/friendly.dart'; // ← ClampTextScale, showFriendlySnack 여기서 사용
 import '../widgets/native_ad_widget.dart'; // ← 네이티브 광고 위젯
+import '../widgets/banner_ad_widget.dart'; // ← 카카오 AdFit 배너 광고 위젯
 import 'campaign_list_screen.dart';
 
 
@@ -480,7 +480,7 @@ class _HomeScreenState extends State<HomeScreen> {
             slivers: [
               // 공지 배너
               // SliverToBoxAdapter(child: _buildNoticeBanner()),
-              SliverToBoxAdapter(child: MyBannerAdWidget()),
+              SliverToBoxAdapter(child: BannerAdWidget()),
               SliverToBoxAdapter(child: SizedBox(height: 20.h)), // [ScreenUtil]
 
               // 가까운 체험단

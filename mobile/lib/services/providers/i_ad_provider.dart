@@ -4,8 +4,7 @@ import 'package:flutter/material.dart';
 /// DR(의존성 역전 원칙) 적용을 위한 추상화 계층
 /// 
 /// 이 인터페이스를 구현하여 다양한 광고 네트워크를 통합할 수 있습니다.
-/// - AdMobProvider: Google AdMob 구현
-/// - AdFitProvider: 카카오 AdFit 구현
+/// - AdFitProvider: 카카오 AdFit 구현 (현재 사용 중)
 abstract class IAdProvider {
   /// 광고 제공자 이름 (로깅용)
   String get providerName;

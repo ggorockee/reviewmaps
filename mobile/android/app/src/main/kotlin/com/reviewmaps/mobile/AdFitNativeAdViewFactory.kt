@@ -18,8 +18,8 @@ class AdFitNativeAdViewFactory(private val activity: Activity) : PlatformViewFac
     @Suppress("UNCHECKED_CAST")
     override fun create(context: Context?, viewId: Int, args: Any?): PlatformView {
         val creationParams = args as? Map<String, Any>
-        // Activity context를 전달 (BannerAdView가 Activity context를 요구함)
-        return AdFitNativeAdView(activity, viewId, creationParams)
+        // Activity context를 전달
+        return CustomNativeAdView(activity, viewId, creationParams)
     }
 }
 

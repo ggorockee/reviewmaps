@@ -12,24 +12,24 @@ import io.flutter.plugin.platform.PlatformView
 
 /**
  * 카카오 AdFit 네이티브 광고 플랫폼 뷰
- * AdFit SDK 3.19.5 기반
+ * AdFit SDK 3.21.10 기반
  * 
  * 공식 문서: https://github.com/adfit/adfit-android-sdk/blob/master/docs/NATIVEAD.md
  */
-class AdFitNativeAdView(
+class CustomNativeAdView(
     private val context: Context,
     id: Int,
     creationParams: Map<String, Any>?
 ) : PlatformView {
     
     companion object {
-        private const val TAG = "AdFitNativeAdView"
+        private const val TAG = "CustomNativeAdView"
     }
 
     private val container: FrameLayout = FrameLayout(context)
     private var nativeAdLoader: AdFitNativeAdLoader? = null
     private var nativeAdBinder: AdFitNativeAdBinder? = null
-    private lateinit var nativeAdViewContainer: AdFitNativeAdView
+    private lateinit var nativeAdViewContainer: com.kakao.adfit.ads.na.AdFitNativeAdView
     private lateinit var mediaView: AdFitMediaView
     private lateinit var titleTextView: TextView
     private lateinit var bodyTextView: TextView
@@ -49,8 +49,8 @@ class AdFitNativeAdView(
      * 네이티브 광고 레이아웃 구성
      */
     private fun setupNativeAdLayout() {
-        // AdFitNativeAdView 생성 (광고 컨테이너)
-        nativeAdViewContainer = AdFitNativeAdView(context).apply {
+        // AdFitNativeAdView 생성 (광고 컨테이너) - SDK의 공식 클래스
+        nativeAdViewContainer = com.kakao.adfit.ads.na.AdFitNativeAdView(context).apply {
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT

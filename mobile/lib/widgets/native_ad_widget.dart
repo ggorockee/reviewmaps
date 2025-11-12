@@ -83,40 +83,20 @@ class _NativeAdWidgetState extends State<NativeAdWidget> {
     }
   }
 
-  /// 네이티브 광고 플레이스홀더 (플랫폼 뷰 사용)
+  /// 네이티브 광고 플레이스홀더
+  /// 
+  /// 참고: flutter_adfit 플러그인에는 네이티브 광고가 없어서 현재 구현되지 않음
+  /// 향후 네이티브 코드로 직접 구현 필요
   Widget _buildNativeAdPlaceholder() {
-    // flutter_adfit 플러그인에는 네이티브 광고가 없으므로 플랫폼 뷰 사용
-    // TODO: 네이티브 코드에서 AdFit 네이티브 광고 구현 필요
-    if (Platform.isAndroid) {
-      return AndroidView(
-        viewType: 'flutter_adfit/native',
-        creationParams: {
-          'adId': _adService.nativeAdId,
-        },
-        creationParamsCodec: const StandardMessageCodec(),
-        onPlatformViewCreated: (int id) {
-          print('[NativeAdWidget] 네이티브 광고 플랫폼 뷰 생성됨: $id');
-          setState(() {
-            _isAdLoaded = true;
-          });
-        },
-      );
-    } else if (Platform.isIOS) {
-      return UiKitView(
-        viewType: 'flutter_adfit/native',
-        creationParams: {
-          'adId': _adService.nativeAdId,
-        },
-        creationParamsCodec: const StandardMessageCodec(),
-        onPlatformViewCreated: (int id) {
-          print('[NativeAdWidget] 네이티브 광고 플랫폼 뷰 생성됨: $id');
-          setState(() {
-            _isAdLoaded = true;
-          });
-        },
-      );
-    }
-    return const SizedBox.shrink();
+    return Center(
+      child: Text(
+        '네이티브 광고 (구현 예정)',
+        style: TextStyle(
+          color: Colors.grey[400],
+          fontSize: 12.sp,
+        ),
+      ),
+    );
   }
 
   @override

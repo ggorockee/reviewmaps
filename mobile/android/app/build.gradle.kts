@@ -82,6 +82,6 @@ flutter {
 }
 
 dependencies {
-    // 카카오 AdFit SDK
-    implementation("com.kakao.adfit:ads-base:3.19.4")
+    // 카카오 AdFit SDK 3.19.5
+    implementation("com.kakao.adfit:ads-base:3.19.5")
 }

@@ -79,13 +79,14 @@ class AdFitInterstitialChannel(private val activity: Activity) : MethodChannel.M
                         )
                     }
                     
-                    // 배너 광고 뷰 생성 (중간 크기)
+                    // 배너 광고 뷰 생성 (앱 전환형 - 큰 사이즈)
                     bannerAdView = BannerAdView(activity).apply {
                         layoutParams = FrameLayout.LayoutParams(
-                            dpToPx(320),
-                            dpToPx(480)
+                            FrameLayout.LayoutParams.MATCH_PARENT,
+                            dpToPx(500)
                         ).apply {
                             gravity = Gravity.CENTER
+                            setMargins(dpToPx(20), dpToPx(20), dpToPx(20), dpToPx(20))
                         }
                         setClientId(adId)
                         setAdListener(object : AdListener {

@@ -18,13 +18,13 @@ class MainActivity : FlutterActivity() {
             AdFitInterstitialChannel.CHANNEL_NAME
         ).setMethodCallHandler(interstitialChannel)
 
-        // 네이티브 광고 플랫폼 뷰 등록
+        // 네이티브 광고 플랫폼 뷰 등록 (Activity context 전달)
         flutterEngine
             .platformViewsController
             .registry
             .registerViewFactory(
                 AdFitNativeAdViewFactory.VIEW_TYPE,
-                AdFitNativeAdViewFactory()
+                AdFitNativeAdViewFactory(this)
             )
     }
 

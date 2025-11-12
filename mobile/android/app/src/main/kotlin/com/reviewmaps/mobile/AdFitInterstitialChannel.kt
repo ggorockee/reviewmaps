@@ -10,6 +10,7 @@ import android.view.ViewGroup
 import android.view.Window
 import android.widget.FrameLayout
 import android.widget.ImageButton
+import android.widget.ImageView
 import com.kakao.adfit.ads.AdListener
 import com.kakao.adfit.ads.ba.BannerAdView
 import io.flutter.plugin.common.MethodCall
@@ -117,7 +118,7 @@ class AdFitInterstitialChannel(private val activity: Activity) : MethodChannel.M
                         }
                         setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
                         setBackgroundColor(Color.argb(180, 255, 255, 255))
-                        scaleType = ImageButton.ScaleType.CENTER_INSIDE
+                        scaleType = ImageView.ScaleType.CENTER_INSIDE
                         setPadding(dpToPx(8), dpToPx(8), dpToPx(8), dpToPx(8))
                         setOnClickListener {
                             Log.d(TAG, "앱 전환형 광고 닫기 버튼 클릭됨")

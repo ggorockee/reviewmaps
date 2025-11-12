@@ -82,8 +82,6 @@ flutter {
 }
 
 dependencies {
-    // Unity Ads SDK
-    implementation("com.unity3d.ads:unity-ads:4.12.2")
-    // Unity Ads Mediation Adapter
-    implementation("com.google.ads.mediation:unity:4.12.2.0")
+    // 카카오 AdFit SDK
+    implementation("com.kakao.adfit:ads-base:3.19.4")
 }

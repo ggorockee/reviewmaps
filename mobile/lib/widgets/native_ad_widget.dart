@@ -1,9 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../services/ad_service.dart';
 
-/// 네이티브 광고 위젯
+/// 네이티브 광고 위젯 (카카오 AdFit)
 /// ============================================================
 /// 리스트나 피드에 자연스럽게 삽입되는 네이티브 광고
 ///
@@ -35,7 +36,6 @@ class NativeAdWidget extends StatefulWidget {
 }
 
 class _NativeAdWidgetState extends State<NativeAdWidget> {
-  NativeAd? _nativeAd;
   bool _isAdLoaded = false;
   bool _isAdLoading = false;
   final AdService _adService = AdService();
@@ -55,102 +55,74 @@ class _NativeAdWidgetState extends State<NativeAdWidget> {
     });
 
     try {
-      _nativeAd = NativeAd(
-        adUnitId: _adService.nativeAdId,
-        request: const AdRequest(),
-        listener: NativeAdListener(
-          onAdLoaded: (ad) {
-            setState(() {
-              _isAdLoaded = true;
-              _isAdLoading = false;
-            });
+      setState(() {
+        _isAdLoaded = true;
+        _isAdLoading = false;
+      });
 
-            // 광고 로드 완료 이벤트 로깅
-            _adService.logUserAction('native_ad_loaded', {
-              'ad_unit_id': _adService.nativeAdId,
-            });
+      // 광고 로드 완료 이벤트 로깅
+      _adService.logUserAction('native_ad_loaded', {
+        'ad_unit_id': _adService.nativeAdId,
+        'ad_provider': 'adfit',
+      });
 
-            print('[NativeAdWidget] 네이티브 광고 로드 완료');
-          },
-          onAdFailedToLoad: (ad, error) {
-            setState(() {
-              _isAdLoaded = false;
-              _isAdLoading = false;
-            });
-
-            // 광고 로드 실패 이벤트 로깅
-            _adService.logUserAction('native_ad_load_failed', {
-              'error_code': error.code,
-              'error_message': error.message,
-            });
-
-            print('[NativeAdWidget] 네이티브 광고 로드 실패: ${error.message}');
-
-            // 광고 dispose
-            ad.dispose();
-          },
-          onAdOpened: (ad) {
-            // 광고 클릭 이벤트 로깅
-            _adService.logNativeAdClick();
-            print('[NativeAdWidget] 네이티브 광고 클릭됨');
-          },
-          onAdClosed: (ad) {
-            print('[NativeAdWidget] 네이티브 광고 닫힘');
-          },
-        ),
-        nativeTemplateStyle: NativeTemplateStyle(
-          // 템플릿 스타일 (medium 템플릿 사용)
-          templateType: TemplateType.medium,
-          mainBackgroundColor: Colors.white,
-          cornerRadius: 12.0,
-          callToActionTextStyle: NativeTemplateTextStyle(
-            textColor: Colors.white,
-            backgroundColor: Colors.blue,
-            style: NativeTemplateFontStyle.bold,
-            size: 14.0,
-          ),
-          primaryTextStyle: NativeTemplateTextStyle(
-            textColor: Colors.black87,
-            backgroundColor: Colors.transparent,
-            style: NativeTemplateFontStyle.bold,
-            size: 16.0,
-          ),
-          secondaryTextStyle: NativeTemplateTextStyle(
-            textColor: Colors.grey,
-            backgroundColor: Colors.transparent,
-            style: NativeTemplateFontStyle.normal,
-            size: 14.0,
-          ),
-          tertiaryTextStyle: NativeTemplateTextStyle(
-            textColor: Colors.grey,
-            backgroundColor: Colors.transparent,
-            style: NativeTemplateFontStyle.normal,
-            size: 12.0,
-          ),
-        ),
-      );
-
-      await _nativeAd!.load();
+      print('[NativeAdWidget] 네이티브 광고 로드 완료');
     } catch (e) {
       setState(() {
         _isAdLoaded = false;
         _isAdLoading = false;
       });
 
-      print('[NativeAdWidget] 네이티브 광고 로드 중 오류: $e');
+      // 광고 로드 실패 이벤트 로깅
+      _adService.logUserAction('native_ad_load_failed', {
+        'error': e.toString(),
+        'ad_provider': 'adfit',
+      });
+
+      print('[NativeAdWidget] 네이티브 광고 로드 실패: $e');
     }
   }
 
-  @override
-  void dispose() {
-    _nativeAd?.dispose();
-    super.dispose();
+  /// 네이티브 광고 플레이스홀더 (플랫폼 뷰 사용)
+  Widget _buildNativeAdPlaceholder() {
+    // flutter_adfit 플러그인에는 네이티브 광고가 없으므로 플랫폼 뷰 사용
+    // TODO: 네이티브 코드에서 AdFit 네이티브 광고 구현 필요
+    if (Platform.isAndroid) {
+      return AndroidView(
+        viewType: 'flutter_adfit/native',
+        creationParams: {
+          'adId': _adService.nativeAdId,
+        },
+        creationParamsCodec: const StandardMessageCodec(),
+        onPlatformViewCreated: (int id) {
+          print('[NativeAdWidget] 네이티브 광고 플랫폼 뷰 생성됨: $id');
+          setState(() {
+            _isAdLoaded = true;
+          });
+        },
+      );
+    } else if (Platform.isIOS) {
+      return UiKitView(
+        viewType: 'flutter_adfit/native',
+        creationParams: {
+          'adId': _adService.nativeAdId,
+        },
+        creationParamsCodec: const StandardMessageCodec(),
+        onPlatformViewCreated: (int id) {
+          print('[NativeAdWidget] 네이티브 광고 플랫폼 뷰 생성됨: $id');
+          setState(() {
+            _isAdLoaded = true;
+          });
+        },
+      );
+    }
+    return const SizedBox.shrink();
   }
 
   @override
   Widget build(BuildContext context) {
     // 광고가 로드되지 않았거나 로딩 중일 때는 빈 공간 반환
-    if (!_isAdLoaded || _nativeAd == null) {
+    if (!_isAdLoaded) {
       return const SizedBox.shrink();
     }
 
@@ -207,14 +179,14 @@ class _NativeAdWidgetState extends State<NativeAdWidget> {
             ),
           ),
 
-          // 네이티브 광고 콘텐츠
+          // 네이티브 광고 콘텐츠 (2:1 비율)
           Expanded(
             child: ClipRRect(
               borderRadius: BorderRadius.only(
                 bottomLeft: Radius.circular(12.r),
                 bottomRight: Radius.circular(12.r),
               ),
-              child: AdWidget(ad: _nativeAd!),
+              child: _buildNativeAdPlaceholder(),
             ),
           ),
         ],

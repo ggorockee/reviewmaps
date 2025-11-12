@@ -1,0 +1,6 @@
+/sc:analyze
+현재 프로젝트를 그대로 django와 ninja로 migrations을 하려고해
+db는 이미 setting되어있어 
+migration했을때 성능점검해줘 및 기대 효과에 대해서 말해줘
+그리고 그 결과를  @docs에 md파일로 저장해줘 
+markdown은 agent: markdown-summarizer을 꼭 사용하도록해

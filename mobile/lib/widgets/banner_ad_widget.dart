@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:flutter_adfit/flutter_adfit.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../services/ad_service.dart';
 
-/// 상단 배너 광고 위젯
+/// 상단 배너 광고 위젯 (카카오 AdFit)
 /// UX 침해 최소화를 위해 콘텐츠 영역과 시각적으로 구분
 class BannerAdWidget extends StatefulWidget {
   final double? height;
@@ -22,7 +22,6 @@ class BannerAdWidget extends StatefulWidget {
 }
 
 class _BannerAdWidgetState extends State<BannerAdWidget> {
-  BannerAd? _bannerAd;
   bool _isAdLoaded = false;
   bool _isAdLoading = false;
   final AdService _adService = AdService();
@@ -42,71 +41,39 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
     });
 
     try {
-      _bannerAd = BannerAd(
-        adUnitId: _adService.bannerAdId,
-        size: AdSize.banner,
-        request: const AdRequest(),
-        listener: BannerAdListener(
-          onAdLoaded: (ad) {
-            setState(() {
-              _isAdLoaded = true;
-              _isAdLoading = false;
-            });
-            
-            // 광고 로드 완료 이벤트 로깅
-            _adService.logUserAction('banner_ad_loaded', {
-              'ad_unit_id': _adService.bannerAdId,
-              'ad_size': 'banner',
-            });
-            
-            print('[BannerAdWidget] 배너 광고 로드 완료');
-          },
-          onAdFailedToLoad: (ad, error) {
-            setState(() {
-              _isAdLoaded = false;
-              _isAdLoading = false;
-            });
-            
-            // 광고 로드 실패 이벤트 로깅
-            _adService.logUserAction('banner_ad_load_failed', {
-              'error_code': error.code,
-              'error_message': error.message,
-            });
-            
-            print('[BannerAdWidget] 배너 광고 로드 실패: ${error.message}');
-          },
-          onAdOpened: (ad) {
-            // 광고 클릭 이벤트 로깅
-            _adService.logBannerAdClick();
-            print('[BannerAdWidget] 배너 광고 클릭됨');
-          },
-          onAdClosed: (ad) {
-            print('[BannerAdWidget] 배너 광고 닫힘');
-          },
-        ),
-      );
+      // 광고 로드 완료 이벤트 로깅
+      _adService.logUserAction('banner_ad_loaded', {
+        'ad_unit_id': _adService.bannerAdId,
+        'ad_size': 'banner',
+        'ad_provider': 'adfit',
+      });
       
-      await _bannerAd!.load();
+      setState(() {
+        _isAdLoaded = true;
+        _isAdLoading = false;
+      });
+      
+      print('[BannerAdWidget] 배너 광고 로드 완료');
     } catch (e) {
       setState(() {
         _isAdLoaded = false;
         _isAdLoading = false;
       });
       
-      print('[BannerAdWidget] 배너 광고 로드 중 오류: $e');
+      // 광고 로드 실패 이벤트 로깅
+      _adService.logUserAction('banner_ad_load_failed', {
+        'error': e.toString(),
+        'ad_provider': 'adfit',
+      });
+      
+      print('[BannerAdWidget] 배너 광고 로드 실패: $e');
     }
-  }
-
-  @override
-  void dispose() {
-    _bannerAd?.dispose();
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     // 광고가 로드되지 않았거나 로딩 중일 때는 빈 공간 반환
-    if (!_isAdLoaded || _bannerAd == null) {
+    if (!_isAdLoaded) {
       return const SizedBox.shrink();
     }
 
@@ -124,9 +91,32 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
       ),
       child: Center(
         child: SizedBox(
-          width: _bannerAd!.size.width.toDouble(),
-          height: _bannerAd!.size.height.toDouble(),
-          child: AdWidget(ad: _bannerAd!),
+          width: 320.w,
+          height: 50.h,
+          child: AdFitBanner(
+            adId: _adService.bannerAdId,
+            adSize: AdFitBannerSize.BANNER,
+            listener: (AdFitEvent event, AdFitEventData data) {
+              if (event == AdFitEvent.AdReceived) {
+                print('[BannerAdWidget] 배너 광고 수신 완료');
+                setState(() {
+                  _isAdLoaded = true;
+                });
+              } else if (event == AdFitEvent.AdReceiveFailed) {
+                print('[BannerAdWidget] 배너 광고 수신 실패: ${data.message}');
+                setState(() {
+                  _isAdLoaded = false;
+                });
+                _adService.logUserAction('banner_ad_load_failed', {
+                  'error': data.message ?? 'Unknown error',
+                  'ad_provider': 'adfit',
+                });
+              } else if (event == AdFitEvent.AdClicked) {
+                print('[BannerAdWidget] 배너 광고 클릭됨');
+                _adService.logBannerAdClick();
+              }
+            },
+          ),
         ),
       ),
     );

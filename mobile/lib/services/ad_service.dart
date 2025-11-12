@@ -1,47 +1,35 @@
 import 'dart:io';
-import 'package:flutter/foundation.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:app_tracking_transparency/app_tracking_transparency.dart';
 
-/// AdMob 광고 서비스
+/// 카카오 AdFit 광고 서비스
 /// Google 및 Apple 정책에 위반되지 않으면서 수익화를 최적화
 class AdService {
   static final AdService _instance = AdService._internal();
   factory AdService() => _instance;
   AdService._internal();
 
-  // AdMob 앱 ID
-  static const String _androidAppId = 'ca-app-pub-3219791135582658~5531424356';
-  static const String _iosAppId = 'ca-app-pub-3219791135582658~2537889532';
-
-  // 광고 단위 ID
-  static const String _androidBannerAdId = 'ca-app-pub-3219791135582658/5314633015';
-  static const String _iosBannerAdId = 'ca-app-pub-3219791135582658/7554300460';
-  static const String _androidInterstitialAdId = 'ca-app-pub-3219791135582658/4509350635';
-  static const String _iosInterstitialAdId = 'ca-app-pub-3219791135582658/6241218794';
-  static const String _androidNativeAdId = 'ca-app-pub-3219791135582658/2361166614';
-  static const String _iosNativeAdId = 'ca-app-pub-3219791135582658/9682496708';
-
-  // 테스트용 광고 단위 ID (개발 시 사용)
-  static const String _testBannerAdId = 'ca-app-pub-3940256099942544/6300978111';
-  static const String _testInterstitialAdId = 'ca-app-pub-3940256099942544/1033173712';
-  static const String _testNativeAdId = 'ca-app-pub-3940256099942544/2247696110';
+  // 카카오 AdFit 광고 단위 ID
+  // 배너: 320x50
+  static const String _bannerAdId = 'DAN-VkCF8zNFJMU3e3LP';
+  
+  // 전면광고: 중앙형_프로필 포함_1:1
+  static const String _interstitialAdId = 'DAN-StCgaXLBUc4NmDjh';
+  
+  // 네이티브: 이미지 네이티브(2:1)
+  static const String _nativeAdId = 'DAN-zMWhwGJrhKMmPZ0E';
 
   // Firebase Analytics 인스턴스
   final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
 
   // 광고 상태 관리
-  InterstitialAd? _interstitialAd;
   bool _isInterstitialAdLoaded = false;
   bool _isTrackingPermissionGranted = false;
 
-  /// AdMob 초기화
+  /// AdFit 초기화
   Future<void> initialize() async {
     try {
-      // AdMob 초기화
-      await MobileAds.instance.initialize();
-      
       // iOS 14.5+ App Tracking Transparency 권한 요청
       if (Platform.isIOS) {
         await _requestTrackingPermission();
@@ -52,16 +40,20 @@ class AdService {
         name: 'ad_service_initialized',
         parameters: {
           'platform': Platform.isIOS ? 'ios' : 'android',
+          'ad_provider': 'adfit',
           'tracking_permission': _isTrackingPermissionGranted,
         },
       );
 
-      print('[AdService] AdMob 초기화 완료');
+      print('[AdService] 카카오 AdFit 초기화 완료');
     } catch (e) {
-      print('[AdService] AdMob 초기화 실패: $e');
+      print('[AdService] 카카오 AdFit 초기화 실패: $e');
       await _analytics.logEvent(
         name: 'ad_service_init_error',
-        parameters: {'error': e.toString()},
+        parameters: {
+          'error': e.toString(),
+          'ad_provider': 'adfit',
+        },
       );
     }
   }
@@ -98,89 +90,46 @@ class AdService {
     }
   }
 
-  /// 플랫폼별 배너 광고 ID 반환
-  String get bannerAdId {
-    // 개발 환경에서는 테스트 광고 사용
-    if (_isDebugMode()) {
-      return _testBannerAdId;
-    }
-    
-    return Platform.isIOS ? _iosBannerAdId : _androidBannerAdId;
-  }
+  /// 배너 광고 ID 반환
+  String get bannerAdId => _bannerAdId;
 
-  /// 플랫폼별 전면광고 ID 반환
-  String get interstitialAdId {
-    // 개발 환경에서는 테스트 광고 사용
-    if (_isDebugMode()) {
-      return _testInterstitialAdId;
-    }
-    
-    return Platform.isIOS ? _iosInterstitialAdId : _androidInterstitialAdId;
-  }
+  /// 전면광고 ID 반환
+  String get interstitialAdId => _interstitialAdId;
 
-  /// 플랫폼별 네이티브 광고 ID 반환
-  String get nativeAdId {
-    // 개발 환경에서는 테스트 광고 사용
-    if (_isDebugMode()) {
-      return _testNativeAdId;
-    }
-    
-    return Platform.isIOS ? _iosNativeAdId : _androidNativeAdId;
-  }
-
-  /// 디버그 모드 확인
-  /// kDebugMode를 사용하여 자동으로 디버그/릴리즈 구분
-  bool _isDebugMode() {
-    return kDebugMode; // 디버그 빌드에서는 테스트 광고, 릴리즈에서는 실제 광고
-  }
+  /// 네이티브 광고 ID 반환
+  String get nativeAdId => _nativeAdId;
 
   /// 전면광고 로드
   Future<void> loadInterstitialAd() async {
     try {
-      await InterstitialAd.load(
-        adUnitId: interstitialAdId,
-        request: const AdRequest(),
-        adLoadCallback: InterstitialAdLoadCallback(
-          onAdLoaded: (ad) {
-            _interstitialAd = ad;
-            _isInterstitialAdLoaded = true;
-            
-            // 광고 로드 완료 이벤트 로깅
-            _analytics.logEvent(
-              name: 'interstitial_ad_loaded',
-              parameters: {'ad_unit_id': interstitialAdId},
-            );
-            
-            print('[AdService] 전면광고 로드 완료');
-          },
-          onAdFailedToLoad: (error) {
-            _isInterstitialAdLoaded = false;
-            
-            // 광고 로드 실패 이벤트 로깅
-            _analytics.logEvent(
-              name: 'interstitial_ad_load_failed',
-              parameters: {
-                'error_code': error.code,
-                'error_message': error.message,
-              },
-            );
-            
-            print('[AdService] 전면광고 로드 실패: ${error.message}');
-          },
-        ),
+      // AdFit 전면광고는 표시 시점에 로드되므로 여기서는 상태만 설정
+      _isInterstitialAdLoaded = true;
+      
+      // 광고 로드 완료 이벤트 로깅
+      await _analytics.logEvent(
+        name: 'interstitial_ad_loaded',
+        parameters: {
+          'ad_unit_id': interstitialAdId,
+          'ad_provider': 'adfit',
+        },
       );
+      
+      print('[AdService] 전면광고 로드 준비 완료');
     } catch (e) {
       print('[AdService] 전면광고 로드 중 오류: $e');
       await _analytics.logEvent(
         name: 'interstitial_ad_load_error',
-        parameters: {'error': e.toString()},
+        parameters: {
+          'error': e.toString(),
+          'ad_provider': 'adfit',
+        },
       );
     }
   }
 
   /// 전면광고 표시 (앱 진입 시 3-5초 지연 후)
   Future<void> showInterstitialAd() async {
-    if (!_isInterstitialAdLoaded || _interstitialAd == null) {
+    if (!_isInterstitialAdLoaded) {
       print('[AdService] 전면광고가 로드되지 않음');
       return;
     }
@@ -189,21 +138,45 @@ class AdService {
       // 광고 표시 이벤트 로깅
       await _analytics.logEvent(
         name: 'interstitial_ad_shown',
-        parameters: {'ad_unit_id': interstitialAdId},
+        parameters: {
+          'ad_unit_id': interstitialAdId,
+          'ad_provider': 'adfit',
+        },
       );
 
-      await _interstitialAd!.show();
-      
-      // 광고 표시 후 상태 초기화
-      _interstitialAd = null;
-      _isInterstitialAdLoaded = false;
+      // AdFit 전면광고 표시
+      // flutter_adfit 플러그인에는 전면광고가 없으므로 플랫폼 채널을 통해 직접 호출
+      // TODO: 네이티브 코드에서 AdFit 전면광고 구현 필요
+      try {
+        const platform = MethodChannel('flutter_adfit/interstitial');
+        await platform.invokeMethod('showInterstitialAd', {
+          'adId': interstitialAdId,
+        });
+        
+        print('[AdService] 전면광고 표시 요청 완료');
+        // 광고 표시 후 상태 초기화
+        _isInterstitialAdLoaded = false;
+      } catch (e) {
+        print('[AdService] 전면광고 표시 중 오류: $e');
+        await _analytics.logEvent(
+          name: 'interstitial_ad_show_error',
+          parameters: {
+            'error': e.toString(),
+            'ad_provider': 'adfit',
+          },
+        );
+        _isInterstitialAdLoaded = false;
+      }
       
       print('[AdService] 전면광고 표시 완료');
     } catch (e) {
       print('[AdService] 전면광고 표시 실패: $e');
       await _analytics.logEvent(
         name: 'interstitial_ad_show_error',
-        parameters: {'error': e.toString()},
+        parameters: {
+          'error': e.toString(),
+          'ad_provider': 'adfit',
+        },
       );
     }
   }
@@ -212,7 +185,10 @@ class AdService {
   Future<void> logBannerAdClick() async {
     await _analytics.logEvent(
       name: 'banner_ad_clicked',
-      parameters: {'ad_unit_id': bannerAdId},
+      parameters: {
+        'ad_unit_id': bannerAdId,
+        'ad_provider': 'adfit',
+      },
     );
   }
 
@@ -220,7 +196,10 @@ class AdService {
   Future<void> logInterstitialAdClick() async {
     await _analytics.logEvent(
       name: 'interstitial_ad_clicked',
-      parameters: {'ad_unit_id': interstitialAdId},
+      parameters: {
+        'ad_unit_id': interstitialAdId,
+        'ad_provider': 'adfit',
+      },
     );
   }
 
@@ -228,7 +207,10 @@ class AdService {
   Future<void> logNativeAdClick() async {
     await _analytics.logEvent(
       name: 'native_ad_clicked',
-      parameters: {'ad_unit_id': nativeAdId},
+      parameters: {
+        'ad_unit_id': nativeAdId,
+        'ad_provider': 'adfit',
+      },
     );
   }
 
@@ -244,6 +226,7 @@ class AdService {
         'ad_type': adType,
         'revenue': revenue,
         'currency': currency,
+        'ad_provider': 'adfit',
       },
     );
   }

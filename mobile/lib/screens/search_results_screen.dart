@@ -7,6 +7,7 @@ import 'package:mobile/config/config.dart';
 import 'package:mobile/const/colors.dart';
 import 'package:mobile/models/store_model.dart';
 import 'package:mobile/services/campaign_service.dart';
+import 'package:mobile/services/interstitial_ad_manager.dart';
 import '../widgets/experience_card.dart';
 import '../widgets/friendly.dart';
 import '../widgets/sort_filter_widget.dart';
@@ -154,6 +155,11 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
     // Provider를 통한 위치 정보 업데이트
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(locationProvider.notifier).update();
+
+      // 검색 결과 화면 진입 시 전면광고 표시 (무효 트래픽 방지 로직 적용)
+      InterstitialAdManager().showInterstitialAdOnEvent(
+        eventName: 'search_results_viewed',
+      );
     });
   }
 

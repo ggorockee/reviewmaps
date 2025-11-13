@@ -80,7 +80,9 @@ class AppOpenAdService with WidgetsBindingObserver {
 
   /// 디버그 모드 확인
   bool _isDebugMode() {
-    return kDebugMode;
+    // 임시: 새 AdMob 계정 승인 대기 중이므로 강제로 테스트 광고 사용
+    return true;
+    // return kDebugMode; // 계정 승인 후 주석 해제
   }
 
   /// 마지막 광고 표시 시간 로드
@@ -142,6 +144,8 @@ class AppOpenAdService with WidgetsBindingObserver {
 
   /// App Open Ad 로드
   Future<void> loadAd() async {
+    print('[AppOpenAdService] 광고 로드 시작 (시도 횟수: $_loadAttempts/$_maxLoadAttempts)');
+
     // 이미 광고가 로드되어 있으면 건너뜀
     if (_isAdLoaded && _appOpenAd != null) {
       print('[AppOpenAdService] 광고가 이미 로드되어 있음');
@@ -155,6 +159,7 @@ class AppOpenAdService with WidgetsBindingObserver {
     }
 
     _loadAttempts++;
+    print('[AppOpenAdService] App Open Ad 로드 요청 - Ad Unit ID: $_appOpenAdId');
 
     try {
       await AppOpenAd.load(

@@ -262,8 +262,8 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
                     return const Center(child: Text('검색 결과가 없습니다.'));
                   }
 
-                  // 광고 삽입 계산: 15개마다 광고 1개 (Google 권장 빈도)
-                  final int itemsPerAd = 15;
+                  // 광고 삽입 계산: 16개마다 광고 1개
+                  final int itemsPerAd = 16;
                   final int adCount = results.length ~/ itemsPerAd;
                   final int totalItems = results.length + adCount;
 
@@ -303,7 +303,12 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
 
                         return Column(
                           children: [
-                            if (showDivider) const Divider(height: 1),
+                            // 일관된 시작점을 위해 항상 Divider 공간 확보
+                            Divider(
+                              height: 1,
+                              thickness: showDivider ? 1 : 0,
+                              color: showDivider ? null : Colors.transparent,
+                            ),
                             Container(
                               constraints: BoxConstraints(minHeight: itemHeight),
                               child: ExperienceCard(

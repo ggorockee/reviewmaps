@@ -776,10 +776,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // 추천 그리드와 네이티브 광고를 조합하여 반환
-  // 15개 체험단마다 네이티브 광고 1개 삽입 (Google 권장 빈도)
+  // 16개 체험단마다 네이티브 광고 1개 삽입
   List<Widget> _buildRecommendedGridWithAds() {
     final List<Widget> slivers = [];
-    const int itemsPerGrid = 15; // 2열 그리드: 15개 아이템
+    const int itemsPerGrid = 16; // 2열 그리드: 16개 아이템
 
     for (int i = 0; i < _visibleCampaigns.length; i += itemsPerGrid) {
       final int endIndex = math.min(i + itemsPerGrid, _visibleCampaigns.length);
@@ -828,7 +828,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       );
 
-      // 15개마다 네이티브 광고 삽입 (마지막 청크는 제외)
+      // 16개마다 네이티브 광고 삽입 (마지막 청크는 제외)
       if (endIndex < _visibleCampaigns.length) {
         slivers.add(
           SliverToBoxAdapter(

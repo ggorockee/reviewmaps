@@ -6,7 +6,7 @@ export function middleware(request: NextRequest) {
   // app-ads.txt 요청 처리 -- 매우중요
   if (pathname === "/app-ads.txt") {
     return new NextResponse(
-      "google.com, pub-3219791135582658, DIRECT, f08c47fec0942fa0\n",
+      "google.com, pub-8516861197467665, DIRECT, f08c47fec0942fa0\n",
       {
         headers: {
           "Content-Type": "text/plain",

@@ -80,9 +80,7 @@ class AppOpenAdService with WidgetsBindingObserver {
 
   /// 디버그 모드 확인
   bool _isDebugMode() {
-    // 임시: 새 AdMob 계정 승인 대기 중이므로 강제로 테스트 광고 사용
-    return true;
-    // return kDebugMode; // 계정 승인 후 주석 해제
+    return kDebugMode;
   }
 
   /// 마지막 광고 표시 시간 로드

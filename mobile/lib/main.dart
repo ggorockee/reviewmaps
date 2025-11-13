@@ -54,7 +54,7 @@ Future<void> main() async {
     if (kDebugMode) {
       // DEBUG 모드에서는 테스트 광고 강제 사용
       final configuration = RequestConfiguration(
-        testDeviceIds: ['8727B87D523FC50A0940FB1243902409'], // 실제 기기 ID
+        testDeviceIds: ['d032385e-b579-421a-ae28-2bd485f4b306'], // AdMob 콘솔에서 확인한 테스트 기기 ID
       );
       MobileAds.instance.updateRequestConfiguration(configuration);
       print('[Main] AdMob 초기화 완료 (DEBUG 모드 - 테스트 광고 표시)');

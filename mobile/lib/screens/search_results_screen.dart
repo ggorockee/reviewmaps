@@ -262,8 +262,8 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
                     return const Center(child: Text('검색 결과가 없습니다.'));
                   }
 
-                  // 광고 삽입 계산: 16개마다 광고 1개
-                  final int itemsPerAd = 16;
+                  // 광고 삽입 계산: 20개마다 광고 1개
+                  final int itemsPerAd = 20;
                   final int adCount = results.length ~/ itemsPerAd;
                   final int totalItems = results.length + adCount;
 
@@ -301,24 +301,21 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
                         // - 광고 바로 다음 아이템(positionInGroup == 0)이 아닌 경우
                         final bool showDivider = index > 0 && positionInGroup != 0;
 
-                        return Column(
-                          children: [
-                            // 일관된 시작점을 위해 항상 Divider 공간 확보
-                            Divider(
-                              height: 1,
-                              thickness: showDivider ? 1 : 0,
-                              color: showDivider ? null : Colors.transparent,
-                            ),
-                            Container(
-                              constraints: BoxConstraints(minHeight: itemHeight),
-                              child: ExperienceCard(
-                                store: store,
-                                dense: true,
-                                compact: false,
-                                bottomAlignMeta: false, // 검색 결과는 타이트 간격
-                              ),
-                            ),
-                          ],
+                        return Container(
+                          constraints: BoxConstraints(minHeight: itemHeight),
+                          decoration: showDivider
+                            ? BoxDecoration(
+                                border: Border(
+                                  top: BorderSide(color: Colors.grey.shade300, width: 1),
+                                ),
+                              )
+                            : null, // decoration 자체를 null로 설정하여 레이아웃 영향 제거
+                          child: ExperienceCard(
+                            store: store,
+                            dense: true,
+                            compact: false,
+                            bottomAlignMeta: false, // 검색 결과는 타이트 간격
+                          ),
                         );
                       },
                     ),

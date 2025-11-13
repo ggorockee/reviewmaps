@@ -332,10 +332,10 @@ class _CampaignListScreenState extends ConsumerState<CampaignListScreen> {
 
   // ---------------- Grid with Ads ----------------
   /// 카테고리 그리드와 네이티브 광고를 조합하여 반환 (홈 화면 패턴)
-  /// 16개 체험단마다 네이티브 광고 1개 삽입
+  /// 20개 체험단마다 네이티브 광고 1개 삽입
   List<Widget> _buildGridWithAds() {
     final List<Widget> slivers = [];
-    const int itemsPerGrid = 16; // 2열 그리드: 16개 아이템
+    const int itemsPerGrid = 20; // 2열 그리드: 20개 아이템
 
     for (int i = 0; i < _stores.length; i += itemsPerGrid) {
       final int endIndex = math.min(i + itemsPerGrid, _stores.length);
@@ -363,7 +363,7 @@ class _CampaignListScreenState extends ConsumerState<CampaignListScreen> {
         ),
       );
 
-      // 16개마다 네이티브 광고 삽입 (마지막 청크는 제외)
+      // 20개마다 네이티브 광고 삽입 (마지막 청크는 제외)
       if (endIndex < _stores.length) {
         slivers.add(
           SliverToBoxAdapter(

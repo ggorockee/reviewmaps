@@ -12,6 +12,8 @@ import '../services/campaign_service.dart';
 import '../widgets/experience_card.dart';
 import '../widgets/friendly.dart';
 import '../widgets/sort_filter_widget.dart';
+import '../widgets/native_ad_widget.dart'; // 네이티브 광고 위젯
+import 'dart:math' as math;
 
 /// 캠페인 리스트 정렬 옵션 (통일된 SortOption 사용)
 // CampaignListSortOption을 SortOption으로 매핑하는 헬퍼
@@ -287,25 +289,28 @@ class _CampaignListScreenState extends ConsumerState<CampaignListScreen> {
               child: CustomScrollView(
                 controller: _scrollController,
                 slivers: [
-                  // 격자 스타일 - 카테고리는 2열, 검색결과는 1열
-                  SliverPadding(
-                    padding: widget.isSearchResult 
-                        ? EdgeInsets.symmetric(horizontal: 12.0.w, vertical: 8.0.h) // 검색결과는 좁은 패딩
-                        : const EdgeInsets.all(16.0), // 카테고리는 기존 패딩
-                    sliver: SliverGrid(
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: widget.isSearchResult ? 1 : 2, // 검색결과는 1열, 카테고리는 2열
-                        crossAxisSpacing: 0,
-                        mainAxisSpacing: widget.isSearchResult ? 1.0 : 0, // 검색결과는 약간의 간격
-                        mainAxisExtent: _getItemHeight(),
-                        childAspectRatio: widget.isSearchResult ? 1.0 : _gridAspectRatio(context),
+                  // 격자 스타일 - 카테고리는 2열 그리드 + 네이티브 광고, 검색결과는 1열 리스트
+                  if (widget.isSearchResult)
+                    // 검색결과는 기존 방식 유지 (1열 리스트)
+                    SliverPadding(
+                      padding: EdgeInsets.symmetric(horizontal: 12.0.w, vertical: 8.0.h),
+                      sliver: SliverGrid(
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 1,
+                          crossAxisSpacing: 0,
+                          mainAxisSpacing: 1.0,
+                          mainAxisExtent: _getItemHeight(),
+                          childAspectRatio: 1.0,
+                        ),
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) => _buildGridItemWithBorders(_stores[index], index),
+                          childCount: _stores.length,
+                        ),
                       ),
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) => _buildGridItemWithBorders(_stores[index], index),
-                        childCount: _stores.length,
-                      ),
-                    ),
-                  ),
+                    )
+                  else
+                    // 카테고리는 10개마다 네이티브 광고 삽입 (홈 화면 패턴)
+                    ..._buildGridWithAds(),
 
                   // 하단 로딩 인디케이터(추가 페이지 로딩 중에만 노출)
                   SliverToBoxAdapter(
@@ -323,6 +328,58 @@ class _CampaignListScreenState extends ConsumerState<CampaignListScreen> {
         ),
       ),
     );
+  }
+
+  // ---------------- Grid with Ads ----------------
+  /// 카테고리 그리드와 네이티브 광고를 조합하여 반환 (홈 화면 패턴)
+  /// 10개 체험단마다 네이티브 광고 1개 삽입
+  List<Widget> _buildGridWithAds() {
+    final List<Widget> slivers = [];
+    const int itemsPerGrid = 10; // 2열 그리드 × 5행 = 10개
+
+    for (int i = 0; i < _stores.length; i += itemsPerGrid) {
+      final int endIndex = math.min(i + itemsPerGrid, _stores.length);
+      final List<Store> chunk = _stores.sublist(i, endIndex);
+
+      // 체험단 그리드
+      slivers.add(
+        SliverPadding(
+          padding: const EdgeInsets.all(16.0),
+          sliver: SliverGrid(
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 0,
+              mainAxisSpacing: 0,
+              mainAxisExtent: _getItemHeight(),
+            ),
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final globalIndex = i + index;
+                return _buildGridItemWithBorders(chunk[index], globalIndex);
+              },
+              childCount: chunk.length,
+            ),
+          ),
+        ),
+      );
+
+      // 10개마다 네이티브 광고 삽입 (마지막 청크는 제외)
+      if (endIndex < _stores.length) {
+        slivers.add(
+          SliverToBoxAdapter(
+            child: Column(
+              children: [
+                SizedBox(height: 16.h),
+                const NativeAdListItem(),
+                SizedBox(height: 16.h),
+              ],
+            ),
+          ),
+        );
+      }
+    }
+
+    return slivers;
   }
 
   // ---------------- Grid Item ----------------

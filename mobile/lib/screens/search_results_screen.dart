@@ -262,8 +262,8 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
                     return const Center(child: Text('검색 결과가 없습니다.'));
                   }
 
-                  // 광고 삽입 계산: 20개마다 광고 1개
-                  final int itemsPerAd = 20;
+                  // 광고 삽입 계산: 16개마다 광고 1개
+                  final int itemsPerAd = 16;
                   final int adCount = results.length ~/ itemsPerAd;
                   final int totalItems = results.length + adCount;
 

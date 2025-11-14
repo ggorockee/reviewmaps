@@ -38,11 +38,11 @@ api = NinjaAPI(
 )
 
 # 라우터 등록
-api.add_router("/v1/", campaigns_router)
-api.add_router("/v1/categories", categories_router)
+api.add_router("/campaigns", campaigns_router)
+api.add_router("/categories", categories_router)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/', api.urls),  # /api/v1/campaigns로 접근
+    path('v1/', api.urls),  # /v1/campaigns, /v1/categories로 접근
     path('v1/healthz', health_check, name='health'),  # Kubernetes health check
 ]

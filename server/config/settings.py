@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     # Third-party apps
+    'corsheaders',  # CORS 설정
     'ninja',
     # Local apps
     'users',
@@ -51,6 +52,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',  # WhiteNoise - static 파일 서빙
+    'corsheaders.middleware.CorsMiddleware',  # CORS - 최상단 가까이 위치
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -151,3 +153,40 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Custom User Model
 AUTH_USER_MODEL = 'users.User'
+
+# CORS (Cross-Origin Resource Sharing) 설정
+# Mobile app (Android/iOS)에서 API 호출을 위한 설정
+# Mobile app은 Origin 헤더가 없거나 null이므로 모든 origin 허용
+CORS_ALLOW_ALL_ORIGINS = True  # Mobile app 지원
+
+# 또는 특정 도메인만 허용하려면 아래 사용 (웹 클라이언트 추가 시)
+# CORS_ALLOWED_ORIGINS = [
+#     "https://review-maps.com",
+#     "https://www.review-maps.com",
+# ]
+
+# CORS 허용 메서드
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+
+# CORS 허용 헤더
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+
+# Credentials 허용 (쿠키, 인증 헤더 등)
+CORS_ALLOW_CREDENTIALS = True

@@ -71,13 +71,33 @@ class Campaign(models.Model):
         verbose_name_plural = "캠페인"
         ordering = ['-created_at']
         indexes = [
-            # 추천 체험단 API 최적화: promotion_level + apply_deadline + 좌표 복합 인덱스
-            models.Index(fields=['promotion_level', 'apply_deadline', 'lat', 'lng'],
-                        name='idx_cpg_promo_ddl_loc'),
-            # 추가 성능 최적화 인덱스들
-            models.Index(fields=['created_at'], name='idx_cpg_created'),
+            # 추천 캠페인 API 최적화 (가장 중요)
+            # promotion_level DESC + apply_deadline >= NOW() + 지도 뷰포트(lat/lng) 필터링
+            # 사용: 캠페인 목록 조회 시 프로모션 우선순위 정렬 + 마감일 필터 + 위치 기반 검색
+            models.Index(
+                fields=['promotion_level', 'apply_deadline', 'lat', 'lng'],
+                name='idx_cpg_promo_ddl_loc'
+            ),
+
+            # 기본 정렬 최적화
+            # 사용: 기본 캠페인 목록 조회 (최신순)
+            models.Index(fields=['-created_at'], name='idx_cpg_created'),
+
+            # 카테고리 필터링 최적화
+            # 사용: 특정 카테고리의 캠페인 조회
             models.Index(fields=['category'], name='idx_cpg_category'),
+
+            # 마감일 필터링 최적화
+            # 사용: 마감임박, 진행중 캠페인 필터링
             models.Index(fields=['apply_deadline'], name='idx_cpg_deadline'),
+
+            # 지역 검색 최적화 (추가)
+            # 사용: 지역별 캠페인 필터링
+            models.Index(fields=['region'], name='idx_cpg_region'),
+
+            # 캠페인 유형 필터링 최적화 (추가)
+            # 사용: 유형별 캠페인 필터링 (방문형, 배송형 등)
+            models.Index(fields=['campaign_type'], name='idx_cpg_type'),
         ]
 
     def __str__(self):

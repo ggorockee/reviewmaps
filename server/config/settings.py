@@ -27,9 +27,13 @@ load_dotenv(BASE_DIR / '.env')
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-zfqoeu-c3^ciy0f98qadcng#l-do0f)w$)sctm)m196*&$-&ia')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('DEBUG', 'True') == 'True'
+# 프로덕션 환경에서는 반드시 DEBUG=False로 설정
+DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = ['*']
+# ALLOWED_HOSTS 설정
+# 프로덕션: 실제 도메인만 허용
+# 개발: ['*'] 또는 ['localhost', '127.0.0.1']
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '*').split(',') if os.getenv('ALLOWED_HOSTS') else ['*']
 
 
 # Application definition
@@ -190,3 +194,19 @@ CORS_ALLOW_HEADERS = [
 
 # Credentials 허용 (쿠키, 인증 헤더 등)
 CORS_ALLOW_CREDENTIALS = True
+
+# CSRF (Cross-Site Request Forgery) 설정
+# CSRF 검증을 통과할 신뢰할 수 있는 origin 목록
+# 프로덕션 도메인을 여기에 추가
+CSRF_TRUSTED_ORIGINS = [
+    'https://api.review-maps.com',
+    'https://review-maps.com',
+    'https://www.review-maps.com',
+]
+
+# 개발 환경에서 localhost 추가
+if DEBUG:
+    CSRF_TRUSTED_ORIGINS.extend([
+        'http://localhost:8000',
+        'http://127.0.0.1:8000',
+    ])

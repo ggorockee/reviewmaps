@@ -101,25 +101,94 @@ async def list_campaigns(
 
     # 정렬
     if sort == "distance" and lat and lng:
-        # 거리 계산은 Python에서 수행 (비동기 쿼리)
-        campaigns = [campaign async for campaign in queryset]
-        for campaign in campaigns:
-            if campaign.lat and campaign.lng:
-                campaign.distance = calculate_distance(
-                    Decimal(str(lat)), Decimal(str(lng)),
-                    campaign.lat, campaign.lng
-                )
-            else:
-                campaign.distance = float('inf')
+        # 거리 기반 정렬 (DB 레벨에서 처리)
+        # 1순위: promotion_level (내림차순)
+        # 2순위: distance (오름차순, NULL은 뒤로)
+        # 3순위: pseudo_random (동일 레벨+거리 내 균형 분포)
+        # 4순위: created_at (내림차순)
 
-        # 거리로 정렬
-        campaigns.sort(key=lambda c: c.distance)
-        total = len(campaigns)
-        items = campaigns[offset:offset + limit]
+        from django.db.models import F, Case, When, IntegerField, FloatField
+        from django.db.models.functions import Coalesce, Power, Sqrt, ACos, Sin, Cos, Radians, Cast
+        from decimal import Decimal as D
+
+        # Haversine 공식으로 거리 계산 (km 단위)
+        # distance = 2 * R * asin(sqrt(sin²(Δlat/2) + cos(lat1) * cos(lat2) * sin²(Δlng/2)))
+        # R = 6371 (지구 반지름 km)
+
+        user_lat = D(str(lat))
+        user_lng = D(str(lng))
+
+        # 위도/경도를 라디안으로 변환
+        lat1_rad = Radians(user_lat)
+        lng1_rad = Radians(user_lng)
+        lat2_rad = Radians(F('lat'))
+        lng2_rad = Radians(F('lng'))
+
+        # Δlat, Δlng 계산
+        dlat = lat2_rad - lat1_rad
+        dlng = lng2_rad - lng1_rad
+
+        # Haversine 공식
+        # a = sin²(Δlat/2) + cos(lat1) * cos(lat2) * sin²(Δlng/2)
+        # c = 2 * atan2(√a, √(1-a))  ≈ 2 * asin(√a) for small distances
+        # distance = R * c
+
+        a = (
+            Power(Sin(dlat / 2), 2) +
+            Cos(lat1_rad) * Cos(lat2_rad) * Power(Sin(dlng / 2), 2)
+        )
+
+        # SQLite는 asin을 지원하지 않을 수 있으므로, atan2 사용
+        # c = 2 * asin(sqrt(a))를 근사
+        # 거리가 짧을 때는 sqrt(a) ≈ sin(c/2)이므로 직접 sqrt(a) 사용
+        distance_expr = 2 * 6371 * Sqrt(a)
+
+        # promotion_level NULL 처리 (0으로 간주)
+        promotion_level_coalesced = Coalesce(F('promotion_level'), 0)
+
+        # pseudo_random: ID 기반 해시 (균형 분포)
+        # Django ORM에서는 직접 hash() 함수를 쓸 수 없으므로 id % 1000 사용
+        pseudo_random = F('id') % 1000
+
+        # 거리 NULL 처리: lat 또는 lng가 NULL이면 매우 큰 값으로 설정
+        distance_with_null = Case(
+            When(lat__isnull=True, then=999999.0),
+            When(lng__isnull=True, then=999999.0),
+            default=distance_expr,
+            output_field=FloatField()
+        )
+
+        # Annotate distance
+        queryset = queryset.annotate(
+            distance=distance_with_null,
+            promotion_level_val=promotion_level_coalesced
+        )
+
+        # 정렬 적용
+        queryset = queryset.order_by(
+            '-promotion_level_val',  # 1순위: promotion_level 내림차순
+            'distance',              # 2순위: 거리 오름차순 (NULL은 999999로 처리되어 뒤로)
+            pseudo_random,           # 3순위: 동일 레벨+거리 내 균형 분포
+            '-created_at'            # 4순위: 생성일 내림차순
+        )
+
+        total = await queryset.acount()
+        items = [item async for item in queryset[offset:offset + limit]]
+
     else:
         # 프로모션 레벨 우선 정렬
         order_by = []
-        order_by.append('-promotion_level')  # 항상 프로모션 레벨 우선
+
+        # promotion_level NULL 처리
+        from django.db.models import F
+        from django.db.models.functions import Coalesce
+        promotion_level_coalesced = Coalesce(F('promotion_level'), 0)
+        pseudo_random = F('id') % 1000
+
+        queryset = queryset.annotate(promotion_level_val=promotion_level_coalesced)
+
+        order_by.append('-promotion_level_val')  # 1순위: 프로모션 레벨 우선
+        order_by.append(pseudo_random)           # 2순위: 동일 레벨 내 균형 분포
 
         if sort.startswith('-'):
             order_by.append(sort)

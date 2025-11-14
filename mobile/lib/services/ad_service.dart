@@ -131,9 +131,7 @@ class AdService {
   /// 디버그 모드 확인
   /// kDebugMode를 사용하여 자동으로 디버그/릴리즈 구분
   bool _isDebugMode() {
-    // 임시: 새 AdMob 계정 승인 대기 중이므로 강제로 테스트 광고 사용
-    return true;
-    // return kDebugMode; // 계정 승인 후 주석 해제
+    return kDebugMode; // 디버그 빌드에서는 테스트 광고, 릴리즈에서는 실제 광고
   }
 
   /// 전면광고 로드

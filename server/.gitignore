@@ -1,1 +1,5 @@
 my-request.txt
+
+# Django static files
+staticfiles/
+static/

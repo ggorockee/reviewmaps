@@ -9,11 +9,9 @@ PORT=${PORT:-8000}
 echo "Running Django migrations..."
 /app/.venv/bin/python manage.py migrate --noinput
 
-# Static 파일 수집 (필요한 경우)
-if [[ "${COLLECT_STATIC:-false}" == "true" ]]; then
-  echo "Collecting static files..."
-  /app/.venv/bin/python manage.py collectstatic --noinput
-fi
+# Static 파일 수집 (Django Ninja Swagger UI 등)
+echo "Collecting static files..."
+/app/.venv/bin/python manage.py collectstatic --noinput
 
 # Gunicorn + Uvicorn으로 Django ASGI 서버 실행
 echo "Starting Django server with Gunicorn (workers: ${WORKERS}, port: ${PORT})..."

@@ -18,6 +18,7 @@ from django.contrib import admin
 from django.urls import path
 from ninja import NinjaAPI
 from campaigns.api import router as campaigns_router
+from campaigns.category_api import router as categories_router
 
 # Django Ninja API 인스턴스 생성
 api = NinjaAPI(
@@ -28,6 +29,7 @@ api = NinjaAPI(
 
 # 라우터 등록
 api.add_router("/v1/", campaigns_router)
+api.add_router("/v1/categories", categories_router)
 
 urlpatterns = [
     path('admin/', admin.site.urls),

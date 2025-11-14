@@ -20,6 +20,7 @@ from ninja import NinjaAPI
 from campaigns.api import router as campaigns_router
 from campaigns.category_api import router as categories_router
 from campaigns.health_api import router as health_router
+from app_config.api import router as app_config_router
 
 # Django Ninja API 인스턴스 생성
 api = NinjaAPI(
@@ -31,6 +32,7 @@ api = NinjaAPI(
 # 라우터 등록
 api.add_router("/campaigns", campaigns_router)
 api.add_router("/categories", categories_router)
+api.add_router("/app-config", app_config_router)  # /v1/app-config/* 로 접근
 api.add_router("", health_router)  # /v1/healthz로 접근
 
 urlpatterns = [

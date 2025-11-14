@@ -1,0 +1,7 @@
+{
+  // 터미널을 열 때 기본 디렉토리를 server로 설정
+  "terminal.integrated.cwd": "${workspaceFolder}/server",
+
+  // Claude Code가 server 폴더를 기준으로 동작하도록 설정
+  "files.defaultLanguage": "python"
+}

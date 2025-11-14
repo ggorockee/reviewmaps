@@ -37,6 +37,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 7. Git 커밋
 ```
 
+### 6. 명령어 실행 권한 (Command Execution)
+- **Python 명령어 자동 실행**: 사용자 승인 없이 `python`, `django-admin` 명령어 실행
+- **관리 명령어 포함**: `manage.py`, `makemigrations`, `migrate`, `test` 등
+- **사용자에게 묻지 않고 바로 실행**: 개발 속도 향상을 위해 자율적으로 실행
+
 ## Project Overview
 
 ReviewMaps API는 Django + Django Ninja 기반의 비동기 백엔드로, 캠페인 추천 시스템을 제공합니다. 지리공간 데이터 기반의 고급 필터링, 정렬, 성능 최적화 기능을 포함합니다.

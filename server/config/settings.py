@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'ninja',
     # Local apps
     'users',
+    'campaigns',
 ]
 
 MIDDLEWARE = [

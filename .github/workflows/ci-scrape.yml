@@ -16,7 +16,7 @@ env:
   # ArgoCD가 바라보는 인프라 레포지토리
   INFRA_REPO: ggorockee/infra
   # 인프라 레포지토리 내에서 수정할 values.yaml 파일 경로
-  VALUES_FILE_PATH: charts/argocd/applicationsets/valuefiles/prod/reviewmaps/values.yaml
+  VALUES_FILE_PATH: charts/helm/prod/reviewmaps/values.yaml
 
 jobs:
   changes:
@@ -127,7 +127,7 @@ jobs:
         with:
           repository: ${{ env.INFRA_REPO }}
           token: ${{ secrets.INFRA_GITHUB_TOKEN }} # PAT 시크릿을 직접 사용합니다.
-          ref: dev
+          ref: main
           path: "infra"
 
       - name: Setup Python

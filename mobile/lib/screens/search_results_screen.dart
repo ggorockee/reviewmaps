@@ -7,10 +7,13 @@ import 'package:mobile/config/config.dart';
 import 'package:mobile/const/colors.dart';
 import 'package:mobile/models/store_model.dart';
 import 'package:mobile/services/campaign_service.dart';
+import 'package:mobile/services/interstitial_ad_manager.dart';
 import '../widgets/experience_card.dart';
 import '../widgets/friendly.dart';
 import '../widgets/sort_filter_widget.dart';
+import '../widgets/native_ad_widget.dart'; // 네이티브 광고 위젯
 import '../providers/location_provider.dart';
+import 'dart:math' as math;
 
 // 1. CampaignService를 제공하는 Provider 정의 (의존성 주입)
 final campaignServiceProvider = Provider<CampaignService>((ref) {
@@ -154,6 +157,11 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
     // Provider를 통한 위치 정보 업데이트
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(locationProvider.notifier).update();
+
+      // 검색 결과 화면 진입 시 전면광고 표시 (무효 트래픽 방지 로직 적용)
+      InterstitialAdManager().showInterstitialAdOnEvent(
+        eventName: 'search_results_viewed',
+      );
     });
   }
 
@@ -246,25 +254,62 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
               },
             ),
             
-            // 검색 결과 목록
+            // 검색 결과 목록 (10개마다 네이티브 광고 삽입)
             Expanded(
               child: searchResultsAsync.when(
                 data: (results) {
                   if (results.isEmpty) {
                     return const Center(child: Text('검색 결과가 없습니다.'));
                   }
+
+                  // 광고 삽입 계산: 16개마다 광고 1개
+                  final int itemsPerAd = 16;
+                  final int adCount = results.length ~/ itemsPerAd;
+                  final int totalItems = results.length + adCount;
+
                   return RefreshIndicator(
                     onRefresh: () async {
                       ref.invalidate(searchResultsProvider(widget.query));
                     },
-                    child: ListView.separated(
+                    child: ListView.builder(
                       padding: EdgeInsets.only(top: 12.h, bottom: 12.h, left: 16.w, right: 16.w),
-                      itemCount: results.length,
-                      separatorBuilder: (context, index) => const Divider(),
+                      itemCount: totalItems,
                       itemBuilder: (context, index) {
-                        final store = results[index];
+                        // 광고 위치 계산
+                        final int adsBefore = index ~/ (itemsPerAd + 1);
+                        final int positionInGroup = index % (itemsPerAd + 1);
+
+                        // 광고 위치인 경우
+                        if (positionInGroup == itemsPerAd && adsBefore < adCount) {
+                          return Padding(
+                            padding: EdgeInsets.symmetric(vertical: 8.h),
+                            child: const NativeAdListItem(),
+                          );
+                        }
+
+                        // 실제 데이터 인덱스 계산
+                        final int dataIndex = index - adsBefore;
+
+                        if (dataIndex >= results.length) {
+                          return const SizedBox.shrink();
+                        }
+
+                        final store = results[dataIndex];
+
+                        // Divider 표시 조건:
+                        // - 첫 번째 아이템(index == 0)이 아닌 경우
+                        // - 광고 바로 다음 아이템(positionInGroup == 0)이 아닌 경우
+                        final bool showDivider = index > 0 && positionInGroup != 0;
+
                         return Container(
                           constraints: BoxConstraints(minHeight: itemHeight),
+                          decoration: showDivider
+                            ? BoxDecoration(
+                                border: Border(
+                                  top: BorderSide(color: Colors.grey.shade300, width: 1),
+                                ),
+                              )
+                            : null, // decoration 자체를 null로 설정하여 레이아웃 영향 제거
                           child: ExperienceCard(
                             store: store,
                             dense: true,

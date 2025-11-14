@@ -24,6 +24,7 @@ import 'package:mobile/config/config.dart';      // AppConfig: .env를 읽어 �
 import 'package:mobile/const/colors.dart';       // PRIMARY_COLOR 등 앱 공통 컬러
 import 'package:mobile/screens/splash_screen.dart'; // 스플래시 화면
 import 'package:mobile/services/ad_service.dart'; // 광고 서비스
+import 'package:mobile/services/app_open_ad_service.dart'; // App Open Ad 서비스
 import 'package:mobile/services/interstitial_ad_manager.dart'; // 전면광고 매니저
 import 'package:mobile/services/firebase_service.dart'; // Firebase 통합 서비스
 import 'package:mobile/services/remote_config_service.dart'; // Firebase Remote Config 서비스
@@ -48,9 +49,14 @@ Future<void> main() async {
   // 2) AdMob 초기화
   try {
     await MobileAds.instance.initialize();
-    
+
     // 빌드 모드에 따른 디버깅 정보 출력
     if (kDebugMode) {
+      // DEBUG 모드에서는 테스트 광고 강제 사용
+      final configuration = RequestConfiguration(
+        testDeviceIds: ['d032385e-b579-421a-ae28-2bd485f4b306'], // AdMob 콘솔에서 확인한 테스트 기기 ID
+      );
+      MobileAds.instance.updateRequestConfiguration(configuration);
       print('[Main] AdMob 초기화 완료 (DEBUG 모드 - 테스트 광고 표시)');
     } else {
       print('[Main] AdMob 초기화 완료 (RELEASE 모드 - 실제 광고 표시)');
@@ -67,7 +73,15 @@ Future<void> main() async {
     print('[Main] 광고 서비스 초기화 실패: $e');
   }
 
-  // 4) 전면광고 매니저 초기화
+  // 4) App Open Ad 서비스 초기화 (앱 시작/포그라운드 복귀 시 표시)
+  try {
+    await AppOpenAdService().initialize();
+    print('[Main] App Open Ad 서비스 초기화 완료');
+  } catch (e) {
+    print('[Main] App Open Ad 서비스 초기화 실패: $e');
+  }
+
+  // 5) 전면광고 매니저 초기화 (이벤트 기반 광고용)
   try {
     await InterstitialAdManager().initialize();
     print('[Main] 전면광고 매니저 초기화 완료');
@@ -75,7 +89,7 @@ Future<void> main() async {
     print('[Main] 전면광고 매니저 초기화 실패: $e');
   }
 
-  // 5) .env 로드
+  // 6) .env 로드
   // - pubspec.yaml의 assets에 .env 등록되어 있어야 함.
   // - 예:
   //   flutter:
@@ -83,7 +97,7 @@ Future<void> main() async {
   //       - .env
   await dotenv.load(fileName: ".env");
 
-  // 6) Naver Map SDK 초기화
+  // 7) Naver Map SDK 초기화
   // - clientId는 AppConfig에서 가져옴(AppConfig가 .env를 읽어 제공)
   // - onAuthFailed는 배포용에서 불필요한 콘솔 로그를 남기지 않도록 비워둠
   await FlutterNaverMap().init(
@@ -91,16 +105,16 @@ Future<void> main() async {
     onAuthFailed: (_) {}, // 배포: 로깅/예외 토스트 등 UI 노이즈 최소화(필요시 Sentry 등으로 전환)
   );
 
-  // 7) Firebase 서비스 초기화
+  // 8) Firebase 서비스 초기화
   try {
     await FirebaseService.instance.initialize();
-    
+
   } catch (e) {
     // Firebase 초기화 실패해도 앱은 계속 실행
     debugPrint('Firebase initialization failed, continuing: $e');
   }
 
-  // 8) Firebase Remote Config 초기화
+  // 9) Firebase Remote Config 초기화
   try {
     await RemoteConfigService().initialize();
     print('[Main] Firebase Remote Config 초기화 완료');
@@ -108,7 +122,7 @@ Future<void> main() async {
     print('[Main] Firebase Remote Config 초기화 실패: $e');
   }
 
-  // 9) Flutter 앱 실행
+  // 10) Flutter 앱 실행
   runApp(
     // ProviderScope를 추가하여 앱 전체에서 Riverpod Provider를 사용
     const ProviderScope(

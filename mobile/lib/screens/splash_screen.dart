@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:mobile/services/interstitial_ad_manager.dart';
+import 'package:mobile/services/app_open_ad_service.dart';
 import 'package:mobile/services/ad_service.dart';
 import 'package:mobile/const/colors.dart';
 import 'package:mobile/screens/main_screen.dart';
@@ -26,7 +26,7 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
 
-  final InterstitialAdManager _adManager = InterstitialAdManager();
+  final AppOpenAdService _appOpenAdService = AppOpenAdService();
   final AdService _adService = AdService();
 
   @override
@@ -78,16 +78,9 @@ class _SplashScreenState extends State<SplashScreen>
     // 2. 세션 시작 이벤트 로깅
     await _adService.logSessionStart();
 
-    // 3. 전면광고 표시 (3-5초 지연 후)
-    _adManager.showDelayedInterstitialAd(
-      delaySeconds: 4,
-      onAdShown: () {
-        print('[SplashScreen] 전면광고 표시 완료');
-      },
-      onAdFailed: () {
-        print('[SplashScreen] 전면광고 표시 실패');
-      },
-    );
+    // 3. App Open Ad 표시 시도
+    await _appOpenAdService.showAdIfAvailable();
+    print('[SplashScreen] App Open Ad 표시 시도 완료');
 
     // 4. 공지사항 팝업 표시 후 메인 화면으로 이동
     _showNoticeAndNavigate();

@@ -16,26 +16,10 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods
 from ninja import NinjaAPI
 from campaigns.api import router as campaigns_router
 from campaigns.category_api import router as categories_router
-
-# Kubernetes 헬스체크 엔드포인트
-@csrf_exempt
-@require_http_methods(["GET", "HEAD"])
-def health_check(request):
-    """
-    Kubernetes liveness/readiness probe 엔드포인트
-    CSRF exempt 처리로 토큰 없이 호출 가능
-    """
-    return JsonResponse({
-        "status": "healthy",
-        "service": "reviewmaps-server",
-        "version": "1.0.0"
-    })
+from campaigns.health_api import router as health_router
 
 # Django Ninja API 인스턴스 생성
 api = NinjaAPI(
@@ -47,9 +31,9 @@ api = NinjaAPI(
 # 라우터 등록
 api.add_router("/campaigns", campaigns_router)
 api.add_router("/categories", categories_router)
+api.add_router("", health_router)  # /v1/healthz로 접근
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('v1/healthz', health_check, name='health'),  # Django 일반 뷰
-    path('v1/', api.urls),  # /v1/campaigns, /v1/categories로 접근
+    path('v1/', api.urls),  # /v1/campaigns, /v1/categories, /v1/healthz로 접근
 ]

@@ -2,116 +2,163 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 🎯 핵심 개발 원칙 (Critical Development Principles)
+
+### 1. 사용자 인증 (User Authentication)
+- **Django 기본 User 모델을 Override 필수**
+- username 대신 **email + password** 로 인증
+- Custom User 모델 구현 필수
+
+### 2. 시간대 설정 (Timezone)
+- **모든 시간은 Asia/Seoul 타임존 사용**
+- `TIME_ZONE = 'Asia/Seoul'`
+- `USE_TZ = True`
+
+### 3. 비동기 처리 (Async Operations)
+- **인증(auth)을 제외한 모든 서비스는 비동기로 처리**
+- Django ORM 비동기 쿼리 사용 (`async def`, `await`)
+- Database 작업은 모두 async로 구현
+
+### 4. 테스트 주도 개발 (Test-Driven Development)
+- **모든 모듈은 test 코드 작성 필수**
+- 테스트 파일 위치: 각 앱의 `tests/` 하위
+  - 예: `user/tests/test_user.py`, `user/tests/test_model.py`
+- **새로운 모듈 작성 전 테스트 먼저 작성**
+- **테스트 통과 후에만 다음 단계 진행**
+
+### 5. 개발 워크플로우 (Development Workflow)
+```
+1. 요구사항 분석
+2. 테스트 코드 작성 (TDD)
+3. 테스트 실행 (Red)
+4. 기능 구현
+5. 테스트 통과 확인 (Green)
+6. 리팩토링 (Refactor)
+7. Git 커밋
+```
+
 ## Project Overview
 
-ReviewMaps API is a FastAPI-based async backend for a campaign recommendation system. The service provides geospatial campaign data with advanced filtering, sorting, and performance optimization features.
+ReviewMaps API는 Django + Django Ninja 기반의 비동기 백엔드로, 캠페인 추천 시스템을 제공합니다. 지리공간 데이터 기반의 고급 필터링, 정렬, 성능 최적화 기능을 포함합니다.
 
 **Key Technologies:**
-- FastAPI 0.115.0 + Uvicorn + Gunicorn (async ASGI)
-- SQLAlchemy 2.0 (async ORM) + asyncpg
+- Django 5.2.8 + Django Ninja (async API)
 - PostgreSQL with geospatial indexing
-- Prometheus metrics + OpenTelemetry tracing
-- Docker deployment
+- 비동기 ORM (Django async queries)
+- Custom User Model (email-based authentication)
+- TDD (Test-Driven Development)
 
 ## Development Commands
 
+### 의존성 관리 (Dependency Management)
+```bash
+# uv를 사용한 패키지 설치
+uv add django django-ninja psycopg2-binary
+
+# 의존성 동기화
+uv sync
+
+# Python 실행 (가상환경)
+/home/woohaen88/reviewmaps/server/.venv/bin/python
+```
+
 ### Local Development
 ```bash
-# Install dependencies
-pip install -r requirements.txt
+# Django 개발 서버 실행
+python manage.py runserver 0.0.0.0:8000
 
-# Run development server (single worker)
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+# 마이그레이션 생성
+python manage.py makemigrations
 
-# Run with Gunicorn (production-like, 2 workers)
-gunicorn -w 2 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8000 main:app
+# 마이그레이션 적용
+python manage.py migrate
+
+# Django shell
+python manage.py shell
 ```
 
-### Docker Operations
+### Testing (TDD Required)
 ```bash
-# Build image
-docker build -t reviewmaps-server .
+# 모든 테스트 실행
+python manage.py test
 
-# Run container
-docker run -p 8000:8000 --env-file .env reviewmaps-server
+# 특정 앱 테스트
+python manage.py test campaigns
 
-# Container uses entrypoint.sh which:
-# 1. Cleans up Prometheus multiprocess metrics directory
-# 2. Starts Gunicorn with 2 UvicornWorker processes
-```
+# 특정 테스트 파일
+python manage.py test campaigns.tests.test_models
 
-### Testing
-```bash
-# Run all tests
-pytest
-
-# Run specific test file
-pytest tests/test_campaign_recommendation.py
-
-# Run with verbose output
-pytest -v
-
-# Run with coverage
-pytest --cov=. --cov-report=html
+# Coverage와 함께 실행
+coverage run --source='.' manage.py test
+coverage report
+coverage html
 ```
 
 ## Architecture Overview
 
 ### Application Structure
 
-**Entry Point:** `main.py`
-- Creates two FastAPI apps: `app` (root) and `v1_app` (versioned API)
-- `v1_app` is mounted at `{settings.api_prefix}` (default: `/v1`)
-- Middleware chain: AccessLog → CORS → FastAPIMetrics
-- All routers require API key authentication except `/health` and `/metrics`
-
-**Middleware Chain (order matters):**
-1. `AccessLogMiddleware` - Request/response logging
-2. `CORSMiddleware` - Cross-origin resource sharing
-3. `FastAPIMetricsMiddleware` - Custom metrics collection
-4. Prometheus Instrumentator - Automatic HTTP metrics
-
-**Router Organization:**
+**Django 프로젝트 구조:**
 ```
-/v1/campaigns         → campaigns.py (requires API key)
-/v1/campaigns/{id}    → campaigns.py (requires API key)
-/v1/categories        → categories.py (requires API key)
-/v1/health            → health.py (public)
-/v1/performance       → performance.py (requires API key)
-/metrics              → main.py (public, Prometheus format)
-/health               → main.py (public)
+reviewmaps/server/
+├── config/              # Django 프로젝트 설정
+│   ├── settings.py      # 메인 설정 파일
+│   ├── urls.py          # 루트 URL 설정
+│   ├── wsgi.py          # WSGI 설정
+│   └── asgi.py          # ASGI 설정 (비동기)
+├── campaigns/           # 캠페인 앱
+│   ├── models.py        # 캠페인, 카테고리 모델
+│   ├── views.py         # Django Ninja API 뷰
+│   ├── tests/           # TDD 테스트
+│   │   ├── test_models.py
+│   │   └── test_views.py
+│   └── admin.py         # Django Admin 설정
+├── users/               # 사용자 인증 앱 (예정)
+│   ├── models.py        # Custom User 모델
+│   ├── views.py         # 인증 API
+│   └── tests/           # 인증 테스트
+├── manage.py            # Django 관리 스크립트
+└── backup/              # FastAPI 레거시 코드
+```
+
+**Django Ninja API 구조:**
+```
+/api/v1/campaigns         → 캠페인 목록/생성
+/api/v1/campaigns/{id}    → 캠페인 상세/수정/삭제
+/api/v1/categories        → 카테고리 목록
+/api/v1/auth/login        → 로그인 (email + password)
+/api/v1/auth/register     → 회원가입
 ```
 
 ### Core Components
 
-**`core/config.py`** - Settings Management
-- Uses `pydantic-settings` for configuration
-- Automatically converts sync PostgreSQL URLs to async (`postgresql+asyncpg://`)
-- Sources: environment variables, `.env` file
-- **Critical:** Never put `http://` or `https://` in DATABASE_URL host portion
+**`config/settings.py`** - Django Settings
+- 환경변수 기반 설정 (`.env` 파일 사용)
+- PostgreSQL 데이터베이스 설정
+- Asia/Seoul 타임존
+- Custom User 모델 등록 필수
 
-**`db/models.py`** - SQLAlchemy Models
-- `Campaign` - Main entity with geospatial coordinates and promotion levels
-- `Category` - Campaign categories with display ordering
-- **Performance-critical indexes:**
-  - `idx_campaign_promo_deadline_lat_lng` - Composite index for recommendation queries
-  - `idx_campaign_created_at` - Default sorting
-  - `idx_campaign_category_id` - Category filtering
-  - `idx_campaign_apply_deadline` - Deadline filtering
+**`campaigns/models.py`** - Django Models
+- `Campaign` - 지리공간 좌표 및 프로모션 레벨을 포함한 메인 엔티티
+- `Category` - 표시 순서를 가진 캠페인 카테고리
+- `RawCategory`, `CategoryMapping` - 카테고리 매핑 시스템
+- **성능 최적화 인덱스:**
+  - `idx_campaign_promo_deadline_lat_lng` - 추천 쿼리용 복합 인덱스
+  - `idx_campaign_created_at` - 기본 정렬용
+  - `idx_campaign_category_id` - 카테고리 필터링용
+  - `idx_campaign_apply_deadline` - 마감일 필터링용
 
-**`db/crud.py`** - Database Operations
-- **TWO implementations for campaign listing:**
-  1. `list_campaigns_optimized()` - NEW: Uses ORM-based approach with Python-side calculations
-  2. `list_campaigns_legacy()` - OLD: Uses raw SQL expressions for in-database calculations
-  3. `list_campaigns()` - Router function calling `list_campaigns_optimized()`
-- Contains advanced offer search with synonym matching and normalization
-- Haversine distance calculations for geospatial queries
-- Performance benchmarking utilities (`explain_analyze_campaign_query`, `benchmark_campaign_queries`)
+**`campaigns/views.py`** - Django Ninja API Views (비동기)
+- 모든 뷰는 `async def`로 구현
+- Django ORM 비동기 쿼리 사용
+- 동의어 매칭 및 정규화를 포함한 고급 검색
+- Haversine 공식을 사용한 지리공간 거리 계산
 
-**`api/security.py`** - Authentication
-- API key validation via `X-API-KEY` header
-- Uses `hmac.compare_digest()` for timing-attack-safe comparison
-- Configured via `settings.API_SECRET_KEY` environment variable
+**`users/models.py`** - Custom User Model
+- **email을 primary identifier로 사용**
+- username 필드 제거
+- `AbstractBaseUser`, `PermissionsMixin` 상속
+- Custom UserManager 구현
 
 ### Key Design Patterns
 

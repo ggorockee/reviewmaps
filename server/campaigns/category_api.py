@@ -95,11 +95,16 @@ async def update_category_order(request, payload: CategoryOrderUpdate):
             "Ensure all category IDs are included exactly once."
         )
 
-    # 트랜잭션으로 일괄 업데이트
-    async with transaction.atomic():
-        for index, category_id in enumerate(payload.ordered_ids, start=1):
-            await Category.objects.filter(id=category_id).aupdate(display_order=index)
+    # 트랜잭션으로 일괄 업데이트 (비동기)
+    from asgiref.sync import sync_to_async
 
+    @sync_to_async
+    def update_orders():
+        with transaction.atomic():
+            for index, category_id in enumerate(payload.ordered_ids, start=1):
+                Category.objects.filter(id=category_id).update(display_order=index)
+
+    await update_orders()
     return 204, None
 
 

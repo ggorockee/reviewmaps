@@ -1,5 +1,14 @@
 {
     "python-envs.defaultEnvManager": "ms-python.python:conda",
     "python-envs.defaultPackageManager": "ms-python.python:conda",
-    "python-envs.pythonProjects": []
+    "python-envs.pythonProjects": [],
+
+    // 터미널 스크롤 문제 해결 설정
+    "terminal.integrated.scrollback": 10000,
+    "terminal.integrated.smoothScrolling": false,
+    "terminal.integrated.fastScrollSensitivity": 5,
+    "terminal.integrated.altClickMovesCursor": false,
+
+    // Claude Code 실행 시 화면 렌더링 개선
+    "terminal.integrated.gpuAcceleration": "off"
 }

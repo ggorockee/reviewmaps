@@ -16,7 +16,20 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
+from ninja import NinjaAPI
+from campaigns.api import router as campaigns_router
+
+# Django Ninja API 인스턴스 생성
+api = NinjaAPI(
+    title="ReviewMaps API",
+    version="1.0.0",
+    description="캠페인 추천 시스템 API"
+)
+
+# 라우터 등록
+api.add_router("/v1/", campaigns_router)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/', api.urls),  # /api/v1/campaigns로 접근
 ]

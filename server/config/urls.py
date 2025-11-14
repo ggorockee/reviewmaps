@@ -16,9 +16,19 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
+from django.http import JsonResponse
 from ninja import NinjaAPI
 from campaigns.api import router as campaigns_router
 from campaigns.category_api import router as categories_router
+
+# Health check view
+def health_check(request):
+    """Kubernetes health check endpoint"""
+    return JsonResponse({
+        "status": "healthy",
+        "service": "reviewmaps-server",
+        "version": "1.0.0"
+    })
 
 # Django Ninja API 인스턴스 생성
 api = NinjaAPI(
@@ -34,4 +44,5 @@ api.add_router("/v1/categories", categories_router)
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', api.urls),  # /api/v1/campaigns로 접근
+    path('v1/healthz', health_check, name='health'),  # Kubernetes health check
 ]

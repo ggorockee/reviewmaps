@@ -30,7 +30,7 @@ def calculate_distance(lat1: Decimal, lng1: Decimal, lat2: Decimal, lng2: Decima
     return R * c
 
 
-@router.get("/campaigns", response=CampaignListResponse, summary="캠페인 목록 조회")
+@router.get("/", response=CampaignListResponse, summary="캠페인 목록 조회")
 async def list_campaigns(
     request,
     # 필터 파라미터
@@ -147,7 +147,7 @@ async def list_campaigns(
     }
 
 
-@router.get("/campaigns/{campaign_id}", response=CampaignOut, summary="캠페인 상세 조회")
+@router.get("/{campaign_id}", response=CampaignOut, summary="캠페인 상세 조회")
 async def get_campaign(request, campaign_id: int):
     """캠페인 상세 조회 API (비동기)"""
     campaign = await Campaign.objects.select_related('category').aget(id=campaign_id)

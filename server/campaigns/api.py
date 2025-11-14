@@ -31,7 +31,7 @@ def calculate_distance(lat1: Decimal, lng1: Decimal, lat2: Decimal, lng2: Decima
 
 
 @router.get("/campaigns", response=CampaignListResponse, summary="캠페인 목록 조회")
-def list_campaigns(
+async def list_campaigns(
     request,
     # 필터 파라미터
     region: Optional[str] = Query(None, description="지역으로 필터링"),
@@ -58,7 +58,7 @@ def list_campaigns(
     limit: int = Query(20, ge=1, le=200),
     offset: int = Query(0, ge=0),
 ):
-    """캠페인 목록 조회 API"""
+    """캠페인 목록 조회 API (비동기)"""
 
     # 거리 정렬 시 lat, lng 필수 체크
     if sort == "distance":
@@ -101,8 +101,8 @@ def list_campaigns(
 
     # 정렬
     if sort == "distance" and lat and lng:
-        # 거리 계산은 Python에서 수행
-        campaigns = list(queryset)
+        # 거리 계산은 Python에서 수행 (비동기 쿼리)
+        campaigns = [campaign async for campaign in queryset]
         for campaign in campaigns:
             if campaign.lat and campaign.lng:
                 campaign.distance = calculate_distance(
@@ -127,8 +127,8 @@ def list_campaigns(
             order_by.append(sort)
 
         queryset = queryset.order_by(*order_by)
-        total = queryset.count()
-        items = list(queryset[offset:offset + limit])
+        total = await queryset.acount()
+        items = [item async for item in queryset[offset:offset + limit]]
 
         # 거리 계산 (정렬은 아니지만 표시용)
         if lat and lng:
@@ -148,7 +148,9 @@ def list_campaigns(
 
 
 @router.get("/campaigns/{campaign_id}", response=CampaignOut, summary="캠페인 상세 조회")
-def get_campaign(request, campaign_id: int):
-    """캠페인 상세 조회 API"""
-    campaign = get_object_or_404(Campaign.objects.select_related('category'), id=campaign_id)
+async def get_campaign(request, campaign_id: int):
+    """캠페인 상세 조회 API (비동기)"""
+    campaign = await Campaign.objects.select_related('category').aget(id=campaign_id)
+    if not campaign:
+        raise HttpError(404, "Campaign not found")
     return campaign

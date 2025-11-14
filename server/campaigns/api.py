@@ -10,7 +10,7 @@ import math
 from .models import Campaign, Category
 from .schemas import CampaignListResponse, CampaignOut
 
-router = Router(tags=["campaigns"])
+router = Router()  # tags 제거 - URL prefix가 자동으로 태그가 됨
 
 
 def calculate_distance(lat1: Decimal, lng1: Decimal, lat2: Decimal, lng2: Decimal) -> float:

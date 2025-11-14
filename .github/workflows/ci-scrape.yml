@@ -9,13 +9,6 @@ on:
       - ".github/workflows/ci-scrape.yml" # 워크플로우 파일 자체가 변경될 때도 실행
       # - ".github/workflows/scripts/update_values.py" # 워크플로우 파일 자체가 변경될 때도 실행
       - "server/**" # backend/ 디렉토리 하위에 변경이 있을 때만 실행
-  pull_request:
-    branches:
-      - main
-    paths:
-      - "scrape/**"
-      - ".github/workflows/ci-scrape.yml"
-      - "server/**"
 
 env:
   # Docker Hub에 푸시할 이미지 이름 (레포지토리/이미지명)

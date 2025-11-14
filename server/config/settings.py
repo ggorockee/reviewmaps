@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     # Local apps
     'users',
     'campaigns',
+    'app_config',  # 앱 설정 관리
 ]
 
 MIDDLEWARE = [
@@ -96,8 +97,14 @@ DATABASES = {
         'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'test1234'),
         'HOST': os.getenv('POSTGRES_HOST', 'localhost'),
         'PORT': os.getenv('POSTGRES_PORT', '5432'),
+        'DISABLE_SERVER_SIDE_CURSORS': True,  # PostgreSQL 13 compatibility
     }
 }
+
+# PostgreSQL 13 임시 호환성 (추후 PostgreSQL 14+로 업그레이드 필요)
+# Django 5.2는 PostgreSQL 14+를 요구하지만, 현재 13.21 사용 중
+from django.db.backends.postgresql.features import DatabaseFeatures
+DatabaseFeatures.minimum_database_version = (13, 0)
 
 
 # Password validation

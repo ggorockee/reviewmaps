@@ -124,7 +124,7 @@ class UserInfo {
 
   factory UserInfo.fromJson(Map<String, dynamic> json) {
     return UserInfo(
-      id: json['id'] as String,
+      id: json['id'].toString(), // int 또는 String을 안전하게 String으로 변환
       email: json['email'] as String,
       name: json['name'] as String?,
       isAnonymous: json['is_anonymous'] as bool? ?? false,

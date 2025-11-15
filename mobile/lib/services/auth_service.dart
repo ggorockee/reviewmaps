@@ -86,7 +86,7 @@ class AuthService {
 
       if (response.statusCode != 200 && response.statusCode != 201) {
         final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
-        throw Exception(errorBody['detail'] ?? '회원가입에 실패했습니다.');
+        throw Exception(errorBody['detail'] ?? '회원가입할 수 없습니다. 잠시 후 다시 시도해 주세요.');
       }
 
       final authResponse =
@@ -128,7 +128,7 @@ class AuthService {
 
       if (response.statusCode != 200) {
         final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
-        throw Exception(errorBody['detail'] ?? '로그인에 실패했습니다.');
+        throw Exception(errorBody['detail'] ?? '로그인할 수 없습니다. 잠시 후 다시 시도해 주세요.');
       }
 
       final authResponse =
@@ -155,7 +155,7 @@ class AuthService {
     final refreshToken = await _tokenStorage.getRefreshToken();
 
     if (refreshToken == null) {
-      throw Exception('Refresh token이 없습니다.');
+      throw Exception('다시 로그인해 주세요.');
     }
 
     final request = RefreshTokenRequest(refreshToken: refreshToken);
@@ -173,7 +173,7 @@ class AuthService {
 
       if (response.statusCode != 200) {
         final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
-        throw Exception(errorBody['detail'] ?? '토큰 갱신에 실패했습니다.');
+        throw Exception(errorBody['detail'] ?? '다시 로그인해 주세요.');
       }
 
       final authResponse =
@@ -210,7 +210,7 @@ class AuthService {
 
       if (response.statusCode != 200 && response.statusCode != 201) {
         final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
-        throw Exception(errorBody['detail'] ?? '익명 로그인에 실패했습니다.');
+        throw Exception(errorBody['detail'] ?? '일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
       }
 
       final anonymousResponse =
@@ -237,7 +237,7 @@ class AuthService {
     final sessionToken = await _tokenStorage.getSessionToken();
 
     if (sessionToken == null) {
-      throw Exception('Session token이 없습니다.');
+      throw Exception('세션이 만료되었습니다. 다시 로그인해 주세요.');
     }
 
     final request = ConvertAnonymousRequest(
@@ -259,7 +259,7 @@ class AuthService {
 
       if (response.statusCode != 200) {
         final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
-        throw Exception(errorBody['detail'] ?? '계정 전환에 실패했습니다.');
+        throw Exception(errorBody['detail'] ?? '계정 전환할 수 없습니다. 잠시 후 다시 시도해 주세요.');
       }
 
       final authResponse =
@@ -297,7 +297,7 @@ class AuthService {
 
       if (response.statusCode != 200) {
         final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
-        throw Exception(errorBody['detail'] ?? '사용자 정보 조회에 실패했습니다.');
+        throw Exception(errorBody['detail'] ?? '사용자 정보를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.');
       }
 
       return UserInfo.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));

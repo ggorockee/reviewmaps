@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mobile/screens/main_screen.dart';
 import 'package:mobile/services/auth_service.dart';
+import 'package:mobile/const/colors.dart';
 
 /// Sign Up Version 1 화면
 /// Figma 디자인을 기반으로 한 회원가입 화면
@@ -39,21 +40,26 @@ class _SignUpScreenState extends State<SignUpScreen> {
     final password = _passwordController.text.trim();
 
     // 유효성 검사
-    if (email.isEmpty || password.isEmpty) {
-      _showErrorDialog('이메일과 비밀번호를 입력해 주세요.');
+    if (email.isEmpty) {
+      _showErrorDialog('이메일을 입력해 주세요.');
       return;
     }
 
     // 이메일 형식 검증
     final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
     if (!emailRegex.hasMatch(email)) {
-      _showErrorDialog('올바른 이메일 형식이 아닙니다.');
+      _showErrorDialog('이메일 주소를 다시 확인해 주세요.\n올바른 형식의 이메일을 입력해 주세요.');
+      return;
+    }
+
+    if (password.isEmpty) {
+      _showErrorDialog('비밀번호를 입력해 주세요.');
       return;
     }
 
     // 비밀번호 길이 검증
     if (password.length < 6) {
-      _showErrorDialog('비밀번호는 최소 6자 이상이어야 합니다.');
+      _showErrorDialog('비밀번호는 6자 이상 입력해 주세요.');
       return;
     }
 
@@ -75,9 +81,26 @@ class _SignUpScreenState extends State<SignUpScreen> {
     } catch (e) {
       if (!mounted) return;
 
-      String errorMessage = '회원가입에 실패했습니다.';
-      if (e.toString().contains('Exception:')) {
-        errorMessage = e.toString().replaceAll('Exception:', '').trim();
+      String errorMessage = '회원가입할 수 없습니다.\n잠시 후 다시 시도해 주세요.';
+      final errorText = e.toString();
+
+      if (errorText.contains('Exception:')) {
+        final serverMessage = errorText.replaceAll('Exception:', '').trim();
+
+        // 서버에서 온 에러 메시지를 네이버 스타일로 변환
+        if (serverMessage.contains('already exists') ||
+            serverMessage.contains('duplicate') ||
+            serverMessage.contains('이미')) {
+          errorMessage = '이미 가입된 이메일입니다.\n다른 이메일을 사용하시거나 로그인해 주세요.';
+        } else if (serverMessage.contains('invalid email') || serverMessage.contains('이메일')) {
+          errorMessage = '이메일 주소를 다시 확인해 주세요.';
+        } else if (serverMessage.contains('password') && serverMessage.contains('weak')) {
+          errorMessage = '더 안전한 비밀번호를 사용해 주세요.\n영문, 숫자, 특수문자를 조합해 주세요.';
+        } else if (serverMessage.contains('network') || serverMessage.contains('timeout')) {
+          errorMessage = '네트워크 연결이 불안정합니다.\n잠시 후 다시 시도해 주세요.';
+        } else {
+          errorMessage = serverMessage;
+        }
       }
 
       _showErrorDialog(errorMessage);
@@ -525,8 +548,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            const Color(0xFF1D61E7),
-            const Color(0xFF1D61E7),
+            PRIMARY_COLOR,
+            PRIMARY_COLOR,
           ],
         ),
         borderRadius: BorderRadius.circular(10.r),
@@ -534,7 +557,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       child: ElevatedButton(
         onPressed: _isLoading ? null : _handleSignUp,
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF1D61E7),
+          backgroundColor: PRIMARY_COLOR,
           foregroundColor: Colors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(

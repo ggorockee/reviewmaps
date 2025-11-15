@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mobile/screens/auth/sign_up_screen.dart';
 import 'package:mobile/screens/main_screen.dart';
 import 'package:mobile/services/auth_service.dart';
+import 'package:mobile/const/colors.dart';
 
 /// Login Version 1 화면
 /// Figma 디자인을 기반으로 한 로그인 화면
@@ -34,8 +35,13 @@ class _LoginScreenState extends State<LoginScreen> {
     final password = _passwordController.text.trim();
 
     // 유효성 검사
-    if (email.isEmpty || password.isEmpty) {
-      _showErrorDialog('이메일과 비밀번호를 입력해 주세요.');
+    if (email.isEmpty) {
+      _showErrorDialog('이메일을 입력해 주세요.');
+      return;
+    }
+
+    if (password.isEmpty) {
+      _showErrorDialog('비밀번호를 입력해 주세요.');
       return;
     }
 
@@ -57,9 +63,24 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       if (!mounted) return;
 
-      String errorMessage = '로그인에 실패했습니다.';
-      if (e.toString().contains('Exception:')) {
-        errorMessage = e.toString().replaceAll('Exception:', '').trim();
+      String errorMessage = '로그인할 수 없습니다.\n잠시 후 다시 시도해 주세요.';
+      final errorText = e.toString();
+
+      if (errorText.contains('Exception:')) {
+        final serverMessage = errorText.replaceAll('Exception:', '').trim();
+
+        // 서버에서 온 에러 메시지를 네이버 스타일로 변환
+        if (serverMessage.contains('Invalid credentials') ||
+            serverMessage.contains('incorrect') ||
+            serverMessage.contains('wrong')) {
+          errorMessage = '아이디 또는 비밀번호를 다시 확인해 주세요.\n등록되지 않은 아이디이거나, 아이디 또는 비밀번호를 잘못 입력하셨습니다.';
+        } else if (serverMessage.contains('not found') || serverMessage.contains('존재하지')) {
+          errorMessage = '등록되지 않은 이메일입니다.\n이메일을 다시 확인해 주세요.';
+        } else if (serverMessage.contains('network') || serverMessage.contains('timeout')) {
+          errorMessage = '네트워크 연결이 불안정합니다.\n잠시 후 다시 시도해 주세요.';
+        } else {
+          errorMessage = serverMessage;
+        }
       }
 
       _showErrorDialog(errorMessage);
@@ -92,9 +113,17 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       if (!mounted) return;
 
-      String errorMessage = '익명 로그인에 실패했습니다.';
-      if (e.toString().contains('Exception:')) {
-        errorMessage = e.toString().replaceAll('Exception:', '').trim();
+      String errorMessage = '일시적인 오류가 발생했습니다.\n잠시 후 다시 시도해 주세요.';
+      final errorText = e.toString();
+
+      if (errorText.contains('Exception:')) {
+        final serverMessage = errorText.replaceAll('Exception:', '').trim();
+
+        if (serverMessage.contains('network') || serverMessage.contains('timeout')) {
+          errorMessage = '네트워크 연결이 불안정합니다.\n잠시 후 다시 시도해 주세요.';
+        } else {
+          errorMessage = serverMessage;
+        }
       }
 
       _showErrorDialog(errorMessage);
@@ -376,8 +405,8 @@ class _LoginScreenState extends State<LoginScreen> {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            const Color(0xFF1D61E7),
-            const Color(0xFF1D61E7),
+            PRIMARY_COLOR,
+            PRIMARY_COLOR,
           ],
         ),
         borderRadius: BorderRadius.circular(10.r),
@@ -385,7 +414,7 @@ class _LoginScreenState extends State<LoginScreen> {
       child: ElevatedButton(
         onPressed: _isLoading ? null : _handleLogin,
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF1D61E7),
+          backgroundColor: PRIMARY_COLOR,
           foregroundColor: Colors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(

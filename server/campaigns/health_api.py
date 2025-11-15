@@ -1,6 +1,6 @@
 from ninja import Router
 
-router = Router()
+router = Router(tags=["헬스체크 (Health Check)"])
 
 
 @router.get("/healthz", summary="헬스체크")

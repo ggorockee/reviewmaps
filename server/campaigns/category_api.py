@@ -15,7 +15,7 @@ from .category_schemas import (
     CategoryOrderUpdate
 )
 
-router = Router()  # tags 제거 - URL prefix가 자동으로 태그가 됨
+router = Router(tags=["카테고리 (Categories)"])
 
 
 @router.get("/", response=List[CategoryOut], summary="카테고리 목록 조회")

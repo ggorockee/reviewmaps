@@ -15,12 +15,12 @@ from app_config.schemas import (
     AppSettingSchema
 )
 
-router = Router()
+router = Router(tags=["앱 설정 (App Config)"])
 
 
 # ===== 광고 설정 API =====
 
-@router.get("/ads", response=List[AdConfigSchema], tags=["App Config"])
+@router.get("/ads", response=List[AdConfigSchema])
 async def get_ads(request, platform: str):
     """
     플랫폼별 활성화된 광고 설정 조회
@@ -43,7 +43,7 @@ async def get_ads(request, platform: str):
 
 # ===== 앱 버전 API =====
 
-@router.get("/version", response=VersionCheckResponseSchema, tags=["App Config"])
+@router.get("/version", response=VersionCheckResponseSchema)
 async def check_version(request, platform: str, current_version: str):
     """
     앱 버전 체크 및 업데이트 필요 여부 확인
@@ -111,7 +111,7 @@ def _parse_version(version_string: str) -> tuple:
 
 # ===== 앱 설정 API =====
 
-@router.get("/settings", response=List[AppSettingSchema], tags=["App Config"])
+@router.get("/settings", response=List[AppSettingSchema])
 async def get_settings(request):
     """
     모든 활성화된 앱 설정 조회
@@ -126,7 +126,7 @@ async def get_settings(request):
     return settings
 
 
-@router.get("/settings/{key}", response=AppSettingSchema, tags=["App Config"])
+@router.get("/settings/{key}", response=AppSettingSchema)
 async def get_setting_by_key(request, key: str):
     """
     특정 키의 앱 설정 조회

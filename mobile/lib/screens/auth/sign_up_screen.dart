@@ -66,17 +66,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
               _buildInputField(
                 title: 'Full Name',
                 controller: _fullNameController,
-                hintText: 'Lois Becket',
+                hintText: '이름을 입력해 주세요',
                 prefixIcon: Icons.person_outline,
               ),
-              
+
               SizedBox(height: 16.h),
-              
+
               // Email 입력 필드
               _buildInputField(
                 title: 'Email',
                 controller: _emailController,
-                hintText: 'Loisbecket@gmail.com',
+                hintText: '이메일을 입력해 주세요',
                 prefixIcon: Icons.email_outlined,
               ),
               
@@ -184,8 +184,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
               hintText: hintText,
               hintStyle: TextStyle(
                 fontSize: 14.sp,
-                fontWeight: FontWeight.w500,
-                color: const Color(0xFF1A1C1E),
+                fontWeight: FontWeight.w400,
+                color: const Color(0xFFADB5BD),
               ),
               prefixIcon: Icon(
                 prefixIcon,
@@ -251,11 +251,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
               letterSpacing: -0.14,
             ),
             decoration: InputDecoration(
-              hintText: '18/03/2024',
+              hintText: '생년월일을 선택해 주세요',
               hintStyle: TextStyle(
                 fontSize: 14.sp,
-                fontWeight: FontWeight.w500,
-                color: const Color(0xFF1A1C1E),
+                fontWeight: FontWeight.w400,
+                color: const Color(0xFFADB5BD),
               ),
               prefixIcon: Icon(
                 Icons.calendar_today_outlined,
@@ -344,11 +344,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     letterSpacing: -0.14,
                   ),
                   decoration: InputDecoration(
-                    hintText: '(454) 726-0592',
+                    hintText: '휴대전화 번호를 입력해 주세요',
                     hintStyle: TextStyle(
                       fontSize: 14.sp,
-                      fontWeight: FontWeight.w500,
-                      color: const Color(0xFF1A1C1E),
+                      fontWeight: FontWeight.w400,
+                      color: const Color(0xFFADB5BD),
                     ),
                     border: InputBorder.none,
                     contentPadding: EdgeInsets.symmetric(
@@ -400,11 +400,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
               letterSpacing: -0.14,
             ),
             decoration: InputDecoration(
-              hintText: '*******',
+              hintText: '비밀번호를 입력해 주세요',
               hintStyle: TextStyle(
                 fontSize: 14.sp,
-                fontWeight: FontWeight.w500,
-                color: const Color(0xFF1A1C1E),
+                fontWeight: FontWeight.w400,
+                color: const Color(0xFFADB5BD),
               ),
               prefixIcon: Icon(
                 Icons.lock_outline,

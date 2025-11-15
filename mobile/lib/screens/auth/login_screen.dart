@@ -46,7 +46,7 @@ class _LoginScreenState extends State<LoginScreen> {
               _buildInputField(
                 title: 'Email',
                 controller: _emailController,
-                hintText: 'Loisbecket@gmail.com',
+                hintText: '이메일을 입력해 주세요',
                 prefixIcon: Icons.person_outline,
               ),
               
@@ -175,8 +175,8 @@ class _LoginScreenState extends State<LoginScreen> {
               hintText: hintText,
               hintStyle: TextStyle(
                 fontSize: 14.sp,
-                fontWeight: FontWeight.w500,
-                color: const Color(0xFF1A1C1E),
+                fontWeight: FontWeight.w400,
+                color: const Color(0xFFADB5BD),
               ),
               prefixIcon: Icon(
                 prefixIcon,
@@ -230,11 +230,11 @@ class _LoginScreenState extends State<LoginScreen> {
               letterSpacing: -0.14,
             ),
             decoration: InputDecoration(
-              hintText: '*******',
+              hintText: '비밀번호를 입력해 주세요',
               hintStyle: TextStyle(
                 fontSize: 14.sp,
-                fontWeight: FontWeight.w500,
-                color: const Color(0xFF1A1C1E),
+                fontWeight: FontWeight.w400,
+                color: const Color(0xFFADB5BD),
               ),
               prefixIcon: Icon(
                 Icons.lock_outline,

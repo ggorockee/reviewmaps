@@ -23,6 +23,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart'; // 반응형 사이
 import 'package:mobile/config/config.dart';      // AppConfig: .env를 읽어 상수로 노출
 import 'package:mobile/const/colors.dart';       // PRIMARY_COLOR 등 앱 공통 컬러
 import 'package:mobile/screens/splash_screen.dart'; // 스플래시 화면
+import 'package:mobile/screens/auth/login_screen.dart'; // 로그인 화면
+import 'package:mobile/screens/auth/sign_up_screen.dart'; // 회원가입 화면
 import 'package:mobile/services/ad_service.dart'; // 광고 서비스
 import 'package:mobile/services/app_open_ad_service.dart'; // App Open Ad 서비스
 import 'package:mobile/services/interstitial_ad_manager.dart'; // 전면광고 매니저
@@ -149,6 +151,12 @@ class MyApp extends StatelessWidget {
           // 릴리즈에서 디버그 배너 제거
           debugShowCheckedModeBanner: false,
           title: 'Review Schedule',
+
+          // 라우팅 설정
+          routes: {
+            '/login': (context) => const LoginScreen(),
+            '/signup': (context) => const SignUpScreen(),
+          },
 
           // 전역 테마
           theme: ThemeData(

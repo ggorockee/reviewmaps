@@ -49,9 +49,11 @@ INSTALLED_APPS = [
     'corsheaders',  # CORS 설정
     'ninja',
     # Local apps
+    'core',  # CoreModel 제공
     'users',
     'campaigns',
     'app_config',  # 앱 설정 관리
+    'keyword_alerts',  # 키워드 알람
 ]
 
 MIDDLEWARE = [
@@ -164,6 +166,15 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Custom User Model
 AUTH_USER_MODEL = 'users.User'
+
+# JWT 인증 설정
+JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', SECRET_KEY)
+JWT_ALGORITHM = os.getenv('JWT_ALGORITHM', 'HS256')
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv('JWT_ACCESS_TOKEN_EXPIRE_MINUTES', '60'))
+JWT_REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv('JWT_REFRESH_TOKEN_EXPIRE_DAYS', '7'))
+
+# 익명 사용자 세션 설정
+ANONYMOUS_SESSION_EXPIRE_HOURS = int(os.getenv('ANONYMOUS_SESSION_EXPIRE_HOURS', '60'))
 
 # CORS (Cross-Origin Resource Sharing) 설정
 # Mobile app (Android/iOS)에서 API 호출을 위한 설정

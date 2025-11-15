@@ -35,12 +35,12 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(height: 56.h),
-              
+              SizedBox(height: 24.h),
+
               // 헤드라인
               _buildHeadline(),
-              
-              SizedBox(height: 32.h),
+
+              SizedBox(height: 24.h),
               
               // 이메일 입력 필드
               _buildInputField(
@@ -90,13 +90,13 @@ class _LoginScreenState extends State<LoginScreen> {
               
               // 소셜 로그인 버튼들
               _buildSocialLoginButtons(),
-              
-              SizedBox(height: 32.h),
-              
+
+              SizedBox(height: 20.h),
+
               // Sign Up 링크
               _buildSignUpLink(),
-              
-              SizedBox(height: 32.h),
+
+              SizedBox(height: 20.h),
             ],
           ),
         ),

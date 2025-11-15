@@ -119,11 +119,27 @@ class _SplashScreenState extends State<SplashScreen>
 
   /// 공지사항 팝업 표시 후 메인 화면으로 이동
   Future<void> _showNoticeAndNavigate() async {
-    // 공지사항 팝업 표시
-    await NoticeDialog.show(context);
-    
-    // 공지사항 팝업이 닫힌 후 메인 화면으로 이동
+    // 공지사항 기능 임시 비활성화 (앱 시작 블로킹 방지)
+    // TODO: 공지사항 기능이 필요하면 아래 주석을 해제하세요
+    /*
+    try {
+      print('[SplashScreen] 공지사항 팝업 표시 시작');
+      // 공지사항 팝업 표시 (5초 타임아웃)
+      await NoticeDialog.show(context).timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          print('[SplashScreen] 공지사항 팝업 타임아웃');
+        },
+      );
+      print('[SplashScreen] 공지사항 팝업 닫힘');
+    } catch (e) {
+      print('[SplashScreen] 공지사항 팝업 오류: $e');
+    }
+    */
+
+    // 메인 화면으로 이동
     if (mounted) {
+      print('[SplashScreen] 화면 이동 준비');
       _navigateToMain();
     }
   }

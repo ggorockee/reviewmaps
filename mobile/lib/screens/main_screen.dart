@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:mobile/screens/home_screen.dart';
 import 'package:mobile/screens/map_screen.dart';
+import 'package:mobile/screens/my_page_screen.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:mobile/widgets/friendly.dart';
@@ -19,7 +20,7 @@ import 'package:mobile/providers/location_provider.dart';
 /// MainScreen
 /// ------------------------------------------------------
 /// 하단 탭 내비게이션 컨테이너.
-/// - 탭: 홈 / 지도
+/// - 탭: 홈 / 지도 / 내정보
 /// - 상태 보존: IndexedStack 사용 → 탭 전환 시 각 화면의 상태(스크롤, 지도 컨트롤러 등) 유지
 /// - 배포: 미사용 import/코드 제거, 최소 로직
 class MainScreen extends ConsumerStatefulWidget {
@@ -64,7 +65,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     _tabs = [
       const HomeScreen(),
       null, // MapScreen은 아직 생성하지 않음 → 권한 팝업 안뜸
-      // const MyPageScreen(),
+      const MyPageScreen(),
     ];
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -135,6 +136,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               children: [
                 _tabs[0]!,
                 _tabs[1] ?? const SizedBox.shrink(),
+                _tabs[2]!,
               ],
             ),
           ),
@@ -151,7 +153,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             icon: Icon(Icons.map_outlined, size: (isTab ? 32.0 : 24.0) * (1.0 + (MediaQuery.textScalerOf(context).textScaleFactor - 1.0) * 0.3).clamp(1.0, 1.2)),
             label: '지도'
           ),
-          // BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: '마이'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_outline, size: (isTab ? 32.0 : 24.0) * (1.0 + (MediaQuery.textScalerOf(context).textScaleFactor - 1.0) * 0.3).clamp(1.0, 1.2)),
+            label: '내정보'
+          ),
         ],
         currentIndex: _selectedIndex,
         selectedItemColor: Theme.of(context).primaryColor,

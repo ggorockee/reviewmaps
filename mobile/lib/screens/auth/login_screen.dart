@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mobile/screens/auth/sign_up_screen.dart';
+import 'package:mobile/screens/main_screen.dart';
+import 'package:mobile/services/auth_service.dart';
+import 'package:mobile/const/colors.dart';
 
 /// Login Version 1 화면
 /// Figma 디자인을 기반으로 한 로그인 화면
@@ -15,12 +18,139 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _isLoading = false;
+  final AuthService _authService = AuthService();
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _authService.dispose();
     super.dispose();
+  }
+
+  /// 로그인 처리
+  Future<void> _handleLogin() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    // 유효성 검사
+    if (email.isEmpty) {
+      _showErrorDialog('이메일을 입력해 주세요.');
+      return;
+    }
+
+    if (password.isEmpty) {
+      _showErrorDialog('비밀번호를 입력해 주세요.');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await _authService.login(email: email, password: password);
+
+      if (!mounted) return;
+
+      // 로그인 성공 - MainScreen으로 이동
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => const MainScreen(),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      String errorMessage = '로그인할 수 없습니다.\n잠시 후 다시 시도해 주세요.';
+      final errorText = e.toString();
+
+      if (errorText.contains('Exception:')) {
+        final serverMessage = errorText.replaceAll('Exception:', '').trim();
+
+        // 서버에서 온 에러 메시지를 네이버 스타일로 변환
+        if (serverMessage.contains('Invalid credentials') ||
+            serverMessage.contains('incorrect') ||
+            serverMessage.contains('wrong')) {
+          errorMessage = '아이디 또는 비밀번호를 다시 확인해 주세요.\n등록되지 않은 아이디이거나, 아이디 또는 비밀번호를 잘못 입력하셨습니다.';
+        } else if (serverMessage.contains('not found') || serverMessage.contains('존재하지')) {
+          errorMessage = '등록되지 않은 이메일입니다.\n이메일을 다시 확인해 주세요.';
+        } else if (serverMessage.contains('network') || serverMessage.contains('timeout')) {
+          errorMessage = '네트워크 연결이 불안정합니다.\n잠시 후 다시 시도해 주세요.';
+        } else {
+          errorMessage = serverMessage;
+        }
+      }
+
+      _showErrorDialog(errorMessage);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  /// 익명 로그인 처리
+  Future<void> _handleAnonymousLogin() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await _authService.loginAnonymous();
+
+      if (!mounted) return;
+
+      // 익명 로그인 성공 - MainScreen으로 이동
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => const MainScreen(),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      String errorMessage = '일시적인 오류가 발생했습니다.\n잠시 후 다시 시도해 주세요.';
+      final errorText = e.toString();
+
+      if (errorText.contains('Exception:')) {
+        final serverMessage = errorText.replaceAll('Exception:', '').trim();
+
+        if (serverMessage.contains('network') || serverMessage.contains('timeout')) {
+          errorMessage = '네트워크 연결이 불안정합니다.\n잠시 후 다시 시도해 주세요.';
+        } else {
+          errorMessage = serverMessage;
+        }
+      }
+
+      _showErrorDialog(errorMessage);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  /// 에러 다이얼로그 표시
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('알림'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -33,18 +163,18 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(height: 56.h),
-              
+              SizedBox(height: 32.h),
+
               // 헤드라인
               _buildHeadline(),
-              
-              SizedBox(height: 32.h),
+
+              SizedBox(height: 24.h),
               
               // 이메일 입력 필드
               _buildInputField(
-                title: 'Email',
+                title: '이메일',
                 controller: _emailController,
-                hintText: 'Loisbecket@gmail.com',
+                hintText: '이메일을 입력해 주세요',
                 prefixIcon: Icons.person_outline,
               ),
               
@@ -55,46 +185,46 @@ class _LoginScreenState extends State<LoginScreen> {
               
               SizedBox(height: 8.h),
               
-              // Forgot Password
+              // 비밀번호 찾기
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
                   onPressed: () {
-                    // TODO: Forgot Password 처리
+                    // TODO: 비밀번호 찾기 처리
                   },
                   child: Text(
-                    'Forgot Password ?',
+                    '비밀번호를 잊으셨나요?',
                     style: TextStyle(
                       fontSize: 12.sp,
                       fontWeight: FontWeight.w600,
-                      color: const Color(0xFF4D81E7),
+                      color: PRIMARY_COLOR,
                       letterSpacing: -0.12,
                     ),
                   ),
                 ),
               ),
+
+              SizedBox(height: 12.h),
               
-              SizedBox(height: 16.h),
-              
-              // Log In 버튼
+              // 로그인 버튼
               _buildLoginButton(),
-              
-              SizedBox(height: 16.h),
-              
-              // Or 구분선
+
+              SizedBox(height: 12.h),
+
+              // 또는 구분선
               _buildOrDivider(),
-              
-              SizedBox(height: 16.h),
-              
+
+              SizedBox(height: 12.h),
+
               // 소셜 로그인 버튼들
               _buildSocialLoginButtons(),
-              
-              SizedBox(height: 32.h),
-              
-              // Sign Up 링크
+
+              SizedBox(height: 20.h),
+
+              // 회원가입 링크
               _buildSignUpLink(),
-              
-              SizedBox(height: 32.h),
+
+              SizedBox(height: 24.h),
             ],
           ),
         ),
@@ -108,7 +238,7 @@ class _LoginScreenState extends State<LoginScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Sign in',
+          '로그인',
           style: TextStyle(
             fontSize: 32.sp,
             fontWeight: FontWeight.w700,
@@ -119,7 +249,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         SizedBox(height: 12.h),
         Text(
-          'Enter your email and password to log in ',
+          '이메일과 비밀번호를 입력해 주세요',
           style: TextStyle(
             fontSize: 12.sp,
             fontWeight: FontWeight.w500,
@@ -199,7 +329,7 @@ class _LoginScreenState extends State<LoginScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Password',
+          '비밀번호',
           style: TextStyle(
             fontSize: 12.sp,
             fontWeight: FontWeight.w500,
@@ -228,7 +358,7 @@ class _LoginScreenState extends State<LoginScreen> {
               letterSpacing: -0.14,
             ),
             decoration: InputDecoration(
-              hintText: '*******',
+              hintText: '비밀번호를 입력해 주세요',
               hintStyle: TextStyle(
                 fontSize: 14.sp,
                 fontWeight: FontWeight.w500,
@@ -275,18 +405,16 @@ class _LoginScreenState extends State<LoginScreen> {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            const Color(0xFF1D61E7),
-            const Color(0xFF1D61E7),
+            PRIMARY_COLOR,
+            PRIMARY_COLOR,
           ],
         ),
         borderRadius: BorderRadius.circular(10.r),
       ),
       child: ElevatedButton(
-        onPressed: () {
-          // TODO: 로그인 처리
-        },
+        onPressed: _isLoading ? null : _handleLogin,
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF1D61E7),
+          backgroundColor: PRIMARY_COLOR,
           foregroundColor: Colors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(
@@ -294,14 +422,23 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           padding: EdgeInsets.zero,
         ),
-        child: Text(
-          'Log In',
-          style: TextStyle(
-            fontSize: 14.sp,
-            fontWeight: FontWeight.w500,
-            letterSpacing: -0.14,
-          ),
-        ),
+        child: _isLoading
+            ? SizedBox(
+                width: 20.w,
+                height: 20.w,
+                child: const CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : Text(
+                '로그인',
+                style: TextStyle(
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: -0.14,
+                ),
+              ),
       ),
     );
   }
@@ -344,37 +481,35 @@ class _LoginScreenState extends State<LoginScreen> {
       children: [
         // Google
         _buildSocialButton(
-          text: 'Continue with Google',
+          text: 'Google로 시작하기',
           onPressed: () {
             // TODO: Google 로그인
           },
         ),
-        SizedBox(height: 15.h),
-        
+        SizedBox(height: 12.h),
+
         // Apple
         _buildSocialButton(
-          text: 'Continue with Apple',
+          text: 'Apple로 시작하기',
           onPressed: () {
             // TODO: Apple 로그인
           },
         ),
-        SizedBox(height: 15.h),
-        
+        SizedBox(height: 12.h),
+
         // Kakao
         _buildSocialButton(
-          text: 'Continue with Kakao',
+          text: 'Kakao로 시작하기',
           onPressed: () {
             // TODO: Kakao 로그인
           },
         ),
-        SizedBox(height: 15.h),
+        SizedBox(height: 12.h),
         
         // 회원가입 없이 시작하기
         _buildSocialButton(
           text: '회원가입 없이 시작하기',
-          onPressed: () {
-            // TODO: 게스트 모드로 시작
-          },
+          onPressed: _isLoading ? null : _handleAnonymousLogin,
         ),
       ],
     );
@@ -383,7 +518,7 @@ class _LoginScreenState extends State<LoginScreen> {
   // 소셜 로그인 버튼 공통
   Widget _buildSocialButton({
     required String text,
-    required VoidCallback onPressed,
+    required VoidCallback? onPressed,
   }) {
     return Container(
       width: double.infinity,

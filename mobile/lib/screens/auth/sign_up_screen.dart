@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:mobile/screens/main_screen.dart';
+import 'package:mobile/services/auth_service.dart';
+import 'package:mobile/const/colors.dart';
 
 /// Sign Up Version 1 화면
 /// Figma 디자인을 기반으로 한 회원가입 화면
@@ -17,6 +20,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _isLoading = false;
+  final AuthService _authService = AuthService();
 
   @override
   void dispose() {
@@ -25,7 +30,104 @@ class _SignUpScreenState extends State<SignUpScreen> {
     _birthDateController.dispose();
     _phoneController.dispose();
     _passwordController.dispose();
+    _authService.dispose();
     super.dispose();
+  }
+
+  /// 회원가입 처리
+  Future<void> _handleSignUp() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    // 유효성 검사
+    if (email.isEmpty) {
+      _showErrorDialog('이메일을 입력해 주세요.');
+      return;
+    }
+
+    // 이메일 형식 검증
+    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+    if (!emailRegex.hasMatch(email)) {
+      _showErrorDialog('이메일 주소를 다시 확인해 주세요.\n올바른 형식의 이메일을 입력해 주세요.');
+      return;
+    }
+
+    if (password.isEmpty) {
+      _showErrorDialog('비밀번호를 입력해 주세요.');
+      return;
+    }
+
+    // 비밀번호 길이 검증
+    if (password.length < 6) {
+      _showErrorDialog('비밀번호는 6자 이상 입력해 주세요.');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await _authService.signUp(email: email, password: password);
+
+      if (!mounted) return;
+
+      // 회원가입 성공 - MainScreen으로 이동
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => const MainScreen(),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      String errorMessage = '회원가입할 수 없습니다.\n잠시 후 다시 시도해 주세요.';
+      final errorText = e.toString();
+
+      if (errorText.contains('Exception:')) {
+        final serverMessage = errorText.replaceAll('Exception:', '').trim();
+
+        // 서버에서 온 에러 메시지를 네이버 스타일로 변환
+        if (serverMessage.contains('already exists') ||
+            serverMessage.contains('duplicate') ||
+            serverMessage.contains('이미')) {
+          errorMessage = '이미 가입된 이메일입니다.\n다른 이메일을 사용하시거나 로그인해 주세요.';
+        } else if (serverMessage.contains('invalid email') || serverMessage.contains('이메일')) {
+          errorMessage = '이메일 주소를 다시 확인해 주세요.';
+        } else if (serverMessage.contains('password') && serverMessage.contains('weak')) {
+          errorMessage = '더 안전한 비밀번호를 사용해 주세요.\n영문, 숫자, 특수문자를 조합해 주세요.';
+        } else if (serverMessage.contains('network') || serverMessage.contains('timeout')) {
+          errorMessage = '네트워크 연결이 불안정합니다.\n잠시 후 다시 시도해 주세요.';
+        } else {
+          errorMessage = serverMessage;
+        }
+      }
+
+      _showErrorDialog(errorMessage);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  /// 에러 다이얼로그 표시
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('알림'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -38,8 +140,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(height: 32.h),
-              
+              SizedBox(height: 24.h),
+
               // 뒤로가기 버튼
               IconButton(
                 icon: Icon(
@@ -53,29 +155,29 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
               ),
-              
-              SizedBox(height: 24.h),
-              
+
+              SizedBox(height: 16.h),
+
               // 헤드라인
               _buildHeadline(),
+
+              SizedBox(height: 24.h),
               
-              SizedBox(height: 32.h),
-              
-              // Full Name 입력 필드
+              // 이름 입력 필드
               _buildInputField(
-                title: 'Full Name',
+                title: '이름',
                 controller: _fullNameController,
-                hintText: 'Lois Becket',
+                hintText: '이름을 입력해 주세요',
                 prefixIcon: Icons.person_outline,
               ),
-              
+
               SizedBox(height: 16.h),
-              
-              // Email 입력 필드
+
+              // 이메일 입력 필드
               _buildInputField(
-                title: 'Email',
+                title: '이메일',
                 controller: _emailController,
-                hintText: 'Loisbecket@gmail.com',
+                hintText: '이메일을 입력해 주세요',
                 prefixIcon: Icons.email_outlined,
               ),
               
@@ -94,17 +196,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
               // Set Password 입력 필드
               _buildPasswordField(),
               
-              SizedBox(height: 24.h),
-              
-              // Register 버튼
+              SizedBox(height: 20.h),
+
+              // 가입하기 버튼
               _buildRegisterButton(),
-              
-              SizedBox(height: 24.h),
-              
-              // Login 링크
+
+              SizedBox(height: 20.h),
+
+              // 로그인 링크
               _buildLoginLink(),
-              
-              SizedBox(height: 32.h),
+
+              SizedBox(height: 24.h),
             ],
           ),
         ),
@@ -118,7 +220,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Sign up',
+          '회원가입',
           style: TextStyle(
             fontSize: 32.sp,
             fontWeight: FontWeight.w700,
@@ -129,7 +231,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         ),
         SizedBox(height: 12.h),
         Text(
-          'Create an account to continue!',
+          '계정을 만들어 서비스를 시작하세요',
           style: TextStyle(
             fontSize: 12.sp,
             fontWeight: FontWeight.w500,
@@ -183,8 +285,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
               hintText: hintText,
               hintStyle: TextStyle(
                 fontSize: 14.sp,
-                fontWeight: FontWeight.w500,
-                color: const Color(0xFF1A1C1E),
+                fontWeight: FontWeight.w400,
+                color: const Color(0xFFADB5BD),
               ),
               prefixIcon: Icon(
                 prefixIcon,
@@ -209,7 +311,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Birth of date',
+          '생년월일',
           style: TextStyle(
             fontSize: 12.sp,
             fontWeight: FontWeight.w500,
@@ -250,11 +352,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
               letterSpacing: -0.14,
             ),
             decoration: InputDecoration(
-              hintText: '18/03/2024',
+              hintText: '생년월일을 선택해 주세요',
               hintStyle: TextStyle(
                 fontSize: 14.sp,
-                fontWeight: FontWeight.w500,
-                color: const Color(0xFF1A1C1E),
+                fontWeight: FontWeight.w400,
+                color: const Color(0xFFADB5BD),
               ),
               prefixIcon: Icon(
                 Icons.calendar_today_outlined,
@@ -284,7 +386,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Phone Number',
+          '휴대전화',
           style: TextStyle(
             fontSize: 12.sp,
             fontWeight: FontWeight.w500,
@@ -343,11 +445,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     letterSpacing: -0.14,
                   ),
                   decoration: InputDecoration(
-                    hintText: '(454) 726-0592',
+                    hintText: '휴대전화 번호를 입력해 주세요',
                     hintStyle: TextStyle(
                       fontSize: 14.sp,
-                      fontWeight: FontWeight.w500,
-                      color: const Color(0xFF1A1C1E),
+                      fontWeight: FontWeight.w400,
+                      color: const Color(0xFFADB5BD),
                     ),
                     border: InputBorder.none,
                     contentPadding: EdgeInsets.symmetric(
@@ -370,7 +472,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Set Password',
+          '비밀번호',
           style: TextStyle(
             fontSize: 12.sp,
             fontWeight: FontWeight.w500,
@@ -399,11 +501,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
               letterSpacing: -0.14,
             ),
             decoration: InputDecoration(
-              hintText: '*******',
+              hintText: '비밀번호를 입력해 주세요',
               hintStyle: TextStyle(
                 fontSize: 14.sp,
-                fontWeight: FontWeight.w500,
-                color: const Color(0xFF1A1C1E),
+                fontWeight: FontWeight.w400,
+                color: const Color(0xFFADB5BD),
               ),
               prefixIcon: Icon(
                 Icons.lock_outline,
@@ -446,18 +548,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            const Color(0xFF1D61E7),
-            const Color(0xFF1D61E7),
+            PRIMARY_COLOR,
+            PRIMARY_COLOR,
           ],
         ),
         borderRadius: BorderRadius.circular(10.r),
       ),
       child: ElevatedButton(
-        onPressed: () {
-          // TODO: 회원가입 처리
-        },
+        onPressed: _isLoading ? null : _handleSignUp,
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF1D61E7),
+          backgroundColor: PRIMARY_COLOR,
           foregroundColor: Colors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(
@@ -465,14 +565,23 @@ class _SignUpScreenState extends State<SignUpScreen> {
           ),
           padding: EdgeInsets.zero,
         ),
-        child: Text(
-          'Register',
-          style: TextStyle(
-            fontSize: 14.sp,
-            fontWeight: FontWeight.w500,
-            letterSpacing: -0.14,
-          ),
-        ),
+        child: _isLoading
+            ? SizedBox(
+                width: 20.w,
+                height: 20.w,
+                child: const CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : Text(
+                '가입하기',
+                style: TextStyle(
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: -0.14,
+                ),
+              ),
       ),
     );
   }
@@ -484,7 +593,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            'Already have an account?',
+            '이미 계정이 있으신가요?',
             style: TextStyle(
               fontSize: 12.sp,
               fontWeight: FontWeight.w500,
@@ -498,7 +607,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
               Navigator.pop(context);
             },
             child: Text(
-              'Login',
+              '로그인',
               style: TextStyle(
                 fontSize: 12.sp,
                 fontWeight: FontWeight.w600,

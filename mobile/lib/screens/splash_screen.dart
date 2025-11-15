@@ -95,11 +95,13 @@ class _SplashScreenState extends State<SplashScreen>
 
     // 로그인 상태 확인
     final isLoggedIn = await _authService.isLoggedIn();
+    print('[SplashScreen] 로그인 상태 확인: ${isLoggedIn ? "로그인됨" : "로그인 안됨"}');
 
     if (!mounted) return;
 
     // 로그인되어 있으면 MainScreen, 아니면 LoginScreen으로 이동
     final targetScreen = isLoggedIn ? const MainScreen() : const LoginScreen();
+    print('[SplashScreen] ${isLoggedIn ? "메인 화면" : "로그인 화면"}으로 이동');
 
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(

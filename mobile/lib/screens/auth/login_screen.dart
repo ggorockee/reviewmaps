@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mobile/screens/auth/sign_up_screen.dart';
+import 'package:mobile/screens/main_screen.dart';
+import 'package:mobile/services/auth_service.dart';
 
 /// Login Version 1 화면
 /// Figma 디자인을 기반으로 한 로그인 화면
@@ -15,12 +17,111 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _isLoading = false;
+  final AuthService _authService = AuthService();
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _authService.dispose();
     super.dispose();
+  }
+
+  /// 로그인 처리
+  Future<void> _handleLogin() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    // 유효성 검사
+    if (email.isEmpty || password.isEmpty) {
+      _showErrorDialog('이메일과 비밀번호를 입력해 주세요.');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await _authService.login(email: email, password: password);
+
+      if (!mounted) return;
+
+      // 로그인 성공 - MainScreen으로 이동
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => const MainScreen(),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      String errorMessage = '로그인에 실패했습니다.';
+      if (e.toString().contains('Exception:')) {
+        errorMessage = e.toString().replaceAll('Exception:', '').trim();
+      }
+
+      _showErrorDialog(errorMessage);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  /// 익명 로그인 처리
+  Future<void> _handleAnonymousLogin() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await _authService.loginAnonymous();
+
+      if (!mounted) return;
+
+      // 익명 로그인 성공 - MainScreen으로 이동
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => const MainScreen(),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      String errorMessage = '익명 로그인에 실패했습니다.';
+      if (e.toString().contains('Exception:')) {
+        errorMessage = e.toString().replaceAll('Exception:', '').trim();
+      }
+
+      _showErrorDialog(errorMessage);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  /// 에러 다이얼로그 표시
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('알림'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -282,9 +383,7 @@ class _LoginScreenState extends State<LoginScreen> {
         borderRadius: BorderRadius.circular(10.r),
       ),
       child: ElevatedButton(
-        onPressed: () {
-          // TODO: 로그인 처리
-        },
+        onPressed: _isLoading ? null : _handleLogin,
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF1D61E7),
           foregroundColor: Colors.white,
@@ -294,14 +393,23 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           padding: EdgeInsets.zero,
         ),
-        child: Text(
-          'Log In',
-          style: TextStyle(
-            fontSize: 14.sp,
-            fontWeight: FontWeight.w500,
-            letterSpacing: -0.14,
-          ),
-        ),
+        child: _isLoading
+            ? SizedBox(
+                width: 20.w,
+                height: 20.w,
+                child: const CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : Text(
+                '로그인',
+                style: TextStyle(
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: -0.14,
+                ),
+              ),
       ),
     );
   }
@@ -372,9 +480,7 @@ class _LoginScreenState extends State<LoginScreen> {
         // 회원가입 없이 시작하기
         _buildSocialButton(
           text: '회원가입 없이 시작하기',
-          onPressed: () {
-            // TODO: 게스트 모드로 시작
-          },
+          onPressed: _isLoading ? null : _handleAnonymousLogin,
         ),
       ],
     );
@@ -383,7 +489,7 @@ class _LoginScreenState extends State<LoginScreen> {
   // 소셜 로그인 버튼 공통
   Widget _buildSocialButton({
     required String text,
-    required VoidCallback onPressed,
+    required VoidCallback? onPressed,
   }) {
     return Container(
       width: double.infinity,

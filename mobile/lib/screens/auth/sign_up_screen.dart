@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:mobile/screens/main_screen.dart';
+import 'package:mobile/services/auth_service.dart';
 
 /// Sign Up Version 1 화면
 /// Figma 디자인을 기반으로 한 회원가입 화면
@@ -17,6 +19,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _isLoading = false;
+  final AuthService _authService = AuthService();
 
   @override
   void dispose() {
@@ -25,7 +29,82 @@ class _SignUpScreenState extends State<SignUpScreen> {
     _birthDateController.dispose();
     _phoneController.dispose();
     _passwordController.dispose();
+    _authService.dispose();
     super.dispose();
+  }
+
+  /// 회원가입 처리
+  Future<void> _handleSignUp() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    // 유효성 검사
+    if (email.isEmpty || password.isEmpty) {
+      _showErrorDialog('이메일과 비밀번호를 입력해 주세요.');
+      return;
+    }
+
+    // 이메일 형식 검증
+    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+    if (!emailRegex.hasMatch(email)) {
+      _showErrorDialog('올바른 이메일 형식이 아닙니다.');
+      return;
+    }
+
+    // 비밀번호 길이 검증
+    if (password.length < 6) {
+      _showErrorDialog('비밀번호는 최소 6자 이상이어야 합니다.');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await _authService.signUp(email: email, password: password);
+
+      if (!mounted) return;
+
+      // 회원가입 성공 - MainScreen으로 이동
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => const MainScreen(),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      String errorMessage = '회원가입에 실패했습니다.';
+      if (e.toString().contains('Exception:')) {
+        errorMessage = e.toString().replaceAll('Exception:', '').trim();
+      }
+
+      _showErrorDialog(errorMessage);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  /// 에러 다이얼로그 표시
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('알림'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -453,9 +532,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         borderRadius: BorderRadius.circular(10.r),
       ),
       child: ElevatedButton(
-        onPressed: () {
-          // TODO: 회원가입 처리
-        },
+        onPressed: _isLoading ? null : _handleSignUp,
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF1D61E7),
           foregroundColor: Colors.white,
@@ -465,14 +542,23 @@ class _SignUpScreenState extends State<SignUpScreen> {
           ),
           padding: EdgeInsets.zero,
         ),
-        child: Text(
-          'Register',
-          style: TextStyle(
-            fontSize: 14.sp,
-            fontWeight: FontWeight.w500,
-            letterSpacing: -0.14,
-          ),
-        ),
+        child: _isLoading
+            ? SizedBox(
+                width: 20.w,
+                height: 20.w,
+                child: const CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : Text(
+                '가입하기',
+                style: TextStyle(
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: -0.14,
+                ),
+              ),
       ),
     );
   }

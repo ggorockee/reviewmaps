@@ -3,7 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mobile/services/app_open_ad_service.dart';
 import 'package:mobile/services/ad_service.dart';
 import 'package:mobile/const/colors.dart';
-import 'package:mobile/screens/main_screen.dart';
+import 'package:mobile/screens/auth/login_screen.dart';
 import 'package:mobile/widgets/friendly.dart';
 import 'package:mobile/widgets/notice_dialog.dart';
 
@@ -82,17 +82,17 @@ class _SplashScreenState extends State<SplashScreen>
     await _appOpenAdService.showAdIfAvailable();
     print('[SplashScreen] App Open Ad 표시 시도 완료');
 
-    // 4. 공지사항 팝업 표시 후 메인 화면으로 이동
+    // 4. 공지사항 팝업 표시 후 로그인 화면으로 이동
     _showNoticeAndNavigate();
   }
 
-  /// 메인 화면으로 이동
-  void _navigateToMain() {
+  /// 로그인 화면으로 이동
+  void _navigateToLogin() {
     if (!mounted) return;
-    
+
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => const MainScreen(),
+        pageBuilder: (context, animation, secondaryAnimation) => const LoginScreen(),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(
             opacity: animation,
@@ -104,14 +104,14 @@ class _SplashScreenState extends State<SplashScreen>
     );
   }
 
-  /// 공지사항 팝업 표시 후 메인 화면으로 이동
+  /// 공지사항 팝업 표시 후 로그인 화면으로 이동
   Future<void> _showNoticeAndNavigate() async {
     // 공지사항 팝업 표시
     await NoticeDialog.show(context);
-    
-    // 공지사항 팝업이 닫힌 후 메인 화면으로 이동
+
+    // 공지사항 팝업이 닫힌 후 로그인 화면으로 이동
     if (mounted) {
-      _navigateToMain();
+      _navigateToLogin();
     }
   }
 

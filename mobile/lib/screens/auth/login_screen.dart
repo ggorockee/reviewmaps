@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mobile/screens/auth/sign_up_screen.dart';
+import 'package:mobile/screens/main_screen.dart';
 
 /// Login Version 1 화면
 /// Figma 디자인을 기반으로 한 로그인 화면
@@ -373,7 +374,12 @@ class _LoginScreenState extends State<LoginScreen> {
         _buildSocialButton(
           text: '회원가입 없이 시작하기',
           onPressed: () {
-            // TODO: 게스트 모드로 시작
+            // 게스트 모드로 메인 화면 진입
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (context) => const MainScreen(),
+              ),
+            );
           },
         ),
       ],

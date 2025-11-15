@@ -44,7 +44,7 @@ class _LoginScreenState extends State<LoginScreen> {
               
               // 이메일 입력 필드
               _buildInputField(
-                title: 'Email',
+                title: '이메일',
                 controller: _emailController,
                 hintText: '이메일을 입력해 주세요',
                 prefixIcon: Icons.person_outline,
@@ -57,15 +57,15 @@ class _LoginScreenState extends State<LoginScreen> {
               
               SizedBox(height: 8.h),
               
-              // Forgot Password
+              // 비밀번호 찾기
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
                   onPressed: () {
-                    // TODO: Forgot Password 처리
+                    // TODO: 비밀번호 찾기 처리
                   },
                   child: Text(
-                    'Forgot Password ?',
+                    '비밀번호를 잊으셨나요?',
                     style: TextStyle(
                       fontSize: 12.sp,
                       fontWeight: FontWeight.w600,
@@ -110,7 +110,7 @@ class _LoginScreenState extends State<LoginScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Sign in',
+          '로그인',
           style: TextStyle(
             fontSize: 32.sp,
             fontWeight: FontWeight.w700,
@@ -121,7 +121,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         SizedBox(height: 12.h),
         Text(
-          'Enter your email and password to log in ',
+          '이메일과 비밀번호를 입력해 주세요',
           style: TextStyle(
             fontSize: 12.sp,
             fontWeight: FontWeight.w500,
@@ -201,7 +201,7 @@ class _LoginScreenState extends State<LoginScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Password',
+          '비밀번호',
           style: TextStyle(
             fontSize: 12.sp,
             fontWeight: FontWeight.w500,
@@ -267,7 +267,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // Log In 버튼
+  // 로그인 버튼
   Widget _buildLoginButton() {
     return Container(
       width: double.infinity,
@@ -297,7 +297,7 @@ class _LoginScreenState extends State<LoginScreen> {
           padding: EdgeInsets.zero,
         ),
         child: Text(
-          'Log In',
+          '로그인',
           style: TextStyle(
             fontSize: 14.sp,
             fontWeight: FontWeight.w500,
@@ -308,7 +308,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // Or 구분선
+  // 또는 구분선
   Widget _buildOrDivider() {
     return Row(
       children: [
@@ -321,7 +321,7 @@ class _LoginScreenState extends State<LoginScreen> {
         Padding(
           padding: EdgeInsets.symmetric(horizontal: 16.w),
           child: Text(
-            'Or',
+            '또는',
             style: TextStyle(
               fontSize: 12.sp,
               fontWeight: FontWeight.w400,
@@ -346,31 +346,31 @@ class _LoginScreenState extends State<LoginScreen> {
       children: [
         // Google
         _buildSocialButton(
-          text: 'Continue with Google',
+          text: 'Google로 시작하기',
           onPressed: () {
             // TODO: Google 로그인
           },
         ),
         SizedBox(height: 15.h),
-        
+
         // Apple
         _buildSocialButton(
-          text: 'Continue with Apple',
+          text: 'Apple로 시작하기',
           onPressed: () {
             // TODO: Apple 로그인
           },
         ),
         SizedBox(height: 15.h),
-        
+
         // Kakao
         _buildSocialButton(
-          text: 'Continue with Kakao',
+          text: 'Kakao로 시작하기',
           onPressed: () {
             // TODO: Kakao 로그인
           },
         ),
         SizedBox(height: 15.h),
-        
+
         // 회원가입 없이 시작하기
         _buildSocialButton(
           text: '회원가입 없이 시작하기',
@@ -423,14 +423,14 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // Sign Up 링크
+  // 회원가입 링크
   Widget _buildSignUpLink() {
     return Center(
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            "Don't have an account?",
+            "계정이 없으신가요?",
             style: TextStyle(
               fontSize: 12.sp,
               fontWeight: FontWeight.w500,
@@ -449,7 +449,7 @@ class _LoginScreenState extends State<LoginScreen> {
               );
             },
             child: Text(
-              'Sign Up',
+              '회원가입',
               style: TextStyle(
                 fontSize: 12.sp,
                 fontWeight: FontWeight.w600,

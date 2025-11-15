@@ -62,9 +62,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
               
               SizedBox(height: 32.h),
               
-              // Full Name 입력 필드
+              // 이름 입력 필드
               _buildInputField(
-                title: 'Full Name',
+                title: '이름',
                 controller: _fullNameController,
                 hintText: '이름을 입력해 주세요',
                 prefixIcon: Icons.person_outline,
@@ -72,9 +72,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
               SizedBox(height: 16.h),
 
-              // Email 입력 필드
+              // 이메일 입력 필드
               _buildInputField(
-                title: 'Email',
+                title: '이메일',
                 controller: _emailController,
                 hintText: '이메일을 입력해 주세요',
                 prefixIcon: Icons.email_outlined,
@@ -119,7 +119,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Sign up',
+          '회원가입',
           style: TextStyle(
             fontSize: 32.sp,
             fontWeight: FontWeight.w700,
@@ -130,7 +130,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         ),
         SizedBox(height: 12.h),
         Text(
-          'Create an account to continue!',
+          '계정을 만들어 시작하세요',
           style: TextStyle(
             fontSize: 12.sp,
             fontWeight: FontWeight.w500,
@@ -210,7 +210,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Birth of date',
+          '생년월일',
           style: TextStyle(
             fontSize: 12.sp,
             fontWeight: FontWeight.w500,
@@ -285,7 +285,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Phone Number',
+          '휴대전화',
           style: TextStyle(
             fontSize: 12.sp,
             fontWeight: FontWeight.w500,
@@ -371,7 +371,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Set Password',
+          '비밀번호 설정',
           style: TextStyle(
             fontSize: 12.sp,
             fontWeight: FontWeight.w500,
@@ -437,7 +437,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     );
   }
 
-  // Register 버튼
+  // 가입하기 버튼
   Widget _buildRegisterButton() {
     return Container(
       width: double.infinity,
@@ -467,7 +467,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
           padding: EdgeInsets.zero,
         ),
         child: Text(
-          'Register',
+          '가입하기',
           style: TextStyle(
             fontSize: 14.sp,
             fontWeight: FontWeight.w500,
@@ -478,14 +478,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
     );
   }
 
-  // Login 링크
+  // 로그인 링크
   Widget _buildLoginLink() {
     return Center(
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            'Already have an account?',
+            '이미 계정이 있으신가요?',
             style: TextStyle(
               fontSize: 12.sp,
               fontWeight: FontWeight.w500,
@@ -499,7 +499,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
               Navigator.pop(context);
             },
             child: Text(
-              'Login',
+              '로그인',
               style: TextStyle(
                 fontSize: 12.sp,
                 fontWeight: FontWeight.w600,

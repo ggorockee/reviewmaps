@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mobile/services/auth_service.dart';
 import 'package:mobile/const/colors.dart';
 import 'package:mobile/screens/auth/login_screen.dart';
+import 'package:mobile/models/auth_models.dart';
 
 /// 내정보 화면
 class MyPageScreen extends StatefulWidget {
@@ -17,7 +18,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
   bool _isLoading = true;
   bool _isLoggedIn = false;
   bool _isAnonymous = false;
-  String? _userEmail;
+  UserInfo? _userInfo;
 
   @override
   void initState() {
@@ -41,19 +42,19 @@ class _MyPageScreenState extends State<MyPageScreen> {
         _isLoading = false;
       });
 
-      // 로그인되어 있고 익명이 아니면 사용자 정보 가져오기
-      if (isLoggedIn && !isAnonymous) {
+      // 로그인되어 있으면 사용자 정보 가져오기
+      if (isLoggedIn) {
         try {
           final userInfo = await _authService.getUserInfo();
           setState(() {
-            _userEmail = userInfo.email;
+            _userInfo = userInfo;
           });
         } catch (e) {
-          print('[MyPageScreen] 사용자 정보 조회 실패: $e');
+          debugPrint('[MyPageScreen] 사용자 정보 조회 실패: $e');
         }
       }
     } catch (e) {
-      print('[MyPageScreen] 로그인 상태 확인 실패: $e');
+      debugPrint('[MyPageScreen] 로그인 상태 확인 실패: $e');
       setState(() {
         _isLoading = false;
       });
@@ -159,10 +160,21 @@ class _MyPageScreenState extends State<MyPageScreen> {
                     SizedBox(height: 32.h),
 
                     // 계정 정보
-                    if (_isLoggedIn && !_isAnonymous) ...[
+                    if (_isLoggedIn && _userInfo != null) ...[
                       _buildSectionTitle('계정 정보'),
                       SizedBox(height: 16.h),
-                      _buildInfoItem('이메일', _userEmail ?? '정보 없음'),
+                      _buildInfoItem('사용자 ID', _userInfo!.id),
+                      SizedBox(height: 12.h),
+                      if (_userInfo!.name != null) ...[
+                        _buildInfoItem('이름', _userInfo!.name!),
+                        SizedBox(height: 12.h),
+                      ],
+                      _buildInfoItem('이메일', _userInfo!.email),
+                      SizedBox(height: 12.h),
+                      _buildInfoItem(
+                        '계정 유형',
+                        _userInfo!.isAnonymous ? '익명 사용자' : '일반 사용자'
+                      ),
                       SizedBox(height: 32.h),
                     ],
 
@@ -190,7 +202,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -203,7 +215,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
             width: 80.w,
             height: 80.w,
             decoration: BoxDecoration(
-              color: PRIMARY_COLOR.withOpacity(0.1),
+              color: PRIMARY_COLOR.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -229,12 +241,12 @@ class _MyPageScreenState extends State<MyPageScreen> {
 
           SizedBox(height: 8.h),
 
-          // 사용자 이메일 또는 안내 메시지
+          // 사용자 정보 또는 안내 메시지
           Text(
             _isLoggedIn
-                ? (_isAnonymous
-                    ? '회원가입 없이 이용 중입니다'
-                    : _userEmail ?? '정보를 불러오는 중...')
+                ? (_userInfo != null
+                    ? (_userInfo!.name ?? _userInfo!.email)
+                    : '정보를 불러오는 중...')
                 : '로그인하여 더 많은 기능을 이용하세요',
             style: TextStyle(
               fontSize: 14.sp,

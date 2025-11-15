@@ -52,7 +52,7 @@ class AdService {
         name: 'ad_service_initialized',
         parameters: {
           'platform': Platform.isIOS ? 'ios' : 'android',
-          'tracking_permission': _isTrackingPermissionGranted,
+          'tracking_permission': _isTrackingPermissionGranted ? 'granted' : 'denied',
         },
       );
 
@@ -84,12 +84,12 @@ class AdService {
         );
       } else {
         _isTrackingPermissionGranted = status == TrackingStatus.authorized;
-        
+
         await _analytics.logEvent(
           name: 'tracking_permission_status',
           parameters: {
             'status': _isTrackingPermissionGranted ? 'granted' : 'denied',
-            'already_determined': true,
+            'already_determined': 'yes',
           },
         );
       }

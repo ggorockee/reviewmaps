@@ -163,18 +163,18 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(height: 56.h),
-              
+              SizedBox(height: 32.h),
+
               // 헤드라인
               _buildHeadline(),
-              
-              SizedBox(height: 32.h),
+
+              SizedBox(height: 24.h),
               
               // 이메일 입력 필드
               _buildInputField(
-                title: 'Email',
+                title: '이메일',
                 controller: _emailController,
-                hintText: 'Loisbecket@gmail.com',
+                hintText: '이메일을 입력해 주세요',
                 prefixIcon: Icons.person_outline,
               ),
               
@@ -185,46 +185,46 @@ class _LoginScreenState extends State<LoginScreen> {
               
               SizedBox(height: 8.h),
               
-              // Forgot Password
+              // 비밀번호 찾기
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
                   onPressed: () {
-                    // TODO: Forgot Password 처리
+                    // TODO: 비밀번호 찾기 처리
                   },
                   child: Text(
-                    'Forgot Password ?',
+                    '비밀번호를 잊으셨나요?',
                     style: TextStyle(
                       fontSize: 12.sp,
                       fontWeight: FontWeight.w600,
-                      color: const Color(0xFF4D81E7),
+                      color: PRIMARY_COLOR,
                       letterSpacing: -0.12,
                     ),
                   ),
                 ),
               ),
+
+              SizedBox(height: 12.h),
               
-              SizedBox(height: 16.h),
-              
-              // Log In 버튼
+              // 로그인 버튼
               _buildLoginButton(),
-              
-              SizedBox(height: 16.h),
-              
-              // Or 구분선
+
+              SizedBox(height: 12.h),
+
+              // 또는 구분선
               _buildOrDivider(),
-              
-              SizedBox(height: 16.h),
-              
+
+              SizedBox(height: 12.h),
+
               // 소셜 로그인 버튼들
               _buildSocialLoginButtons(),
-              
-              SizedBox(height: 32.h),
-              
-              // Sign Up 링크
+
+              SizedBox(height: 20.h),
+
+              // 회원가입 링크
               _buildSignUpLink(),
-              
-              SizedBox(height: 32.h),
+
+              SizedBox(height: 24.h),
             ],
           ),
         ),
@@ -238,7 +238,7 @@ class _LoginScreenState extends State<LoginScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Sign in',
+          '로그인',
           style: TextStyle(
             fontSize: 32.sp,
             fontWeight: FontWeight.w700,
@@ -249,7 +249,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         SizedBox(height: 12.h),
         Text(
-          'Enter your email and password to log in ',
+          '이메일과 비밀번호를 입력해 주세요',
           style: TextStyle(
             fontSize: 12.sp,
             fontWeight: FontWeight.w500,
@@ -329,7 +329,7 @@ class _LoginScreenState extends State<LoginScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Password',
+          '비밀번호',
           style: TextStyle(
             fontSize: 12.sp,
             fontWeight: FontWeight.w500,
@@ -358,7 +358,7 @@ class _LoginScreenState extends State<LoginScreen> {
               letterSpacing: -0.14,
             ),
             decoration: InputDecoration(
-              hintText: '*******',
+              hintText: '비밀번호를 입력해 주세요',
               hintStyle: TextStyle(
                 fontSize: 14.sp,
                 fontWeight: FontWeight.w500,
@@ -481,30 +481,30 @@ class _LoginScreenState extends State<LoginScreen> {
       children: [
         // Google
         _buildSocialButton(
-          text: 'Continue with Google',
+          text: 'Google로 시작하기',
           onPressed: () {
             // TODO: Google 로그인
           },
         ),
-        SizedBox(height: 15.h),
-        
+        SizedBox(height: 12.h),
+
         // Apple
         _buildSocialButton(
-          text: 'Continue with Apple',
+          text: 'Apple로 시작하기',
           onPressed: () {
             // TODO: Apple 로그인
           },
         ),
-        SizedBox(height: 15.h),
-        
+        SizedBox(height: 12.h),
+
         // Kakao
         _buildSocialButton(
-          text: 'Continue with Kakao',
+          text: 'Kakao로 시작하기',
           onPressed: () {
             // TODO: Kakao 로그인
           },
         ),
-        SizedBox(height: 15.h),
+        SizedBox(height: 12.h),
         
         // 회원가입 없이 시작하기
         _buildSocialButton(

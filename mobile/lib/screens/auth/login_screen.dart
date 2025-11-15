@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mobile/screens/auth/sign_up_screen.dart';
 import 'package:mobile/screens/main_screen.dart';
+import 'package:mobile/const/colors.dart';
 
 /// Login Version 1 화면
 /// Figma 디자인을 기반으로 한 로그인 화면
@@ -68,7 +69,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     style: TextStyle(
                       fontSize: 12.sp,
                       fontWeight: FontWeight.w600,
-                      color: const Color(0xFF4D81E7),
+                      color: PRIMARY_COLOR,
                       letterSpacing: -0.12,
                     ),
                   ),
@@ -276,8 +277,8 @@ class _LoginScreenState extends State<LoginScreen> {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            const Color(0xFF1D61E7),
-            const Color(0xFF1D61E7),
+            PRIMARY_COLOR,
+            PRIMARY_COLOR,
           ],
         ),
         borderRadius: BorderRadius.circular(10.r),
@@ -287,7 +288,7 @@ class _LoginScreenState extends State<LoginScreen> {
           // TODO: 로그인 처리
         },
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF1D61E7),
+          backgroundColor: PRIMARY_COLOR,
           foregroundColor: Colors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(
@@ -452,7 +453,7 @@ class _LoginScreenState extends State<LoginScreen> {
               style: TextStyle(
                 fontSize: 12.sp,
                 fontWeight: FontWeight.w600,
-                color: const Color(0xFF4D81E7),
+                color: PRIMARY_COLOR,
                 letterSpacing: -0.12,
               ),
             ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:mobile/const/colors.dart';
 
 /// Sign Up Version 1 화면
 /// Figma 디자인을 기반으로 한 회원가입 화면
@@ -446,8 +447,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            const Color(0xFF1D61E7),
-            const Color(0xFF1D61E7),
+            PRIMARY_COLOR,
+            PRIMARY_COLOR,
           ],
         ),
         borderRadius: BorderRadius.circular(10.r),
@@ -457,7 +458,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
           // TODO: 회원가입 처리
         },
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF1D61E7),
+          backgroundColor: PRIMARY_COLOR,
           foregroundColor: Colors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(
@@ -502,7 +503,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
               style: TextStyle(
                 fontSize: 12.sp,
                 fontWeight: FontWeight.w600,
-                color: const Color(0xFF4D81E7),
+                color: PRIMARY_COLOR,
                 letterSpacing: -0.12,
               ),
             ),

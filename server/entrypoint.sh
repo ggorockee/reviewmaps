@@ -7,6 +7,7 @@ PORT=${PORT:-8000}
 
 # Django 마이그레이션 실행
 echo "Running Django migrations..."
+/app/.venv/bin/python manage.py makemigrations --noinput
 /app/.venv/bin/python manage.py migrate --noinput
 
 # Static 파일 수집 (Django Ninja Swagger UI 등)

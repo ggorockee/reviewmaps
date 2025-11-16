@@ -92,34 +92,46 @@ class AuthResponse {
 /// 익명 로그인 응답 데이터 (session_token)
 class AnonymousResponse {
   final String sessionToken;
+  final String? expiresAt;
+  final int? expireHours;
 
   AnonymousResponse({
     required this.sessionToken,
+    this.expiresAt,
+    this.expireHours,
   });
 
   factory AnonymousResponse.fromJson(Map<String, dynamic> json) {
     return AnonymousResponse(
       sessionToken: json['session_token'] as String,
+      expiresAt: json['expires_at'] as String?,
+      expireHours: json['expire_hours'] as int?,
     );
   }
 
   Map<String, dynamic> toJson() => {
     'session_token': sessionToken,
+    if (expiresAt != null) 'expires_at': expiresAt,
+    if (expireHours != null) 'expire_hours': expireHours,
   };
 }
 
-/// 사용자 정보 응답 데이터
+/// 일반 사용자 정보 응답 데이터
 class UserInfo {
   final String id;
   final String email;
   final String? name;
-  final bool isAnonymous;
+  final bool isActive;
+  final String? dateJoined;
+  final String loginMethod; // email, google, apple, kakao, naver
 
   UserInfo({
     required this.id,
     required this.email,
     this.name,
-    required this.isAnonymous,
+    required this.isActive,
+    this.dateJoined,
+    required this.loginMethod,
   });
 
   factory UserInfo.fromJson(Map<String, dynamic> json) {
@@ -127,14 +139,80 @@ class UserInfo {
       id: json['id'].toString(), // int 또는 String을 안전하게 String으로 변환
       email: json['email'] as String,
       name: json['name'] as String?,
-      isAnonymous: json['is_anonymous'] as bool? ?? false,
+      isActive: json['is_active'] as bool? ?? true,
+      dateJoined: json['date_joined'] as String?,
+      loginMethod: json['login_method'] as String? ?? 'email',
     );
   }
 
   Map<String, dynamic> toJson() => {
     'id': id,
     'email': email,
-    'name': name,
-    'is_anonymous': isAnonymous,
+    if (name != null) 'name': name,
+    'is_active': isActive,
+    if (dateJoined != null) 'date_joined': dateJoined,
+    'login_method': loginMethod,
   };
+
+  /// 로그인 방식을 한글로 변환
+  String get loginMethodDisplayName {
+    switch (loginMethod) {
+      case 'email':
+        return '이메일';
+      case 'google':
+        return 'Google';
+      case 'apple':
+        return 'Apple';
+      case 'kakao':
+        return '카카오';
+      case 'naver':
+        return '네이버';
+      default:
+        return '이메일';
+    }
+  }
+}
+
+/// 익명 사용자 정보 응답 데이터
+class AnonymousUserInfo {
+  final String sessionId;
+  final String expiresAt;
+  final double remainingHours;
+
+  AnonymousUserInfo({
+    required this.sessionId,
+    required this.expiresAt,
+    required this.remainingHours,
+  });
+
+  factory AnonymousUserInfo.fromJson(Map<String, dynamic> json) {
+    return AnonymousUserInfo(
+      sessionId: json['session_id'] as String,
+      expiresAt: json['expires_at'] as String,
+      remainingHours: (json['remaining_hours'] as num).toDouble(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'session_id': sessionId,
+    'expires_at': expiresAt,
+    'remaining_hours': remainingHours,
+  };
+
+  /// 남은 시간을 사용자 친화적으로 표시
+  String get remainingTimeDisplay {
+    if (remainingHours < 1) {
+      final minutes = (remainingHours * 60).round();
+      return '$minutes분';
+    } else if (remainingHours < 24) {
+      return '${remainingHours.toStringAsFixed(1)}시간';
+    } else {
+      final days = (remainingHours / 24).floor();
+      final hours = (remainingHours % 24).round();
+      if (hours > 0) {
+        return '$days일 $hours시간';
+      }
+      return '$days일';
+    }
+  }
 }

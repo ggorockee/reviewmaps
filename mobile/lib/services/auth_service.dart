@@ -307,6 +307,44 @@ class AuthService {
     }
   }
 
+  /// 익명 사용자 정보 조회
+  /// GET /v1/auth/me
+  /// - 익명 사용자의 세션 정보 반환 (session_id, expires_at, remaining_hours)
+  Future<AnonymousUserInfo> getAnonymousUserInfo() async {
+    final uri = Uri.parse('$baseUrl/auth/me');
+    final sessionToken = await _tokenStorage.getSessionToken();
+
+    if (sessionToken == null) {
+      throw Exception('세션이 만료되었습니다. 다시 로그인해 주세요.');
+    }
+
+    final headers = {
+      ..._headers,
+      'Authorization': 'Bearer $sessionToken',
+    };
+
+    try {
+      final response = await _client
+          .get(
+            uri,
+            headers: headers,
+          )
+          .timeout(const Duration(seconds: 10));
+
+      _debugPrintResponse('GET', uri.toString(), response);
+
+      if (response.statusCode != 200) {
+        final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
+        throw Exception(errorBody['detail'] ?? '사용자 정보를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.');
+      }
+
+      return AnonymousUserInfo.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
+    } catch (e) {
+      debugPrint('익명 사용자 정보 조회 오류: $e');
+      rethrow;
+    }
+  }
+
   /// 로그아웃
   /// - 로컬 토큰 삭제
   Future<void> logout() async {

@@ -7,7 +7,7 @@ class MyBannerAdWidget extends StatefulWidget {
   /// The requested size of the banner. Defaults to [AdSize.banner].
   final AdSize adSize;
 
-  MyBannerAdWidget({super.key, this.adSize = AdSize.banner});
+  const MyBannerAdWidget({super.key, this.adSize = AdSize.banner});
 
   @override
   State<MyBannerAdWidget> createState() => _MyBannerAdWidgetState();

@@ -64,6 +64,7 @@ class NoticeDialog extends StatelessWidget {
                 await remoteConfigService.saveLastViewedNoticeId(
                   remoteConfigService.noticeId,
                 );
+                if (!context.mounted) return;
                 Navigator.of(context).pop();
               },
               child: Text(
@@ -81,6 +82,7 @@ class NoticeDialog extends StatelessWidget {
                 await remoteConfigService.setDoNotShowAgain(
                   remoteConfigService.noticeId,
                 );
+                if (!context.mounted) return;
                 Navigator.of(context).pop();
               },
               style: ElevatedButton.styleFrom(

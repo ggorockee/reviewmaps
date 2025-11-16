@@ -113,7 +113,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       max: maxScale,
       child: PopScope(
       canPop: false,
-      onPopInvoked: (didPop) async {
+      onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
         final shouldPop = await _onWillPop();
         if (shouldPop && context.mounted) {

@@ -235,6 +235,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       }
     }
     if (!panelController.isAttached) return;
+    if (!mounted) return; // 위젯이 dispose된 경우 중단
 
     // 폰트 배율에 따른 동적 조정
     final media = MediaQuery.of(context);
@@ -285,6 +286,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       }
     }
     if (!panelController.isAttached) return;
+    if (!mounted) return; // 위젯이 dispose된 경우 중단
 
     // 폰트 배율에 따른 동적 조정
     final media = MediaQuery.of(context);
@@ -798,8 +800,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 onLocationRequest: () async {
                   // Provider를 통한 위치 권한 요청
                   await ref.read(locationProvider.notifier).update();
+                  if (!mounted) return; // 위젯이 dispose된 경우 중단
                   final locationState = ref.read(locationProvider);
-                  
+
                   if (!locationState.isGranted) {
                     showFriendlySnack(
                       context, 
@@ -1155,6 +1158,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           context,
           MaterialPageRoute(builder: (context) => const MapSearchScreen()),
         );
+        if (!mounted) return; // 위젯이 dispose된 경우 중단
 
         if (result != null && result is NLatLng && _mapReady) {
           try {
@@ -1165,6 +1169,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             );
             // 검색 호출 X → onCameraIdle에서 실행
           } catch (_) {
+            if (!mounted) return; // 위젯이 dispose된 경우 중단
             _moveByProgram = false;
             showFriendlySnack(context, '앗! 지도가 잠깐 삐끗했어요 💦 다시 한 번 시도해볼까요?');
           }
@@ -1184,7 +1189,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               child: Icon(Icons.search, color: Colors.grey[600], size: t(context, 20.0.h, 24.0.h)),
             ),
             Text(
-              '장소·지하철·지역명 검색 (주소 검색 준비중 🙏)',
+              '장소, 지하철, 지역명 검색',
               style: TextStyle(
                 color: Colors.grey[600],
                 fontSize: t(context, 13.0.sp, 10.0.sp),

@@ -1,16 +1,12 @@
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:mobile/screens/home_screen.dart';
 import 'package:mobile/screens/map_screen.dart';
 import 'package:mobile/screens/my_page_screen.dart';
-import 'package:package_info_plus/package_info_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:mobile/widgets/friendly.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/providers/location_provider.dart';
+import 'package:mobile/services/version_service.dart';
+import 'package:mobile/widgets/update_dialog.dart';
 
 
 // import '../widgets/exit_reward_dialog.dart';
@@ -37,10 +33,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   /// 이 세션(앱 실행 동안)에서 업데이트 체크를 이미 했는지
   bool _didCheckUpdateOnce = false;
 
-  // 앱 정보
-  static const String _iosAppId   = '6751343880';        // App Store Connect의 Apple ID (숫자)
-  static const String _bundleId   = 'com.reviewmaps.mobile'; // 네 iOS 번들ID
-  static const String _country    = 'kr';                // 스토어 국가코드
+  /// 버전 체크 서비스
+  final _versionService = VersionService();
 
   /// 탭별 루트 화면
   /// - const 생성자로 만들어 불필요한 리빌드 방지
@@ -180,62 +174,25 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     if (_selectedIndex != 0) return; // 홈 탭이 아닐 때 무시
     if (_didCheckUpdateOnce) return; // 세션당 1회만
     _didCheckUpdateOnce = true;
-    _checkAppStoreUpdate();
+    _checkAppVersion();
   }
 
-  Future<void> _checkAppStoreUpdate() async {
-    if (!Platform.isIOS) return; // iOS만 체크
-
+  /// 백엔드 API를 통한 버전 체크
+  ///
+  /// - iOS와 Android 모두 지원
+  /// - 서버에서 플랫폼별 최신 버전 정보 관리
+  /// - 강제 업데이트 또는 선택적 업데이트 다이얼로그 표시
+  Future<void> _checkAppVersion() async {
     try {
-      final info = await PackageInfo.fromPlatform();
-      final current = info.version; // e.g. "1.0.3"
+      final result = await _versionService.checkVersion();
 
-      final url = Uri.parse(
-          'https://itunes.apple.com/lookup?bundleId=$_bundleId&country=$_country');
-
-      final res = await http.get(url).timeout(const Duration(seconds: 6));
-      if (res.statusCode != 200) return;
-
-      final jsonMap = json.decode(res.body) as Map<String, dynamic>;
-      final results = (jsonMap['results'] as List?) ?? [];
-      if (results.isEmpty) return;
-
-      final latest = (results.first['version'] as String?)?.trim();
-      if (latest == null || latest.isEmpty) return;
-
-      if (_isNewerVersion(latest, current)) {
-        // 배너 or 스낵바—선호대로 골라써
-        if (mounted) {
-          // 업데이트 알림 로직은 필요시 추가
-          debugPrint('새로운 버전 있음: $latest');
-        }
+      // 업데이트가 필요한 경우 다이얼로그 표시
+      if (result.needsUpdate && mounted) {
+        await UpdateDialog.show(context, result);
       }
-    } catch (_) {
-      // 조용히 패스 (네트워크 이슈 등)
-    }
-  }
-
-  bool _isNewerVersion(String remote, String local) {
-    // 단순 세그먼트 비교: 1.2.10 vs 1.2.3
-    List<int> toNums(String v) =>
-        v.split('.').map((e) => int.tryParse(e) ?? 0).toList();
-    final r = toNums(remote);
-    final l = toNums(local);
-    for (int i = 0; i < 3; i++) {
-      final ri = i < r.length ? r[i] : 0;
-      final li = i < l.length ? l[i] : 0;
-      if (ri > li) return true;
-      if (ri < li) return false;
-    }
-    return false;
-  }
-
-
-  Future<void> _openAppStoreUpdatePage() async {
-    // 앱 상세 페이지로 이동 (업데이트 가능하면 버튼이 '업데이트'로 뜸)
-    final uri = Uri.parse('itms-apps://apps.apple.com/$_country/app/id$_iosAppId');
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      // 버전 체크 실패 시 조용히 무시 (네트워크 이슈 등)
+      debugPrint('Version check failed: $e');
     }
   }
 }

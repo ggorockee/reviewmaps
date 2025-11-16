@@ -116,16 +116,24 @@ def get_user_from_token(token: str) -> Optional[User]:
         return None
 
 
-def create_anonymous_session_id() -> str:
+def create_anonymous_session_id(expire_hours: int = None) -> str:
     """
     익명 사용자 세션 ID 생성
+
+    Args:
+        expire_hours: 만료 시간 (시간 단위). None이면 기본값 사용
 
     Returns:
         세션 ID (JWT 형식)
     """
     import uuid
     session_id = str(uuid.uuid4())
-    expire = datetime.utcnow() + timedelta(hours=settings.ANONYMOUS_SESSION_EXPIRE_HOURS)
+
+    # 만료 시간 설정 (파라미터가 없으면 설정값 사용)
+    if expire_hours is None:
+        expire_hours = settings.ANONYMOUS_SESSION_EXPIRE_HOURS
+
+    expire = datetime.utcnow() + timedelta(hours=expire_hours)
 
     payload = {
         'session_id': session_id,

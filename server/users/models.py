@@ -37,10 +37,25 @@ class User(AbstractBaseUser, PermissionsMixin):
     username 필드 제거, email을 primary identifier로 사용
     """
 
+    LOGIN_METHOD_CHOICES = [
+        ('email', '이메일'),
+        ('google', 'Google'),
+        ('apple', 'Apple'),
+        ('kakao', 'Kakao'),
+        ('naver', 'Naver'),
+    ]
+
     email = models.EmailField(
         unique=True,
         verbose_name="이메일",
         help_text="사용자 로그인용 이메일 주소"
+    )
+    login_method = models.CharField(
+        max_length=20,
+        choices=LOGIN_METHOD_CHOICES,
+        default='email',
+        verbose_name="로그인 방식",
+        help_text="사용자가 가입한 방식 (email, google, apple, kakao, naver)"
     )
     is_active = models.BooleanField(default=True, verbose_name="활성 상태")
     is_staff = models.BooleanField(default=False, verbose_name="스태프 권한")

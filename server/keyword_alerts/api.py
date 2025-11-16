@@ -29,7 +29,7 @@ def get_auth_info(request):
     """
     auth_header = request.headers.get('Authorization')
     if not auth_header or not auth_header.startswith('Bearer '):
-        raise HttpError(401, "인증 토큰이 필요합니다.")
+        raise HttpError(401, "로그인이 필요합니다.")
 
     token = auth_header.split(' ')[1]
 
@@ -151,7 +151,7 @@ async def delete_keyword(request, keyword_id: int):
     keyword.is_active = False
     await sync_to_async(keyword.save)()
 
-    return {"message": "키워드가 삭제되었습니다."}
+    return {"message": "삭제되었습니다."}
 
 
 @router.get("/alerts", response=KeywordAlertListResponse, summary="내 알람 목록")

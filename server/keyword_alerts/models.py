@@ -54,7 +54,12 @@ class Keyword(CoreModel):
         ]
 
     def __str__(self):
-        owner = self.user.email if self.user else f"익명({self.anonymous_session_id[:8]})"
+        if self.user:
+            owner = self.user.email
+        elif self.anonymous_session_id:
+            owner = f"익명({self.anonymous_session_id[:8]})"
+        else:
+            owner = "알 수 없음"
         return f"{self.keyword} - {owner}"
 
 

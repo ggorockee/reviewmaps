@@ -30,10 +30,16 @@ class TokenRefreshRequest(Schema):
     refresh_token: str
 
 
+class AnonymousSessionRequest(Schema):
+    """익명 세션 생성 요청"""
+    expire_hours: Optional[int] = None  # None이면 기본값 사용
+
+
 class AnonymousSessionResponse(Schema):
     """익명 세션 응답"""
     session_token: str
     expires_at: datetime
+    expire_hours: int
 
 
 class UserResponse(Schema):
@@ -42,6 +48,14 @@ class UserResponse(Schema):
     email: str
     is_active: bool
     date_joined: datetime
+    login_method: Optional[str] = None  # email, google, apple, kakao, naver 등
+
+
+class AnonymousUserResponse(Schema):
+    """익명 사용자 정보 응답"""
+    session_id: str
+    expires_at: datetime
+    remaining_hours: float  # 남은 시간 (소수점 포함)
 
 
 class ConvertAnonymousRequest(Schema):

@@ -1,12 +1,9 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:mobile/config/config.dart';
-import 'package:mobile/const/colors.dart';
 import '../models/store_model.dart';
 import '../services/campaign_service.dart';
 import '../widgets/experience_card.dart';
@@ -174,17 +171,6 @@ class _CampaignListScreenState extends ConsumerState<CampaignListScreen> {
       final baseHeight = isTab ? 190.0 : 160.0;
       return (baseHeight * ts).h;
     }
-  }
-
-  double _gridAspectRatio(BuildContext context) {
-    if (widget.isSearchResult) return 1.0; // 검색결과는 사용하지 않음
-    
-    final width = MediaQuery.of(context).size.width;
-    final horizontalPadding = 16.0 * 2;
-    final crossSpacing = 0.0;
-    final cellW = (width - horizontalPadding - crossSpacing) / 2;
-    final cellH = _getItemHeight();
-    return cellW / cellH;
   }
 
   @override

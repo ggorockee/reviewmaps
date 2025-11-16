@@ -70,7 +70,7 @@ class _NativeAdWidgetState extends State<NativeAdWidget> {
               'ad_unit_id': _adService.nativeAdId,
             });
 
-            print('[NativeAdWidget] 네이티브 광고 로드 완료');
+            debugPrint('[NativeAdWidget] 네이티브 광고 로드 완료');
           },
           onAdFailedToLoad: (ad, error) {
             setState(() {
@@ -84,7 +84,7 @@ class _NativeAdWidgetState extends State<NativeAdWidget> {
               'error_message': error.message,
             });
 
-            print('[NativeAdWidget] 네이티브 광고 로드 실패: ${error.message}');
+            debugPrint('[NativeAdWidget] 네이티브 광고 로드 실패: ${error.message}');
 
             // 광고 dispose
             ad.dispose();
@@ -92,10 +92,10 @@ class _NativeAdWidgetState extends State<NativeAdWidget> {
           onAdOpened: (ad) {
             // 광고 클릭 이벤트 로깅
             _adService.logNativeAdClick();
-            print('[NativeAdWidget] 네이티브 광고 클릭됨');
+            debugPrint('[NativeAdWidget] 네이티브 광고 클릭됨');
           },
           onAdClosed: (ad) {
-            print('[NativeAdWidget] 네이티브 광고 닫힘');
+            debugPrint('[NativeAdWidget] 네이티브 광고 닫힘');
           },
         ),
         nativeTemplateStyle: NativeTemplateStyle(
@@ -137,7 +137,7 @@ class _NativeAdWidgetState extends State<NativeAdWidget> {
         _isAdLoading = false;
       });
 
-      print('[NativeAdWidget] 네이티브 광고 로드 중 오류: $e');
+      debugPrint('[NativeAdWidget] 네이티브 광고 로드 중 오류: $e');
     }
   }
 

@@ -20,7 +20,6 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
   bool _isLoading = true;
   List<KeywordInfo> _keywords = [];
   List<AlertInfo> _allAlerts = [];
-  List<AlertInfo> _unreadAlerts = [];
 
   @override
   void initState() {
@@ -38,13 +37,10 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
     try {
       final keywords = await _keywordService.getMyKeywords();
       final allAlertsResponse = await _keywordService.getMyAlerts();
-      final unreadAlertsResponse =
-          await _keywordService.getMyAlerts(isRead: false);
 
       setState(() {
         _keywords = keywords;
         _allAlerts = allAlertsResponse.alerts;
-        _unreadAlerts = unreadAlertsResponse.alerts;
         _isLoading = false;
       });
     } catch (e) {

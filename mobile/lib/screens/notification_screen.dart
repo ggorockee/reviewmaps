@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 /// 체험단 알림 화면
@@ -354,35 +355,29 @@ class _NotificationScreenState extends State<NotificationScreen>
 
           const Spacer(),
 
-          // 토글 스위치
-          Switch(
-            value: item.isActive,
-            onChanged: (_) => _toggleKeyword(index),
-            thumbColor: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.selected)) {
-                return Colors.white;
-              }
-              return Colors.white;
-            }),
-            trackColor: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.selected)) {
-                return Theme.of(context).primaryColor;
-              }
-              return Colors.grey.shade400;
-            }),
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          // 토글 스위치 (iOS 스타일로 일관된 크기 유지)
+          Transform.scale(
+            scale: 0.8,
+            child: CupertinoSwitch(
+              value: item.isActive,
+              onChanged: (_) => _toggleKeyword(index),
+              activeColor: Theme.of(context).primaryColor,
+            ),
           ),
 
-          SizedBox(width: 8.w),
+          SizedBox(width: 12.w),
 
           // 삭제 버튼
-          IconButton(
-            icon: Icon(
-              Icons.delete_outline,
-              color: Colors.red,
-              size: 20.sp,
+          GestureDetector(
+            onTap: () => _removeKeyword(index),
+            child: Container(
+              padding: EdgeInsets.all(4.w),
+              child: Icon(
+                Icons.close,
+                color: Colors.red,
+                size: 20.sp,
+              ),
             ),
-            onPressed: () => _removeKeyword(index),
           ),
         ],
       ),

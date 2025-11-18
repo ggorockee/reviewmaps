@@ -358,10 +358,18 @@ class _NotificationScreenState extends State<NotificationScreen>
           Switch(
             value: item.isActive,
             onChanged: (_) => _toggleKeyword(index),
-            activeColor: Theme.of(context).primaryColor,
-            activeTrackColor: Theme.of(context).primaryColor.withValues(alpha: 0.5),
-            inactiveThumbColor: Colors.white,
-            inactiveTrackColor: Colors.grey.shade400,
+            thumbColor: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.selected)) {
+                return Colors.white;
+              }
+              return Colors.white;
+            }),
+            trackColor: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.selected)) {
+                return Theme.of(context).primaryColor;
+              }
+              return Colors.grey.shade400;
+            }),
             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           ),
 

@@ -40,10 +40,11 @@ class _NotificationScreenState extends State<NotificationScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('키워드를 입력해 주세요'),
-          duration: const Duration(seconds: 2),
+          duration: const Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
           action: SnackBarAction(
-            label: 'X',
-            textColor: Colors.white,
+            label: '닫기',
+            textColor: Colors.white70,
             onPressed: () {
               ScaffoldMessenger.of(context).hideCurrentSnackBar();
             },
@@ -57,10 +58,11 @@ class _NotificationScreenState extends State<NotificationScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('키워드는 최대 20개까지 등록할 수 있습니다'),
-          duration: const Duration(seconds: 2),
+          duration: const Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
           action: SnackBarAction(
-            label: 'X',
-            textColor: Colors.white,
+            label: '닫기',
+            textColor: Colors.white70,
             onPressed: () {
               ScaffoldMessenger.of(context).hideCurrentSnackBar();
             },
@@ -84,9 +86,10 @@ class _NotificationScreenState extends State<NotificationScreen>
         content: Text("'$keyword' 키워드가 추가되었습니다"),
         duration: const Duration(seconds: 2),
         backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
         action: SnackBarAction(
-          label: 'X',
-          textColor: Colors.white,
+          label: '닫기',
+          textColor: Colors.white70,
           onPressed: () {
             ScaffoldMessenger.of(context).hideCurrentSnackBar();
           },
@@ -106,9 +109,10 @@ class _NotificationScreenState extends State<NotificationScreen>
       SnackBar(
         content: Text("'$keyword' 키워드가 삭제되었습니다"),
         duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
         action: SnackBarAction(
-          label: 'X',
-          textColor: Colors.white,
+          label: '닫기',
+          textColor: Colors.white70,
           onPressed: () {
             ScaffoldMessenger.of(context).hideCurrentSnackBar();
           },
@@ -131,9 +135,10 @@ class _NotificationScreenState extends State<NotificationScreen>
         content: Text("'$keyword' 알림이 ${isActive ? '활성화' : '비활성화'}되었습니다"),
         duration: const Duration(seconds: 2),
         backgroundColor: isActive ? Colors.green : Colors.orange,
+        behavior: SnackBarBehavior.floating,
         action: SnackBarAction(
-          label: 'X',
-          textColor: Colors.white,
+          label: '닫기',
+          textColor: Colors.white70,
           onPressed: () {
             ScaffoldMessenger.of(context).hideCurrentSnackBar();
           },

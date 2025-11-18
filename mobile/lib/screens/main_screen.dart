@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:mobile/screens/home_screen.dart';
 import 'package:mobile/screens/map_screen.dart';
-import 'package:mobile/screens/my_page_screen.dart';
+import 'package:mobile/screens/notification_screen.dart';
+import 'package:mobile/screens/profile_screen.dart';
+import 'package:mobile/screens/auth/login_screen.dart';
 import 'package:mobile/widgets/friendly.dart';
+import 'package:mobile/widgets/auth_required_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/providers/location_provider.dart';
+import 'package:mobile/providers/auth_provider.dart';
 import 'package:mobile/services/version_service.dart';
 import 'package:mobile/widgets/update_dialog.dart';
 
@@ -16,9 +20,9 @@ import 'package:mobile/widgets/update_dialog.dart';
 /// MainScreen
 /// ------------------------------------------------------
 /// 하단 탭 내비게이션 컨테이너.
-/// - 탭: 홈 / 지도 / 내정보
+/// - 탭: 홈 / 지도 / 알림 / 내정보
 /// - 상태 보존: IndexedStack 사용 → 탭 전환 시 각 화면의 상태(스크롤, 지도 컨트롤러 등) 유지
-/// - 배포: 미사용 import/코드 제거, 최소 로직
+/// - 인증 체크: 알림/내정보 탭은 회원만 접근 가능
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
 
@@ -51,15 +55,17 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     // 리워드 광고 미리 로드 (비활성화)
     // RewardedAdService().loadAd();
 
-    // 앱 시작 시 권한/위치 초기화
+    // 앱 시작 시 권한/위치 초기화 및 인증 상태 체크
     Future.microtask(() async{
       await ref.read(locationProvider.notifier).update();
+      await ref.read(authProvider.notifier).checkAuthStatus();
     });
 
     _tabs = [
       const HomeScreen(),
       null, // MapScreen은 아직 생성하지 않음 → 권한 팝업 안뜸
-      const MyPageScreen(),
+      null, // NotificationScreen도 lazy loading
+      null, // ProfileScreen도 lazy loading
     ];
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -68,12 +74,41 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   }
 
   /// 하단탭 탭 이벤트 핸들러
-  void _onItemTapped(int index) {
+  void _onItemTapped(int index) async {
     if (_selectedIndex == index) return; // 같은 탭 재터치 시 무시(깜빡임 방지)
+
+    // 알림(2) 또는 내정보(3) 탭 클릭 시 인증 체크
+    if (index == 2 || index == 3) {
+      final authState = ref.read(authProvider);
+
+      // 일반 회원이 아니면 (비회원 또는 익명 사용자)
+      if (!authState.isRegularUser) {
+        final confirmed = await AuthRequiredDialog.show(context);
+
+        if (confirmed == true && mounted) {
+          // 로그인 화면으로 이동
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => const LoginScreen(),
+            ),
+          );
+        }
+        return; // 탭 전환하지 않음
+      }
+    }
+
     setState(() {
       _selectedIndex = index;
+
+      // Lazy loading
       if (index == 1 && _tabs[1] == null) {
-        _tabs[1] = const MapScreen(); // 여기서 최초 생성 → 자동 권한요청 방지
+        _tabs[1] = const MapScreen();
+      }
+      if (index == 2 && _tabs[2] == null) {
+        _tabs[2] = const NotificationScreen();
+      }
+      if (index == 3 && _tabs[3] == null) {
+        _tabs[3] = const ProfileScreen();
       }
     });
 
@@ -104,11 +139,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 전역 위치 상태 구독 (원한다면)
-    final locationState = ref.watch(locationProvider);
     final bool isTab = _isTablet(context);
     final double maxScale = isTab ? 1.10 : 1.30;
-    
+
     return ClampTextScale(
       max: maxScale,
       child: PopScope(
@@ -130,14 +163,15 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               children: [
                 _tabs[0]!,
                 _tabs[1] ?? const SizedBox.shrink(),
-                _tabs[2]!,
+                _tabs[2] ?? const SizedBox.shrink(),
+                _tabs[3] ?? const SizedBox.shrink(),
               ],
             ),
           ),
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed, // 탭 3개 이상일 때도 안정
+        type: BottomNavigationBarType.fixed, // 탭 4개일 때도 안정
         items: [
           BottomNavigationBarItem(
             icon: Icon(Icons.home_outlined, size: (isTab ? 32.0 : 24.0) * (1.0 + (MediaQuery.textScalerOf(context).textScaleFactor - 1.0) * 0.3).clamp(1.0, 1.2)),
@@ -146,6 +180,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.map_outlined, size: (isTab ? 32.0 : 24.0) * (1.0 + (MediaQuery.textScalerOf(context).textScaleFactor - 1.0) * 0.3).clamp(1.0, 1.2)),
             label: '지도'
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.notifications_outlined, size: (isTab ? 32.0 : 24.0) * (1.0 + (MediaQuery.textScalerOf(context).textScaleFactor - 1.0) * 0.3).clamp(1.0, 1.2)),
+            label: '알림'
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline, size: (isTab ? 32.0 : 24.0) * (1.0 + (MediaQuery.textScalerOf(context).textScaleFactor - 1.0) * 0.3).clamp(1.0, 1.2)),

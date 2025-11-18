@@ -358,7 +358,11 @@ class _NotificationScreenState extends State<NotificationScreen>
           Switch(
             value: item.isActive,
             onChanged: (_) => _toggleKeyword(index),
-            activeTrackColor: Theme.of(context).primaryColor,
+            activeColor: Theme.of(context).primaryColor,
+            activeTrackColor: Theme.of(context).primaryColor.withValues(alpha: 0.5),
+            inactiveThumbColor: Colors.white,
+            inactiveTrackColor: Colors.grey.shade400,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           ),
 
           SizedBox(width: 8.w),

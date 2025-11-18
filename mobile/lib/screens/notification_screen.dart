@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../services/keyword_service.dart';
 import '../models/keyword_models.dart';
@@ -226,6 +227,48 @@ class _NotificationScreenState extends State<NotificationScreen>
         ),
       );
     }
+  }
+
+  /// 키워드 알림 토글
+  void _toggleKeyword(int index) {
+    final old = _keywords[index];
+    final newIsActive = !old.isActive;
+
+    setState(() {
+      // KeywordInfo는 final 필드라서 새 객체를 생성하여 교체
+      _keywords[index] = KeywordInfo(
+        id: old.id,
+        keyword: old.keyword,
+        isActive: newIsActive,
+        createdAt: old.createdAt,
+      );
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("'${old.keyword}' 알림이 ${newIsActive ? '활성화' : '비활성화'}되었습니다"),
+        duration: const Duration(seconds: 2),
+        backgroundColor: newIsActive ? Colors.green : Colors.orange,
+        behavior: SnackBarBehavior.floating,
+        action: SnackBarAction(
+          label: '닫기',
+          textColor: Colors.white70,
+          onPressed: () {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          },
+        ),
+      ),
+    );
+
+    // TODO: API 연동 시 추가
+    // try {
+    //   await _keywordService.toggleKeyword(old.id, newIsActive);
+    // } catch (e) {
+    //   // 실패 시 롤백
+    //   setState(() {
+    //     _keywords[index] = old;
+    //   });
+    // }
   }
 
   @override
@@ -491,6 +534,18 @@ class _NotificationScreenState extends State<NotificationScreen>
           ),
 
           const Spacer(),
+
+          // 토글 스위치 (iOS 스타일로 일관된 크기 유지)
+          Transform.scale(
+            scale: 0.8,
+            child: CupertinoSwitch(
+              value: item.isActive,
+              onChanged: (_) => _toggleKeyword(index),
+              activeTrackColor: Theme.of(context).primaryColor,
+            ),
+          ),
+
+          SizedBox(width: 12.w),
 
           // 삭제 버튼
           IconButton(

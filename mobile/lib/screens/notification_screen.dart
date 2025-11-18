@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 /// 체험단 알림 화면
@@ -361,7 +360,7 @@ class _NotificationScreenState extends State<NotificationScreen>
             child: CupertinoSwitch(
               value: item.isActive,
               onChanged: (_) => _toggleKeyword(index),
-              activeColor: Theme.of(context).primaryColor,
+              activeTrackColor: Theme.of(context).primaryColor,
             ),
           ),
 

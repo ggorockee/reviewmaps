@@ -38,9 +38,16 @@ class _NotificationScreenState extends State<NotificationScreen>
     final keyword = _keywordController.text.trim();
     if (keyword.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('키워드를 입력해 주세요'),
-          duration: Duration(seconds: 2),
+        SnackBar(
+          content: const Text('키워드를 입력해 주세요'),
+          duration: const Duration(seconds: 2),
+          action: SnackBarAction(
+            label: 'X',
+            textColor: Colors.white,
+            onPressed: () {
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            },
+          ),
         ),
       );
       return;
@@ -48,9 +55,16 @@ class _NotificationScreenState extends State<NotificationScreen>
 
     if (_keywords.length >= 20) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('키워드는 최대 20개까지 등록할 수 있습니다'),
-          duration: Duration(seconds: 2),
+        SnackBar(
+          content: const Text('키워드는 최대 20개까지 등록할 수 있습니다'),
+          duration: const Duration(seconds: 2),
+          action: SnackBarAction(
+            label: 'X',
+            textColor: Colors.white,
+            onPressed: () {
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            },
+          ),
         ),
       );
       return;
@@ -70,6 +84,13 @@ class _NotificationScreenState extends State<NotificationScreen>
         content: Text("'$keyword' 키워드가 추가되었습니다"),
         duration: const Duration(seconds: 2),
         backgroundColor: Colors.green,
+        action: SnackBarAction(
+          label: 'X',
+          textColor: Colors.white,
+          onPressed: () {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          },
+        ),
       ),
     );
   }
@@ -85,6 +106,13 @@ class _NotificationScreenState extends State<NotificationScreen>
       SnackBar(
         content: Text("'$keyword' 키워드가 삭제되었습니다"),
         duration: const Duration(seconds: 2),
+        action: SnackBarAction(
+          label: 'X',
+          textColor: Colors.white,
+          onPressed: () {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          },
+        ),
       ),
     );
   }
@@ -103,6 +131,13 @@ class _NotificationScreenState extends State<NotificationScreen>
         content: Text("'$keyword' 알림이 ${isActive ? '활성화' : '비활성화'}되었습니다"),
         duration: const Duration(seconds: 2),
         backgroundColor: isActive ? Colors.green : Colors.orange,
+        action: SnackBarAction(
+          label: 'X',
+          textColor: Colors.white,
+          onPressed: () {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          },
+        ),
       ),
     );
   }
@@ -368,16 +403,13 @@ class _NotificationScreenState extends State<NotificationScreen>
           SizedBox(width: 12.w),
 
           // 삭제 버튼
-          GestureDetector(
-            onTap: () => _removeKeyword(index),
-            child: Container(
-              padding: EdgeInsets.all(4.w),
-              child: Icon(
-                Icons.close,
-                color: Colors.red,
-                size: 20.sp,
-              ),
+          IconButton(
+            icon: Icon(
+              Icons.delete_outline,
+              color: Colors.red,
+              size: 20.sp,
             ),
+            onPressed: () => _removeKeyword(index),
           ),
         ],
       ),

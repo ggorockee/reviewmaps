@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import '../services/keyword_service.dart';
+import '../models/keyword_models.dart';
 
 /// 체험단 알림 화면
 /// - 2개 탭: 키워드 관리, 알림 기록
@@ -16,25 +17,69 @@ class _NotificationScreenState extends State<NotificationScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _keywordController = TextEditingController();
+  final KeywordService _keywordService = KeywordService();
 
-  // 임시 데이터 (향후 API 연동 시 제거)
-  final List<KeywordItem> _keywords = [];
+  List<KeywordInfo> _keywords = [];
+  bool _isLoading = false;
+  bool _isInitialLoading = true;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _loadKeywords();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     _keywordController.dispose();
+    _keywordService.dispose();
     super.dispose();
   }
 
+  /// 키워드 목록 로드
+  Future<void> _loadKeywords() async {
+    if (!mounted) return;
+
+    setState(() {
+      _isInitialLoading = true;
+    });
+
+    try {
+      final keywords = await _keywordService.getMyKeywords();
+      if (!mounted) return;
+
+      setState(() {
+        _keywords = keywords;
+        _isInitialLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _isInitialLoading = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('키워드 목록을 불러올 수 없습니다: $e'),
+          duration: const Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
+          action: SnackBarAction(
+            label: '닫기',
+            textColor: Colors.white70,
+            onPressed: () {
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            },
+          ),
+        ),
+      );
+    }
+  }
+
   /// 키워드 추가
-  void _addKeyword() {
+  Future<void> _addKeyword() async {
     final keyword = _keywordController.text.trim();
     if (keyword.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -73,78 +118,114 @@ class _NotificationScreenState extends State<NotificationScreen>
     }
 
     setState(() {
-      _keywords.add(KeywordItem(
-        keyword: keyword,
-        isActive: true,
-        createdAt: DateTime.now(),
-      ));
-      _keywordController.clear();
+      _isLoading = true;
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text("'$keyword' 키워드가 추가되었습니다"),
-        duration: const Duration(seconds: 2),
-        backgroundColor: Colors.green,
-        behavior: SnackBarBehavior.floating,
-        action: SnackBarAction(
-          label: '닫기',
-          textColor: Colors.white70,
-          onPressed: () {
-            ScaffoldMessenger.of(context).hideCurrentSnackBar();
-          },
+    try {
+      final newKeyword = await _keywordService.registerKeyword(keyword);
+      if (!mounted) return;
+
+      setState(() {
+        _keywords.add(newKeyword);
+        _keywordController.clear();
+        _isLoading = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("'$keyword' 키워드가 추가되었습니다"),
+          duration: const Duration(seconds: 2),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          action: SnackBarAction(
+            label: '닫기',
+            textColor: Colors.white70,
+            onPressed: () {
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            },
+          ),
         ),
-      ),
-    );
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('키워드 추가 실패: $e'),
+          duration: const Duration(seconds: 3),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          action: SnackBarAction(
+            label: '닫기',
+            textColor: Colors.white70,
+            onPressed: () {
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            },
+          ),
+        ),
+      );
+    }
   }
 
   /// 키워드 삭제
-  void _removeKeyword(int index) {
-    final keyword = _keywords[index].keyword;
+  Future<void> _removeKeyword(int index) async {
+    final keywordInfo = _keywords[index];
+    final keyword = keywordInfo.keyword;
+
     setState(() {
-      _keywords.removeAt(index);
+      _isLoading = true;
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text("'$keyword' 키워드가 삭제되었습니다"),
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-        action: SnackBarAction(
-          label: '닫기',
-          textColor: Colors.white70,
-          onPressed: () {
-            ScaffoldMessenger.of(context).hideCurrentSnackBar();
-          },
+    try {
+      await _keywordService.deleteKeyword(keywordInfo.id);
+      if (!mounted) return;
+
+      setState(() {
+        _keywords.removeAt(index);
+        _isLoading = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("'$keyword' 키워드가 삭제되었습니다"),
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          action: SnackBarAction(
+            label: '닫기',
+            textColor: Colors.white70,
+            onPressed: () {
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            },
+          ),
         ),
-      ),
-    );
-  }
+      );
+    } catch (e) {
+      if (!mounted) return;
 
-  /// 키워드 알림 토글
-  void _toggleKeyword(int index) {
-    setState(() {
-      _keywords[index].isActive = !_keywords[index].isActive;
-    });
+      setState(() {
+        _isLoading = false;
+      });
 
-    final keyword = _keywords[index].keyword;
-    final isActive = _keywords[index].isActive;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text("'$keyword' 알림이 ${isActive ? '활성화' : '비활성화'}되었습니다"),
-        duration: const Duration(seconds: 2),
-        backgroundColor: isActive ? Colors.green : Colors.orange,
-        behavior: SnackBarBehavior.floating,
-        action: SnackBarAction(
-          label: '닫기',
-          textColor: Colors.white70,
-          onPressed: () {
-            ScaffoldMessenger.of(context).hideCurrentSnackBar();
-          },
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('키워드 삭제 실패: $e'),
+          duration: const Duration(seconds: 3),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          action: SnackBarAction(
+            label: '닫기',
+            textColor: Colors.white70,
+            onPressed: () {
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            },
+          ),
         ),
-      ),
-    );
+      );
+    }
   }
 
   @override
@@ -158,9 +239,7 @@ class _NotificationScreenState extends State<NotificationScreen>
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: () {
-              // TODO: 새로고침 기능
-            },
+            onPressed: _loadKeywords,
           ),
         ],
         bottom: TabBar(
@@ -262,7 +341,7 @@ class _NotificationScreenState extends State<NotificationScreen>
               ),
               SizedBox(width: 8.w),
               ElevatedButton(
-                onPressed: _addKeyword,
+                onPressed: _isLoading ? null : _addKeyword,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Theme.of(context).primaryColor,
                   foregroundColor: Colors.white,
@@ -276,13 +355,22 @@ class _NotificationScreenState extends State<NotificationScreen>
                   ),
                   minimumSize: Size(0, 46.h),
                 ),
-                child: Text(
-                  '추가',
-                  style: TextStyle(
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+                child: _isLoading
+                    ? SizedBox(
+                        width: 20.w,
+                        height: 20.h,
+                        child: const CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : Text(
+                        '추가',
+                        style: TextStyle(
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
               ),
             ],
           ),
@@ -317,7 +405,16 @@ class _NotificationScreenState extends State<NotificationScreen>
           SizedBox(height: 24.h),
 
           // 키워드 리스트
-          if (_keywords.isEmpty)
+          if (_isInitialLoading)
+            Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 40.h),
+                child: CircularProgressIndicator(
+                  color: Theme.of(context).primaryColor,
+                ),
+              ),
+            )
+          else if (_keywords.isEmpty)
             _buildEmptyState()
           else
             ..._keywords.asMap().entries.map((entry) {
@@ -334,7 +431,7 @@ class _NotificationScreenState extends State<NotificationScreen>
   }
 
   /// 키워드 카드
-  Widget _buildKeywordCard(KeywordItem item, int index) {
+  Widget _buildKeywordCard(KeywordInfo item, int index) {
     return Container(
       padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
@@ -394,18 +491,6 @@ class _NotificationScreenState extends State<NotificationScreen>
           ),
 
           const Spacer(),
-
-          // 토글 스위치 (iOS 스타일로 일관된 크기 유지)
-          Transform.scale(
-            scale: 0.8,
-            child: CupertinoSwitch(
-              value: item.isActive,
-              onChanged: (_) => _toggleKeyword(index),
-              activeTrackColor: Theme.of(context).primaryColor,
-            ),
-          ),
-
-          SizedBox(width: 12.w),
 
           // 삭제 버튼
           IconButton(
@@ -494,17 +579,4 @@ class _NotificationScreenState extends State<NotificationScreen>
       ),
     );
   }
-}
-
-/// 키워드 아이템 모델
-class KeywordItem {
-  final String keyword;
-  bool isActive;
-  final DateTime createdAt;
-
-  KeywordItem({
-    required this.keyword,
-    required this.isActive,
-    required this.createdAt,
-  });
 }

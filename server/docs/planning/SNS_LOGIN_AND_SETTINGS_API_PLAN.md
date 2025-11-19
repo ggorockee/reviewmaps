@@ -79,65 +79,131 @@ class AdConfiguration(models.Model):
         ]
 ```
 
-#### API 응답 예시
+#### API 응답 예시 (플랫폼별 구분)
 ```json
 {
   "ad_configurations": {
     "admob": {
-      "banner": {
-        "ad_unit_id": "ca-app-pub-xxx/banner",
-        "is_active": true,
-        "config": {"size": "SMART_BANNER"}
+      "android": {
+        "banner": {
+          "ad_unit_id": "ca-app-pub-xxx/aos-banner",
+          "is_active": true,
+          "config": {"size": "SMART_BANNER"}
+        },
+        "interstitial": {
+          "ad_unit_id": "ca-app-pub-xxx/aos-interstitial",
+          "is_active": true,
+          "config": {"load_on_startup": true}
+        },
+        "rewarded": {
+          "ad_unit_id": "ca-app-pub-xxx/aos-rewarded",
+          "is_active": true,
+          "config": {"reward_amount": 10}
+        }
       },
-      "interstitial": {
-        "ad_unit_id": "ca-app-pub-xxx/interstitial",
-        "is_active": true,
-        "config": {"load_on_startup": true}
-      },
-      "rewarded": {
-        "ad_unit_id": "ca-app-pub-xxx/rewarded",
-        "is_active": true,
-        "config": {"reward_amount": 10}
+      "ios": {
+        "banner": {
+          "ad_unit_id": "ca-app-pub-xxx/ios-banner",
+          "is_active": true,
+          "config": {"size": "SMART_BANNER"}
+        },
+        "interstitial": {
+          "ad_unit_id": "ca-app-pub-xxx/ios-interstitial",
+          "is_active": true,
+          "config": {"load_on_startup": true}
+        },
+        "rewarded": {
+          "ad_unit_id": "ca-app-pub-xxx/ios-rewarded",
+          "is_active": true,
+          "config": {"reward_amount": 10}
+        }
       }
     },
     "kakao_adfit": {
-      "banner": {
-        "ad_unit_id": "DAN-xxx",
-        "is_active": true,
-        "config": {"width": 320, "height": 100}
+      "android": {
+        "banner": {
+          "ad_unit_id": "DAN-xxx-aos-banner",
+          "is_active": true,
+          "config": {"width": 320, "height": 100}
+        },
+        "native": {
+          "ad_unit_id": "DAN-xxx-aos-native",
+          "is_active": true,
+          "config": {"template": "small"}
+        }
       },
-      "native": {
-        "ad_unit_id": "DAN-xxx-native",
-        "is_active": true,
-        "config": {"template": "small"}
+      "ios": {
+        "banner": {
+          "ad_unit_id": "DAN-xxx-ios-banner",
+          "is_active": true,
+          "config": {"width": 320, "height": 100}
+        },
+        "native": {
+          "ad_unit_id": "DAN-xxx-ios-native",
+          "is_active": true,
+          "config": {"template": "small"}
+        }
       }
-      // 전면광고 없음 (플랫폼 미지원)
+      // 주의: 전면광고는 AdMob에만 있음 (Kakao AdFit 미지원)
     }
   }
 }
 ```
 
-**Flutter 앱 처리 방식**:
+**플랫폼 구분**:
+- `android` (또는 `aos`): Android 광고 ID
+- `ios`: iOS 광고 ID
+- 같은 광고 플랫폼(AdMob, Kakao AdFit)이라도 디바이스 OS별로 다른 광고 단위 ID 사용
+
+**Flutter 앱 처리 방식** (플랫폼 자동 감지):
 ```dart
+import 'dart:io' show Platform;
+
 // 타입 안전성을 위한 모델 클래스
 class AdConfig {
-  final String platform;
+  final String platform;  // 'admob', 'kakao_adfit'
+  final String deviceOS;  // 'android', 'ios'
   final Map<String, AdUnit> adUnits;
 
   // 플랫폼별로 지원하는 광고 타입만 파싱
   factory AdConfig.fromJson(Map<String, dynamic> json) {
-    // 동적으로 처리
+    // 현재 디바이스 OS 자동 감지
+    String currentOS = Platform.isAndroid ? 'android' : 'ios';
+
+    // 해당 OS의 광고 설정만 파싱
+    Map<String, AdUnit> units = {};
+    if (json[currentOS] != null) {
+      json[currentOS].forEach((adType, config) {
+        units[adType] = AdUnit.fromJson(config);
+      });
+    }
+
+    return AdConfig(
+      platform: json['platform'],
+      deviceOS: currentOS,
+      adUnits: units,
+    );
   }
 
   // 특정 광고 타입 존재 여부 확인
   bool hasAdType(String adType) => adUnits.containsKey(adType);
 }
 
-// 사용
-if (adConfig.hasAdType('interstitial')) {
-  // AdMob 전면광고 표시
-} else {
-  // 대체 광고 또는 스킵
+// 사용 예시
+void initializeAds(Map<String, dynamic> adConfigs) {
+  // AdMob 설정 로드 (현재 디바이스 OS에 맞는 광고 ID만 사용)
+  final admobConfig = AdConfig.fromJson(adConfigs['admob']);
+
+  if (admobConfig.hasAdType('interstitial')) {
+    // Android면 aos-interstitial, iOS면 ios-interstitial 자동 선택
+    print('전면광고 ID: ${admobConfig.adUnits['interstitial'].adUnitId}');
+  }
+
+  // Kakao AdFit (전면광고 미지원 체크)
+  final kakaoBanner = AdConfig.fromJson(adConfigs['kakao_adfit']);
+  if (!kakaoBanner.hasAdType('interstitial')) {
+    print('Kakao AdFit은 전면광고를 지원하지 않습니다.');
+  }
 }
 ```
 
@@ -247,15 +313,26 @@ class AppSettings(models.Model):
 ```python
 class AdConfiguration(models.Model):
     platform = models.CharField(max_length=50)  # 'admob', 'kakao_adfit', 'apple_search_ads'
+    device_platform = models.CharField(max_length=20)  # 'android', 'ios'
     ad_type = models.CharField(max_length=50)   # 'banner', 'interstitial', 'rewarded', 'native'
     ad_unit_id = models.CharField(max_length=255)
     is_active = models.BooleanField(default=True)
-    platform_specific_config = models.JSONField(default=dict)
+    platform_specific_config = models.JSONField(default=dict)  # 추가 설정 (크기, 템플릿 등)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = ('platform', 'ad_type')
+        unique_together = ('platform', 'device_platform', 'ad_type')
+        indexes = [
+            models.Index(fields=['platform', 'device_platform', 'is_active'], name='idx_ad_platform_device'),
+        ]
+        verbose_name = "광고 설정"
+        verbose_name_plural = "광고 설정"
+
+# 예시 데이터:
+# AdConfiguration(platform='admob', device_platform='android', ad_type='banner', ad_unit_id='ca-app-pub-xxx/aos-banner')
+# AdConfiguration(platform='admob', device_platform='ios', ad_type='banner', ad_unit_id='ca-app-pub-xxx/ios-banner')
+# AdConfiguration(platform='kakao_adfit', device_platform='android', ad_type='native', ad_unit_id='DAN-xxx-aos-native')
 ```
 
 ### 4. keywords.Keyword (키워드 마스터)
@@ -730,19 +807,29 @@ JWT_ALGORITHM=HS256
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES=60
 JWT_REFRESH_TOKEN_EXPIRE_DAYS=30
 
-# ===== 광고 설정 =====
+# ===== 광고 설정 (플랫폼별) =====
 
-# AdMob (Google)
-ADMOB_APP_ID=ca-app-pub-xxx~xxx
-ADMOB_BANNER_AD_UNIT_ID=ca-app-pub-xxx/banner
-ADMOB_INTERSTITIAL_AD_UNIT_ID=ca-app-pub-xxx/interstitial
-ADMOB_REWARDED_AD_UNIT_ID=ca-app-pub-xxx/rewarded
+# AdMob - Android (AOS)
+ADMOB_AOS_APP_ID=ca-app-pub-xxx~xxx
+ADMOB_AOS_BANNER_AD_UNIT_ID=ca-app-pub-xxx/aos-banner
+ADMOB_AOS_INTERSTITIAL_AD_UNIT_ID=ca-app-pub-xxx/aos-interstitial
+ADMOB_AOS_REWARDED_AD_UNIT_ID=ca-app-pub-xxx/aos-rewarded
 
-# Kakao AdFit
-KAKAO_ADFIT_BANNER_AD_UNIT_ID=DAN-xxx-banner
-KAKAO_ADFIT_NATIVE_AD_UNIT_ID=DAN-xxx-native
+# AdMob - iOS
+ADMOB_IOS_APP_ID=ca-app-pub-xxx~xxx
+ADMOB_IOS_BANNER_AD_UNIT_ID=ca-app-pub-xxx/ios-banner
+ADMOB_IOS_INTERSTITIAL_AD_UNIT_ID=ca-app-pub-xxx/ios-interstitial
+ADMOB_IOS_REWARDED_AD_UNIT_ID=ca-app-pub-xxx/ios-rewarded
 
-# Apple Search Ads (선택적)
+# Kakao AdFit - Android (AOS)
+KAKAO_ADFIT_AOS_BANNER_AD_UNIT_ID=DAN-xxx-aos-banner
+KAKAO_ADFIT_AOS_NATIVE_AD_UNIT_ID=DAN-xxx-aos-native
+
+# Kakao AdFit - iOS
+KAKAO_ADFIT_IOS_BANNER_AD_UNIT_ID=DAN-xxx-ios-banner
+KAKAO_ADFIT_IOS_NATIVE_AD_UNIT_ID=DAN-xxx-ios-native
+
+# Apple Search Ads (iOS만 지원)
 APPLE_SEARCH_ADS_ORG_ID=your_org_id
 APPLE_SEARCH_ADS_KEY_ID=your_key_id
 APPLE_SEARCH_ADS_TEAM_ID=your_team_id

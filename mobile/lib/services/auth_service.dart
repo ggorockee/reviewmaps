@@ -408,4 +408,14 @@ class AuthService {
   Future<bool> isAnonymous() async {
     return await _tokenStorage.isAnonymous();
   }
+
+  /// 저장된 Access Token 조회 (디버깅용)
+  Future<String?> getStoredAccessToken() async {
+    return await _tokenStorage.getAccessToken();
+  }
+
+  /// 저장된 Refresh Token 조회 (디버깅용)
+  Future<String?> getStoredRefreshToken() async {
+    return await _tokenStorage.getRefreshToken();
+  }
 }

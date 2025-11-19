@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mobile/services/app_open_ad_service.dart';
 import 'package:mobile/services/ad_service.dart';
-import 'package:mobile/services/auth_service.dart';
 import 'package:mobile/const/colors.dart';
 import 'package:mobile/screens/main_screen.dart';
-import 'package:mobile/screens/auth/login_screen.dart';
 import 'package:mobile/widgets/friendly.dart';
 import 'package:mobile/widgets/notice_dialog.dart';
 
@@ -30,7 +28,6 @@ class _SplashScreenState extends State<SplashScreen>
 
   final AppOpenAdService _appOpenAdService = AppOpenAdService();
   final AdService _adService = AdService();
-  final AuthService _authService = AuthService();
 
   @override
   void initState() {
@@ -89,23 +86,16 @@ class _SplashScreenState extends State<SplashScreen>
     _showNoticeAndNavigate();
   }
 
-  /// 로그인 상태 확인 후 적절한 화면으로 이동
+  /// 메인 화면으로 이동
+  /// 로그인은 알림/내정보 탭에서만 필요하므로 앱 시작 시 무조건 MainScreen으로 이동
   Future<void> _navigateToMain() async {
     if (!mounted) return;
 
-    // 로그인 상태 확인
-    final isLoggedIn = await _authService.isLoggedIn();
-    print('[SplashScreen] 로그인 상태 확인: ${isLoggedIn ? "로그인됨" : "로그인 안됨"}');
-
-    if (!mounted) return;
-
-    // 로그인되어 있으면 MainScreen, 아니면 LoginScreen으로 이동
-    final targetScreen = isLoggedIn ? const MainScreen() : const LoginScreen();
-    print('[SplashScreen] ${isLoggedIn ? "메인 화면" : "로그인 화면"}으로 이동');
+    print('[SplashScreen] 메인 화면으로 이동');
 
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => targetScreen,
+        pageBuilder: (context, animation, secondaryAnimation) => const MainScreen(),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(
             opacity: animation,

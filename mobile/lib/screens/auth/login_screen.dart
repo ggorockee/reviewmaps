@@ -1,20 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/screens/auth/sign_up_screen.dart';
 import 'package:mobile/screens/main_screen.dart';
 import 'package:mobile/services/auth_service.dart';
+import 'package:mobile/services/sns/kakao_login_service.dart';
+import 'package:mobile/providers/auth_provider.dart';
 import 'package:mobile/const/colors.dart';
 
 /// Login Version 1 화면
 /// Figma 디자인을 기반으로 한 로그인 화면
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
@@ -50,11 +53,22 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
+      // 1. AuthService로 로그인 수행 (토큰 저장)
       await _authService.login(email: email, password: password);
 
       if (!mounted) return;
 
-      // 로그인 성공 - MainScreen으로 이동
+      // 2. 사용자 정보 가져오기
+      final userInfo = await _authService.getUserInfo();
+
+      if (!mounted) return;
+
+      // 3. Riverpod authProvider 상태 업데이트
+      await ref.read(authProvider.notifier).updateAfterLogin(userInfo);
+
+      if (!mounted) return;
+
+      // 4. 로그인 성공 - MainScreen으로 이동
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (context) => const MainScreen(),
@@ -100,11 +114,22 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
+      // 1. AuthService로 익명 로그인 수행 (세션 ID 저장)
       await _authService.loginAnonymous();
 
       if (!mounted) return;
 
-      // 익명 로그인 성공 - MainScreen으로 이동
+      // 2. 익명 사용자 정보 가져오기
+      final anonymousInfo = await _authService.getAnonymousUserInfo();
+
+      if (!mounted) return;
+
+      // 3. Riverpod authProvider 상태 업데이트
+      await ref.read(authProvider.notifier).updateAfterAnonymousLogin(anonymousInfo);
+
+      if (!mounted) return;
+
+      // 4. 익명 로그인 성공 - MainScreen으로 이동
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (context) => const MainScreen(),
@@ -136,11 +161,111 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  /// Kakao 로그인 처리
+  Future<void> _handleKakaoLogin() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // 1. Kakao SDK로 로그인하여 Kakao access token 받기
+      print('[LoginScreen] ========== Kakao 로그인 시작 ==========');
+      print('[LoginScreen] 1. Kakao SDK 로그인 시작');
+      final kakaoAccessToken = await KakaoLoginService.login();
+      print('[LoginScreen] 1. Kakao SDK 로그인 성공');
+      print('[LoginScreen]    - Kakao token: ${kakaoAccessToken.substring(0, 30)}...');
+
+      if (!mounted) return;
+
+      // 2. AuthService로 서버 로그인 (Kakao token → 서버 JWT token)
+      print('[LoginScreen] 2. 서버 Kakao 로그인 시작');
+      final authResponse = await _authService.kakaoLogin(kakaoAccessToken);
+      print('[LoginScreen] 2. 서버 Kakao 로그인 성공');
+      print('[LoginScreen]    - JWT access token: ${authResponse.accessToken.substring(0, 30)}...');
+      print('[LoginScreen]    - JWT refresh token: ${authResponse.refreshToken.substring(0, 30)}...');
+
+      if (!mounted) return;
+
+      // 토큰이 제대로 저장되었는지 확인
+      print('[LoginScreen] 3. 토큰 저장 확인');
+      final storedAccessToken = await _authService.getStoredAccessToken();
+      final storedRefreshToken = await _authService.getStoredRefreshToken();
+      print('[LoginScreen]    - 저장된 access token: ${storedAccessToken?.substring(0, 30) ?? 'null'}...');
+      print('[LoginScreen]    - 저장된 refresh token: ${storedRefreshToken?.substring(0, 30) ?? 'null'}...');
+
+      if (storedAccessToken == null) {
+        throw Exception('토큰 저장에 실패했습니다.\n다시 시도해 주세요.');
+      }
+
+      if (!mounted) return;
+
+      // 3. 사용자 정보 가져오기
+      print('[LoginScreen] 4. 사용자 정보 가져오기 시작');
+      final userInfo = await _authService.getUserInfo();
+      print('[LoginScreen] 4. 사용자 정보 가져오기 성공');
+      print('[LoginScreen]    - 이메일: ${userInfo.email}');
+      print('[LoginScreen]    - 로그인 방식: ${userInfo.loginMethod}');
+
+      if (!mounted) return;
+
+      // 4. Riverpod authProvider 상태 업데이트
+      print('[LoginScreen] 5. authProvider 상태 업데이트 시작');
+      await ref.read(authProvider.notifier).updateAfterLogin(userInfo);
+      print('[LoginScreen] 5. authProvider 상태 업데이트 완료');
+
+      if (!mounted) return;
+
+      // 5. 로그인 성공 - MainScreen으로 이동
+      print('[LoginScreen] 6. MainScreen으로 이동');
+      print('[LoginScreen] ========== Kakao 로그인 완료 ==========');
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => const MainScreen(),
+        ),
+      );
+    } catch (e, stackTrace) {
+      if (!mounted) return;
+
+      print('[LoginScreen] ========== Kakao 로그인 에러 ==========');
+      print('[LoginScreen] 에러 타입: ${e.runtimeType}');
+      print('[LoginScreen] 에러 메시지: $e');
+      print('[LoginScreen] Stack trace: $stackTrace');
+      print('[LoginScreen] ==========================================');
+
+      String errorMessage = '카카오 로그인 중 문제가 발생했습니다.\n잠시 후 다시 시도해 주세요.';
+      final errorText = e.toString();
+
+      if (errorText.contains('Exception:')) {
+        final serverMessage = errorText.replaceAll('Exception:', '').trim();
+
+        // 카카오 SDK 에러 처리
+        if (serverMessage.contains('CANCELED')) {
+          errorMessage = '로그인이 취소되었습니다.';
+        } else if (serverMessage.contains('이메일') && serverMessage.contains('동의')) {
+          errorMessage = '카카오 계정에 이메일이 없습니다.\n이메일 제공 동의가 필요합니다.';
+        } else if (serverMessage.contains('network') || serverMessage.contains('timeout')) {
+          errorMessage = '네트워크 연결이 불안정합니다.\n잠시 후 다시 시도해 주세요.';
+        } else if (serverMessage.isNotEmpty) {
+          errorMessage = serverMessage;
+        }
+      }
+
+      _showErrorDialog(errorMessage);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
   /// 에러 다이얼로그 표시
   void _showErrorDialog(String message) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
         title: const Text('알림'),
         content: Text(message),
         actions: [
@@ -500,9 +625,7 @@ class _LoginScreenState extends State<LoginScreen> {
         // Kakao
         _buildSocialButton(
           text: 'Kakao로 시작하기',
-          onPressed: () {
-            // TODO: Kakao 로그인
-          },
+          onPressed: _isLoading ? null : _handleKakaoLogin,
         ),
         SizedBox(height: 12.h),
         

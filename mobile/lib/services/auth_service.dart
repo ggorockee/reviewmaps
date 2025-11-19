@@ -155,7 +155,7 @@ class AuthService {
     final refreshToken = await _tokenStorage.getRefreshToken();
 
     if (refreshToken == null) {
-      throw Exception('다시 로그인해 주세요.');
+      throw Exception('로그인이 만료되었습니다.\n다시 로그인해 주세요.');
     }
 
     final request = RefreshTokenRequest(refreshToken: refreshToken);
@@ -171,9 +171,12 @@ class AuthService {
 
       _debugPrintResponse('POST', uri.toString(), response);
 
-      if (response.statusCode != 200) {
+      if (response.statusCode == 401) {
+        // 인증 만료 - 사용자 친화적 메시지
+        throw Exception('로그인이 만료되었습니다.\n다시 로그인해 주세요.');
+      } else if (response.statusCode != 200) {
         final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
-        throw Exception(errorBody['detail'] ?? '다시 로그인해 주세요.');
+        throw Exception(errorBody['detail'] ?? '로그인 정보를 갱신할 수 없습니다.\n다시 로그인해 주세요.');
       }
 
       final authResponse =
@@ -237,7 +240,7 @@ class AuthService {
     final sessionToken = await _tokenStorage.getSessionToken();
 
     if (sessionToken == null) {
-      throw Exception('세션이 만료되었습니다. 다시 로그인해 주세요.');
+      throw Exception('이용 시간이 만료되었습니다.\n다시 시작해 주세요.');
     }
 
     final request = ConvertAnonymousRequest(
@@ -295,9 +298,12 @@ class AuthService {
 
       _debugPrintResponse('GET', uri.toString(), response);
 
-      if (response.statusCode != 200) {
+      if (response.statusCode == 401) {
+        // 인증 만료 - 사용자 친화적 메시지
+        throw Exception('로그인이 만료되었습니다.\n다시 로그인해 주세요.');
+      } else if (response.statusCode != 200) {
         final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
-        throw Exception(errorBody['detail'] ?? '사용자 정보를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.');
+        throw Exception(errorBody['detail'] ?? '사용자 정보를 불러올 수 없습니다.\n잠시 후 다시 시도해 주세요.');
       }
 
       return UserInfo.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
@@ -315,7 +321,7 @@ class AuthService {
     final sessionToken = await _tokenStorage.getSessionToken();
 
     if (sessionToken == null) {
-      throw Exception('세션이 만료되었습니다. 다시 로그인해 주세요.');
+      throw Exception('이용 시간이 만료되었습니다.\n다시 시작해 주세요.');
     }
 
     final headers = {
@@ -333,9 +339,12 @@ class AuthService {
 
       _debugPrintResponse('GET', uri.toString(), response);
 
-      if (response.statusCode != 200) {
+      if (response.statusCode == 401) {
+        // 세션 만료 - 사용자 친화적 메시지
+        throw Exception('이용 시간이 만료되었습니다.\n다시 시작해 주세요.');
+      } else if (response.statusCode != 200) {
         final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
-        throw Exception(errorBody['detail'] ?? '사용자 정보를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.');
+        throw Exception(errorBody['detail'] ?? '사용자 정보를 불러올 수 없습니다.\n잠시 후 다시 시도해 주세요.');
       }
 
       return AnonymousUserInfo.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));

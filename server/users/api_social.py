@@ -68,12 +68,10 @@ async def kakao_login(request, payload: KakaoLoginRequest):
             social_account.save()
 
         except SocialAccount.DoesNotExist:
-            # 2. 이메일로 기존 사용자 확인
+            # 2. 이메일 + 로그인 방식으로 기존 사용자 확인
             user, created = User.objects.get_or_create(
                 email=email,
-                defaults={
-                    'login_method': 'kakao',
-                }
+                login_method='kakao',
             )
 
             # 3. SocialAccount 생성
@@ -146,11 +144,10 @@ async def google_login(request, payload: GoogleLoginRequest):
             social_account.save()
 
         except SocialAccount.DoesNotExist:
+            # 이메일 + 로그인 방식으로 기존 사용자 확인
             user, created = User.objects.get_or_create(
                 email=email,
-                defaults={
-                    'login_method': 'google',
-                }
+                login_method='google',
             )
 
             social_account = SocialAccount.objects.create(
@@ -223,11 +220,10 @@ async def apple_login(request, payload: AppleLoginRequest):
             social_account.save()
 
         except SocialAccount.DoesNotExist:
+            # 이메일 + 로그인 방식으로 기존 사용자 확인
             user, created = User.objects.get_or_create(
                 email=email,
-                defaults={
-                    'login_method': 'apple',
-                }
+                login_method='apple',
             )
 
             social_account = SocialAccount.objects.create(

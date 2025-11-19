@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
+import sys
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -98,17 +99,27 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('POSTGRES_DB', 'test'),
-        'USER': os.getenv('POSTGRES_USER', 'test'),
-        'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'test1234'),
-        'HOST': os.getenv('POSTGRES_HOST', 'localhost'),
-        'PORT': os.getenv('POSTGRES_PORT', '5432'),
-        'DISABLE_SERVER_SIDE_CURSORS': True,  # PostgreSQL 13 compatibility
+# 테스트 환경: SQLite 사용 (빠르고 간편)
+# 개발/프로덕션: PostgreSQL 사용
+if 'test' in sys.argv:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'test_db.sqlite3',
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.getenv('POSTGRES_DB', 'test'),
+            'USER': os.getenv('POSTGRES_USER', 'test'),
+            'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'test1234'),
+            'HOST': os.getenv('POSTGRES_HOST', 'localhost'),
+            'PORT': os.getenv('POSTGRES_PORT', '5432'),
+            'DISABLE_SERVER_SIDE_CURSORS': True,  # PostgreSQL 13 compatibility
+        }
+    }
 
 # PostgreSQL 13 임시 호환성 (추후 PostgreSQL 14+로 업그레이드 필요)
 # Django 5.2는 PostgreSQL 14+를 요구하지만, 현재 13.21 사용 중

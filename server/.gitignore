@@ -3,3 +3,4 @@ my-request.txt
 # Django static files
 staticfiles/
 static/
+secret_files/

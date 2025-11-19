@@ -23,6 +23,7 @@ from campaigns.health_api import router as health_router
 from app_config.api import router as app_config_router
 from users.api import router as users_router
 from users.api_social import router as social_login_router
+from users.api_me import router as me_router
 from keyword_alerts.api import router as keyword_alerts_router
 
 # Django Ninja API 인스턴스 생성
@@ -35,6 +36,7 @@ api = NinjaAPI(
 # 라우터 등록
 api.add_router("/auth", users_router)  # /v1/auth/* 로 접근
 api.add_router("/auth", social_login_router)  # /v1/auth/kakao, /v1/auth/google, /v1/auth/apple
+api.add_router("/users", me_router)  # /v1/users/me 로 접근
 api.add_router("/keyword-alerts", keyword_alerts_router)  # /v1/keyword-alerts/* 로 접근
 api.add_router("/campaigns", campaigns_router)
 api.add_router("/categories", categories_router)

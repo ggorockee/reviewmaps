@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
+import sys
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -23,12 +24,19 @@ load_dotenv(BASE_DIR / '.env')
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-zfqoeu-c3^ciy0f98qadcng#l-do0f)w$)sctm)m196*&$-&ia')
-
 # SECURITY WARNING: don't run with debug turned on in production!
 # 프로덕션 환경에서는 반드시 DEBUG=False로 설정
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
+
+# SECURITY WARNING: keep the secret key used in production secret!
+# 개발 환경: 기본값 사용 가능
+# 프로덕션 환경: 환경변수 필수 (없으면 시작 실패)
+if DEBUG:
+    SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-dev-only-do-not-use-in-production')
+else:
+    SECRET_KEY = os.getenv('SECRET_KEY')
+    if not SECRET_KEY:
+        raise ValueError("SECRET_KEY environment variable is required in production")
 
 # ALLOWED_HOSTS 설정
 # 프로덕션: 실제 도메인만 허용
@@ -91,17 +99,27 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('POSTGRES_DB', 'test'),
-        'USER': os.getenv('POSTGRES_USER', 'test'),
-        'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'test1234'),
-        'HOST': os.getenv('POSTGRES_HOST', 'localhost'),
-        'PORT': os.getenv('POSTGRES_PORT', '5432'),
-        'DISABLE_SERVER_SIDE_CURSORS': True,  # PostgreSQL 13 compatibility
+# 테스트 환경: SQLite 사용 (빠르고 간편)
+# 개발/프로덕션: PostgreSQL 사용
+if 'test' in sys.argv:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'test_db.sqlite3',
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.getenv('POSTGRES_DB', 'test'),
+            'USER': os.getenv('POSTGRES_USER', 'test'),
+            'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'test1234'),
+            'HOST': os.getenv('POSTGRES_HOST', 'localhost'),
+            'PORT': os.getenv('POSTGRES_PORT', '5432'),
+            'DISABLE_SERVER_SIDE_CURSORS': True,  # PostgreSQL 13 compatibility
+        }
+    }
 
 # PostgreSQL 13 임시 호환성 (추후 PostgreSQL 14+로 업그레이드 필요)
 # Django 5.2는 PostgreSQL 14+를 요구하지만, 현재 13.21 사용 중
@@ -168,10 +186,21 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'users.User'
 
 # JWT 인증 설정
-JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', SECRET_KEY)
+# 개발 환경: SECRET_KEY를 기본값으로 사용
+# 프로덕션 환경: 환경변수 필수 (없으면 시작 실패)
+if DEBUG:
+    JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', SECRET_KEY)
+else:
+    JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY')
+    if not JWT_SECRET_KEY:
+        raise ValueError("JWT_SECRET_KEY environment variable is required in production")
+
 JWT_ALGORITHM = os.getenv('JWT_ALGORITHM', 'HS256')
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv('JWT_ACCESS_TOKEN_EXPIRE_MINUTES', '60'))
 JWT_REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv('JWT_REFRESH_TOKEN_EXPIRE_DAYS', '7'))
+
+# Apple Sign In 설정
+APPLE_CLIENT_ID = os.getenv('APPLE_CLIENT_ID', 'com.reviewmaps.app')
 
 # 익명 사용자 세션 설정
 ANONYMOUS_SESSION_EXPIRE_HOURS = int(os.getenv('ANONYMOUS_SESSION_EXPIRE_HOURS', '60'))
@@ -228,3 +257,16 @@ if DEBUG:
         'http://localhost:8000',
         'http://127.0.0.1:8000',
     ])
+
+# ===== 보안 설정 검증 (프로덕션 환경) =====
+import logging
+
+if not DEBUG:
+    # ALLOWED_HOSTS 검증
+    if ALLOWED_HOSTS == ['*']:
+        logging.warning("⚠️ SECURITY WARNING: ALLOWED_HOSTS is set to ['*'] in production!")
+        logging.warning("⚠️ Please set specific domain names in ALLOWED_HOSTS.")
+else:
+    # 개발 환경에서는 경고만 출력
+    logging.basicConfig(level=logging.INFO)
+    logging.info("🔧 Development mode enabled (DEBUG=True)")

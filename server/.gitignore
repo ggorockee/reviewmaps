@@ -3,3 +3,8 @@ my-request.txt
 # Django static files
 staticfiles/
 static/
+
+# Secret files and configurations
+secret_files/
+k8s-secret.yaml
+*.p8

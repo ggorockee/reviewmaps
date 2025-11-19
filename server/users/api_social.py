@@ -5,6 +5,7 @@ from ninja import Router
 from ninja.errors import HttpError
 from django.contrib.auth import get_user_model
 from django.db import transaction
+from asgiref.sync import sync_to_async
 
 from .schemas import (
     KakaoLoginRequest,
@@ -88,7 +89,7 @@ async def kakao_login(request, payload: KakaoLoginRequest):
 
         return user
 
-    user = await transaction.aget(create_or_update_user)()
+    user = await sync_to_async(create_or_update_user)()
 
     # JWT 토큰 생성
     access_token = create_access_token(user.id)
@@ -164,7 +165,7 @@ async def google_login(request, payload: GoogleLoginRequest):
 
         return user
 
-    user = await transaction.aget(create_or_update_user)()
+    user = await sync_to_async(create_or_update_user)()
 
     # JWT 토큰 생성
     access_token = create_access_token(user.id)
@@ -240,7 +241,7 @@ async def apple_login(request, payload: AppleLoginRequest):
 
         return user
 
-    user = await transaction.aget(create_or_update_user)()
+    user = await sync_to_async(create_or_update_user)()
 
     # JWT 토큰 생성
     access_token = create_access_token(user.id)

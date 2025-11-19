@@ -5,8 +5,11 @@ Google OAuth2 API를 사용하여 액세스 토큰을 검증하고 사용자 정
 공식 문서: https://developers.google.com/identity/protocols/oauth2
 """
 import httpx
+import logging
 from typing import Optional, Dict, Any
 from django.conf import settings
+
+logger = logging.getLogger(__name__)
 
 
 async def verify_google_token(access_token: str) -> Optional[Dict[str, Any]]:
@@ -64,7 +67,7 @@ async def verify_google_token(access_token: str) -> Optional[Dict[str, Any]]:
 
     except Exception as e:
         # 네트워크 에러, JSON 파싱 에러 등
-        print(f"Google token verification error: {e}")
+        logger.error(f"Google token verification error: {e}")
         return None
 
 

@@ -173,6 +173,9 @@ JWT_ALGORITHM = os.getenv('JWT_ALGORITHM', 'HS256')
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv('JWT_ACCESS_TOKEN_EXPIRE_MINUTES', '60'))
 JWT_REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv('JWT_REFRESH_TOKEN_EXPIRE_DAYS', '7'))
 
+# Apple Sign In 설정
+APPLE_CLIENT_ID = os.getenv('APPLE_CLIENT_ID', 'com.reviewmaps.app')
+
 # 익명 사용자 세션 설정
 ANONYMOUS_SESSION_EXPIRE_HOURS = int(os.getenv('ANONYMOUS_SESSION_EXPIRE_HOURS', '60'))
 
@@ -228,3 +231,40 @@ if DEBUG:
         'http://localhost:8000',
         'http://127.0.0.1:8000',
     ])
+
+# ===== 보안 설정 검증 (프로덕션 환경) =====
+import sys
+import logging
+
+if not DEBUG:
+    # 프로덕션 환경에서 필수 환경변수 검증
+    required_env_vars = {
+        'SECRET_KEY': SECRET_KEY,
+        'JWT_SECRET_KEY': JWT_SECRET_KEY,
+    }
+
+    missing_vars = []
+    weak_vars = []
+
+    for var_name, var_value in required_env_vars.items():
+        if not var_value:
+            missing_vars.append(var_name)
+        elif var_value.startswith('django-insecure-'):
+            weak_vars.append(var_name)
+
+    if missing_vars:
+        logging.error(f"❌ SECURITY ERROR: Missing required environment variables: {', '.join(missing_vars)}")
+        sys.exit(1)
+
+    if weak_vars:
+        logging.warning(f"⚠️ SECURITY WARNING: Using insecure default values for: {', '.join(weak_vars)}")
+        logging.warning(f"⚠️ Please set strong SECRET_KEY and JWT_SECRET_KEY in production!")
+
+    # ALLOWED_HOSTS 검증
+    if ALLOWED_HOSTS == ['*']:
+        logging.warning("⚠️ SECURITY WARNING: ALLOWED_HOSTS is set to ['*'] in production!")
+        logging.warning("⚠️ Please set specific domain names in ALLOWED_HOSTS.")
+else:
+    # 개발 환경에서는 경고만 출력
+    logging.basicConfig(level=logging.INFO)
+    logging.info("🔧 Development mode enabled (DEBUG=True)")

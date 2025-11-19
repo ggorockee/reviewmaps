@@ -5,8 +5,11 @@ Kakao REST API를 사용하여 액세스 토큰을 검증하고 사용자 정보
 공식 문서: https://developers.kakao.com/docs/latest/ko/kakaologin/rest-api
 """
 import httpx
+import logging
 from typing import Optional, Dict, Any
 from django.conf import settings
+
+logger = logging.getLogger(__name__)
 
 
 async def verify_kakao_token(access_token: str) -> Optional[Dict[str, Any]]:
@@ -60,7 +63,7 @@ async def verify_kakao_token(access_token: str) -> Optional[Dict[str, Any]]:
 
     except Exception as e:
         # 네트워크 에러, JSON 파싱 에러 등
-        print(f"Kakao token verification error: {e}")
+        logger.error(f"Kakao token verification error: {e}")
         return None
 
 

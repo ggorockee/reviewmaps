@@ -6,16 +6,73 @@ Apple Sign In REST API를 사용하여 identity token을 검증하고 사용자 
 """
 import httpx
 import jwt
+import logging
 from typing import Optional, Dict, Any
 from django.conf import settings
+import json
+
+logger = logging.getLogger(__name__)
+
+# Apple 공개 키 캐시 (1시간 유효)
+_apple_public_keys_cache: Optional[Dict[str, Any]] = None
+_apple_public_keys_cache_time: Optional[float] = None
+
+
+async def get_apple_public_keys() -> Optional[Dict[str, Any]]:
+    """
+    Apple 공개 키 가져오기 (캐싱)
+
+    Returns:
+        dict: Apple 공개 키 딕셔너리 {kid: public_key}
+        None: 실패 시
+    """
+    global _apple_public_keys_cache, _apple_public_keys_cache_time
+
+    import time
+    current_time = time.time()
+
+    # 캐시 유효성 확인 (1시간)
+    if _apple_public_keys_cache and _apple_public_keys_cache_time:
+        if current_time - _apple_public_keys_cache_time < 3600:
+            return _apple_public_keys_cache
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get('https://appleid.apple.com/auth/keys')
+
+            if response.status_code != 200:
+                logger.error(f"Failed to fetch Apple public keys: {response.status_code}")
+                return None
+
+            data = response.json()
+            keys = {}
+
+            # JWK를 공개 키로 변환
+            from jwt.algorithms import RSAAlgorithm
+            for key_data in data.get('keys', []):
+                kid = key_data.get('kid')
+                if kid:
+                    # RSA 공개 키 생성 (cryptography 패키지 필요)
+                    public_key = RSAAlgorithm.from_jwk(json.dumps(key_data))
+                    keys[kid] = public_key
+
+            # 캐시 업데이트
+            _apple_public_keys_cache = keys
+            _apple_public_keys_cache_time = current_time
+
+            logger.info(f"Apple public keys fetched and cached: {len(keys)} keys")
+            return keys
+
+    except Exception as e:
+        logger.error(f"Error fetching Apple public keys: {e}")
+        return None
 
 
 async def verify_apple_token(identity_token: str, authorization_code: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """
-    Apple Identity Token 검증 및 사용자 정보 조회
+    Apple Identity Token 검증 및 사용자 정보 조회 (프로덕션 ready)
 
-    Apple Sign In의 경우 identity_token (JWT)을 직접 검증합니다.
-    클라이언트에서 받은 JWT를 디코딩하여 사용자 정보를 추출합니다.
+    Apple Sign In의 경우 identity_token (JWT)을 Apple 공개 키로 검증합니다.
 
     Args:
         identity_token: Apple Identity Token (JWT 형식)
@@ -32,21 +89,43 @@ async def verify_apple_token(identity_token: str, authorization_code: Optional[s
         None: 검증 실패 시
 
     Note:
+        - Apple 공개 키로 JWT 서명을 검증합니다 (보안 강화)
         - Apple은 프로필 이미지를 제공하지 않습니다.
         - Apple은 이름을 처음 로그인 시에만 제공하며, JWT에는 포함되지 않습니다.
-        - 실제 프로덕션 환경에서는 Apple 공개 키로 JWT 서명을 검증해야 합니다.
     """
     try:
-        # JWT 디코딩 (서명 검증 없이 - 개발 단계)
-        # 프로덕션에서는 Apple 공개 키로 서명 검증 필요
-        # https://appleid.apple.com/auth/keys
+        # 1. JWT 헤더에서 kid (Key ID) 추출
+        unverified_header = jwt.get_unverified_header(identity_token)
+        kid = unverified_header.get('kid')
+
+        if not kid:
+            logger.warning("Apple JWT missing kid in header")
+            return None
+
+        # 2. Apple 공개 키 가져오기
+        public_keys = await get_apple_public_keys()
+        if not public_keys or kid not in public_keys:
+            logger.error(f"Apple public key not found for kid: {kid}")
+            return None
+
+        public_key = public_keys[kid]
+
+        # 3. JWT 서명 검증 및 디코딩
+        apple_client_id = getattr(settings, 'APPLE_CLIENT_ID', None)
+
         decoded = jwt.decode(
             identity_token,
-            options={'verify_signature': False},  # 개발 단계: 서명 검증 비활성화
-            audience=getattr(settings, 'APPLE_CLIENT_ID', None),
+            public_key,
+            algorithms=['RS256'],
+            audience=apple_client_id,
+            options={
+                'verify_signature': True,  # 서명 검증 활성화
+                'verify_exp': True,  # 만료 시간 검증
+                'verify_aud': True if apple_client_id else False,  # audience 검증
+            }
         )
 
-        # 사용자 정보 추출
+        # 4. 사용자 정보 추출
         user_info = {
             'id': decoded.get('sub'),  # Apple 사용자 ID (필수)
             'email': decoded.get('email', ''),  # 이메일
@@ -54,29 +133,25 @@ async def verify_apple_token(identity_token: str, authorization_code: Optional[s
             'profile_image': '',  # Apple은 프로필 이미지를 제공하지 않음
         }
 
-        # 필수 필드 확인
+        # 5. 필수 필드 확인
         if not user_info['id']:
+            logger.warning("Apple JWT missing sub (user ID)")
             return None
 
-        # 이메일 검증 여부 확인
-        if not decoded.get('email_verified', False):
-            # Apple은 email_verified 대신 is_private_email 사용
-            # 사설 이메일 릴레이 주소도 유효한 이메일로 간주
-            pass
-
+        logger.info(f"Apple token verified successfully for user: {user_info['id']}")
         return user_info
 
     except jwt.ExpiredSignatureError:
-        # 토큰 만료
-        print("Apple token expired")
+        logger.warning("Apple token expired")
+        return None
+    except jwt.InvalidAudienceError:
+        logger.warning("Apple token invalid audience")
         return None
     except jwt.InvalidTokenError as e:
-        # 유효하지 않은 토큰
-        print(f"Apple token invalid: {e}")
+        logger.warning(f"Apple token invalid: {e}")
         return None
     except Exception as e:
-        # 기타 에러
-        print(f"Apple token verification error: {e}")
+        logger.error(f"Apple token verification error: {e}")
         return None
 
 
@@ -94,18 +169,5 @@ async def get_apple_user_info(identity_token: str, authorization_code: Optional[
     return await verify_apple_token(identity_token, authorization_code)
 
 
-# 프로덕션 구현 시 필요한 함수 (향후 구현)
-async def verify_apple_token_with_public_key(identity_token: str) -> Optional[Dict[str, Any]]:
-    """
-    Apple 공개 키로 Identity Token 서명 검증 (프로덕션용)
-
-    Steps:
-    1. Apple의 공개 키 가져오기 (https://appleid.apple.com/auth/keys)
-    2. JWT 헤더에서 kid (Key ID) 추출
-    3. kid에 해당하는 공개 키로 서명 검증
-    4. 검증 성공 시 사용자 정보 반환
-
-    현재는 미구현 상태 (개발 단계에서는 서명 검증 생략)
-    """
-    # TODO: 프로덕션 환경에서 구현 필요
-    pass
+# verify_apple_token이 이미 프로덕션 ready 구현이므로 제거
+# (위의 verify_apple_token 함수가 Apple 공개 키로 서명 검증을 수행합니다)

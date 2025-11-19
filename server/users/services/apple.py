@@ -7,11 +7,43 @@ Apple Sign In REST API를 사용하여 identity token을 검증하고 사용자 
 import httpx
 import jwt
 import logging
+import os
 from typing import Optional, Dict, Any
 from django.conf import settings
 import json
 
 logger = logging.getLogger(__name__)
+
+
+def get_apple_private_key() -> Optional[str]:
+    """
+    Apple Private Key 가져오기 (환경변수 또는 파일에서)
+
+    우선순위:
+    1. APPLE_PRIVATE_KEY 환경변수 (K8s Secret 권장)
+    2. APPLE_PRIVATE_KEY_PATH 파일 경로 (로컬 개발)
+
+    Returns:
+        str: Apple Private Key (PEM 형식)
+        None: 실패 시
+    """
+    # 방법 1: 환경변수에서 직접 읽기 (K8s 권장)
+    private_key = os.getenv('APPLE_PRIVATE_KEY')
+    if private_key:
+        return private_key
+
+    # 방법 2: 파일에서 읽기 (로컬 개발)
+    private_key_path = getattr(settings, 'APPLE_PRIVATE_KEY_PATH', None)
+    if private_key_path and os.path.exists(private_key_path):
+        try:
+            with open(private_key_path, 'r') as f:
+                return f.read()
+        except Exception as e:
+            logger.error(f"Failed to read Apple private key from file: {e}")
+            return None
+
+    logger.warning("Apple private key not found (APPLE_PRIVATE_KEY env or APPLE_PRIVATE_KEY_PATH file)")
+    return None
 
 # Apple 공개 키 캐시 (1시간 유효)
 _apple_public_keys_cache: Optional[Dict[str, Any]] = None

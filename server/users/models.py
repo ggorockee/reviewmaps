@@ -74,3 +74,84 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.email
+
+
+class SocialAccount(models.Model):
+    """
+    SNS 로그인 계정 정보 (Kakao, Google, Apple)
+    사용자와 SNS 제공자 간의 연결 정보 관리
+    """
+
+    PROVIDER_CHOICES = [
+        ('kakao', 'Kakao'),
+        ('google', 'Google'),
+        ('apple', 'Apple'),
+    ]
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='social_accounts',
+        verbose_name="사용자"
+    )
+    provider = models.CharField(
+        max_length=20,
+        choices=PROVIDER_CHOICES,
+        verbose_name="SNS 제공자"
+    )
+    provider_user_id = models.CharField(
+        max_length=255,
+        verbose_name="SNS 제공자의 사용자 ID",
+        help_text="Kakao ID, Google ID, Apple ID 등"
+    )
+    email = models.EmailField(
+        verbose_name="SNS 이메일",
+        help_text="SNS 제공자로부터 받은 이메일"
+    )
+    name = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name="이름",
+        help_text="SNS 제공자로부터 받은 이름"
+    )
+    profile_image = models.URLField(
+        blank=True,
+        verbose_name="프로필 이미지 URL"
+    )
+    access_token = models.TextField(
+        blank=True,
+        verbose_name="액세스 토큰",
+        help_text="암호화 필요 (향후 구현)"
+    )
+    refresh_token = models.TextField(
+        blank=True,
+        verbose_name="리프레시 토큰",
+        help_text="암호화 필요 (향후 구현)"
+    )
+    token_expires_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="토큰 만료 시간"
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="생성일시"
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name="수정일시"
+    )
+
+    class Meta:
+        db_table = 'social_accounts'
+        verbose_name = "SNS 계정"
+        verbose_name_plural = "SNS 계정"
+        unique_together = ('provider', 'provider_user_id')
+        indexes = [
+            models.Index(fields=['provider', 'provider_user_id'], name='idx_provider_user'),
+            models.Index(fields=['user', 'provider'], name='idx_user_provider'),
+        ]
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.provider} - {self.email}"

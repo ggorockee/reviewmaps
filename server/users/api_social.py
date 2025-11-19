@@ -4,6 +4,7 @@ SNS 로그인 API - Kakao, Google, Apple
 from ninja import Router
 from ninja.errors import HttpError
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import BaseUserManager
 from django.db import transaction
 from asgiref.sync import sync_to_async
 
@@ -48,6 +49,9 @@ async def kakao_login(request, payload: KakaoLoginRequest):
 
     if not email:
         raise HttpError(400, "Kakao 계정에 이메일이 없습니다. 이메일 제공 동의가 필요합니다.")
+
+    # 이메일 정규화 (소문자 변환)
+    email = BaseUserManager.normalize_email(email)
 
     # 트랜잭션으로 사용자 생성/조회 및 소셜 계정 연결
     @transaction.atomic
@@ -126,6 +130,9 @@ async def google_login(request, payload: GoogleLoginRequest):
     if not email:
         raise HttpError(400, "Google 계정에 이메일이 없습니다.")
 
+    # 이메일 정규화 (소문자 변환)
+    email = BaseUserManager.normalize_email(email)
+
     # 트랜잭션으로 사용자 생성/조회 및 소셜 계정 연결
     @transaction.atomic
     def create_or_update_user():
@@ -203,6 +210,9 @@ async def apple_login(request, payload: AppleLoginRequest):
 
     if not email:
         raise HttpError(400, "Apple 계정에 이메일이 없습니다.")
+
+    # 이메일 정규화 (소문자 변환)
+    email = BaseUserManager.normalize_email(email)
 
     # 트랜잭션으로 사용자 생성/조회 및 소셜 계정 연결
     @transaction.atomic

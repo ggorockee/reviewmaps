@@ -1,20 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/screens/auth/sign_up_screen.dart';
 import 'package:mobile/screens/main_screen.dart';
 import 'package:mobile/services/auth_service.dart';
+import 'package:mobile/providers/auth_provider.dart';
 import 'package:mobile/const/colors.dart';
 
 /// Login Version 1 화면
 /// Figma 디자인을 기반으로 한 로그인 화면
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
@@ -50,11 +52,22 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
+      // 1. AuthService로 로그인 수행 (토큰 저장)
       await _authService.login(email: email, password: password);
 
       if (!mounted) return;
 
-      // 로그인 성공 - MainScreen으로 이동
+      // 2. 사용자 정보 가져오기
+      final userInfo = await _authService.getUserInfo();
+
+      if (!mounted) return;
+
+      // 3. Riverpod authProvider 상태 업데이트
+      await ref.read(authProvider.notifier).updateAfterLogin(userInfo);
+
+      if (!mounted) return;
+
+      // 4. 로그인 성공 - MainScreen으로 이동
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (context) => const MainScreen(),
@@ -100,11 +113,22 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
+      // 1. AuthService로 익명 로그인 수행 (세션 ID 저장)
       await _authService.loginAnonymous();
 
       if (!mounted) return;
 
-      // 익명 로그인 성공 - MainScreen으로 이동
+      // 2. 익명 사용자 정보 가져오기
+      final anonymousInfo = await _authService.getAnonymousUserInfo();
+
+      if (!mounted) return;
+
+      // 3. Riverpod authProvider 상태 업데이트
+      await ref.read(authProvider.notifier).updateAfterAnonymousLogin(anonymousInfo);
+
+      if (!mounted) return;
+
+      // 4. 익명 로그인 성공 - MainScreen으로 이동
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (context) => const MainScreen(),

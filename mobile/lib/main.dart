@@ -33,6 +33,7 @@ import 'package:mobile/services/remote_config_service.dart'; // Firebase Remote 
 
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 
 
 // 비동기 초기화가 필요하므로 main을 async로 선언
@@ -99,7 +100,16 @@ Future<void> main() async {
   //       - .env
   await dotenv.load(fileName: ".env");
 
-  // 7) Naver Map SDK 초기화
+  // 7) Kakao SDK 초기화
+  // - Native App Key로 Kakao SDK 초기화
+  try {
+    KakaoSdk.init(nativeAppKey: AppConfig.KAKAO_NATIVE_APP_KEY);
+    print('[Main] Kakao SDK 초기화 완료');
+  } catch (e) {
+    print('[Main] Kakao SDK 초기화 실패: $e');
+  }
+
+  // 8) Naver Map SDK 초기화
   // - clientId는 AppConfig에서 가져옴(AppConfig가 .env를 읽어 제공)
   // - onAuthFailed는 배포용에서 불필요한 콘솔 로그를 남기지 않도록 비워둠
   await FlutterNaverMap().init(

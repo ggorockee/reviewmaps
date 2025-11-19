@@ -63,8 +63,9 @@ class AppConfig {
   static final String NAVER_APP_SEARCH_CLIENT_SECRET_16 = _getEnv('NAVER_APP_SEARCH_CLIENT_SECRET_16');
   static final String NAVER_APP_SEARCH_CLIENT_SECRET_17 = _getEnv('NAVER_APP_SEARCH_CLIENT_SECRET_17');
 
-
-
+  // 📌 Kakao Login
+  // - Kakao SDK 초기화 시 사용되는 Native App Key
+  static final String KAKAO_NATIVE_APP_KEY = _getEnv('KAKAO_NATIVE_APP_KEY');
 
 
 

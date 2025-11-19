@@ -12,7 +12,9 @@ from app_config.schemas import (
     AdConfigSchema,
     AppVersionSchema,
     VersionCheckResponseSchema,
-    AppSettingSchema
+    AppSettingSchema,
+    KeywordLimitResponse,
+    KeywordLimitUpdateRequest,
 )
 
 router = Router(tags=["앱 설정 (App Config)"])
@@ -124,6 +126,81 @@ async def get_settings(request):
         settings.append(setting)
 
     return settings
+
+
+# ===== 키워드 제한 설정 API (특정 경로를 동적 경로보다 먼저 정의) =====
+
+@router.get("/settings/keyword-limit", response=KeywordLimitResponse, summary="키워드 등록 개수 제한 조회")
+async def get_keyword_limit(request):
+    """
+    키워드 등록 개수 제한 조회 API
+
+    Returns:
+        max_active_keywords: 활성 키워드 최대 개수
+        max_inactive_keywords: 비활성 키워드 최대 개수
+        total_keywords: 전체 키워드 최대 개수
+
+    Note:
+        - 설정이 없으면 기본값 반환 (활성 20개, 비활성 0개)
+        - total_keywords = max_active + max_inactive
+    """
+    try:
+        setting = await AppSetting.objects.aget(key='keyword_limit', is_active=True)
+        value = setting.value
+        max_active = value.get('max_active_keywords', 20)
+        max_inactive = value.get('max_inactive_keywords', 0)
+    except AppSetting.DoesNotExist:
+        # 기본값
+        max_active = 20
+        max_inactive = 0
+
+    return {
+        "max_active_keywords": max_active,
+        "max_inactive_keywords": max_inactive,
+        "total_keywords": max_active + max_inactive,
+    }
+
+
+@router.put("/settings/keyword-limit", response=KeywordLimitResponse, summary="키워드 등록 개수 제한 설정")
+async def update_keyword_limit(request, payload: KeywordLimitUpdateRequest):
+    """
+    키워드 등록 개수 제한 설정 API
+
+    Args:
+        max_active_keywords: 활성 키워드 최대 개수 (최소 1개)
+        max_inactive_keywords: 비활성 키워드 최대 개수 (최소 0개)
+
+    Returns:
+        업데이트된 키워드 제한 설정
+
+    Note:
+        - 설정이 없으면 새로 생성
+        - 기존 설정이 있으면 업데이트
+    """
+    # 유효성 검증
+    if payload.max_active_keywords < 1:
+        raise Http404("활성 키워드 최대 개수는 최소 1개 이상이어야 합니다.")
+    if payload.max_inactive_keywords < 0:
+        raise Http404("비활성 키워드 최대 개수는 0개 이상이어야 합니다.")
+
+    # 설정 업데이트 또는 생성
+    setting, created = await AppSetting.objects.aupdate_or_create(
+        key='keyword_limit',
+        defaults={
+            'value': {
+                'max_active_keywords': payload.max_active_keywords,
+                'max_inactive_keywords': payload.max_inactive_keywords,
+            },
+            'description': '키워드 등록 개수 제한 설정',
+            'is_active': True,
+        }
+    )
+
+    return {
+        "max_active_keywords": payload.max_active_keywords,
+        "max_inactive_keywords": payload.max_inactive_keywords,
+        "total_keywords": payload.max_active_keywords + payload.max_inactive_keywords,
+    }
 
 
 @router.get("/settings/{key}", response=AppSettingSchema)

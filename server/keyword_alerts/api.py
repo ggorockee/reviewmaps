@@ -17,6 +17,7 @@ from .schemas import (
     MarkAlertReadRequest,
 )
 from users.utils import get_user_from_token, decode_anonymous_session
+from app_config.models import AppSetting
 
 User = get_user_model()
 router = Router(tags=["키워드 알람 (Keyword Alerts)"])
@@ -52,8 +53,33 @@ async def create_keyword(request, payload: KeywordCreateRequest):
     관심 키워드 등록 API
     - 사용자 또는 익명 세션에 키워드 등록
     - Authorization: Bearer {token} 필요
+    - 활성 키워드 개수 제한 검증
     """
     user, session_id = await sync_to_async(get_auth_info)(request)
+
+    # 키워드 등록 개수 제한 조회
+    try:
+        setting = await AppSetting.objects.aget(key='keyword_limit', is_active=True)
+        max_active = setting.value.get('max_active_keywords', 20)
+    except AppSetting.DoesNotExist:
+        # 기본값: 활성 키워드 20개
+        max_active = 20
+
+    # 현재 활성 키워드 개수 확인
+    if user:
+        active_count = await Keyword.objects.filter(
+            user=user,
+            is_active=True
+        ).acount()
+    else:
+        active_count = await Keyword.objects.filter(
+            anonymous_session_id=session_id,
+            is_active=True
+        ).acount()
+
+    # 제한 검증
+    if active_count >= max_active:
+        raise HttpError(400, f"활성 키워드는 최대 {max_active}개까지 등록할 수 있습니다.")
 
     # 중복 키워드 확인
     if user:
@@ -152,6 +178,44 @@ async def delete_keyword(request, keyword_id: int):
     await sync_to_async(keyword.save)()
 
     return {"message": "삭제되었습니다."}
+
+
+@router.patch("/keywords/{keyword_id}/toggle", response=KeywordResponse, summary="키워드 활성화/비활성화 토글")
+async def toggle_keyword(request, keyword_id: int):
+    """
+    키워드 활성화/비활성화 토글 API
+    - is_active를 반대로 전환
+    - 비활성화 상태인 키워드도 다시 활성화 가능
+    """
+    user, session_id = await sync_to_async(get_auth_info)(request)
+
+    # 키워드 조회 (is_active 조건 없이 조회)
+    try:
+        if user:
+            keyword = await sync_to_async(Keyword.objects.get)(
+                id=keyword_id,
+                user=user,
+            )
+        else:
+            keyword = await sync_to_async(Keyword.objects.get)(
+                id=keyword_id,
+                anonymous_session_id=session_id,
+            )
+    except Keyword.DoesNotExist:
+        raise HttpError(404, "키워드를 찾을 수 없습니다.")
+
+    # 활성화 상태 토글
+    keyword.is_active = not keyword.is_active
+    await sync_to_async(keyword.save)()
+
+    status_text = "활성화" if keyword.is_active else "비활성화"
+
+    return {
+        "id": keyword.id,
+        "keyword": keyword.keyword,
+        "is_active": keyword.is_active,
+        "created_at": keyword.created_at,
+    }
 
 
 @router.get("/alerts", response=KeywordAlertListResponse, summary="내 알람 목록")

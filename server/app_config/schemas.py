@@ -58,3 +58,18 @@ class AppSettingSchema(Schema):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+
+
+# ===== 키워드 제한 설정 스키마 =====
+
+class KeywordLimitResponse(Schema):
+    """키워드 제한 설정 응답 스키마"""
+    max_active_keywords: int
+    max_inactive_keywords: int
+    total_keywords: int
+
+
+class KeywordLimitUpdateRequest(Schema):
+    """키워드 제한 설정 업데이트 요청 스키마"""
+    max_active_keywords: int
+    max_inactive_keywords: int

@@ -34,6 +34,19 @@ class LoginRequest {
   };
 }
 
+/// Kakao 로그인 요청 데이터
+class KakaoLoginRequest {
+  final String accessToken;
+
+  KakaoLoginRequest({
+    required this.accessToken,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'access_token': accessToken,
+  };
+}
+
 /// 토큰 갱신 요청 데이터
 class RefreshTokenRequest {
   final String refreshToken;

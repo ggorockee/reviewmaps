@@ -147,6 +147,45 @@ class AuthService {
     }
   }
 
+  /// Kakao 로그인
+  /// POST /v1/auth/kakao
+  /// - Kakao SDK에서 받은 access_token으로 로그인
+  Future<AuthResponse> kakaoLogin(String accessToken) async {
+    final uri = Uri.parse('$baseUrl/auth/kakao');
+    final request = KakaoLoginRequest(accessToken: accessToken);
+
+    try {
+      final response = await _client
+          .post(
+            uri,
+            headers: _headers,
+            body: jsonEncode(request.toJson()),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      _debugPrintResponse('POST', uri.toString(), response);
+
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
+        throw Exception(errorBody['detail'] ?? '카카오 로그인 중 문제가 발생했습니다.\n잠시 후 다시 시도해 주세요.');
+      }
+
+      final authResponse =
+          AuthResponse.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
+
+      // 토큰 저장
+      await _tokenStorage.saveAuthTokens(
+        accessToken: authResponse.accessToken,
+        refreshToken: authResponse.refreshToken,
+      );
+
+      return authResponse;
+    } catch (e) {
+      debugPrint('Kakao 로그인 오류: $e');
+      rethrow;
+    }
+  }
+
   /// 토큰 갱신
   /// POST /v1/auth/refresh
   /// - refresh_token을 받아 새로운 access_token, refresh_token 반환

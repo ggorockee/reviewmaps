@@ -8,6 +8,23 @@ import '../models/auth_models.dart';
 import '../config/config.dart';
 import 'token_storage_service.dart';
 
+/// JWT 디버깅: 페이로드 디코딩 (디버그용)
+Map<String, dynamic>? _decodeJwtPayload(String token) {
+  try {
+    final parts = token.split('.');
+    if (parts.length != 3) return null;
+
+    final payload = parts[1];
+    // Base64 URL 디코딩
+    final normalized = base64Url.normalize(payload);
+    final decoded = utf8.decode(base64Url.decode(normalized));
+    return jsonDecode(decoded) as Map<String, dynamic>;
+  } catch (e) {
+    debugPrint('[JWT Debug] 디코딩 실패: $e');
+    return null;
+  }
+}
+
 /// AuthService
 /// ------------------------------------------------------------
 /// - 인증 관련 API 호출 전용 서비스
@@ -173,6 +190,25 @@ class AuthService {
       final authResponse =
           AuthResponse.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
 
+      // JWT 페이로드 디버깅
+      if (kDebugMode) {
+        debugPrint('[AuthService] JWT 페이로드 디코딩 시작');
+        final payload = _decodeJwtPayload(authResponse.accessToken);
+        if (payload != null) {
+          debugPrint('[AuthService] JWT 내용:');
+          debugPrint('[AuthService]   - user_id: ${payload['user_id'] ?? payload['sub']}');
+          debugPrint('[AuthService]   - email: ${payload['email']}');
+          debugPrint('[AuthService]   - exp: ${payload['exp']} (만료시간)');
+          if (payload['exp'] != null) {
+            final expDate = DateTime.fromMillisecondsSinceEpoch(payload['exp'] * 1000);
+            final now = DateTime.now();
+            debugPrint('[AuthService]   - 만료일시: $expDate');
+            debugPrint('[AuthService]   - 현재시각: $now');
+            debugPrint('[AuthService]   - 남은시간: ${expDate.difference(now).inMinutes}분');
+          }
+        }
+      }
+
       // 토큰 저장
       await _tokenStorage.saveAuthTokens(
         accessToken: authResponse.accessToken,
@@ -328,6 +364,13 @@ class AuthService {
     final headers = await _authHeaders();
 
     try {
+      debugPrint('[AuthService] getUserInfo 호출');
+      debugPrint('[AuthService] URL: $uri');
+      debugPrint('[AuthService] Headers: ${headers.keys.join(", ")}');
+      if (headers['Authorization'] != null) {
+        debugPrint('[AuthService] Authorization 헤더: ${headers['Authorization']!.substring(0, 50)}...');
+      }
+
       final response = await _client
           .get(
             uri,
@@ -335,11 +378,23 @@ class AuthService {
           )
           .timeout(const Duration(seconds: 10));
 
+      debugPrint('[AuthService] 응답 상태 코드: ${response.statusCode}');
+      debugPrint('[AuthService] 응답 본문: ${response.body}');
+
       _debugPrintResponse('GET', uri.toString(), response);
 
       if (response.statusCode == 401) {
-        // 인증 만료 - 사용자 친화적 메시지
-        throw Exception('로그인이 만료되었습니다.\n다시 로그인해 주세요.');
+        // 서버의 실제 에러 메시지 파싱 시도
+        try {
+          final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
+          final serverMessage = errorBody['detail'] ?? '로그인이 만료되었습니다.\n다시 로그인해 주세요.';
+          debugPrint('[AuthService] 서버 에러 메시지: $serverMessage');
+          throw Exception(serverMessage);
+        } catch (parseError) {
+          // JSON 파싱 실패 시 기본 메시지
+          debugPrint('[AuthService] 401 에러 - JSON 파싱 실패: $parseError');
+          throw Exception('로그인이 만료되었습니다.\n다시 로그인해 주세요.');
+        }
       } else if (response.statusCode != 200) {
         final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
         throw Exception(errorBody['detail'] ?? '사용자 정보를 불러올 수 없습니다.\n잠시 후 다시 시도해 주세요.');

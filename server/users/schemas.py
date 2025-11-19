@@ -63,3 +63,41 @@ class ConvertAnonymousRequest(Schema):
     session_token: str
     email: str
     password: str
+
+
+# ===== SNS 로그인 스키마 =====
+
+class KakaoLoginRequest(Schema):
+    """Kakao 로그인 요청"""
+    access_token: str
+
+
+class GoogleLoginRequest(Schema):
+    """Google 로그인 요청"""
+    access_token: str
+
+
+class AppleLoginRequest(Schema):
+    """Apple 로그인 요청"""
+    identity_token: str
+    authorization_code: Optional[str] = None
+
+
+class SocialAccountInfo(Schema):
+    """SNS 계정 정보"""
+    provider: str  # kakao, google, apple
+    email: str
+    connected_at: datetime
+
+
+class SNSLoginResponse(Schema):
+    """SNS 로그인 응답"""
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    user: UserResponse
+
+
+class UserDetailResponse(UserResponse):
+    """사용자 상세 정보 (소셜 계정 포함)"""
+    social_accounts: list[SocialAccountInfo] = []

@@ -8,3 +8,5 @@ static/
 secret_files/
 k8s-secret.yaml
 *.p8
+
+.env.backup

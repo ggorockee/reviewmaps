@@ -41,7 +41,7 @@ class CustomUserModelTest(TestCase):
         email = "test@example.com"
         user = User.objects.create_user(email=email, password="testpass123")
 
-        self.assertEqual(str(user), email)
+        self.assertEqual(str(user), f"{email} (email)")
 
     def test_email_normalization(self):
         """이메일 정규화 테스트"""
@@ -49,3 +49,58 @@ class CustomUserModelTest(TestCase):
         user = User.objects.create_user(email=email, password="testpass123")
 
         self.assertEqual(user.email, "test@example.com")
+
+    def test_username_auto_generation(self):
+        """username 자동 생성 테스트"""
+        email = "test@example.com"
+        user = User.objects.create_user(email=email, password="testpass123", login_method="kakao")
+
+        self.assertEqual(user.username, f"{email}_kakao")
+
+    def test_same_email_different_login_methods(self):
+        """같은 이메일이지만 다른 로그인 방식으로 별도 계정 생성 테스트"""
+        email = "woohaen88@gmail.com"
+        password = "testpass123"
+
+        # 1. 일반 이메일 로그인 계정
+        user_email = User.objects.create_user(
+            email=email,
+            password=password,
+            login_method='email'
+        )
+
+        # 2. Kakao 로그인 계정
+        user_kakao = User.objects.create_user(
+            email=email,
+            password=password,
+            login_method='kakao'
+        )
+
+        # 3. Google 로그인 계정
+        user_google = User.objects.create_user(
+            email=email,
+            password=password,
+            login_method='google'
+        )
+
+        # 4. Apple 로그인 계정
+        user_apple = User.objects.create_user(
+            email=email,
+            password=password,
+            login_method='apple'
+        )
+
+        # 모두 다른 계정인지 확인
+        self.assertNotEqual(user_email.id, user_kakao.id)
+        self.assertNotEqual(user_email.id, user_google.id)
+        self.assertNotEqual(user_email.id, user_apple.id)
+        self.assertNotEqual(user_kakao.id, user_google.id)
+
+        # username이 모두 다른지 확인
+        self.assertEqual(user_email.username, f"{email}_email")
+        self.assertEqual(user_kakao.username, f"{email}_kakao")
+        self.assertEqual(user_google.username, f"{email}_google")
+        self.assertEqual(user_apple.username, f"{email}_apple")
+
+        # 총 4개의 계정이 생성되었는지 확인
+        self.assertEqual(User.objects.filter(email=email).count(), 4)

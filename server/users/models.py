@@ -4,15 +4,17 @@ from django.utils import timezone
 
 
 class UserManager(BaseUserManager):
-    """Custom User Manager - email 기반 인증"""
+    """Custom User Manager - email + login_method 기반 인증"""
 
-    def create_user(self, email, password=None, **extra_fields):
+    def create_user(self, email, password=None, login_method='email', **extra_fields):
         """일반 사용자 생성"""
         if not email:
             raise ValueError('이메일은 필수입니다.')
 
         email = self.normalize_email(email)
-        user = self.model(email=email, **extra_fields)
+        # username을 email + login_method 조합으로 자동 생성
+        username = f"{email}_{login_method}"
+        user = self.model(email=email, username=username, login_method=login_method, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
         return user
@@ -22,6 +24,7 @@ class UserManager(BaseUserManager):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
         extra_fields.setdefault('is_active', True)
+        extra_fields.setdefault('login_method', 'email')
 
         if extra_fields.get('is_staff') is not True:
             raise ValueError('슈퍼유저는 is_staff=True 여야 합니다.')
@@ -33,8 +36,8 @@ class UserManager(BaseUserManager):
 
 class User(AbstractBaseUser, PermissionsMixin):
     """
-    Custom User 모델 - email 기반 인증
-    username 필드 제거, email을 primary identifier로 사용
+    Custom User 모델 - email + login_method 조합 기반 인증
+    같은 이메일이라도 로그인 방식에 따라 별도 계정으로 관리
     """
 
     LOGIN_METHOD_CHOICES = [
@@ -45,8 +48,15 @@ class User(AbstractBaseUser, PermissionsMixin):
         ('naver', 'Naver'),
     ]
 
-    email = models.EmailField(
+    username = models.CharField(
+        max_length=255,
         unique=True,
+        editable=False,
+        default='',
+        verbose_name="사용자명",
+        help_text="email + login_method 조합으로 자동 생성"
+    )
+    email = models.EmailField(
         verbose_name="이메일",
         help_text="사용자 로그인용 이메일 주소"
     )
@@ -63,17 +73,27 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     objects = UserManager()
 
-    USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = []
+    USERNAME_FIELD = 'username'
+    REQUIRED_FIELDS = ['email']
 
     class Meta:
         db_table = 'users'
         verbose_name = "사용자"
         verbose_name_plural = "사용자"
         ordering = ['-date_joined']
+        unique_together = [['email', 'login_method']]
+        indexes = [
+            models.Index(fields=['email', 'login_method'], name='idx_email_login_method'),
+        ]
+
+    def save(self, *args, **kwargs):
+        """username 자동 생성"""
+        if not self.username:
+            self.username = f"{self.email}_{self.login_method}"
+        super().save(*args, **kwargs)
 
     def __str__(self):
-        return self.email
+        return f"{self.email} ({self.login_method})"
 
 
 class SocialAccount(models.Model):

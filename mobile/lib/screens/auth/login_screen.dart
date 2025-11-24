@@ -766,7 +766,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           _buildSocialButton(
             text: 'Apple로 시작하기',
             logoPath: 'asset/image/login/apple.png',
-            logoLeftPadding: -1,
+            logoLeftPadding: -2,
             onPressed: _isLoading ? null : _handleAppleLogin,
           ),
           SizedBox(height: 12.h),

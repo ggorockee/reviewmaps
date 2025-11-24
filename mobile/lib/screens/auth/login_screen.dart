@@ -110,59 +110,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
-  /// 익명 로그인 처리
-  Future<void> _handleAnonymousLogin() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      // 1. AuthService로 익명 로그인 수행 (세션 ID 저장)
-      await _authService.loginAnonymous();
-
-      if (!mounted) return;
-
-      // 2. 익명 사용자 정보 가져오기
-      final anonymousInfo = await _authService.getAnonymousUserInfo();
-
-      if (!mounted) return;
-
-      // 3. Riverpod authProvider 상태 업데이트
-      await ref.read(authProvider.notifier).updateAfterAnonymousLogin(anonymousInfo);
-
-      if (!mounted) return;
-
-      // 4. 익명 로그인 성공 - MainScreen으로 이동
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) => const MainScreen(),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-
-      String errorMessage = '일시적인 오류가 발생했습니다.\n잠시 후 다시 시도해 주세요.';
-      final errorText = e.toString();
-
-      if (errorText.contains('Exception:')) {
-        final serverMessage = errorText.replaceAll('Exception:', '').trim();
-
-        if (serverMessage.contains('network') || serverMessage.contains('timeout')) {
-          errorMessage = '네트워크 연결이 불안정합니다.\n잠시 후 다시 시도해 주세요.';
-        } else {
-          errorMessage = serverMessage;
-        }
-      }
-
-      _showErrorDialog(errorMessage);
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
 
   /// Kakao 로그인 처리
   Future<void> _handleKakaoLogin() async {
@@ -477,27 +424,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
               ),
 
-              SizedBox(height: 12.h),
+              SizedBox(height: 16.h),
               
               // 로그인 버튼
               _buildLoginButton(),
 
-              SizedBox(height: 12.h),
+              SizedBox(height: 20.h),
 
               // 또는 구분선
               _buildOrDivider(),
 
-              SizedBox(height: 12.h),
+              SizedBox(height: 20.h),
 
               // 소셜 로그인 버튼들
               _buildSocialLoginButtons(),
 
-              SizedBox(height: 20.h),
+              SizedBox(height: 24.h),
 
               // 회원가입 링크
               _buildSignUpLink(),
 
-              SizedBox(height: 24.h),
+              SizedBox(height: 32.h),
             ],
           ),
         ),
@@ -716,7 +663,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  // Or 구분선
+  // 또는 구분선
   Widget _buildOrDivider() {
     return Row(
       children: [
@@ -729,7 +676,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         Padding(
           padding: EdgeInsets.symmetric(horizontal: 16.w),
           child: Text(
-            'Or',
+            '또는',
             style: TextStyle(
               fontSize: 12.sp,
               fontWeight: FontWeight.w400,
@@ -778,13 +725,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           logoPath: 'asset/image/login/kakao.png',
           logoLeftPadding: -1,
           onPressed: _isLoading ? null : _handleKakaoLogin,
-        ),
-        SizedBox(height: 12.h),
-        
-        // 회원가입 없이 시작하기
-        _buildSocialButton(
-          text: '회원가입 없이 시작하기',
-          onPressed: _isLoading ? null : _handleAnonymousLogin,
         ),
       ],
     );
@@ -848,14 +788,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  // Sign Up 링크
+  // 회원가입 링크
   Widget _buildSignUpLink() {
     return Center(
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            "Don't have an account?",
+            '계정이 없으신가요?',
             style: TextStyle(
               fontSize: 12.sp,
               fontWeight: FontWeight.w500,
@@ -874,7 +814,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               );
             },
             child: Text(
-              'Sign Up',
+              '회원가입',
               style: TextStyle(
                 fontSize: 12.sp,
                 fontWeight: FontWeight.w600,

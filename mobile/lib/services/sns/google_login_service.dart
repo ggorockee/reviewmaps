@@ -1,13 +1,12 @@
 import 'dart:io';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:mobile/config/config.dart';
 
 /// Google 소셜 로그인 서비스
 class GoogleLoginService {
   // iOS에서는 clientId가 필요함
   static final GoogleSignIn _googleSignIn = GoogleSignIn(
-    clientId: Platform.isIOS
-        ? '966129856796-7f4f5j9mtf5g2c5ovjv8qg8mkov4rjuc.apps.googleusercontent.com'
-        : null,
+    clientId: Platform.isIOS ? AppConfig.GOOGLE_IOS_CLIENT_ID : null,
     scopes: [
       'email',
       'profile',

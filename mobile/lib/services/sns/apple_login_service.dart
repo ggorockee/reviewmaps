@@ -36,11 +36,19 @@ class AppleLoginService {
     } on SignInWithAppleAuthorizationException catch (e) {
       if (e.code == AuthorizationErrorCode.canceled) {
         throw Exception('Apple 로그인이 취소되었습니다.');
+      } else if (e.code == AuthorizationErrorCode.unknown) {
+        // error 1000: Xcode에서 Sign In with Apple capability 설정 필요
+        throw Exception('Apple 로그인 설정이 필요합니다.\nXcode에서 Sign In with Apple을 활성화해주세요.');
       }
       throw Exception('Apple 로그인 실패: ${e.message}');
     } catch (e) {
-      if (e.toString().contains('취소')) {
+      final errorString = e.toString();
+      if (errorString.contains('취소')) {
         rethrow;
+      }
+      // error 1000 처리
+      if (errorString.contains('error 1000')) {
+        throw Exception('Apple 로그인 설정이 필요합니다.\nXcode에서 Sign In with Apple을 활성화해주세요.');
       }
       throw Exception('Apple 로그인 실패: $e');
     }

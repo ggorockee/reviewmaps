@@ -812,36 +812,30 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           ),
           padding: EdgeInsets.zero,
         ),
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16.w),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              // 로고 이미지 (왼쪽 고정)
-              if (logoPath != null)
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Image.asset(
-                    logoPath,
-                    width: 20.w,
-                    height: 20.w,
-                    fit: BoxFit.contain,
-                  ),
-                ),
-              // 버튼 텍스트 (중앙)
-              Center(
-                child: Text(
-                  text,
-                  style: TextStyle(
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF1A1C1E),
-                    letterSpacing: -0.14,
-                  ),
-                ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // 로고 이미지 (있는 경우만)
+            if (logoPath != null) ...[
+              Image.asset(
+                logoPath,
+                width: 20.w,
+                height: 20.w,
+                fit: BoxFit.contain,
               ),
+              SizedBox(width: 12.w),
             ],
-          ),
+            // 버튼 텍스트
+            Text(
+              text,
+              style: TextStyle(
+                fontSize: 14.sp,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF1A1C1E),
+                letterSpacing: -0.14,
+              ),
+            ),
+          ],
         ),
       ),
     );

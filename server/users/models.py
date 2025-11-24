@@ -12,6 +12,10 @@ class UserManager(BaseUserManager):
             raise ValueError('이메일은 필수입니다.')
 
         email = self.normalize_email(email)
+        # extra_fields에서 login_method가 있으면 사용, 없으면 인자값 사용
+        login_method = extra_fields.pop('login_method', login_method)
+        # extra_fields에서 username 제거 (자동 생성하므로)
+        extra_fields.pop('username', None)
         # username을 email + login_method 조합으로 자동 생성
         username = f"{email}_{login_method}"
         user = self.model(email=email, username=username, login_method=login_method, **extra_fields)

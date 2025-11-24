@@ -67,6 +67,10 @@ class AppConfig {
   // - Kakao SDK 초기화 시 사용되는 Native App Key
   static final String KAKAO_NATIVE_APP_KEY = _getEnv('KAKAO_NATIVE_APP_KEY');
 
+  // 📌 Google Login
+  // - Google Sign In iOS Client ID (Firebase Console에서 발급)
+  static final String GOOGLE_IOS_CLIENT_ID = _getEnv('GOOGLE_IOS_CLIENT_ID');
+
 
 
   // 📌 디버그 모드 플래그

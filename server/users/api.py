@@ -52,8 +52,8 @@ async def signup(request, payload: UserSignupRequest):
     )
 
     # JWT 토큰 생성
-    access_token = create_access_token(user.id, user.email)
-    refresh_token = create_refresh_token(user.id, user.email)
+    access_token = create_access_token(user.id)
+    refresh_token = create_refresh_token(user.id)
 
     return {
         "access_token": access_token,
@@ -84,8 +84,8 @@ async def login(request, payload: UserLoginRequest):
         raise HttpError(403, "이용이 정지된 계정입니다.")
 
     # JWT 토큰 생성
-    access_token = create_access_token(user.id, user.email)
-    refresh_token = create_refresh_token(user.id, user.email)
+    access_token = create_access_token(user.id)
+    refresh_token = create_refresh_token(user.id)
 
     return {
         "access_token": access_token,
@@ -113,8 +113,8 @@ async def refresh_token(request, payload: TokenRefreshRequest):
         raise HttpError(401, "회원 정보를 찾을 수 없습니다.")
 
     # 새로운 토큰 생성
-    access_token = create_access_token(user.id, user.email)
-    refresh_token_new = create_refresh_token(user.id, user.email)
+    access_token = create_access_token(user.id)
+    refresh_token_new = create_refresh_token(user.id)
 
     return {
         "access_token": access_token,
@@ -180,8 +180,8 @@ async def convert_anonymous_to_user(request, payload: ConvertAnonymousRequest):
     )(user=user, anonymous_session_id=None)
 
     # JWT 토큰 생성
-    access_token = create_access_token(user.id, user.email)
-    refresh_token = create_refresh_token(user.id, user.email)
+    access_token = create_access_token(user.id)
+    refresh_token = create_refresh_token(user.id)
 
     return {
         "access_token": access_token,

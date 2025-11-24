@@ -10,13 +10,12 @@ from django.contrib.auth import get_user_model
 User = get_user_model()
 
 
-def create_access_token(user_id: int, user_email: str) -> str:
+def create_access_token(user_id: int) -> str:
     """
     Access Token 생성
 
     Args:
         user_id: 사용자 ID
-        user_email: 사용자 이메일
 
     Returns:
         JWT access token
@@ -24,7 +23,6 @@ def create_access_token(user_id: int, user_email: str) -> str:
     expire = datetime.utcnow() + timedelta(minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
     payload = {
         'user_id': user_id,
-        'email': user_email,
         'exp': expire,
         'iat': datetime.utcnow(),
         'type': 'access'
@@ -38,13 +36,12 @@ def create_access_token(user_id: int, user_email: str) -> str:
     return token
 
 
-def create_refresh_token(user_id: int, user_email: str) -> str:
+def create_refresh_token(user_id: int) -> str:
     """
     Refresh Token 생성
 
     Args:
         user_id: 사용자 ID
-        user_email: 사용자 이메일
 
     Returns:
         JWT refresh token
@@ -52,7 +49,6 @@ def create_refresh_token(user_id: int, user_email: str) -> str:
     expire = datetime.utcnow() + timedelta(days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS)
     payload = {
         'user_id': user_id,
-        'email': user_email,
         'exp': expire,
         'iat': datetime.utcnow(),
         'type': 'refresh'

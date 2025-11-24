@@ -93,9 +93,9 @@ async def kakao_login(request, payload: KakaoLoginRequest):
 
     user = await sync_to_async(create_or_update_user)()
 
-    # JWT 토큰 생성 (email 포함)
-    access_token = create_access_token(user.id, user.email)
-    refresh_token = create_refresh_token(user.id, user.email)
+    # JWT 토큰 생성
+    access_token = create_access_token(user.id)
+    refresh_token = create_refresh_token(user.id)
 
     return {
         "access_token": access_token,
@@ -171,9 +171,9 @@ async def google_login(request, payload: GoogleLoginRequest):
 
     user = await sync_to_async(create_or_update_user)()
 
-    # JWT 토큰 생성 (email 포함)
-    access_token = create_access_token(user.id, user.email)
-    refresh_token = create_refresh_token(user.id, user.email)
+    # JWT 토큰 생성
+    access_token = create_access_token(user.id)
+    refresh_token = create_refresh_token(user.id)
 
     return {
         "access_token": access_token,
@@ -249,9 +249,9 @@ async def apple_login(request, payload: AppleLoginRequest):
 
     user = await sync_to_async(create_or_update_user)()
 
-    # JWT 토큰 생성 (email 포함)
-    access_token = create_access_token(user.id, user.email)
-    refresh_token = create_refresh_token(user.id, user.email)
+    # JWT 토큰 생성
+    access_token = create_access_token(user.id)
+    refresh_token = create_refresh_token(user.id)
 
     return {
         "access_token": access_token,

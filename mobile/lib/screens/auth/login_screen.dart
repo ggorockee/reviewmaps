@@ -755,6 +755,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         // Google
         _buildSocialButton(
           text: 'Google로 시작하기',
+          logoPath: 'asset/image/login/google.png',
           onPressed: _isLoading ? null : _handleGoogleLogin,
         ),
         SizedBox(height: 12.h),
@@ -763,6 +764,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         if (Platform.isIOS) ...[
           _buildSocialButton(
             text: 'Apple로 시작하기',
+            logoPath: 'asset/image/login/apple2.png',
             onPressed: _isLoading ? null : _handleAppleLogin,
           ),
           SizedBox(height: 12.h),
@@ -771,6 +773,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         // Kakao
         _buildSocialButton(
           text: 'Kakao로 시작하기',
+          logoPath: 'asset/image/login/kakao.png',
           onPressed: _isLoading ? null : _handleKakaoLogin,
         ),
         SizedBox(height: 12.h),
@@ -787,6 +790,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   // 소셜 로그인 버튼 공통
   Widget _buildSocialButton({
     required String text,
+    String? logoPath,
     required VoidCallback? onPressed,
   }) {
     return Container(
@@ -806,15 +810,32 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10.r),
           ),
+          padding: EdgeInsets.symmetric(horizontal: 16.w),
         ),
-        child: Text(
-          text,
-          style: TextStyle(
-            fontSize: 14.sp,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF1A1C1E),
-            letterSpacing: -0.14,
-          ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // 로고 이미지 (있는 경우만)
+            if (logoPath != null) ...[
+              Image.asset(
+                logoPath,
+                width: 20.w,
+                height: 20.w,
+                fit: BoxFit.contain,
+              ),
+              SizedBox(width: 12.w),
+            ],
+            // 버튼 텍스트
+            Text(
+              text,
+              style: TextStyle(
+                fontSize: 14.sp,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF1A1C1E),
+                letterSpacing: -0.14,
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -100,6 +100,7 @@ flutter:
     - asset/image/logo/
     - asset/image/banner/
     - asset/image/logo/application/
+    - asset/image/login/
     - .env
 
 

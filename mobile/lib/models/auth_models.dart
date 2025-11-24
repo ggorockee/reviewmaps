@@ -47,6 +47,35 @@ class KakaoLoginRequest {
   };
 }
 
+/// Google 로그인 요청 데이터
+class GoogleLoginRequest {
+  final String accessToken;
+
+  GoogleLoginRequest({
+    required this.accessToken,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'access_token': accessToken,
+  };
+}
+
+/// Apple 로그인 요청 데이터
+class AppleLoginRequest {
+  final String identityToken;
+  final String? authorizationCode;
+
+  AppleLoginRequest({
+    required this.identityToken,
+    this.authorizationCode,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'identity_token': identityToken,
+    if (authorizationCode != null) 'authorization_code': authorizationCode,
+  };
+}
+
 /// 토큰 갱신 요청 데이터
 class RefreshTokenRequest {
   final String refreshToken;

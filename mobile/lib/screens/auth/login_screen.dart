@@ -5,8 +5,11 @@ import 'package:mobile/screens/auth/sign_up_screen.dart';
 import 'package:mobile/screens/main_screen.dart';
 import 'package:mobile/services/auth_service.dart';
 import 'package:mobile/services/sns/kakao_login_service.dart';
+import 'package:mobile/services/sns/google_login_service.dart';
+import 'package:mobile/services/sns/apple_login_service.dart';
 import 'package:mobile/providers/auth_provider.dart';
 import 'package:mobile/const/colors.dart';
+import 'dart:io';
 
 /// Login Version 1 화면
 /// Figma 디자인을 기반으로 한 로그인 화면
@@ -243,6 +246,151 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           errorMessage = '로그인이 취소되었습니다.';
         } else if (serverMessage.contains('이메일') && serverMessage.contains('동의')) {
           errorMessage = '카카오 계정에 이메일이 없습니다.\n이메일 제공 동의가 필요합니다.';
+        } else if (serverMessage.contains('network') || serverMessage.contains('timeout')) {
+          errorMessage = '네트워크 연결이 불안정합니다.\n잠시 후 다시 시도해 주세요.';
+        } else if (serverMessage.isNotEmpty) {
+          errorMessage = serverMessage;
+        }
+      }
+
+      _showErrorDialog(errorMessage);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  /// Google 로그인 처리
+  Future<void> _handleGoogleLogin() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // 1. Google SDK로 로그인하여 Google access token 받기
+      print('[LoginScreen] ========== Google 로그인 시작 ==========');
+      final googleAccessToken = await GoogleLoginService.login();
+      print('[LoginScreen] Google SDK 로그인 성공');
+
+      if (!mounted) return;
+
+      // 2. AuthService로 서버 로그인 (Google token → 서버 JWT token)
+      await _authService.googleLogin(googleAccessToken);
+      print('[LoginScreen] 서버 Google 로그인 성공');
+
+      if (!mounted) return;
+
+      // 3. 사용자 정보 가져오기
+      final userInfo = await _authService.getUserInfo();
+
+      if (!mounted) return;
+
+      // 4. Riverpod authProvider 상태 업데이트
+      await ref.read(authProvider.notifier).updateAfterLogin(userInfo);
+
+      if (!mounted) return;
+
+      // 5. 로그인 성공 - MainScreen으로 이동
+      print('[LoginScreen] ========== Google 로그인 완료 ==========');
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => const MainScreen(),
+        ),
+      );
+    } catch (e, stackTrace) {
+      if (!mounted) return;
+
+      print('[LoginScreen] Google 로그인 에러: $e');
+      print('[LoginScreen] Stack trace: $stackTrace');
+
+      String errorMessage = 'Google 로그인 중 문제가 발생했습니다.\n잠시 후 다시 시도해 주세요.';
+      final errorText = e.toString();
+
+      if (errorText.contains('Exception:')) {
+        final serverMessage = errorText.replaceAll('Exception:', '').trim();
+
+        if (serverMessage.contains('취소')) {
+          errorMessage = '로그인이 취소되었습니다.';
+        } else if (serverMessage.contains('network') || serverMessage.contains('timeout')) {
+          errorMessage = '네트워크 연결이 불안정합니다.\n잠시 후 다시 시도해 주세요.';
+        } else if (serverMessage.isNotEmpty) {
+          errorMessage = serverMessage;
+        }
+      }
+
+      _showErrorDialog(errorMessage);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  /// Apple 로그인 처리
+  Future<void> _handleAppleLogin() async {
+    // Apple 로그인은 iOS에서만 지원
+    if (!Platform.isIOS) {
+      _showErrorDialog('Apple 로그인은 iOS에서만 사용할 수 있습니다.');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // 1. Apple Sign In으로 identity token 받기
+      print('[LoginScreen] ========== Apple 로그인 시작 ==========');
+      final appleCredentials = await AppleLoginService.login();
+      print('[LoginScreen] Apple Sign In 성공');
+
+      if (!mounted) return;
+
+      // 2. AuthService로 서버 로그인 (Apple token → 서버 JWT token)
+      await _authService.appleLogin(
+        appleCredentials['identity_token']!,
+        appleCredentials['authorization_code'],
+      );
+      print('[LoginScreen] 서버 Apple 로그인 성공');
+
+      if (!mounted) return;
+
+      // 3. 사용자 정보 가져오기
+      final userInfo = await _authService.getUserInfo();
+
+      if (!mounted) return;
+
+      // 4. Riverpod authProvider 상태 업데이트
+      await ref.read(authProvider.notifier).updateAfterLogin(userInfo);
+
+      if (!mounted) return;
+
+      // 5. 로그인 성공 - MainScreen으로 이동
+      print('[LoginScreen] ========== Apple 로그인 완료 ==========');
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => const MainScreen(),
+        ),
+      );
+    } catch (e, stackTrace) {
+      if (!mounted) return;
+
+      print('[LoginScreen] Apple 로그인 에러: $e');
+      print('[LoginScreen] Stack trace: $stackTrace');
+
+      String errorMessage = 'Apple 로그인 중 문제가 발생했습니다.\n잠시 후 다시 시도해 주세요.';
+      final errorText = e.toString();
+
+      if (errorText.contains('Exception:')) {
+        final serverMessage = errorText.replaceAll('Exception:', '').trim();
+
+        if (serverMessage.contains('취소')) {
+          errorMessage = '로그인이 취소되었습니다.';
         } else if (serverMessage.contains('network') || serverMessage.contains('timeout')) {
           errorMessage = '네트워크 연결이 불안정합니다.\n잠시 후 다시 시도해 주세요.';
         } else if (serverMessage.isNotEmpty) {
@@ -607,20 +755,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         // Google
         _buildSocialButton(
           text: 'Google로 시작하기',
-          onPressed: () {
-            // TODO: Google 로그인
-          },
+          onPressed: _isLoading ? null : _handleGoogleLogin,
         ),
         SizedBox(height: 12.h),
 
-        // Apple
-        _buildSocialButton(
-          text: 'Apple로 시작하기',
-          onPressed: () {
-            // TODO: Apple 로그인
-          },
-        ),
-        SizedBox(height: 12.h),
+        // Apple (iOS에서만 표시)
+        if (Platform.isIOS) ...[
+          _buildSocialButton(
+            text: 'Apple로 시작하기',
+            onPressed: _isLoading ? null : _handleAppleLogin,
+          ),
+          SizedBox(height: 12.h),
+        ],
 
         // Kakao
         _buildSocialButton(

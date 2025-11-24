@@ -821,8 +821,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           children: [
             // 로고 이미지 (있는 경우만)
             if (logoPath != null) ...[
-              Padding(
-                padding: EdgeInsets.only(left: logoLeftPadding),
+              Transform.translate(
+                offset: Offset(logoLeftPadding, 0),
                 child: Image.asset(
                   logoPath,
                   width: 20.w,

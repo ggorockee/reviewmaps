@@ -185,6 +185,12 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Custom User Model
 AUTH_USER_MODEL = 'users.User'
 
+# Custom Authentication Backend
+# Email 기반 인증 - email + password로 로그인 (login_method='email'인 사용자만)
+AUTHENTICATION_BACKENDS = [
+    'users.backends.EmailAuthBackend',
+]
+
 # JWT 인증 설정
 # 개발 환경: SECRET_KEY를 기본값으로 사용
 # 프로덕션 환경: 환경변수 필수 (없으면 시작 실패)

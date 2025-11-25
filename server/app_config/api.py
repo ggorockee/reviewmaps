@@ -46,10 +46,10 @@ async def get_ads(request, platform: str):
 @router.get("/version", response=VersionCheckResponseSchema)
 async def check_version(request, platform: str):
     """
-    앱 버전 설정 조회 (정보만 제공)
+    앱 버전 설정 조회
 
-    플랫폼별 버전 설정 정보만 반환.
-    모든 비교 로직과 UI 처리는 Flutter 클라이언트에서 담당.
+    플랫폼별 버전 설정 정보를 반환.
+    force_update 값은 DB 모델에서 가져오며, 최종 UI 처리는 클라이언트에서 담당.
 
     Args:
         platform: android 또는 ios
@@ -58,16 +58,17 @@ async def check_version(request, platform: str):
         {
             "latest_version": "1.4.0",
             "min_version": "1.3.0",
-            "force_update": false,  // 항상 false (클라이언트가 판단)
+            "force_update": true/false,  // DB 모델 값 반환
             "store_url": "https://...",
             "message_title": "업데이트 안내",
             "message_body": "더 안정적인 서비스 이용을 위해..."
         }
 
     Client Logic (Flutter):
-        1. current < min_version → 강제 업데이트
-        2. min_version ≤ current < latest_version → 권장 업데이트
-        3. current ≥ latest_version → 업데이트 안내 없음
+        1. force_update == true → 강제 업데이트 (스킵 불가)
+        2. current < min_version → 강제 업데이트
+        3. min_version ≤ current < latest_version → 권장 업데이트
+        4. current ≥ latest_version → 업데이트 안내 없음
 
     Raises:
         404: 활성화된 버전 정보가 없을 때
@@ -84,11 +85,11 @@ async def check_version(request, platform: str):
     except AppVersion.DoesNotExist:
         raise Http404(f"{platform} 플랫폼의 활성화된 버전 정보가 없습니다.")
 
-    # 서버는 정보만 제공, 판단은 클라이언트에서
+    # 서버 모델 값 반환, 최종 판단은 클라이언트에서
     return VersionCheckResponseSchema(
         latest_version=latest_config.version,
         min_version=latest_config.minimum_version,
-        force_update=False,  # 항상 false, 클라이언트가 판단
+        force_update=latest_config.force_update,  # 모델의 force_update 값 사용
         store_url=latest_config.store_url,
         message_title="업데이트 안내",
         message_body=latest_config.update_message or (

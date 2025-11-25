@@ -28,23 +28,38 @@ async def get_my_info(request):
     """
     user = request.auth  # JWTAuth에서 검증된 사용자
 
-    # 연결된 소셜 계정 조회
+    # 연결된 소셜 계정 조회 (profile_image, name 포함)
     social_accounts = await SocialAccount.objects.filter(
         user=user
-    ).values('provider', 'email', 'created_at').all()
+    ).values('provider', 'email', 'profile_image', 'name', 'created_at').all()
 
     social_accounts_list = [
         SocialAccountInfo(
             provider=account['provider'],
             email=account['email'],
+            profile_image=account['profile_image'] or None,
             connected_at=account['created_at']
         )
         for account in social_accounts
     ]
 
+    # 첫 번째 소셜 계정의 프로필 이미지와 이름 사용
+    profile_image = None
+    name = None
+    for account in social_accounts:
+        if account.get('profile_image'):
+            profile_image = account['profile_image']
+            break
+    for account in social_accounts:
+        if account.get('name'):
+            name = account['name']
+            break
+
     return {
         "id": user.id,
         "email": user.email,
+        "name": name,
+        "profile_image": profile_image,
         "is_active": user.is_active,
         "date_joined": user.date_joined,
         "login_method": user.login_method,
@@ -83,23 +98,38 @@ async def update_my_info(request, payload: UpdateProfileRequest):
     # user.nickname = payload.nickname
     # await user.asave()
 
-    # 연결된 소셜 계정 조회
+    # 연결된 소셜 계정 조회 (profile_image, name 포함)
     social_accounts = await SocialAccount.objects.filter(
         user=user
-    ).values('provider', 'email', 'created_at').all()
+    ).values('provider', 'email', 'profile_image', 'name', 'created_at').all()
 
     social_accounts_list = [
         SocialAccountInfo(
             provider=account['provider'],
             email=account['email'],
+            profile_image=account['profile_image'] or None,
             connected_at=account['created_at']
         )
         for account in social_accounts
     ]
 
+    # 첫 번째 소셜 계정의 프로필 이미지와 이름 사용
+    profile_image = None
+    name = None
+    for account in social_accounts:
+        if account.get('profile_image'):
+            profile_image = account['profile_image']
+            break
+    for account in social_accounts:
+        if account.get('name'):
+            name = account['name']
+            break
+
     return {
         "id": user.id,
         "email": user.email,
+        "name": name,
+        "profile_image": profile_image,
         "is_active": user.is_active,
         "date_joined": user.date_joined,
         "login_method": user.login_method,

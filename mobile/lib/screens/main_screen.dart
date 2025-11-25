@@ -11,18 +11,16 @@ import 'package:mobile/providers/location_provider.dart';
 import 'package:mobile/providers/auth_provider.dart';
 import 'package:mobile/services/version_service.dart';
 import 'package:mobile/widgets/update_dialog.dart';
-
-
-// import '../widgets/exit_reward_dialog.dart';
-// import '../ads/rewarded_ad_service.dart';
+import 'package:mobile/models/version_check_models.dart';
 
 
 /// MainScreen
 /// ------------------------------------------------------
 /// 하단 탭 내비게이션 컨테이너.
 /// - 탭: 홈 / 지도 / 알림 / 내정보
-/// - 상태 보존: IndexedStack 사용 → 탭 전환 시 각 화면의 상태(스크롤, 지도 컨트롤러 등) 유지
+/// - 상태 보존: IndexedStack 사용 -> 탭 전환 시 각 화면의 상태(스크롤, 지도 컨트롤러 등) 유지
 /// - 인증 체크: 알림/내정보 탭은 회원만 접근 가능
+/// - 버전 체크: 앱 시작 시 업데이트 필요 여부 확인
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
 
@@ -51,9 +49,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   @override
   void initState() {
     super.initState();
-    // 디버그 포함: 첫 프레임 이후, 홈 탭일 때 1회만 업데이트 체크
-    // 리워드 광고 미리 로드 (비활성화)
-    // RewardedAdService().loadAd();
 
     // 앱 시작 시 권한/위치 초기화 및 인증 상태 체크
     Future.microtask(() async{
@@ -63,7 +58,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
     _tabs = [
       const HomeScreen(),
-      null, // MapScreen은 아직 생성하지 않음 → 권한 팝업 안뜸
+      null, // MapScreen은 아직 생성하지 않음 -> 권한 팝업 안뜸
       null, // NotificationScreen도 lazy loading
       null, // ProfileScreen도 lazy loading
     ];
@@ -111,11 +106,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         _tabs[3] = const ProfileScreen();
       }
     });
-
-    // 탭 전환 시에는 업데이트 체크 트리거 금지 (홈 초회만)
   }
 
-  /// 뒤로가기 버튼 처리 (리워드 광고 비활성화)
+  /// 뒤로가기 버튼 처리
   Future<bool> _onWillPop() async {
     // 홈 탭이 아니면 홈으로 이동
     if (_selectedIndex != 0) {
@@ -125,16 +118,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
     // 홈 탭에서 뒤로가기 시 바로 종료
     return true;
-
-    // 리워드 광고 다이얼로그 표시 (비활성화)
-    // final shouldExit = await ExitRewardDialog.show(
-    //   context,
-    //   onRewardEarned: () {
-    //     // 보상 지급 로직 (예: 프리미엄 정보 해제, 쿠폰 지급 등)
-    //     debugPrint('🎁 사용자가 리워드를 획득했습니다!');
-    //   },
-    // );
-    // return shouldExit ?? false;
   }
 
   @override
@@ -154,7 +137,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         }
       },
       child: Scaffold(
-      // ✅ IndexedStack: 현재 탭만 보이되, 나머지 탭도 트리에 남아 상태 보존
       body: Column(
         children: [
           Expanded(
@@ -195,7 +177,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         onTap: _onItemTapped,
         showUnselectedLabels: true,
 
-        // 📌 폰트 배율에 따른 동적 크기 조정
         iconSize: (isTab ? 32.0 : 24.0) * (1.0 + (MediaQuery.textScalerOf(context).textScaleFactor - 1.0) * 0.3).clamp(1.0, 1.2),
         selectedFontSize: (isTab ? 25.0 : 12.0) * (1.0 + (MediaQuery.textScalerOf(context).textScaleFactor - 1.0) * 0.5).clamp(1.0, 1.3),
         unselectedFontSize: (isTab ? 25.0 : 12.0) * (1.0 + (MediaQuery.textScalerOf(context).textScaleFactor - 1.0) * 0.5).clamp(1.0, 1.3),
@@ -206,8 +187,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   }
 
   // ----------------------------------------------------------
-  // App Store에서 최신 버전 조회 → 새 버전이면 배너/스낵바로 안내
+  // 버전 체크 로직
   // ----------------------------------------------------------
+
+  /// 홈 탭 첫 진입 시 1회만 업데이트 체크
   void _maybeCheckUpdateOnFirstHome() {
     if (_selectedIndex != 0) return; // 홈 탭이 아닐 때 무시
     if (_didCheckUpdateOnce) return; // 세션당 1회만
@@ -217,20 +200,34 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
   /// 백엔드 API를 통한 버전 체크
   ///
-  /// - iOS와 Android 모두 지원
-  /// - 서버에서 플랫폼별 최신 버전 정보 관리
-  /// - 강제 업데이트 또는 선택적 업데이트 다이얼로그 표시
+  /// 논리 버전(Logical Version) 기반으로 업데이트 필요 여부를 판단합니다.
+  /// - current < min_version: 강제 업데이트
+  /// - current < latest_version: 권장 업데이트 (스킵 기간 고려)
+  /// - current >= latest_version: 안내 없음
   Future<void> _checkAppVersion() async {
     try {
-      final result = await _versionService.checkVersion();
-
-      // 업데이트가 필요한 경우 다이얼로그 표시
-      if (result.needsUpdate && mounted) {
-        await UpdateDialog.show(context, result);
-      }
+      await _versionService.checkAndNotify(
+        onForceUpdate: (result) {
+          if (mounted) {
+            UpdateDialog.showForceUpdate(context, result);
+          }
+        },
+        onRecommendedUpdate: (result) {
+          if (mounted) {
+            UpdateDialog.showRecommendedUpdate(context, result);
+          }
+        },
+        onLatest: () {
+          // 최신 버전 사용 중 - 아무 동작 없음
+          debugPrint('App is up to date');
+        },
+        onError: (error) {
+          // 버전 체크 실패 시 조용히 무시 (네트워크 이슈 등)
+          debugPrint('Version check failed: $error');
+        },
+      );
     } catch (e) {
-      // 버전 체크 실패 시 조용히 무시 (네트워크 이슈 등)
-      debugPrint('Version check failed: $e');
+      debugPrint('Version check error: $e');
     }
   }
 }

@@ -70,11 +70,16 @@ class AlertInfo {
   final String keyword;
   final int campaignId;
   final String campaignTitle;
+  final String? campaignCompany; // 업체명
   final String? campaignOffer;
   final String? campaignAddress;
   final double? campaignLat;
   final double? campaignLng;
   final String? campaignImgUrl;
+  final String? campaignPlatform; // 플랫폼
+  final DateTime? campaignApplyDeadline; // 신청 마감일
+  final String? campaignContentLink; // 콘텐츠 링크
+  final String? campaignChannel; // 캠페인 채널
   final String matchedField;
   final bool isRead;
   final String createdAt;
@@ -85,11 +90,16 @@ class AlertInfo {
     required this.keyword,
     required this.campaignId,
     required this.campaignTitle,
+    this.campaignCompany,
     this.campaignOffer,
     this.campaignAddress,
     this.campaignLat,
     this.campaignLng,
     this.campaignImgUrl,
+    this.campaignPlatform,
+    this.campaignApplyDeadline,
+    this.campaignContentLink,
+    this.campaignChannel,
     required this.matchedField,
     required this.isRead,
     required this.createdAt,
@@ -102,6 +112,7 @@ class AlertInfo {
       keyword: json['keyword'] as String,
       campaignId: json['campaign_id'] as int,
       campaignTitle: json['campaign_title'] as String,
+      campaignCompany: json['campaign_company'] as String?,
       campaignOffer: json['campaign_offer'] as String?,
       campaignAddress: json['campaign_address'] as String?,
       campaignLat: json['campaign_lat'] != null
@@ -111,6 +122,12 @@ class AlertInfo {
           ? (json['campaign_lng'] as num).toDouble()
           : null,
       campaignImgUrl: json['campaign_img_url'] as String?,
+      campaignPlatform: json['campaign_platform'] as String?,
+      campaignApplyDeadline: json['campaign_apply_deadline'] != null
+          ? DateTime.parse(json['campaign_apply_deadline'] as String)
+          : null,
+      campaignContentLink: json['campaign_content_link'] as String?,
+      campaignChannel: json['campaign_channel'] as String?,
       matchedField: json['matched_field'] as String,
       isRead: json['is_read'] as bool,
       createdAt: json['created_at'] as String,
@@ -125,11 +142,16 @@ class AlertInfo {
     'keyword': keyword,
     'campaign_id': campaignId,
     'campaign_title': campaignTitle,
+    'campaign_company': campaignCompany,
     'campaign_offer': campaignOffer,
     'campaign_address': campaignAddress,
     'campaign_lat': campaignLat,
     'campaign_lng': campaignLng,
     'campaign_img_url': campaignImgUrl,
+    'campaign_platform': campaignPlatform,
+    'campaign_apply_deadline': campaignApplyDeadline?.toIso8601String(),
+    'campaign_content_link': campaignContentLink,
+    'campaign_channel': campaignChannel,
     'matched_field': matchedField,
     'is_read': isRead,
     'created_at': createdAt,
@@ -143,6 +165,23 @@ class AlertInfo {
       return '${(distance! * 1000).round()}m';
     }
     return '${distance!.toStringAsFixed(1)}km';
+  }
+
+  /// D-day 계산 (음수: 지남, 양수: 남음)
+  int? get dDay {
+    if (campaignApplyDeadline == null) return null;
+    final now = DateTime.now();
+    final deadline = campaignApplyDeadline!;
+    return deadline.difference(now).inDays;
+  }
+
+  /// D-day 표시 문자열
+  String get dDayText {
+    final d = dDay;
+    if (d == null) return '';
+    if (d == 0) return 'D-Day';
+    if (d > 0) return 'D-$d';
+    return '마감';
   }
 }
 

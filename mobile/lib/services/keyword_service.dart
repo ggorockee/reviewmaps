@@ -125,11 +125,26 @@ class KeywordService {
 
   /// 내 알람 목록 조회
   /// GET /v1/keyword-alerts/alerts
-  Future<AlertListResponse> getMyAlerts({bool? isRead}) async {
+  /// - isRead: 읽음/안읽음 필터
+  /// - lat, lng: 사용자 위치 (거리 계산용)
+  /// - sort: 정렬 기준 (created_at: 최신순, distance: 가까운순)
+  Future<AlertListResponse> getMyAlerts({
+    bool? isRead,
+    double? lat,
+    double? lng,
+    String sort = 'created_at',
+  }) async {
     final queryParams = <String, String>{};
     if (isRead != null) {
       queryParams['is_read'] = isRead.toString();
     }
+    if (lat != null) {
+      queryParams['lat'] = lat.toString();
+    }
+    if (lng != null) {
+      queryParams['lng'] = lng.toString();
+    }
+    queryParams['sort'] = sort;
 
     final uri = Uri.parse('$baseUrl/alerts').replace(queryParameters: queryParams);
     final headers = await _getAuthHeaders();
@@ -179,6 +194,31 @@ class KeywordService {
       }
     } catch (e) {
       debugPrint('알람 읽음 처리 오류: $e');
+      rethrow;
+    }
+  }
+
+  /// 키워드 활성화/비활성화 토글
+  /// PATCH /v1/keyword-alerts/keywords/{keyword_id}/toggle
+  Future<KeywordInfo> toggleKeyword(int keywordId) async {
+    final uri = Uri.parse('$baseUrl/keywords/$keywordId/toggle');
+    final headers = await _getAuthHeaders();
+
+    try {
+      final response = await _client
+          .patch(uri, headers: headers)
+          .timeout(const Duration(seconds: 10));
+
+      _debugPrintResponse('PATCH', uri.toString(), response);
+
+      if (response.statusCode != 200) {
+        final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
+        throw Exception(errorBody['detail'] ?? '키워드 상태를 변경할 수 없습니다. 잠시 후 다시 시도해 주세요.');
+      }
+
+      return KeywordInfo.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
+    } catch (e) {
+      debugPrint('키워드 토글 오류: $e');
       rethrow;
     }
   }

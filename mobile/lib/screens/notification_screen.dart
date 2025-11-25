@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:geolocator/geolocator.dart';
 import '../services/keyword_service.dart';
 import '../models/keyword_models.dart';
 
 /// 체험단 알림 화면
 /// - 2개 탭: 키워드 관리, 알림 기록
 /// - 키워드 추가/삭제, 알림 활성화/비활성화 기능
+/// - 위치 기반 거리순 정렬 지원
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
 
@@ -21,22 +23,75 @@ class _NotificationScreenState extends State<NotificationScreen>
   final KeywordService _keywordService = KeywordService();
 
   List<KeywordInfo> _keywords = [];
+  List<AlertInfo> _alerts = [];
+  int _unreadCount = 0;
   bool _isLoading = false;
   bool _isInitialLoading = true;
+  bool _isAlertsLoading = true;
+  bool _isRefreshing = false;
+
+  // 위치 정보
+  double? _userLat;
+  double? _userLng;
+  String _sortType = 'distance'; // 기본 정렬: 거리순
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(_onTabChanged);
     _loadKeywords();
+    _getUserLocation();
   }
 
   @override
   void dispose() {
+    _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     _keywordController.dispose();
     _keywordService.dispose();
     super.dispose();
+  }
+
+  void _onTabChanged() {
+    if (_tabController.index == 1 && _alerts.isEmpty && !_isAlertsLoading) {
+      _loadAlerts();
+    }
+  }
+
+  /// 사용자 위치 가져오기
+  Future<void> _getUserLocation() async {
+    try {
+      final permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        // 위치 권한이 없으면 기본값 사용 (서울 시청)
+        _userLat = 37.5666805;
+        _userLng = 126.9784147;
+        _loadAlerts();
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+        ),
+      );
+
+      if (mounted) {
+        setState(() {
+          _userLat = position.latitude;
+          _userLng = position.longitude;
+        });
+        _loadAlerts();
+      }
+    } catch (e) {
+      debugPrint('위치 가져오기 실패: $e');
+      // 기본값 사용
+      _userLat = 37.5666805;
+      _userLng = 126.9784147;
+      _loadAlerts();
+    }
   }
 
   /// 키워드 목록 로드
@@ -62,20 +117,63 @@ class _NotificationScreenState extends State<NotificationScreen>
         _isInitialLoading = false;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('키워드 목록을 불러올 수 없습니다: $e'),
-          duration: const Duration(seconds: 3),
-          behavior: SnackBarBehavior.floating,
-          action: SnackBarAction(
-            label: '닫기',
-            textColor: Colors.white70,
-            onPressed: () {
-              ScaffoldMessenger.of(context).hideCurrentSnackBar();
-            },
-          ),
-        ),
+      _showSnackBar('키워드 목록을 불러올 수 없습니다', isError: true);
+    }
+  }
+
+  /// 알림 목록 로드
+  Future<void> _loadAlerts() async {
+    if (!mounted) return;
+
+    setState(() {
+      _isAlertsLoading = true;
+    });
+
+    try {
+      final response = await _keywordService.getMyAlerts(
+        lat: _userLat,
+        lng: _userLng,
+        sort: _sortType,
       );
+
+      if (!mounted) return;
+
+      setState(() {
+        _alerts = response.alerts;
+        _unreadCount = response.unreadCount;
+        _isAlertsLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _isAlertsLoading = false;
+      });
+
+      debugPrint('알림 목록 로드 실패: $e');
+    }
+  }
+
+  /// 새로고침 (비동기)
+  Future<void> _onRefresh() async {
+    if (_isRefreshing) return;
+
+    setState(() {
+      _isRefreshing = true;
+    });
+
+    try {
+      if (_tabController.index == 0) {
+        await _loadKeywords();
+      } else {
+        await _loadAlerts();
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRefreshing = false;
+        });
+      }
     }
   }
 
@@ -83,38 +181,12 @@ class _NotificationScreenState extends State<NotificationScreen>
   Future<void> _addKeyword() async {
     final keyword = _keywordController.text.trim();
     if (keyword.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('키워드를 입력해 주세요'),
-          duration: const Duration(seconds: 3),
-          behavior: SnackBarBehavior.floating,
-          action: SnackBarAction(
-            label: '닫기',
-            textColor: Colors.white70,
-            onPressed: () {
-              ScaffoldMessenger.of(context).hideCurrentSnackBar();
-            },
-          ),
-        ),
-      );
+      _showSnackBar('키워드를 입력해 주세요');
       return;
     }
 
     if (_keywords.length >= 20) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('키워드는 최대 20개까지 등록할 수 있습니다'),
-          duration: const Duration(seconds: 3),
-          behavior: SnackBarBehavior.floating,
-          action: SnackBarAction(
-            label: '닫기',
-            textColor: Colors.white70,
-            onPressed: () {
-              ScaffoldMessenger.of(context).hideCurrentSnackBar();
-            },
-          ),
-        ),
-      );
+      _showSnackBar('키워드는 최대 20개까지 등록할 수 있습니다');
       return;
     }
 
@@ -132,21 +204,7 @@ class _NotificationScreenState extends State<NotificationScreen>
         _isLoading = false;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("'$keyword' 키워드가 추가되었습니다"),
-          duration: const Duration(seconds: 2),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-          action: SnackBarAction(
-            label: '닫기',
-            textColor: Colors.white70,
-            onPressed: () {
-              ScaffoldMessenger.of(context).hideCurrentSnackBar();
-            },
-          ),
-        ),
-      );
+      _showSnackBar("'$keyword' 키워드가 추가되었습니다", isSuccess: true);
     } catch (e) {
       if (!mounted) return;
 
@@ -154,21 +212,7 @@ class _NotificationScreenState extends State<NotificationScreen>
         _isLoading = false;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('키워드 추가 실패: $e'),
-          duration: const Duration(seconds: 3),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          action: SnackBarAction(
-            label: '닫기',
-            textColor: Colors.white70,
-            onPressed: () {
-              ScaffoldMessenger.of(context).hideCurrentSnackBar();
-            },
-          ),
-        ),
-      );
+      _showSnackBar('키워드 추가 실패: $e', isError: true);
     }
   }
 
@@ -190,20 +234,7 @@ class _NotificationScreenState extends State<NotificationScreen>
         _isLoading = false;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("'$keyword' 키워드가 삭제되었습니다"),
-          duration: const Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-          action: SnackBarAction(
-            label: '닫기',
-            textColor: Colors.white70,
-            onPressed: () {
-              ScaffoldMessenger.of(context).hideCurrentSnackBar();
-            },
-          ),
-        ),
-      );
+      _showSnackBar("'$keyword' 키워드가 삭제되었습니다");
     } catch (e) {
       if (!mounted) return;
 
@@ -211,44 +242,101 @@ class _NotificationScreenState extends State<NotificationScreen>
         _isLoading = false;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('키워드 삭제 실패: $e'),
-          duration: const Duration(seconds: 3),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          action: SnackBarAction(
-            label: '닫기',
-            textColor: Colors.white70,
-            onPressed: () {
-              ScaffoldMessenger.of(context).hideCurrentSnackBar();
-            },
-          ),
-        ),
-      );
+      _showSnackBar('키워드 삭제 실패: $e', isError: true);
     }
   }
 
-  /// 키워드 알림 토글
-  void _toggleKeyword(int index) {
+  /// 키워드 알림 토글 (API 연동)
+  Future<void> _toggleKeyword(int index) async {
     final old = _keywords[index];
-    final newIsActive = !old.isActive;
 
+    // 낙관적 업데이트
     setState(() {
-      // KeywordInfo는 final 필드라서 새 객체를 생성하여 교체
       _keywords[index] = KeywordInfo(
         id: old.id,
         keyword: old.keyword,
-        isActive: newIsActive,
+        isActive: !old.isActive,
         createdAt: old.createdAt,
       );
     });
 
+    try {
+      final updated = await _keywordService.toggleKeyword(old.id);
+      if (!mounted) return;
+
+      setState(() {
+        _keywords[index] = updated;
+      });
+
+      final statusText = updated.isActive ? '활성화' : '비활성화';
+      _showSnackBar(
+        "'${old.keyword}' 알림이 $statusText되었습니다",
+        isSuccess: updated.isActive,
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      // 실패 시 롤백
+      setState(() {
+        _keywords[index] = old;
+      });
+
+      _showSnackBar('상태 변경 실패: $e', isError: true);
+    }
+  }
+
+  /// 알림 읽음 처리
+  Future<void> _markAlertAsRead(AlertInfo alert) async {
+    if (alert.isRead) return;
+
+    try {
+      await _keywordService.markAlertsAsRead([alert.id]);
+      if (!mounted) return;
+
+      setState(() {
+        final index = _alerts.indexWhere((a) => a.id == alert.id);
+        if (index != -1) {
+          _alerts[index] = AlertInfo(
+            id: alert.id,
+            keyword: alert.keyword,
+            campaignId: alert.campaignId,
+            campaignTitle: alert.campaignTitle,
+            campaignOffer: alert.campaignOffer,
+            campaignAddress: alert.campaignAddress,
+            campaignLat: alert.campaignLat,
+            campaignLng: alert.campaignLng,
+            campaignImgUrl: alert.campaignImgUrl,
+            matchedField: alert.matchedField,
+            isRead: true,
+            createdAt: alert.createdAt,
+            distance: alert.distance,
+          );
+          _unreadCount = _unreadCount > 0 ? _unreadCount - 1 : 0;
+        }
+      });
+    } catch (e) {
+      debugPrint('알림 읽음 처리 실패: $e');
+    }
+  }
+
+  /// 정렬 방식 변경
+  void _changeSortType(String sortType) {
+    if (_sortType == sortType) return;
+
+    setState(() {
+      _sortType = sortType;
+    });
+
+    _loadAlerts();
+  }
+
+  /// 스낵바 표시
+  void _showSnackBar(String message, {bool isError = false, bool isSuccess = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text("'${old.keyword}' 알림이 ${newIsActive ? '활성화' : '비활성화'}되었습니다"),
+        content: Text(message),
         duration: const Duration(seconds: 2),
-        backgroundColor: newIsActive ? Colors.green : Colors.orange,
+        backgroundColor: isError ? Colors.red : (isSuccess ? Colors.green : null),
         behavior: SnackBarBehavior.floating,
         action: SnackBarAction(
           label: '닫기',
@@ -259,16 +347,29 @@ class _NotificationScreenState extends State<NotificationScreen>
         ),
       ),
     );
+  }
 
-    // TODO: API 연동 시 추가
-    // try {
-    //   await _keywordService.toggleKeyword(old.id, newIsActive);
-    // } catch (e) {
-    //   // 실패 시 롤백
-    //   setState(() {
-    //     _keywords[index] = old;
-    //   });
-    // }
+  /// 날짜 포맷
+  String _formatDate(String dateString) {
+    try {
+      final date = DateTime.parse(dateString);
+      final now = DateTime.now();
+      final difference = now.difference(date);
+
+      if (difference.inDays > 7) {
+        return '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
+      } else if (difference.inDays > 0) {
+        return '${difference.inDays}일 전';
+      } else if (difference.inHours > 0) {
+        return '${difference.inHours}시간 전';
+      } else if (difference.inMinutes > 0) {
+        return '${difference.inMinutes}분 전';
+      } else {
+        return '방금 전';
+      }
+    } catch (e) {
+      return dateString;
+    }
   }
 
   @override
@@ -280,9 +381,20 @@ class _NotificationScreenState extends State<NotificationScreen>
         backgroundColor: Colors.white,
         elevation: 0,
         actions: [
+          // 새로고침 버튼
           IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadKeywords,
+            icon: _isRefreshing
+                ? SizedBox(
+                    width: 20.w,
+                    height: 20.w,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Theme.of(context).primaryColor,
+                    ),
+                  )
+                : const Icon(Icons.refresh),
+            onPressed: _isRefreshing ? null : _onRefresh,
+            tooltip: '새로고침',
           ),
         ],
         bottom: TabBar(
@@ -299,9 +411,38 @@ class _NotificationScreenState extends State<NotificationScreen>
               icon: const Icon(Icons.notifications_outlined),
               text: '키워드 관리 (${_keywords.length}/20)',
             ),
-            const Tab(
-              icon: Icon(Icons.history),
-              text: '알림 기록 (0)',
+            Tab(
+              icon: Stack(
+                children: [
+                  const Icon(Icons.history),
+                  if (_unreadCount > 0)
+                    Positioned(
+                      right: -2,
+                      top: -2,
+                      child: Container(
+                        padding: EdgeInsets.all(4.w),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: BoxConstraints(
+                          minWidth: 14.w,
+                          minHeight: 14.w,
+                        ),
+                        child: Text(
+                          _unreadCount > 99 ? '99+' : '$_unreadCount',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 8.sp,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              text: '알림 기록 (${_alerts.length})',
             ),
           ],
         ),
@@ -309,8 +450,14 @@ class _NotificationScreenState extends State<NotificationScreen>
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildKeywordManagementTab(),
-          _buildNotificationHistoryTab(),
+          RefreshIndicator(
+            onRefresh: _loadKeywords,
+            child: _buildKeywordManagementTab(),
+          ),
+          RefreshIndicator(
+            onRefresh: _loadAlerts,
+            child: _buildNotificationHistoryTab(),
+          ),
         ],
       ),
     );
@@ -319,6 +466,7 @@ class _NotificationScreenState extends State<NotificationScreen>
   /// 키워드 관리 탭
   Widget _buildKeywordManagementTab() {
     return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.all(16.w),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -601,36 +749,305 @@ class _NotificationScreenState extends State<NotificationScreen>
 
   /// 알림 기록 탭
   Widget _buildNotificationHistoryTab() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.notifications_none,
-            size: 64.sp,
-            color: const Color(0xFFD1D5DB),
-          ),
-          SizedBox(height: 16.h),
-          Text(
-            '받은 알림이 없습니다',
-            style: TextStyle(
-              fontSize: 16.sp,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xFF6C7278),
+    if (_isAlertsLoading) {
+      return Center(
+        child: CircularProgressIndicator(
+          color: Theme.of(context).primaryColor,
+        ),
+      );
+    }
+
+    if (_alerts.isEmpty) {
+      return SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height * 0.5,
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.notifications_none,
+                  size: 64.sp,
+                  color: const Color(0xFFD1D5DB),
+                ),
+                SizedBox(height: 16.h),
+                Text(
+                  '받은 알림이 없습니다',
+                  style: TextStyle(
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF6C7278),
+                  ),
+                ),
+                SizedBox(height: 8.h),
+                Text(
+                  '키워드를 등록하고 관련 체험단 알림을 받아보세요!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12.sp,
+                    fontWeight: FontWeight.w400,
+                    color: const Color(0xFF9CA3AF),
+                    height: 1.5,
+                  ),
+                ),
+              ],
             ),
           ),
-          SizedBox(height: 8.h),
-          Text(
-            '키워드를 등록하고 관련 체험단 알림을 받아보세요!',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 12.sp,
-              fontWeight: FontWeight.w400,
-              color: const Color(0xFF9CA3AF),
-              height: 1.5,
-            ),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        // 정렬 옵션
+        Container(
+          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Text(
+                '정렬: ',
+                style: TextStyle(
+                  fontSize: 12.sp,
+                  color: const Color(0xFF6C7278),
+                ),
+              ),
+              _buildSortChip('거리순', 'distance'),
+              SizedBox(width: 8.w),
+              _buildSortChip('최신순', 'created_at'),
+            ],
           ),
-        ],
+        ),
+        // 알림 목록
+        Expanded(
+          child: ListView.separated(
+            padding: EdgeInsets.all(16.w),
+            itemCount: _alerts.length,
+            separatorBuilder: (context, index) => SizedBox(height: 12.h),
+            itemBuilder: (context, index) {
+              final alert = _alerts[index];
+              return _buildAlertCard(alert);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 정렬 칩
+  Widget _buildSortChip(String label, String sortType) {
+    final isSelected = _sortType == sortType;
+    return GestureDetector(
+      onTap: () => _changeSortType(sortType),
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+        decoration: BoxDecoration(
+          color: isSelected ? Theme.of(context).primaryColor : Colors.white,
+          borderRadius: BorderRadius.circular(16.r),
+          border: Border.all(
+            color: isSelected
+                ? Theme.of(context).primaryColor
+                : const Color(0xFFEDF1F3),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12.sp,
+            fontWeight: FontWeight.w500,
+            color: isSelected ? Colors.white : const Color(0xFF6C7278),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 알림 카드
+  Widget _buildAlertCard(AlertInfo alert) {
+    return GestureDetector(
+      onTap: () {
+        _markAlertAsRead(alert);
+        // TODO: 캠페인 상세 페이지로 이동
+      },
+      child: Container(
+        padding: EdgeInsets.all(12.w),
+        decoration: BoxDecoration(
+          color: alert.isRead ? Colors.white : const Color(0xFFF0F7FF),
+          borderRadius: BorderRadius.circular(12.r),
+          border: Border.all(
+            color: alert.isRead
+                ? const Color(0xFFEDF1F3)
+                : Theme.of(context).primaryColor.withValues(alpha: 0.3),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 캠페인 이미지
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8.r),
+              child: alert.campaignImgUrl != null && alert.campaignImgUrl!.isNotEmpty
+                  ? Image.network(
+                      alert.campaignImgUrl!,
+                      width: 60.w,
+                      height: 60.w,
+                      fit: BoxFit.cover,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Container(
+                          width: 60.w,
+                          height: 60.w,
+                          color: const Color(0xFFEDF1F3),
+                          child: Center(
+                            child: SizedBox(
+                              width: 20.w,
+                              height: 20.w,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: const Color(0xFF9CA3AF),
+                                value: loadingProgress.expectedTotalBytes != null
+                                    ? loadingProgress.cumulativeBytesLoaded /
+                                        loadingProgress.expectedTotalBytes!
+                                    : null,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        width: 60.w,
+                        height: 60.w,
+                        color: const Color(0xFFEDF1F3),
+                        child: Icon(
+                          Icons.image_not_supported,
+                          color: const Color(0xFF9CA3AF),
+                          size: 24.sp,
+                        ),
+                      ),
+                    )
+                  : Container(
+                      width: 60.w,
+                      height: 60.w,
+                      color: const Color(0xFFEDF1F3),
+                      child: Icon(
+                        Icons.campaign,
+                        color: const Color(0xFF9CA3AF),
+                        size: 24.sp,
+                      ),
+                    ),
+            ),
+            SizedBox(width: 12.w),
+            // 알림 내용
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 키워드 뱃지 + 읽음 상태
+                  Row(
+                    children: [
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 8.w,
+                          vertical: 2.h,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(4.r),
+                        ),
+                        child: Text(
+                          alert.keyword,
+                          style: TextStyle(
+                            fontSize: 10.sp,
+                            fontWeight: FontWeight.w600,
+                            color: Theme.of(context).primaryColor,
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                      if (!alert.isRead)
+                        Container(
+                          width: 8.w,
+                          height: 8.w,
+                          decoration: const BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                    ],
+                  ),
+                  SizedBox(height: 4.h),
+                  // 캠페인 제목
+                  Text(
+                    alert.campaignTitle,
+                    style: TextStyle(
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF1A1C1E),
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  SizedBox(height: 4.h),
+                  // 주소 및 거리
+                  if (alert.campaignAddress != null)
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.location_on_outlined,
+                          size: 12.sp,
+                          color: const Color(0xFF9CA3AF),
+                        ),
+                        SizedBox(width: 4.w),
+                        Expanded(
+                          child: Text(
+                            alert.campaignAddress!,
+                            style: TextStyle(
+                              fontSize: 11.sp,
+                              color: const Color(0xFF6C7278),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (alert.distance != null) ...[
+                          SizedBox(width: 8.w),
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 6.w,
+                              vertical: 2.h,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE6F7ED),
+                              borderRadius: BorderRadius.circular(4.r),
+                            ),
+                            child: Text(
+                              alert.distanceText,
+                              style: TextStyle(
+                                fontSize: 10.sp,
+                                fontWeight: FontWeight.w500,
+                                color: const Color(0xFF10B981),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  SizedBox(height: 4.h),
+                  // 날짜
+                  Text(
+                    _formatDate(alert.createdAt),
+                    style: TextStyle(
+                      fontSize: 10.sp,
+                      color: const Color(0xFF9CA3AF),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

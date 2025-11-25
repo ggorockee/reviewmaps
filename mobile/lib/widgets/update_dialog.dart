@@ -68,11 +68,13 @@ class UpdateDialog extends StatelessWidget {
       // 강제 업데이트일 경우 뒤로가기 버튼 비활성화
       canPop: !isForceUpdate,
       child: Dialog(
+        backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16.r),
         ),
         child: Container(
           padding: EdgeInsets.all(24.w),
+          color: Colors.white,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -126,15 +128,11 @@ class UpdateDialog extends StatelessWidget {
     return SizedBox(
       width: double.infinity,
       height: 40.h,
-      child: OutlinedButton(
+      child: ElevatedButton(
         onPressed: () => _openStore(context),
-        style: OutlinedButton.styleFrom(
-          backgroundColor: Colors.white,
-          foregroundColor: Theme.of(context).primaryColor,
-          side: BorderSide(
-            color: Theme.of(context).primaryColor,
-            width: 1.5,
-          ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Theme.of(context).primaryColor,
+          foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8.r),
           ),
@@ -145,6 +143,7 @@ class UpdateDialog extends StatelessWidget {
           style: TextStyle(
             fontSize: 14.sp,
             fontWeight: FontWeight.w600,
+            color: Colors.white,
           ),
         ),
       ),

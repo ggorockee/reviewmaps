@@ -283,40 +283,46 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       return const SizedBox.shrink();
     }
 
-    IconData icon;
-    Color bgColor;
+    String? assetPath;
 
     switch (loginMethod) {
       case 'kakao':
-        icon = Icons.chat_bubble;
-        bgColor = const Color(0xFFFEE500);
+        assetPath = 'asset/image/login/kakao.png';
         break;
       case 'google':
-        icon = Icons.g_mobiledata;
-        bgColor = const Color(0xFF4285F4);
+        assetPath = 'asset/image/login/google.png';
         break;
       case 'apple':
-        icon = Icons.apple;
-        bgColor = Colors.black;
+        assetPath = 'asset/image/login/apple.png';
         break;
       case 'naver':
-        icon = Icons.north;
-        bgColor = const Color(0xFF03C75A);
-        break;
+        // 네이버 이미지가 없으면 기본 아이콘 사용
+        return Container(
+          padding: EdgeInsets.all(4.w),
+          decoration: BoxDecoration(
+            color: const Color(0xFF03C75A),
+            borderRadius: BorderRadius.circular(4.r),
+          ),
+          child: Text(
+            'N',
+            style: TextStyle(
+              fontSize: 10.sp,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+        );
       default:
         return const SizedBox.shrink();
     }
 
-    return Container(
-      padding: EdgeInsets.all(4.w),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(4.r),
-      ),
-      child: Icon(
-        icon,
-        size: 12.sp,
-        color: loginMethod == 'kakao' ? Colors.black : Colors.white,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(4.r),
+      child: Image.asset(
+        assetPath,
+        width: 20.w,
+        height: 20.w,
+        fit: BoxFit.contain,
       ),
     );
   }

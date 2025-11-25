@@ -163,6 +163,7 @@ class UserInfo {
   final String id;
   final String email;
   final String? name;
+  final String? profileImage; // 프로필 이미지 URL
   final bool isActive;
   final String? dateJoined;
   final String loginMethod; // email, google, apple, kakao, naver
@@ -171,6 +172,7 @@ class UserInfo {
     required this.id,
     required this.email,
     this.name,
+    this.profileImage,
     required this.isActive,
     this.dateJoined,
     required this.loginMethod,
@@ -181,6 +183,7 @@ class UserInfo {
       id: json['id'].toString(), // int 또는 String을 안전하게 String으로 변환
       email: json['email'] as String,
       name: json['name'] as String?,
+      profileImage: json['profile_image'] as String?,
       isActive: json['is_active'] as bool? ?? true,
       dateJoined: json['date_joined'] as String?,
       loginMethod: json['login_method'] as String? ?? 'email',
@@ -191,6 +194,7 @@ class UserInfo {
     'id': id,
     'email': email,
     if (name != null) 'name': name,
+    if (profileImage != null) 'profile_image': profileImage,
     'is_active': isActive,
     if (dateJoined != null) 'date_joined': dateJoined,
     'login_method': loginMethod,

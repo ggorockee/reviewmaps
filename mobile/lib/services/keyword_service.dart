@@ -223,6 +223,65 @@ class KeywordService {
     }
   }
 
+  /// FCM 디바이스 토큰 등록
+  /// POST /v1/keyword-alerts/fcm/register
+  Future<void> registerFcmToken(String fcmToken, String deviceType) async {
+    final uri = Uri.parse('$baseUrl/fcm/register');
+    final headers = await _getAuthHeaders();
+
+    try {
+      final response = await _client
+          .post(
+            uri,
+            headers: headers,
+            body: jsonEncode({
+              'fcm_token': fcmToken,
+              'device_type': deviceType,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      _debugPrintResponse('POST', uri.toString(), response);
+
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
+        throw Exception(errorBody['detail'] ?? 'FCM 토큰 등록에 실패했습니다.');
+      }
+
+      debugPrint('✅ FCM 토큰 등록 성공');
+    } catch (e) {
+      debugPrint('FCM 토큰 등록 오류: $e');
+      rethrow;
+    }
+  }
+
+  /// FCM 디바이스 토큰 해제
+  /// DELETE /v1/keyword-alerts/fcm/unregister
+  Future<void> unregisterFcmToken(String fcmToken) async {
+    final uri = Uri.parse('$baseUrl/fcm/unregister').replace(
+      queryParameters: {'fcm_token': fcmToken},
+    );
+    final headers = await _getAuthHeaders();
+
+    try {
+      final response = await _client
+          .delete(uri, headers: headers)
+          .timeout(const Duration(seconds: 10));
+
+      _debugPrintResponse('DELETE', uri.toString(), response);
+
+      if (response.statusCode != 200) {
+        final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
+        throw Exception(errorBody['detail'] ?? 'FCM 토큰 해제에 실패했습니다.');
+      }
+
+      debugPrint('✅ FCM 토큰 해제 성공');
+    } catch (e) {
+      debugPrint('FCM 토큰 해제 오류: $e');
+      rethrow;
+    }
+  }
+
   void dispose() {
     _client.close();
   }

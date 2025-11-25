@@ -50,3 +50,18 @@ class KeywordAlertListResponse(Schema):
 class MarkAlertReadRequest(Schema):
     """알람 읽음 처리 요청"""
     alert_ids: list[int]
+
+
+class FCMDeviceRegisterRequest(Schema):
+    """FCM 디바이스 토큰 등록 요청"""
+    fcm_token: str
+    device_type: str = "android"  # "android" or "ios"
+
+
+class FCMDeviceResponse(Schema):
+    """FCM 디바이스 응답"""
+    id: int
+    fcm_token: str
+    device_type: str
+    is_active: bool
+    created_at: datetime

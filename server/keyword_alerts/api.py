@@ -9,7 +9,7 @@ from django.contrib.auth import get_user_model
 from django.db.models import Q, Count
 from asgiref.sync import sync_to_async
 
-from .models import Keyword, KeywordAlert
+from .models import Keyword, KeywordAlert, FCMDevice
 from .schemas import (
     KeywordCreateRequest,
     KeywordResponse,
@@ -17,6 +17,8 @@ from .schemas import (
     KeywordAlertResponse,
     KeywordAlertListResponse,
     MarkAlertReadRequest,
+    FCMDeviceRegisterRequest,
+    FCMDeviceResponse,
 )
 from users.utils import get_user_from_token, decode_anonymous_session
 from app_config.models import AppSetting
@@ -352,3 +354,79 @@ async def mark_alerts_read(request, payload: MarkAlertReadRequest):
         "message": f"{updated_count}개의 알람을 읽음 처리했습니다.",
         "updated_count": updated_count,
     }
+
+
+@router.post("/fcm/register", response=FCMDeviceResponse, summary="FCM 디바이스 토큰 등록")
+async def register_fcm_device(request, payload: FCMDeviceRegisterRequest):
+    """
+    FCM 디바이스 토큰 등록/갱신 API
+    - 푸시 알림을 받기 위한 디바이스 토큰 등록
+    - 이미 등록된 토큰이면 갱신
+    - Authorization: Bearer {token} 필요
+    """
+    user, session_id = await sync_to_async(get_auth_info)(request)
+
+    # 유효한 device_type 검증
+    if payload.device_type not in ['android', 'ios']:
+        raise HttpError(400, "device_type은 'android' 또는 'ios'만 허용됩니다.")
+
+    # 기존 토큰 조회 또는 생성
+    def get_or_create_device():
+        # 기존 토큰 확인 (동일 토큰)
+        try:
+            device = FCMDevice.objects.get(fcm_token=payload.fcm_token)
+            # 소유자 업데이트 (익명 → 회원 전환 등)
+            device.user = user
+            device.anonymous_session_id = session_id
+            device.device_type = payload.device_type
+            device.is_active = True
+            device.save()
+            return device
+        except FCMDevice.DoesNotExist:
+            pass
+
+        # 새 디바이스 생성
+        device = FCMDevice.objects.create(
+            fcm_token=payload.fcm_token,
+            user=user,
+            anonymous_session_id=session_id,
+            device_type=payload.device_type,
+            is_active=True
+        )
+        return device
+
+    device = await sync_to_async(get_or_create_device)()
+
+    return {
+        "id": device.id,
+        "fcm_token": device.fcm_token,
+        "device_type": device.device_type,
+        "is_active": device.is_active,
+        "created_at": device.created_at,
+    }
+
+
+@router.delete("/fcm/unregister", summary="FCM 디바이스 토큰 해제")
+async def unregister_fcm_device(request, fcm_token: str = Query(..., description="해제할 FCM 토큰")):
+    """
+    FCM 디바이스 토큰 해제 API
+    - 푸시 알림 수신 중지
+    - 디바이스 비활성화 처리
+    """
+    user, session_id = await sync_to_async(get_auth_info)(request)
+
+    def deactivate_device():
+        try:
+            device = FCMDevice.objects.get(fcm_token=fcm_token)
+            device.is_active = False
+            device.save()
+            return True
+        except FCMDevice.DoesNotExist:
+            return False
+
+    success = await sync_to_async(deactivate_device)()
+
+    if not success:
+        raise HttpError(404, "등록된 디바이스를 찾을 수 없습니다.")
+
+    return {"message": "푸시 알림이 해제되었습니다."}

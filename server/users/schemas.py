@@ -87,6 +87,7 @@ class SocialAccountInfo(Schema):
     """SNS 계정 정보"""
     provider: str  # kakao, google, apple
     email: str
+    profile_image: Optional[str] = None  # 프로필 이미지 URL
     connected_at: datetime
 
 
@@ -100,4 +101,6 @@ class SNSLoginResponse(Schema):
 
 class UserDetailResponse(UserResponse):
     """사용자 상세 정보 (소셜 계정 포함)"""
+    name: Optional[str] = None  # 사용자 이름
+    profile_image: Optional[str] = None  # 프로필 이미지 URL (첫 번째 소셜 계정의 이미지)
     social_accounts: list[SocialAccountInfo] = []

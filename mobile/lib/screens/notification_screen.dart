@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/keyword_service.dart';
 import '../models/keyword_models.dart';
+import '../const/colors.dart';
+import 'home_screen.dart'; // buildChannelIcons, platformBadgeColor
 
 /// 체험단 알림 화면
 /// - 2개 탭: 키워드 관리, 알림 기록
@@ -347,29 +350,6 @@ class _NotificationScreenState extends State<NotificationScreen>
         ),
       ),
     );
-  }
-
-  /// 날짜 포맷
-  String _formatDate(String dateString) {
-    try {
-      final date = DateTime.parse(dateString);
-      final now = DateTime.now();
-      final difference = now.difference(date);
-
-      if (difference.inDays > 7) {
-        return '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
-      } else if (difference.inDays > 0) {
-        return '${difference.inDays}일 전';
-      } else if (difference.inHours > 0) {
-        return '${difference.inHours}시간 전';
-      } else if (difference.inMinutes > 0) {
-        return '${difference.inMinutes}분 전';
-      } else {
-        return '방금 전';
-      }
-    } catch (e) {
-      return dateString;
-    }
   }
 
   @override
@@ -821,13 +801,23 @@ class _NotificationScreenState extends State<NotificationScreen>
         ),
         // 알림 목록
         Expanded(
-          child: ListView.separated(
-            padding: EdgeInsets.all(16.w),
+          child: ListView.builder(
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
             itemCount: _alerts.length,
-            separatorBuilder: (context, index) => SizedBox(height: 12.h),
             itemBuilder: (context, index) {
               final alert = _alerts[index];
-              return _buildAlertCard(alert);
+              final bool showDivider = index > 0;
+
+              return Container(
+                decoration: showDivider
+                    ? BoxDecoration(
+                        border: Border(
+                          top: BorderSide(color: Colors.grey.shade300, width: 1),
+                        ),
+                      )
+                    : null,
+                child: _buildAlertCard(alert),
+              );
             },
           ),
         ),
@@ -863,192 +853,293 @@ class _NotificationScreenState extends State<NotificationScreen>
     );
   }
 
-  /// 알림 카드
+  /// 알림 카드 - 검색 결과와 동일한 디자인
   Widget _buildAlertCard(AlertInfo alert) {
-    return GestureDetector(
+    final bool isTablet = MediaQuery.of(context).size.shortestSide >= 600;
+
+    return InkWell(
       onTap: () {
         _markAlertAsRead(alert);
-        // TODO: 캠페인 상세 페이지로 이동
+        _openCampaignLink(alert.campaignContentLink);
       },
       child: Container(
-        padding: EdgeInsets.all(12.w),
-        decoration: BoxDecoration(
-          color: alert.isRead ? Colors.white : const Color(0xFFF0F7FF),
-          borderRadius: BorderRadius.circular(12.r),
-          border: Border.all(
-            color: alert.isRead
-                ? const Color(0xFFEDF1F3)
-                : Theme.of(context).primaryColor.withValues(alpha: 0.3),
-            width: 1,
-          ),
-        ),
-        child: Row(
+        padding: EdgeInsets.symmetric(vertical: 12.h),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 캠페인 이미지
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8.r),
-              child: alert.campaignImgUrl != null && alert.campaignImgUrl!.isNotEmpty
-                  ? Image.network(
-                      alert.campaignImgUrl!,
-                      width: 60.w,
-                      height: 60.w,
-                      fit: BoxFit.cover,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Container(
-                          width: 60.w,
-                          height: 60.w,
-                          color: const Color(0xFFEDF1F3),
-                          child: Center(
-                            child: SizedBox(
-                              width: 20.w,
-                              height: 20.w,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: const Color(0xFF9CA3AF),
-                                value: loadingProgress.expectedTotalBytes != null
-                                    ? loadingProgress.cumulativeBytesLoaded /
-                                        loadingProgress.expectedTotalBytes!
-                                    : null,
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        width: 60.w,
-                        height: 60.w,
-                        color: const Color(0xFFEDF1F3),
-                        child: Icon(
-                          Icons.image_not_supported,
-                          color: const Color(0xFF9CA3AF),
-                          size: 24.sp,
-                        ),
-                      ),
-                    )
-                  : Container(
-                      width: 60.w,
-                      height: 60.w,
-                      color: const Color(0xFFEDF1F3),
-                      child: Icon(
-                        Icons.campaign,
-                        color: const Color(0xFF9CA3AF),
-                        size: 24.sp,
-                      ),
-                    ),
-            ),
-            SizedBox(width: 12.w),
-            // 알림 내용
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 키워드 뱃지 + 읽음 상태
-                  Row(
-                    children: [
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 8.w,
-                          vertical: 2.h,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(4.r),
-                        ),
-                        child: Text(
-                          alert.keyword,
-                          style: TextStyle(
-                            fontSize: 10.sp,
-                            fontWeight: FontWeight.w600,
-                            color: Theme.of(context).primaryColor,
-                          ),
-                        ),
-                      ),
-                      const Spacer(),
-                      if (!alert.isRead)
-                        Container(
-                          width: 8.w,
-                          height: 8.w,
-                          decoration: const BoxDecoration(
-                            color: Colors.red,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                    ],
-                  ),
-                  SizedBox(height: 4.h),
-                  // 캠페인 제목
-                  Text(
-                    alert.campaignTitle,
-                    style: TextStyle(
-                      fontSize: 14.sp,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF1A1C1E),
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  SizedBox(height: 4.h),
-                  // 주소 및 거리
-                  if (alert.campaignAddress != null)
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.location_on_outlined,
-                          size: 12.sp,
-                          color: const Color(0xFF9CA3AF),
-                        ),
-                        SizedBox(width: 4.w),
-                        Expanded(
-                          child: Text(
-                            alert.campaignAddress!,
-                            style: TextStyle(
-                              fontSize: 11.sp,
-                              color: const Color(0xFF6C7278),
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        if (alert.distance != null) ...[
-                          SizedBox(width: 8.w),
-                          Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 6.w,
-                              vertical: 2.h,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFE6F7ED),
-                              borderRadius: BorderRadius.circular(4.r),
-                            ),
-                            child: Text(
-                              alert.distanceText,
-                              style: TextStyle(
-                                fontSize: 10.sp,
-                                fontWeight: FontWeight.w500,
-                                color: const Color(0xFF10B981),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  SizedBox(height: 4.h),
-                  // 날짜
-                  Text(
-                    _formatDate(alert.createdAt),
-                    style: TextStyle(
-                      fontSize: 10.sp,
-                      color: const Color(0xFF9CA3AF),
-                    ),
-                  ),
-                ],
+            // 첫째줄: 플랫폼 뱃지
+            _buildPlatformBadge(alert, isTablet),
+
+            SizedBox(height: 4.h),
+
+            // 둘째줄: 업체명 + 채널 아이콘 + NEW
+            _buildTitleRow(alert, isTablet),
+
+            SizedBox(height: 4.h),
+
+            // 셋째줄: 제공 내역 (빨간색)
+            if (alert.campaignOffer != null && alert.campaignOffer!.isNotEmpty)
+              Text(
+                alert.campaignOffer!,
+                style: TextStyle(
+                  fontSize: isTablet ? 13.sp : 11.sp,
+                  color: Colors.red[600],
+                  fontWeight: FontWeight.w500,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-            ),
+
+            SizedBox(height: 8.h),
+
+            // 넷째줄: D-day + 거리 + 키워드 매칭 표시
+            _buildMetaRow(alert, isTablet),
           ],
         ),
       ),
     );
+  }
+
+  /// 플랫폼 뱃지
+  Widget _buildPlatformBadge(AlertInfo alert, bool isTablet) {
+    final platform = alert.campaignPlatform ?? '체험단';
+
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 3.h),
+      decoration: BoxDecoration(
+        color: platformBadgeColor(platform),
+        borderRadius: BorderRadius.circular(4.r),
+      ),
+      child: Text(
+        platform,
+        style: TextStyle(
+          fontSize: isTablet ? 10.sp : 10.sp,
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          height: 1.0,
+        ),
+      ),
+    );
+  }
+
+  /// 업체명 + 채널 아이콘 + NEW (한 줄에 표시)
+  Widget _buildTitleRow(AlertInfo alert, bool isTablet) {
+    final title = alert.campaignCompany?.isNotEmpty == true
+        ? alert.campaignCompany!
+        : alert.campaignTitle;
+    final isNew = _isNewAlert(alert.createdAt);
+
+    return RichText(
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      text: TextSpan(
+        children: [
+          // 업체명
+          TextSpan(
+            text: title,
+            style: TextStyle(
+              fontSize: isTablet ? 16.sp : 14.sp,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+              height: 1.3,
+            ),
+          ),
+          // 채널 아이콘
+          if (alert.campaignChannel != null && alert.campaignChannel!.isNotEmpty) ...[
+            WidgetSpan(
+              child: Padding(
+                padding: EdgeInsets.only(left: 4.w),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: buildChannelIcons(alert.campaignChannel),
+                ),
+              ),
+            ),
+          ],
+          // NEW 뱃지
+          if (isNew) ...[
+            WidgetSpan(
+              child: Padding(
+                padding: EdgeInsets.only(left: 4.w),
+                child: Container(
+                  padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8.r),
+                    border: Border.all(
+                      color: Colors.red.withValues(alpha: 0.3),
+                      width: 0.5,
+                    ),
+                  ),
+                  child: Text(
+                    'NEW',
+                    style: TextStyle(
+                      fontSize: isTablet ? 11.sp : 9.sp,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.red,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+          // 읽지 않은 표시
+          if (!alert.isRead) ...[
+            WidgetSpan(
+              child: Padding(
+                padding: EdgeInsets.only(left: 6.w),
+                child: Container(
+                  width: 8.w,
+                  height: 8.w,
+                  decoration: const BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// D-day + 거리 + 키워드 매칭 (검색 결과 스타일)
+  Widget _buildMetaRow(AlertInfo alert, bool isTablet) {
+    final textScaleFactor = MediaQuery.textScalerOf(context).scale(1.0);
+
+    final double baseHorizontalPadding = isTablet ? 16.0 : 8.0;
+    final double baseVerticalPadding = isTablet ? 8.0 : 3.0;
+    final double baseFontSize = isTablet ? 16.0 : 12.0;
+    final double baseBorderRadius = isTablet ? 20.0 : 12.0;
+
+    final adjustedHorizontalPadding = (baseHorizontalPadding * textScaleFactor.clamp(0.8, 1.4)).w;
+    final adjustedVerticalPadding = (baseVerticalPadding * textScaleFactor.clamp(0.8, 1.4)).h;
+    final adjustedFontSize = (baseFontSize * textScaleFactor.clamp(0.8, 1.4));
+    final adjustedBorderRadius = (baseBorderRadius * textScaleFactor.clamp(0.8, 1.4)).r;
+
+    return Wrap(
+      spacing: isTablet ? 6.w : 4.w,
+      runSpacing: isTablet ? 6.h : 4.h,
+      children: [
+        // D-day 칩
+        if (alert.dDayText.isNotEmpty)
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: adjustedHorizontalPadding,
+              vertical: adjustedVerticalPadding,
+            ),
+            decoration: BoxDecoration(
+              color: _getDDayColor(alert.dDay).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(adjustedBorderRadius),
+              border: Border.all(
+                color: _getDDayColor(alert.dDay).withValues(alpha: 0.3),
+                width: 0.5,
+              ),
+            ),
+            child: Text(
+              alert.dDayText,
+              style: TextStyle(
+                fontSize: adjustedFontSize,
+                fontWeight: FontWeight.w500,
+                color: _getDDayColor(alert.dDay),
+                height: 1.2,
+              ),
+            ),
+          ),
+
+        // 거리 칩
+        if (alert.distanceText.isNotEmpty)
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: adjustedHorizontalPadding,
+              vertical: adjustedVerticalPadding,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.blue.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(adjustedBorderRadius),
+              border: Border.all(
+                color: Colors.blue.withValues(alpha: 0.3),
+                width: 0.5,
+              ),
+            ),
+            child: Text(
+              alert.distanceText,
+              style: TextStyle(
+                fontSize: adjustedFontSize,
+                fontWeight: FontWeight.w500,
+                color: Colors.blue[700],
+                height: 1.2,
+              ),
+            ),
+          ),
+
+        // 키워드 매칭 칩
+        Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: adjustedHorizontalPadding,
+            vertical: adjustedVerticalPadding,
+          ),
+          decoration: BoxDecoration(
+            color: PRIMARY_COLOR.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(adjustedBorderRadius),
+            border: Border.all(
+              color: PRIMARY_COLOR.withValues(alpha: 0.3),
+              width: 0.5,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.label_outline,
+                size: adjustedFontSize,
+                color: PRIMARY_COLOR,
+              ),
+              SizedBox(width: 2.w),
+              Text(
+                alert.keyword,
+                style: TextStyle(
+                  fontSize: adjustedFontSize,
+                  fontWeight: FontWeight.w500,
+                  color: PRIMARY_COLOR,
+                  height: 1.2,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 캠페인 링크 열기
+  Future<void> _openCampaignLink(String? link) async {
+    if (link == null || link.isEmpty) return;
+
+    final uri = Uri.parse(link);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  /// 새 알림 여부 (24시간 이내)
+  bool _isNewAlert(String dateString) {
+    try {
+      final date = DateTime.parse(dateString);
+      final now = DateTime.now();
+      return now.difference(date).inHours < 24;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// D-day 색상
+  Color _getDDayColor(int? dDay) {
+    if (dDay == null) return Colors.grey;
+    if (dDay < 0) return Colors.grey;
+    if (dDay <= 3) return Colors.red;
+    if (dDay <= 7) return Colors.orange;
+    return PRIMARY_COLOR;
   }
 }

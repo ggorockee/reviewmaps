@@ -48,11 +48,19 @@ async def verify_kakao_token(access_token: str) -> Optional[Dict[str, Any]]:
             data = response.json()
 
             # 사용자 정보 추출
+            # 카카오 API 응답 구조:
+            # - kakao_account.profile.profile_image_url: 프로필 이미지 (640x640)
+            # - kakao_account.profile.thumbnail_image_url: 썸네일 이미지 (110x110)
+            # - kakao_account.profile.nickname: 닉네임
+            # - properties.nickname: 닉네임 (구버전 호환)
+            kakao_account = data.get('kakao_account', {})
+            profile = kakao_account.get('profile', {})
+
             user_info = {
                 'id': data.get('id'),  # Kakao 사용자 ID (필수)
-                'email': data.get('kakao_account', {}).get('email', ''),  # 이메일 (선택)
-                'name': data.get('properties', {}).get('nickname', ''),  # 닉네임
-                'profile_image': data.get('properties', {}).get('profile_image', ''),  # 프로필 이미지
+                'email': kakao_account.get('email', ''),  # 이메일
+                'name': profile.get('nickname', '') or data.get('properties', {}).get('nickname', ''),  # 닉네임
+                'profile_image': profile.get('profile_image_url', '') or profile.get('thumbnail_image_url', ''),  # 프로필 이미지
             }
 
             # 필수 필드 확인

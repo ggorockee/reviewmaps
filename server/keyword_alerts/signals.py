@@ -3,6 +3,7 @@
 - 새로운 캠페인이 생성되면 활성화된 키워드와 매칭하여 알림 생성
 - 매칭된 키워드 소유자에게 FCM 푸시 알림 전송
 - 공백/특수문자 제거 후 정규화된 매칭으로 검색 정확도 향상
+- 검색 대상: 업체명(company), 제공내역(offer)
 """
 import re
 from django.db.models.signals import post_save
@@ -78,7 +79,7 @@ def send_push_notifications_for_alerts(alerts: list[KeywordAlert], campaign):
 
     # 푸시 알림 전송
     title = "새로운 캠페인 알림"
-    body = f"관심 키워드와 매칭되는 캠페인: {campaign.title[:50] if campaign.title else '새 캠페인'}"
+    body = f"관심 키워드와 매칭되는 캠페인: {campaign.company[:50] if campaign.company else '새 캠페인'}"
     data = {
         "type": "keyword_alert",
         "campaign_id": str(campaign.id),
@@ -105,7 +106,7 @@ def create_keyword_alerts_on_campaign_save(sender, instance, created, **kwargs):
     캠페인 저장 시 키워드 매칭 알림 생성
     - 새로 생성된 캠페인만 처리 (created=True)
     - 활성화된 키워드(is_active=True)만 매칭
-    - 캠페인 제목(title) 또는 제공내역(offer)에서 키워드 검색
+    - 캠페인 업체명(company) 또는 제공내역(offer)에서 키워드 검색
     - 공백/특수문자 제거 후 정규화된 매칭
     """
     print(f"[Signal] Campaign post_save 호출됨 - ID: {instance.id}, created: {created}", flush=True)
@@ -123,13 +124,14 @@ def create_keyword_alerts_on_campaign_save(sender, instance, created, **kwargs):
         return
 
     # 캠페인 텍스트 정규화 (공백/특수문자 제거)
-    campaign_title_normalized = normalize_text(instance.title)
+    # 업체명(company)과 제공내역(offer)에서 검색
+    campaign_company_normalized = normalize_text(instance.company)
     campaign_offer_normalized = normalize_text(instance.offer)
 
     # 원본 텍스트도 유지 (로깅용)
-    campaign_title_original = instance.title or ""
+    campaign_company_original = instance.company or ""
 
-    print(f"[Signal] 캠페인 제목(정규화): '{campaign_title_normalized}'", flush=True)
+    print(f"[Signal] 캠페인 업체명(정규화): '{campaign_company_normalized}'", flush=True)
     print(f"[Signal] 캠페인 제공내역(정규화): '{campaign_offer_normalized[:100]}...'", flush=True)
 
     # 이미 존재하는 알림 조회 (한 번에 조회하여 N+1 방지)
@@ -155,9 +157,9 @@ def create_keyword_alerts_on_campaign_save(sender, instance, created, **kwargs):
 
         matched_field = None
 
-        # 제목에서 키워드 매칭 (정규화된 텍스트에서)
-        if keyword_normalized in campaign_title_normalized:
-            matched_field = "title"
+        # 업체명에서 키워드 매칭 (정규화된 텍스트에서)
+        if keyword_normalized in campaign_company_normalized:
+            matched_field = "company"
         # 제공내역에서 키워드 매칭
         elif keyword_normalized in campaign_offer_normalized:
             matched_field = "offer"
@@ -181,4 +183,4 @@ def create_keyword_alerts_on_campaign_save(sender, instance, created, **kwargs):
         # FCM 푸시 알림 전송
         send_push_notifications_for_alerts(created_alerts, instance)
     else:
-        print(f"[Signal] 매칭된 키워드 없음 - 캠페인 ID: {instance.id}, 제목: {campaign_title_original[:50]}", flush=True)
+        print(f"[Signal] 매칭된 키워드 없음 - 캠페인 ID: {instance.id}, 업체명: {campaign_company_original[:50]}", flush=True)

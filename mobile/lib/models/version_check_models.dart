@@ -65,14 +65,23 @@ class VersionCheckResponse {
   bool get requiresForceUpdate => AppVersion.currentIsLowerThan(minVersion);
 
   /// 업데이트 유형 결정
+  ///
+  /// 서버의 forceUpdate 플래그를 최우선으로 적용:
+  /// 1. forceUpdate == false → 무조건 none (팝업 X)
+  /// 2. forceUpdate == true && 현재버전 >= minVersion → none (팝업 X)
+  /// 3. forceUpdate == true && 현재버전 < minVersion → force (강제 업데이트 팝업)
   UpdateType get updateType {
-    if (requiresForceUpdate) {
-      return UpdateType.force;
-    } else if (needsUpdate) {
-      return UpdateType.recommended;
-    } else {
+    // 서버에서 forceUpdate가 false면 업데이트 안내 없음
+    if (!forceUpdate) {
       return UpdateType.none;
     }
+
+    // forceUpdate가 true일 때만 버전 비교
+    if (requiresForceUpdate) {
+      return UpdateType.force;
+    }
+
+    return UpdateType.none;
   }
 
   @override

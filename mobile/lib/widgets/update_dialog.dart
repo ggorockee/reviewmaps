@@ -3,7 +3,6 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/version_check_models.dart';
 import '../services/version_service.dart';
-import '../config/app_version.dart';
 
 /// 앱 업데이트 안내 다이얼로그
 ///
@@ -69,11 +68,18 @@ class UpdateDialog extends StatelessWidget {
       // 강제 업데이트일 경우 뒤로가기 버튼 비활성화
       canPop: !isForceUpdate,
       child: Dialog(
+        backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16.r),
+          borderRadius: BorderRadius.circular(24.r),
         ),
+        elevation: 8,
+        shadowColor: Colors.black26,
         child: Container(
-          padding: EdgeInsets.all(24.w),
+          padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 28.h),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24.r),
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -100,58 +106,17 @@ class UpdateDialog extends StatelessWidget {
                 ),
                 textAlign: TextAlign.center,
               ),
-              SizedBox(height: 20.h),
-
-              // 버전 정보
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: 16.w,
-                  vertical: 12.h,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(8.r),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      '현재 버전 ${AppVersion.current}',
-                      style: TextStyle(
-                        fontSize: 12.sp,
-                        color: Colors.black45,
-                      ),
-                    ),
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8.w),
-                      child: Icon(
-                        Icons.arrow_forward,
-                        size: 14.sp,
-                        color: Colors.black45,
-                      ),
-                    ),
-                    Text(
-                      '최신 버전 ${versionInfo.latestVersion}',
-                      style: TextStyle(
-                        fontSize: 12.sp,
-                        fontWeight: FontWeight.w600,
-                        color: Theme.of(context).primaryColor,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
               SizedBox(height: 24.h),
 
               // 버튼 영역
               if (isForceUpdate)
-                // 강제 업데이트: 업데이트하기 버튼만 표시
-                _buildPrimaryButton(context, '업데이트하기')
+                // 강제 업데이트: 업데이트하러가기 버튼만 표시
+                _buildPrimaryButton(context, '업데이트 하러가기')
               else
-                // 권장 업데이트: 업데이트하기 + 나중에 버튼
+                // 권장 업데이트: 업데이트하러가기 + 나중에 버튼
                 Column(
                   children: [
-                    _buildPrimaryButton(context, '업데이트하기'),
+                    _buildPrimaryButton(context, '업데이트 하러가기'),
                     SizedBox(height: 8.h),
                     _buildSecondaryButton(context, '나중에'),
                   ],
@@ -163,26 +128,28 @@ class UpdateDialog extends StatelessWidget {
     );
   }
 
-  /// 주요 버튼 (업데이트하기)
+  /// 주요 버튼 (업데이트하러가기)
   Widget _buildPrimaryButton(BuildContext context, String text) {
     return SizedBox(
       width: double.infinity,
-      height: 48.h,
+      height: 36.h,
       child: ElevatedButton(
         onPressed: () => _openStore(context),
         style: ElevatedButton.styleFrom(
           backgroundColor: Theme.of(context).primaryColor,
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8.r),
+            borderRadius: BorderRadius.circular(12.r),
           ),
-          elevation: 0,
+          elevation: 2,
+          shadowColor: Theme.of(context).primaryColor.withValues(alpha: 0.3),
         ),
         child: Text(
           text,
           style: TextStyle(
             fontSize: 15.sp,
             fontWeight: FontWeight.w600,
+            color: Colors.white,
           ),
         ),
       ),
@@ -193,19 +160,19 @@ class UpdateDialog extends StatelessWidget {
   Widget _buildSecondaryButton(BuildContext context, String text) {
     return SizedBox(
       width: double.infinity,
-      height: 48.h,
+      height: 36.h,
       child: TextButton(
         onPressed: () => _handleSkip(context),
         style: TextButton.styleFrom(
           foregroundColor: Colors.black54,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8.r),
+            borderRadius: BorderRadius.circular(12.r),
           ),
         ),
         child: Text(
           text,
           style: TextStyle(
-            fontSize: 15.sp,
+            fontSize: 14.sp,
             fontWeight: FontWeight.w500,
           ),
         ),

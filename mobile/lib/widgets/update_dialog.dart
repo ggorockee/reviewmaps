@@ -70,11 +70,16 @@ class UpdateDialog extends StatelessWidget {
       child: Dialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16.r),
+          borderRadius: BorderRadius.circular(24.r),
         ),
+        elevation: 8,
+        shadowColor: Colors.black26,
         child: Container(
-          padding: EdgeInsets.all(24.w),
-          color: Colors.white,
+          padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 28.h),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24.r),
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -127,21 +132,22 @@ class UpdateDialog extends StatelessWidget {
   Widget _buildPrimaryButton(BuildContext context, String text) {
     return SizedBox(
       width: double.infinity,
-      height: 40.h,
+      height: 48.h,
       child: ElevatedButton(
         onPressed: () => _openStore(context),
         style: ElevatedButton.styleFrom(
           backgroundColor: Theme.of(context).primaryColor,
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8.r),
+            borderRadius: BorderRadius.circular(12.r),
           ),
-          elevation: 0,
+          elevation: 2,
+          shadowColor: Theme.of(context).primaryColor.withValues(alpha: 0.3),
         ),
         child: Text(
           text,
           style: TextStyle(
-            fontSize: 14.sp,
+            fontSize: 15.sp,
             fontWeight: FontWeight.w600,
             color: Colors.white,
           ),
@@ -154,13 +160,13 @@ class UpdateDialog extends StatelessWidget {
   Widget _buildSecondaryButton(BuildContext context, String text) {
     return SizedBox(
       width: double.infinity,
-      height: 36.h,
+      height: 44.h,
       child: TextButton(
         onPressed: () => _handleSkip(context),
         style: TextButton.styleFrom(
           foregroundColor: Colors.black54,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8.r),
+            borderRadius: BorderRadius.circular(12.r),
           ),
         ),
         child: Text(

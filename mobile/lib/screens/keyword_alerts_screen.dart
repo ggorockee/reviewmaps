@@ -399,7 +399,6 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
   /// 알람 카드 - 검색 결과와 동일한 디자인
   Widget _buildAlertCard(AlertInfo alert) {
     final bool isTablet = MediaQuery.of(context).size.shortestSide >= 600;
-    final platform = alert.campaignPlatform ?? '체험단';
 
     return InkWell(
       onTap: () {
@@ -412,173 +411,119 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
       child: Container(
         constraints: BoxConstraints(minHeight: 80.h),
         padding: EdgeInsets.symmetric(vertical: 16.h, horizontal: 0),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 플랫폼 로고
-            _buildPlatformLogo(platform),
-            SizedBox(width: 16.w),
+            // 첫째줄: 플랫폼 뱃지
+            _buildPlatformBadge(alert, isTablet),
 
-            // 텍스트 정보
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 첫째줄: 플랫폼 뱃지 + 업체명 + 채널 아이콘 + NEW
-                  _buildTitleRow(alert, isTablet),
+            SizedBox(height: 4.h),
 
-                  SizedBox(height: 4.h),
+            // 둘째줄: 업체명 + 채널 아이콘 + NEW
+            _buildTitleRow(alert, isTablet),
 
-                  // 두번째줄: 제공 내역 (빨간색)
-                  if (alert.campaignOffer != null && alert.campaignOffer!.isNotEmpty)
-                    _buildOfferRow(alert, isTablet),
+            SizedBox(height: 4.h),
 
-                  SizedBox(height: 8.h),
+            // 셋째줄: 제공 내역 (빨간색)
+            if (alert.campaignOffer != null && alert.campaignOffer!.isNotEmpty)
+              _buildOfferRow(alert, isTablet),
 
-                  // 세번째줄: D-day + 거리 + 키워드 매칭 표시
-                  _buildMetaRow(alert, isTablet),
-                ],
-              ),
-            ),
+            SizedBox(height: 8.h),
 
-            // 읽지 않은 알림 표시
-            if (!alert.isRead)
-              Container(
-                width: 8.w,
-                height: 8.w,
-                margin: EdgeInsets.only(left: 8.w),
-                decoration: const BoxDecoration(
-                  color: Colors.red,
-                  shape: BoxShape.circle,
-                ),
-              ),
+            // 넷째줄: D-day + 거리 + 키워드 매칭 표시
+            _buildMetaRow(alert, isTablet),
           ],
         ),
       ),
     );
   }
 
-  /// 플랫폼 로고
-  Widget _buildPlatformLogo(String platform) {
-    final String logoAssetPath = _getLogoPathForPlatform(platform);
+  /// 플랫폼 뱃지
+  Widget _buildPlatformBadge(AlertInfo alert, bool isTablet) {
+    final platform = alert.campaignPlatform ?? '체험단';
 
     return Container(
-      width: 48.w,
-      height: 48.h,
+      padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 3.h),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8.r),
-        color: Colors.white,
+        color: platformBadgeColor(platform),
+        borderRadius: BorderRadius.circular(4.r),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(8.r),
-        child: Image.asset(
-          logoAssetPath,
-          width: 48.w,
-          height: 48.h,
-          fit: BoxFit.contain,
-          errorBuilder: (_, __, ___) => Container(
-            width: 48.w,
-            height: 48.h,
-            color: Colors.white,
-            child: Icon(
-              Icons.image_not_supported,
-              color: Colors.grey[400],
-              size: 20.sp,
-            ),
-          ),
+      child: Text(
+        platform,
+        style: TextStyle(
+          fontSize: isTablet ? 10.sp : 10.sp,
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          height: 1.0,
         ),
       ),
     );
   }
 
-  /// 첫째줄: 플랫폼 뱃지 + 업체명 + 채널 아이콘 + NEW
+  /// 업체명 + 채널 아이콘 + NEW (한 줄에 표시)
   Widget _buildTitleRow(AlertInfo alert, bool isTablet) {
-    final platform = alert.campaignPlatform ?? '체험단';
     // 업체명 우선, 없으면 title 사용
     final title = alert.campaignCompany?.isNotEmpty == true
         ? alert.campaignCompany!
         : alert.campaignTitle;
     final isNew = _isNewAlert(alert.createdAt);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // 플랫폼 뱃지
-        Container(
-          padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 3.h),
-          decoration: BoxDecoration(
-            color: platformBadgeColor(platform),
-            borderRadius: BorderRadius.circular(4.r),
-          ),
-          child: Text(
-            platform,
+    return RichText(
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      text: TextSpan(
+        children: [
+          // 업체명
+          TextSpan(
+            text: title,
             style: TextStyle(
-              fontSize: isTablet ? 8.sp : 8.5.sp,
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              height: 1.0,
+              fontSize: isTablet ? 16.sp : 14.sp,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+              height: 1.3,
             ),
           ),
-        ),
-        SizedBox(height: 4.h),
-        // 업체명 + 채널 아이콘 + NEW
-        RichText(
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          text: TextSpan(
-            children: [
-              TextSpan(
-                text: title,
-                style: TextStyle(
-                  fontSize: isTablet ? 16.sp : 14.sp,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
-                  height: 1.3,
+          // 채널 아이콘
+          if (alert.campaignChannel != null && alert.campaignChannel!.isNotEmpty) ...[
+            WidgetSpan(
+              child: Padding(
+                padding: EdgeInsets.only(left: 4.w),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: buildChannelIcons(alert.campaignChannel),
                 ),
               ),
-              // 채널 아이콘
-              if (alert.campaignChannel != null && alert.campaignChannel!.isNotEmpty) ...[
-                WidgetSpan(
-                  child: Padding(
-                    padding: EdgeInsets.only(left: 4.w),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: buildChannelIcons(alert.campaignChannel),
+            ),
+          ],
+          // NEW 뱃지
+          if (isNew) ...[
+            WidgetSpan(
+              child: Padding(
+                padding: EdgeInsets.only(left: 4.w),
+                child: Container(
+                  padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8.r),
+                    border: Border.all(
+                      color: Colors.red.withValues(alpha: 0.3),
+                      width: 0.5,
+                    ),
+                  ),
+                  child: Text(
+                    'NEW',
+                    style: TextStyle(
+                      fontSize: isTablet ? 11.sp : 9.sp,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.red,
                     ),
                   ),
                 ),
-              ],
-              // NEW 뱃지
-              if (isNew) ...[
-                WidgetSpan(
-                  child: Padding(
-                    padding: EdgeInsets.only(left: 4.w),
-                    child: Container(
-                      padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
-                      decoration: BoxDecoration(
-                        color: Colors.red.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8.r),
-                        border: Border.all(
-                          color: Colors.red.withValues(alpha: 0.3),
-                          width: 0.5,
-                        ),
-                      ),
-                      child: Text(
-                        'NEW',
-                        style: TextStyle(
-                          fontSize: isTablet ? 11.sp : 9.sp,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.red,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ],
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -596,67 +541,107 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
     );
   }
 
-  /// 세번째줄: D-day + 거리 + 키워드 매칭
+  /// 세번째줄: D-day + 거리 + 키워드 매칭 (검색 결과 스타일)
   Widget _buildMetaRow(AlertInfo alert, bool isTablet) {
-    return Row(
+    final textScaleFactor = MediaQuery.textScalerOf(context).scale(1.0);
+
+    // DeadlineChips와 동일한 스타일 파라미터
+    final double baseHorizontalPadding = isTablet ? 16.0 : 8.0;
+    final double baseVerticalPadding = isTablet ? 8.0 : 3.0;
+    final double baseFontSize = isTablet ? 16.0 : 12.0;
+    final double baseBorderRadius = isTablet ? 20.0 : 12.0;
+
+    final adjustedHorizontalPadding = (baseHorizontalPadding * textScaleFactor.clamp(0.8, 1.4)).w;
+    final adjustedVerticalPadding = (baseVerticalPadding * textScaleFactor.clamp(0.8, 1.4)).h;
+    final adjustedFontSize = (baseFontSize * textScaleFactor.clamp(0.8, 1.4));
+    final adjustedBorderRadius = (baseBorderRadius * textScaleFactor.clamp(0.8, 1.4)).r;
+
+    return Wrap(
+      spacing: isTablet ? 6.w : 4.w,
+      runSpacing: isTablet ? 6.h : 4.h,
       children: [
-        // D-day
-        if (alert.dDayText.isNotEmpty) ...[
+        // D-day 칩
+        if (alert.dDayText.isNotEmpty)
           Container(
-            padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+            padding: EdgeInsets.symmetric(
+              horizontal: adjustedHorizontalPadding,
+              vertical: adjustedVerticalPadding,
+            ),
             decoration: BoxDecoration(
               color: _getDDayColor(alert.dDay).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(4.r),
+              borderRadius: BorderRadius.circular(adjustedBorderRadius),
+              border: Border.all(
+                color: _getDDayColor(alert.dDay).withValues(alpha: 0.3),
+                width: 0.5,
+              ),
             ),
             child: Text(
               alert.dDayText,
               style: TextStyle(
-                fontSize: isTablet ? 11.sp : 10.sp,
-                fontWeight: FontWeight.w600,
+                fontSize: adjustedFontSize,
+                fontWeight: FontWeight.w500,
                 color: _getDDayColor(alert.dDay),
+                height: 1.2,
               ),
             ),
           ),
-          SizedBox(width: 8.w),
-        ],
 
-        // 거리
-        if (alert.distanceText.isNotEmpty) ...[
-          Icon(
-            Icons.location_on_outlined,
-            size: 14.sp,
-            color: Colors.grey[600],
-          ),
-          SizedBox(width: 2.w),
-          Text(
-            alert.distanceText,
-            style: TextStyle(
-              fontSize: isTablet ? 12.sp : 11.sp,
-              color: Colors.grey[600],
+        // 거리 칩 (검색 결과와 동일한 파란색 스타일)
+        if (alert.distanceText.isNotEmpty)
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: adjustedHorizontalPadding,
+              vertical: adjustedVerticalPadding,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.blue.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(adjustedBorderRadius),
+              border: Border.all(
+                color: Colors.blue.withValues(alpha: 0.3),
+                width: 0.5,
+              ),
+            ),
+            child: Text(
+              alert.distanceText,
+              style: TextStyle(
+                fontSize: adjustedFontSize,
+                fontWeight: FontWeight.w500,
+                color: Colors.blue[700],
+                height: 1.2,
+              ),
             ),
           ),
-          SizedBox(width: 8.w),
-        ],
 
-        // 매칭 키워드
-        Expanded(
+        // 키워드 매칭 칩 (초록색)
+        Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: adjustedHorizontalPadding,
+            vertical: adjustedVerticalPadding,
+          ),
+          decoration: BoxDecoration(
+            color: PRIMARY_COLOR.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(adjustedBorderRadius),
+            border: Border.all(
+              color: PRIMARY_COLOR.withValues(alpha: 0.3),
+              width: 0.5,
+            ),
+          ),
           child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
                 Icons.label_outline,
-                size: 14.sp,
+                size: adjustedFontSize,
                 color: PRIMARY_COLOR,
               ),
               SizedBox(width: 2.w),
-              Flexible(
-                child: Text(
-                  alert.keyword,
-                  style: TextStyle(
-                    fontSize: isTablet ? 11.sp : 10.sp,
-                    color: PRIMARY_COLOR,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  overflow: TextOverflow.ellipsis,
+              Text(
+                alert.keyword,
+                style: TextStyle(
+                  fontSize: adjustedFontSize,
+                  fontWeight: FontWeight.w500,
+                  color: PRIMARY_COLOR,
+                  height: 1.2,
                 ),
               ),
             ],
@@ -694,63 +679,6 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
     if (dDay <= 3) return Colors.red;
     if (dDay <= 7) return Colors.orange;
     return PRIMARY_COLOR;
-  }
-
-  /// 플랫폼별 로고 경로
-  String _getLogoPathForPlatform(String platform) {
-    final Map<String, String> logoMap = {
-      '스토리앤미디어': 'asset/image/logo/storymedia.png',
-      '링블': 'asset/image/logo/ringble.png',
-      '캐시노트': 'asset/image/logo/cashnote.png',
-      '놀러와': 'asset/image/logo/noleowa.png',
-      '체허미': 'asset/image/logo/chehumi.png',
-      '링뷰': 'asset/image/logo/ringvue.png',
-      '미블': 'asset/image/logo/mrble.png',
-      '강남맛집': 'asset/image/logo/gannam.png',
-      '가보자': 'asset/image/logo/gaboja.png',
-      '레뷰': 'asset/image/logo/revu.png',
-      '포블로그': 'asset/image/logo/4blog2.png',
-      '포포몬': 'asset/image/logo/popomon.png',
-      '리뷰노트': 'asset/image/logo/reviewnote.png',
-      '리뷰플레이스': 'asset/image/logo/reviewplace.png',
-      '디너의여왕': 'asset/image/logo/dinnerqueen.png',
-      '체험뷰': 'asset/image/logo/chehumview.png',
-      '아싸뷰': 'asset/image/logo/assaview.png',
-      '체리뷰': 'asset/image/logo/cherryview.png',
-      '오마이블로그': 'asset/image/logo/ohmyblog.png',
-      '구구다스': 'asset/image/logo/gugudas.png',
-      '티블': 'asset/image/logo/tble.png',
-      '디노단': 'asset/image/logo/dinodan.png',
-      '데일리뷰': 'asset/image/logo/dailiview.png',
-      '똑똑체험단': 'asset/image/logo/ddokddok.png',
-      '리뷰메이커': 'asset/image/logo/reviewmaker.png',
-      '리뷰어랩': 'asset/image/logo/reviewerlab.png',
-      '리뷰어스': 'asset/image/logo/reviewus.png',
-      '리뷰웨이브': 'asset/image/logo/reviewwave.png',
-      '리뷰윙': 'asset/image/logo/reviewwing.png',
-      '리뷰퀸': 'asset/image/logo/reviewqueen.png',
-      '리얼리뷰': 'asset/image/logo/realreview.png',
-      '마녀체험단': 'asset/image/logo/witch_review.png',
-      '모두의블로그': 'asset/image/logo/moble.png',
-      '모두의체험단': 'asset/image/logo/modan.png',
-      '뷰티의여왕': 'asset/image/logo/beauti_queen.png',
-      '블로그원정대': 'asset/image/logo/review_one.png',
-      '서울오빠': 'asset/image/logo/seoulobba.png',
-      '서포터즈픽': 'asset/image/logo/supporterzpick.png',
-      '샐러뷰': 'asset/image/logo/celuvu.png',
-      '시원뷰': 'asset/image/logo/coolvue.png',
-      '와이리': 'asset/image/logo/waili.png',
-      '이음체험단': 'asset/image/logo/iumchehum.png',
-      '츄블': 'asset/image/logo/chuble.png',
-      '클라우드리뷰': 'asset/image/logo/cloudreview.png',
-      '키플랫체험단': 'asset/image/logo/keyplat.png',
-      '택배의여왕': 'asset/image/logo/taebae_queen.png',
-      '파블로체험단': 'asset/image/logo/pablochehum.png',
-      '후기업': 'asset/image/logo/whogiup.png',
-      '플레이체험단': 'asset/image/logo/playchehum.png',
-    };
-
-    return logoMap[platform] ?? 'asset/image/logo/default_log.png';
   }
 
   /// 날짜 포맷

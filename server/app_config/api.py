@@ -21,7 +21,7 @@ router = Router(tags=["앱 설정 (App Config)"])
 # ===== 광고 설정 API =====
 
 @router.get("/ads", response=List[AdConfigSchema])
-async def get_ads(_request, platform: str):
+async def get_ads(request, platform: str):
     """
     플랫폼별 활성화된 광고 설정 조회
 
@@ -44,7 +44,7 @@ async def get_ads(_request, platform: str):
 # ===== 앱 버전 API =====
 
 @router.get("/version", response=VersionCheckResponseSchema)
-async def check_version(_request, platform: str):
+async def check_version(request, platform: str):
     """
     앱 버전 설정 조회 (정보만 제공)
 
@@ -101,7 +101,7 @@ async def check_version(_request, platform: str):
 # ===== 앱 설정 API =====
 
 @router.get("/settings", response=List[AppSettingSchema])
-async def get_settings(_request):
+async def get_settings(request):
     """
     모든 활성화된 앱 설정 조회
 
@@ -118,7 +118,7 @@ async def get_settings(_request):
 # ===== 키워드 제한 설정 API (특정 경로를 동적 경로보다 먼저 정의) =====
 
 @router.get("/settings/keyword-limit", response=KeywordLimitResponse, summary="키워드 등록 개수 제한 조회")
-async def get_keyword_limit(_request):
+async def get_keyword_limit(request):
     """
     키워드 등록 개수 제한 조회 API
 
@@ -149,7 +149,7 @@ async def get_keyword_limit(_request):
 
 
 @router.put("/settings/keyword-limit", response=KeywordLimitResponse, summary="키워드 등록 개수 제한 설정")
-async def update_keyword_limit(_request, payload: KeywordLimitUpdateRequest):
+async def update_keyword_limit(request, payload: KeywordLimitUpdateRequest):
     """
     키워드 등록 개수 제한 설정 API
 
@@ -191,7 +191,7 @@ async def update_keyword_limit(_request, payload: KeywordLimitUpdateRequest):
 
 
 @router.get("/settings/{key}", response=AppSettingSchema)
-async def get_setting_by_key(_request, key: str):
+async def get_setting_by_key(request, key: str):
     """
     특정 키의 앱 설정 조회
 

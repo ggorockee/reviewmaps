@@ -111,12 +111,12 @@ class UpdateDialog extends StatelessWidget {
               // 버튼 영역
               if (isForceUpdate)
                 // 강제 업데이트: 업데이트하러가기 버튼만 표시
-                _buildPrimaryButton(context, '업데이트하러가기')
+                _buildPrimaryButton(context, '업데이트 하러가기')
               else
                 // 권장 업데이트: 업데이트하러가기 + 나중에 버튼
                 Column(
                   children: [
-                    _buildPrimaryButton(context, '업데이트하러가기'),
+                    _buildPrimaryButton(context, '업데이트 하러가기'),
                     SizedBox(height: 8.h),
                     _buildSecondaryButton(context, '나중에'),
                   ],
@@ -132,7 +132,7 @@ class UpdateDialog extends StatelessWidget {
   Widget _buildPrimaryButton(BuildContext context, String text) {
     return SizedBox(
       width: double.infinity,
-      height: 48.h,
+      height: 36.h,
       child: ElevatedButton(
         onPressed: () => _openStore(context),
         style: ElevatedButton.styleFrom(
@@ -160,7 +160,7 @@ class UpdateDialog extends StatelessWidget {
   Widget _buildSecondaryButton(BuildContext context, String text) {
     return SizedBox(
       width: double.infinity,
-      height: 44.h,
+      height: 36.h,
       child: TextButton(
         onPressed: () => _handleSkip(context),
         style: TextButton.styleFrom(

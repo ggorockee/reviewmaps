@@ -3,6 +3,77 @@ from django.conf import settings
 from core.models import CoreModel
 
 
+class FCMDevice(CoreModel):
+    """
+    FCM 푸시 토큰 저장
+    - 사용자 또는 익명 세션에 연결
+    - 디바이스별로 고유 토큰 저장
+    """
+    DEVICE_TYPE_CHOICES = [
+        ('android', 'Android'),
+        ('ios', 'iOS'),
+    ]
+
+    fcm_token = models.CharField(
+        max_length=500,
+        unique=True,
+        verbose_name="FCM 토큰",
+        help_text="Firebase Cloud Messaging 디바이스 토큰"
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='fcm_devices',
+        null=True,
+        blank=True,
+        verbose_name="사용자",
+        help_text="토큰을 등록한 사용자"
+    )
+    anonymous_session_id = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        verbose_name="익명 세션 ID",
+        help_text="익명 사용자의 세션 ID"
+    )
+    device_type = models.CharField(
+        max_length=20,
+        choices=DEVICE_TYPE_CHOICES,
+        default='android',
+        verbose_name="디바이스 타입"
+    )
+    is_active = models.BooleanField(
+        default=True,
+        verbose_name="활성 상태",
+        help_text="푸시 수신 활성화 여부"
+    )
+
+    class Meta:
+        db_table = 'keyword_alerts_fcm_devices'
+        verbose_name = "FCM 디바이스"
+        verbose_name_plural = "FCM 디바이스"
+        indexes = [
+            models.Index(fields=['user', 'is_active']),
+            models.Index(fields=['anonymous_session_id', 'is_active']),
+            models.Index(fields=['fcm_token']),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(user__isnull=False) | models.Q(anonymous_session_id__isnull=False),
+                name='fcm_device_has_owner'
+            )
+        ]
+
+    def __str__(self):
+        if self.user:
+            owner = self.user.email
+        elif self.anonymous_session_id:
+            owner = f"익명({self.anonymous_session_id[:8]})"
+        else:
+            owner = "알 수 없음"
+        return f"{self.device_type} - {owner}"
+
+
 class Keyword(CoreModel):
     """
     사용자 관심 키워드

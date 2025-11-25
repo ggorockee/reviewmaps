@@ -6,7 +6,9 @@ static/
 
 # Secret files and configurations
 secret_files/
+secrets/
 k8s-secret.yaml
 *.p8
+*firebase-adminsdk*.json
 
 .env.backup

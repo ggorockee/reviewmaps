@@ -105,13 +105,13 @@ class AdConfigAPITest(TestCase):
 
 
 class AppVersionAPITest(TestCase):
-    """앱 버전 API 테스트"""
+    """앱 버전 API 테스트 - 현재 API 스펙에 맞춤"""
 
     def setUp(self):
         """테스트 데이터 설정"""
         self.client = TestAsyncClient(router)
 
-        # Android 최신 버전
+        # Android 최신 버전 (force_update=False)
         AppVersion.objects.create(
             platform='android',
             version='1.3.5',
@@ -123,7 +123,7 @@ class AppVersionAPITest(TestCase):
             is_active=True
         )
 
-        # iOS 최신 버전 (강제 업데이트)
+        # iOS 최신 버전 (force_update=True)
         AppVersion.objects.create(
             platform='ios',
             version='1.4.0',
@@ -135,57 +135,34 @@ class AppVersionAPITest(TestCase):
             is_active=True
         )
 
-    async def test_check_version_no_update_needed(self):
-        """업데이트 불필요 (최신 버전 사용 중)"""
-        response = await self.client.get('/version?platform=android&current_version=1.3.5')
+    async def test_check_version_android(self):
+        """Android 버전 정보 조회"""
+        response = await self.client.get('/version?platform=android')
         self.assertEqual(response.status_code, 200)
 
         data = response.json()
-        self.assertFalse(data['needs_update'])
-        self.assertFalse(data['force_update'])
         self.assertEqual(data['latest_version'], '1.3.5')
+        self.assertEqual(data['min_version'], '1.0.0')
+        self.assertFalse(data['force_update'])  # 모델의 force_update 값
+        self.assertEqual(data['store_url'], 'https://play.google.com/store/apps/details?id=com.reviewmaps')
+        self.assertEqual(data['message_title'], '업데이트 안내')
+        self.assertEqual(data['message_body'], '새로운 기능이 추가되었습니다.')
 
-    async def test_check_version_update_available(self):
-        """업데이트 가능 (구버전 사용 중)"""
-        response = await self.client.get('/version?platform=android&current_version=1.2.0')
+    async def test_check_version_ios(self):
+        """iOS 버전 정보 조회 - force_update=True 확인"""
+        response = await self.client.get('/version?platform=ios')
         self.assertEqual(response.status_code, 200)
 
         data = response.json()
-        self.assertTrue(data['needs_update'])
-        self.assertFalse(data['force_update'])
-        self.assertEqual(data['latest_version'], '1.3.5')
-        self.assertIn('새로운 기능', data['message'])
-        self.assertIn('play.google.com', data['store_url'])
-
-    async def test_check_version_force_update(self):
-        """강제 업데이트 필요 (minimum_version 미만)"""
-        response = await self.client.get('/version?platform=ios&current_version=1.1.0')
-        self.assertEqual(response.status_code, 200)
-
-        data = response.json()
-        self.assertTrue(data['needs_update'])
-        self.assertTrue(data['force_update'])
         self.assertEqual(data['latest_version'], '1.4.0')
-        self.assertIn('보안 업데이트', data['message'])
-
-    async def test_check_version_minimum_version_boundary(self):
-        """minimum_version 경계값 테스트"""
-        # minimum_version과 동일한 버전 사용 시 업데이트 권장 (강제X)
-        response = await self.client.get('/version?platform=ios&current_version=1.2.0')
-        self.assertEqual(response.status_code, 200)
-
-        data = response.json()
-        self.assertTrue(data['needs_update'])
-        self.assertTrue(data['force_update'])  # iOS는 force_update=True로 설정됨
+        self.assertEqual(data['min_version'], '1.2.0')
+        self.assertTrue(data['force_update'])  # 모델의 force_update 값이 True
+        self.assertEqual(data['store_url'], 'https://apps.apple.com/app/id123456789')
+        self.assertIn('보안 업데이트', data['message_body'])
 
     async def test_check_version_without_platform(self):
         """platform 파라미터 없이 조회 시 에러"""
-        response = await self.client.get('/version?current_version=1.0.0')
-        self.assertEqual(response.status_code, 422)
-
-    async def test_check_version_without_current_version(self):
-        """current_version 파라미터 없이 조회 시 에러"""
-        response = await self.client.get('/version?platform=android')
+        response = await self.client.get('/version')
         self.assertEqual(response.status_code, 422)
 
     async def test_check_version_no_active_version(self):
@@ -193,8 +170,33 @@ class AppVersionAPITest(TestCase):
         # 모든 버전 비활성화
         await sync_to_async(AppVersion.objects.all().update)(is_active=False)
 
-        response = await self.client.get('/version?platform=android&current_version=1.0.0')
+        response = await self.client.get('/version?platform=android')
         self.assertEqual(response.status_code, 404)
+
+    async def test_check_version_invalid_platform(self):
+        """존재하지 않는 플랫폼 조회 시 404"""
+        response = await self.client.get('/version?platform=windows')
+        self.assertEqual(response.status_code, 404)
+
+    async def test_force_update_value_from_model(self):
+        """force_update 값이 모델에서 올바르게 반환되는지 확인"""
+        # Android force_update 값 변경
+        await sync_to_async(AppVersion.objects.filter(platform='android').update)(force_update=True)
+
+        response = await self.client.get('/version?platform=android')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['force_update'])  # 변경된 값 확인
+
+    async def test_default_update_message(self):
+        """update_message가 없을 때 기본 메시지 사용"""
+        # update_message를 None으로 설정
+        await sync_to_async(AppVersion.objects.filter(platform='android').update)(update_message=None)
+
+        response = await self.client.get('/version?platform=android')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn('더 안정적이고 편리한 서비스', data['message_body'])
 
 
 class AppSettingAPITest(TestCase):

@@ -1,0 +1,153 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:mobile/services/keyword_service.dart';
+
+/// FCM 푸시 알림 서비스
+/// - FCM 토큰 관리
+/// - 푸시 알림 권한 요청
+/// - 토큰 갱신 감지 및 서버 등록
+class FcmService {
+  static FcmService? _instance;
+  static FcmService get instance => _instance ??= FcmService._internal();
+
+  FcmService._internal();
+
+  final FirebaseMessaging _messaging = FirebaseMessaging.instance;
+  final KeywordService _keywordService = KeywordService();
+
+  String? _currentToken;
+  bool _isInitialized = false;
+
+  /// FCM 서비스 초기화
+  /// - 권한 요청
+  /// - 토큰 획득 및 서버 등록
+  /// - 토큰 갱신 리스너 설정
+  Future<void> initialize() async {
+    if (_isInitialized) return;
+
+    try {
+      // 1. 푸시 알림 권한 요청
+      final settings = await _requestPermission();
+      debugPrint('🔔 FCM 권한 상태: ${settings.authorizationStatus}');
+
+      if (settings.authorizationStatus != AuthorizationStatus.authorized &&
+          settings.authorizationStatus != AuthorizationStatus.provisional) {
+        debugPrint('⚠️ 푸시 알림 권한이 거부되었습니다.');
+        return;
+      }
+
+      // 2. FCM 토큰 획득
+      _currentToken = await _messaging.getToken();
+      if (_currentToken != null) {
+        debugPrint('🔑 FCM 토큰 획득: ${_currentToken!.substring(0, 20)}...');
+        await _registerTokenToServer(_currentToken!);
+      }
+
+      // 3. 토큰 갱신 리스너 설정
+      _messaging.onTokenRefresh.listen((newToken) async {
+        debugPrint('🔄 FCM 토큰 갱신됨');
+        _currentToken = newToken;
+        await _registerTokenToServer(newToken);
+      });
+
+      // 4. 포그라운드 메시지 핸들러 설정
+      FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
+
+      // 5. 백그라운드에서 앱 열림 시 메시지 핸들러
+      FirebaseMessaging.onMessageOpenedApp.listen(_handleMessageOpenedApp);
+
+      _isInitialized = true;
+      debugPrint('✅ FCM 서비스 초기화 완료');
+    } catch (e) {
+      debugPrint('❌ FCM 서비스 초기화 실패: $e');
+    }
+  }
+
+  /// 푸시 알림 권한 요청
+  Future<NotificationSettings> _requestPermission() async {
+    return await _messaging.requestPermission(
+      alert: true,
+      announcement: false,
+      badge: true,
+      carPlay: false,
+      criticalAlert: false,
+      provisional: false,
+      sound: true,
+    );
+  }
+
+  /// 서버에 FCM 토큰 등록
+  Future<void> _registerTokenToServer(String token) async {
+    try {
+      final deviceType = Platform.isIOS ? 'ios' : 'android';
+      await _keywordService.registerFcmToken(token, deviceType);
+      debugPrint('✅ FCM 토큰 서버 등록 완료');
+    } catch (e) {
+      debugPrint('⚠️ FCM 토큰 서버 등록 실패: $e');
+      // 실패해도 앱 실행에는 영향 없음
+    }
+  }
+
+  /// 포그라운드 메시지 처리
+  void _handleForegroundMessage(RemoteMessage message) {
+    debugPrint('📬 포그라운드 메시지 수신:');
+    debugPrint('  - 제목: ${message.notification?.title}');
+    debugPrint('  - 내용: ${message.notification?.body}');
+    debugPrint('  - 데이터: ${message.data}');
+
+    // 키워드 알림인 경우 처리
+    if (message.data['type'] == 'keyword_alert') {
+      final campaignId = message.data['campaign_id'];
+      debugPrint('  - 캠페인 ID: $campaignId');
+      // TODO: 인앱 알림 표시 또는 알림 화면 새로고침
+    }
+  }
+
+  /// 백그라운드에서 앱 열림 시 메시지 처리
+  void _handleMessageOpenedApp(RemoteMessage message) {
+    debugPrint('📱 백그라운드 메시지로 앱 열림:');
+    debugPrint('  - 제목: ${message.notification?.title}');
+    debugPrint('  - 데이터: ${message.data}');
+
+    // 키워드 알림인 경우 해당 캠페인으로 이동
+    if (message.data['type'] == 'keyword_alert') {
+      final campaignId = message.data['campaign_id'];
+      debugPrint('  - 캠페인 ID: $campaignId 로 이동 필요');
+      // TODO: 캠페인 상세 화면으로 네비게이션
+    }
+  }
+
+  /// 현재 FCM 토큰 반환
+  String? get currentToken => _currentToken;
+
+  /// FCM 토큰 재등록 (로그인/로그아웃 시 호출)
+  Future<void> refreshToken() async {
+    if (_currentToken != null) {
+      await _registerTokenToServer(_currentToken!);
+    }
+  }
+
+  /// FCM 토큰 해제 (로그아웃 시 호출)
+  Future<void> unregisterToken() async {
+    if (_currentToken != null) {
+      try {
+        await _keywordService.unregisterFcmToken(_currentToken!);
+        debugPrint('✅ FCM 토큰 해제 완료');
+      } catch (e) {
+        debugPrint('⚠️ FCM 토큰 해제 실패: $e');
+      }
+    }
+  }
+
+  /// 초기화 상태 확인
+  bool get isInitialized => _isInitialized;
+}
+
+/// 백그라운드 메시지 핸들러 (앱이 종료된 상태에서도 호출됨)
+/// main.dart에서 등록 필요
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  debugPrint('📬 백그라운드 메시지 수신: ${message.notification?.title}');
+  // 백그라운드에서는 최소한의 처리만 수행
+}

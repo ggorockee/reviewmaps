@@ -30,9 +30,11 @@ import 'package:mobile/services/app_open_ad_service.dart'; // App Open Ad 서비
 import 'package:mobile/services/interstitial_ad_manager.dart'; // 전면광고 매니저
 import 'package:mobile/services/firebase_service.dart'; // Firebase 통합 서비스
 import 'package:mobile/services/remote_config_service.dart'; // Firebase Remote Config 서비스
+import 'package:mobile/services/fcm_service.dart'; // FCM 푸시 알림 서비스
 
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 
 
@@ -45,6 +47,9 @@ Future<void> main() async {
   try {
     await Firebase.initializeApp();
     print('[Main] Firebase 초기화 완료');
+
+    // FCM 백그라운드 메시지 핸들러 등록 (Firebase 초기화 직후 설정)
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   } catch (e) {
     print('[Main] Firebase 초기화 실패: $e');
   }
@@ -134,7 +139,15 @@ Future<void> main() async {
     print('[Main] Firebase Remote Config 초기화 실패: $e');
   }
 
-  // 10) Flutter 앱 실행
+  // 10) FCM 푸시 알림 서비스 초기화
+  try {
+    await FcmService.instance.initialize();
+    print('[Main] FCM 서비스 초기화 완료');
+  } catch (e) {
+    print('[Main] FCM 서비스 초기화 실패: $e');
+  }
+
+  // 11) Flutter 앱 실행
   runApp(
     // ProviderScope를 추가하여 앱 전체에서 Riverpod Provider를 사용
     const ProviderScope(

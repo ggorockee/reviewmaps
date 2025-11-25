@@ -30,9 +30,15 @@ class KeywordAlertResponse(Schema):
     keyword: str
     campaign_id: int
     campaign_title: str
+    campaign_offer: Optional[str] = None
+    campaign_address: Optional[str] = None
+    campaign_lat: Optional[float] = None
+    campaign_lng: Optional[float] = None
+    campaign_img_url: Optional[str] = None
     matched_field: str
     is_read: bool
     created_at: datetime
+    distance: Optional[float] = None  # 거리 (km)
 
 
 class KeywordAlertListResponse(Schema):

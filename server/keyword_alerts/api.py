@@ -1,7 +1,9 @@
 """
 Keyword Alerts API - Django Ninja 비동기 API
 """
-from ninja import Router
+import math
+from typing import Optional
+from ninja import Router, Query
 from ninja.errors import HttpError
 from django.contrib.auth import get_user_model
 from django.db.models import Q, Count
@@ -18,6 +20,25 @@ from .schemas import (
 )
 from users.utils import get_user_from_token, decode_anonymous_session
 from app_config.models import AppSetting
+
+
+def calculate_distance(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    """
+    두 좌표 간의 거리 계산 (Haversine formula)
+    Returns: 거리 (km)
+    """
+    R = 6371  # 지구 반지름 (km)
+
+    lat1_rad = math.radians(lat1)
+    lat2_rad = math.radians(lat2)
+    delta_lat = math.radians(lat2 - lat1)
+    delta_lng = math.radians(lng2 - lng1)
+
+    a = math.sin(delta_lat / 2) ** 2 + \
+        math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lng / 2) ** 2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+    return R * c
 
 User = get_user_model()
 router = Router(tags=["키워드 알람 (Keyword Alerts)"])
@@ -219,11 +240,19 @@ async def toggle_keyword(request, keyword_id: int):
 
 
 @router.get("/alerts", response=KeywordAlertListResponse, summary="내 알람 목록")
-async def list_alerts(request, is_read: bool = None):
+async def list_alerts(
+    request,
+    is_read: bool = None,
+    lat: Optional[float] = Query(None, description="사용자 위도 (거리 계산용)"),
+    lng: Optional[float] = Query(None, description="사용자 경도 (거리 계산용)"),
+    sort: str = Query("created_at", description="정렬 기준: created_at(최신순), distance(거리순)")
+):
     """
     내 키워드 알람 목록 조회 API
     - 매칭된 캠페인 알람 목록 반환
     - is_read: 읽음/안읽음 필터 (None이면 전체)
+    - lat, lng: 사용자 위치 (거리 계산 및 정렬용)
+    - sort: 정렬 기준 (created_at: 최신순, distance: 가까운순)
     """
     user, session_id = await sync_to_async(get_auth_info)(request)
 
@@ -254,19 +283,41 @@ async def list_alerts(request, is_read: bool = None):
         ).count
     )()
 
+    # 알람 데이터 변환 (캠페인 위치 정보 포함)
+    alert_list = []
+    for alert in alerts:
+        campaign = alert.campaign
+        campaign_lat = float(campaign.lat) if campaign.lat else None
+        campaign_lng = float(campaign.lng) if campaign.lng else None
+
+        # 거리 계산
+        distance = None
+        if lat is not None and lng is not None and campaign_lat and campaign_lng:
+            distance = round(calculate_distance(lat, lng, campaign_lat, campaign_lng), 2)
+
+        alert_list.append({
+            "id": alert.id,
+            "keyword": alert.keyword.keyword,
+            "campaign_id": campaign.id,
+            "campaign_title": campaign.title,
+            "campaign_offer": campaign.offer,
+            "campaign_address": campaign.address,
+            "campaign_lat": campaign_lat,
+            "campaign_lng": campaign_lng,
+            "campaign_img_url": campaign.img_url,
+            "matched_field": alert.matched_field,
+            "is_read": alert.is_read,
+            "created_at": alert.created_at,
+            "distance": distance,
+        })
+
+    # 거리순 정렬 (distance가 있는 경우만)
+    if sort == "distance" and lat is not None and lng is not None:
+        # distance가 None인 경우 맨 뒤로
+        alert_list.sort(key=lambda x: (x["distance"] is None, x["distance"] or float('inf')))
+
     return {
-        "alerts": [
-            {
-                "id": alert.id,
-                "keyword": alert.keyword.keyword,
-                "campaign_id": alert.campaign.id,
-                "campaign_title": alert.campaign.title,
-                "matched_field": alert.matched_field,
-                "is_read": alert.is_read,
-                "created_at": alert.created_at,
-            }
-            for alert in alerts
-        ],
+        "alerts": alert_list,
         "unread_count": unread_count,
     }
 

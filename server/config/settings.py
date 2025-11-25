@@ -77,7 +77,7 @@ INSTALLED_APPS = [
     'users',
     'campaigns',
     'app_config',  # 앱 설정 관리
-    'keyword_alerts',  # 키워드 알람
+    'keyword_alerts.apps.KeywordAlertsConfig',  # 키워드 알람
 ]
 
 MIDDLEWARE = [

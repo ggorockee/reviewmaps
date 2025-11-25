@@ -4,13 +4,11 @@ app_config API
 """
 from ninja import Router
 from typing import List
-from django.shortcuts import aget_object_or_404
 from django.http import Http404
 
 from app_config.models import AdConfig, AppVersion, AppSetting
 from app_config.schemas import (
     AdConfigSchema,
-    AppVersionSchema,
     VersionCheckResponseSchema,
     AppSettingSchema,
     KeywordLimitResponse,
@@ -23,7 +21,7 @@ router = Router(tags=["앱 설정 (App Config)"])
 # ===== 광고 설정 API =====
 
 @router.get("/ads", response=List[AdConfigSchema])
-async def get_ads(request, platform: str):
+async def get_ads(_request, platform: str):
     """
     플랫폼별 활성화된 광고 설정 조회
 
@@ -46,75 +44,64 @@ async def get_ads(request, platform: str):
 # ===== 앱 버전 API =====
 
 @router.get("/version", response=VersionCheckResponseSchema)
-async def check_version(request, platform: str, current_version: str):
+async def check_version(_request, platform: str):
     """
-    앱 버전 체크 및 업데이트 필요 여부 확인
+    앱 버전 설정 조회 (정보만 제공)
+
+    플랫폼별 버전 설정 정보만 반환.
+    모든 비교 로직과 UI 처리는 Flutter 클라이언트에서 담당.
 
     Args:
         platform: android 또는 ios
-        current_version: 현재 앱 버전 (예: 1.2.0)
 
     Returns:
-        업데이트 필요 여부, 강제 업데이트 여부, 최신 버전 정보
+        {
+            "latest_version": "1.4.0",
+            "min_version": "1.3.0",
+            "force_update": false,  // 항상 false (클라이언트가 판단)
+            "store_url": "https://...",
+            "message_title": "업데이트 안내",
+            "message_body": "더 안정적인 서비스 이용을 위해..."
+        }
+
+    Client Logic (Flutter):
+        1. current < min_version → 강제 업데이트
+        2. min_version ≤ current < latest_version → 권장 업데이트
+        3. current ≥ latest_version → 업데이트 안내 없음
 
     Raises:
         404: 활성화된 버전 정보가 없을 때
     """
     # 가장 최신의 활성화된 버전 조회
     try:
-        latest_version = await AppVersion.objects.filter(
+        latest_config = await AppVersion.objects.filter(
             platform=platform,
             is_active=True
         ).afirst()
 
-        if not latest_version:
-            raise Http404("활성화된 버전 정보가 없습니다.")
+        if not latest_config:
+            raise Http404(f"{platform} 플랫폼의 활성화된 버전 정보가 없습니다.")
     except AppVersion.DoesNotExist:
-        raise Http404("활성화된 버전 정보가 없습니다.")
+        raise Http404(f"{platform} 플랫폼의 활성화된 버전 정보가 없습니다.")
 
-    # 버전 비교 로직
-    needs_update = current_version != latest_version.version
-
-    # 최소 버전보다 낮으면 강제 업데이트 또는 force_update 설정에 따름
-    force_update = False
-    if needs_update:
-        # 간단한 버전 비교 (major.minor.patch 형식 가정)
-        current_parts = _parse_version(current_version)
-        minimum_parts = _parse_version(latest_version.minimum_version)
-
-        if current_parts < minimum_parts or latest_version.force_update:
-            force_update = True
-
+    # 서버는 정보만 제공, 판단은 클라이언트에서
     return VersionCheckResponseSchema(
-        needs_update=needs_update,
-        force_update=force_update,
-        latest_version=latest_version.version,
-        message=latest_version.update_message,
-        store_url=latest_version.store_url
+        latest_version=latest_config.version,
+        min_version=latest_config.minimum_version,
+        force_update=False,  # 항상 false, 클라이언트가 판단
+        store_url=latest_config.store_url,
+        message_title="업데이트 안내",
+        message_body=latest_config.update_message or (
+            "더 안정적이고 편리한 서비스 이용을 위해\n"
+            "최신 버전으로 업데이트해 주세요."
+        )
     )
-
-
-def _parse_version(version_string: str) -> tuple:
-    """
-    버전 문자열을 tuple로 파싱
-
-    Args:
-        version_string: 버전 문자열 (예: "1.3.5")
-
-    Returns:
-        (major, minor, patch) tuple
-    """
-    try:
-        parts = version_string.split('.')
-        return tuple(int(p) for p in parts)
-    except (ValueError, AttributeError):
-        return (0, 0, 0)
 
 
 # ===== 앱 설정 API =====
 
 @router.get("/settings", response=List[AppSettingSchema])
-async def get_settings(request):
+async def get_settings(_request):
     """
     모든 활성화된 앱 설정 조회
 
@@ -131,7 +118,7 @@ async def get_settings(request):
 # ===== 키워드 제한 설정 API (특정 경로를 동적 경로보다 먼저 정의) =====
 
 @router.get("/settings/keyword-limit", response=KeywordLimitResponse, summary="키워드 등록 개수 제한 조회")
-async def get_keyword_limit(request):
+async def get_keyword_limit(_request):
     """
     키워드 등록 개수 제한 조회 API
 
@@ -162,7 +149,7 @@ async def get_keyword_limit(request):
 
 
 @router.put("/settings/keyword-limit", response=KeywordLimitResponse, summary="키워드 등록 개수 제한 설정")
-async def update_keyword_limit(request, payload: KeywordLimitUpdateRequest):
+async def update_keyword_limit(_request, payload: KeywordLimitUpdateRequest):
     """
     키워드 등록 개수 제한 설정 API
 
@@ -184,7 +171,7 @@ async def update_keyword_limit(request, payload: KeywordLimitUpdateRequest):
         raise Http404("비활성 키워드 최대 개수는 0개 이상이어야 합니다.")
 
     # 설정 업데이트 또는 생성
-    setting, created = await AppSetting.objects.aupdate_or_create(
+    await AppSetting.objects.aupdate_or_create(
         key='keyword_limit',
         defaults={
             'value': {
@@ -204,7 +191,7 @@ async def update_keyword_limit(request, payload: KeywordLimitUpdateRequest):
 
 
 @router.get("/settings/{key}", response=AppSettingSchema)
-async def get_setting_by_key(request, key: str):
+async def get_setting_by_key(_request, key: str):
     """
     특정 키의 앱 설정 조회
 

@@ -39,12 +39,25 @@ class AppVersionSchema(Schema):
 
 
 class VersionCheckResponseSchema(Schema):
-    """버전 체크 응답 스키마"""
-    needs_update: bool
-    force_update: bool
+    """
+    버전 체크 응답 스키마 (네이버 스타일 메시지 포함)
+
+    네이버 스타일 예시:
+    {
+        "latest_version": "1.4.0",
+        "min_version": "1.3.0",
+        "force_update": true,
+        "store_url": "https://...",
+        "message_title": "업데이트 안내",
+        "message_body": "더 안정적인 서비스 이용을 위해 최신 버전으로 업데이트해 주세요."
+    }
+    """
     latest_version: str
-    message: Optional[str] = None
+    min_version: str
+    force_update: bool
     store_url: str
+    message_title: str
+    message_body: str
 
 
 # ===== 앱 설정 스키마 =====

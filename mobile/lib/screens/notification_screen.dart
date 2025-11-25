@@ -801,13 +801,23 @@ class _NotificationScreenState extends State<NotificationScreen>
         ),
         // 알림 목록
         Expanded(
-          child: ListView.separated(
-            padding: EdgeInsets.all(16.w),
+          child: ListView.builder(
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
             itemCount: _alerts.length,
-            separatorBuilder: (context, index) => SizedBox(height: 12.h),
             itemBuilder: (context, index) {
               final alert = _alerts[index];
-              return _buildAlertCard(alert);
+              final bool showDivider = index > 0;
+
+              return Container(
+                decoration: showDivider
+                    ? BoxDecoration(
+                        border: Border(
+                          top: BorderSide(color: Colors.grey.shade300, width: 1),
+                        ),
+                      )
+                    : null,
+                child: _buildAlertCard(alert),
+              );
             },
           ),
         ),

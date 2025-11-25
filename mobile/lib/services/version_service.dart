@@ -130,23 +130,42 @@ class VersionService {
     try {
       final result = await checkVersion();
 
+      // 디버그 로그 출력
+      debugPrint('═══════════════════════════════════════');
+      debugPrint('📱 [Version Check] 버전 체크 결과');
+      debugPrint('═══════════════════════════════════════');
+      debugPrint('📌 현재 앱 버전: ${AppVersion.current}');
+      debugPrint('📌 서버 최소 지원 버전 (minVersion): ${result.minVersion}');
+      debugPrint('📌 서버 최신 버전 (latestVersion): ${result.latestVersion}');
+      debugPrint('📌 서버 forceUpdate 플래그: ${result.forceUpdate}');
+      debugPrint('───────────────────────────────────────');
+      debugPrint('🔍 현재버전 < minVersion: ${result.requiresForceUpdate}');
+      debugPrint('🔍 현재버전 < latestVersion: ${result.needsUpdate}');
+      debugPrint('🔍 최종 updateType: ${result.updateType}');
+      debugPrint('═══════════════════════════════════════');
+
       switch (result.updateType) {
         case UpdateType.force:
+          debugPrint('🚨 [Version Check] 강제 업데이트 팝업 표시');
           onForceUpdate(result);
           break;
         case UpdateType.recommended:
           // 권장 업데이트는 스킵 기간 확인
           if (await shouldShowRecommendedUpdate()) {
+            debugPrint('💡 [Version Check] 권장 업데이트 팝업 표시');
             onRecommendedUpdate(result);
           } else {
+            debugPrint('⏭️ [Version Check] 권장 업데이트 스킵 기간 내 - 팝업 X');
             onLatest(); // 스킵 기간 내면 최신 버전처럼 처리
           }
           break;
         case UpdateType.none:
+          debugPrint('✅ [Version Check] 업데이트 불필요 - 팝업 X');
           onLatest();
           break;
       }
     } catch (e) {
+      debugPrint('❌ [Version Check] 에러 발생: $e');
       onError(e.toString());
     }
   }

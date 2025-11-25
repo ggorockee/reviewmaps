@@ -1,17 +1,45 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../providers/auth_provider.dart';
 import 'auth/login_screen.dart';
 
 /// 내정보 화면
 /// - 비회원: 로그인 안내 표시
 /// - 회원: 프로필 정보 및 메뉴 리스트
-class ProfileScreen extends ConsumerWidget {
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  String _appVersion = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAppVersion();
+  }
+
+  /// 앱 버전 정보 로드
+  Future<void> _loadAppVersion() async {
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      if (mounted) {
+        setState(() {
+          _appVersion = packageInfo.version;
+        });
+      }
+    } catch (e) {
+      debugPrint('앱 버전 로드 실패: $e');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
 
     return Scaffold(
@@ -23,7 +51,7 @@ class ProfileScreen extends ConsumerWidget {
         automaticallyImplyLeading: false,
       ),
       body: authState.isRegularUser
-          ? _buildAuthenticatedContent(context, ref, authState)
+          ? _buildAuthenticatedContent(context, authState)
           : _buildUnauthenticatedContent(context),
     );
   }
@@ -94,10 +122,11 @@ class ProfileScreen extends ConsumerWidget {
   /// 회원 콘텐츠
   Widget _buildAuthenticatedContent(
     BuildContext context,
-    WidgetRef ref,
     AuthState authState,
   ) {
     final userInfo = authState.userInfo;
+    final displayName = userInfo?.name ?? userInfo?.email ?? '사용자';
+    final profileImageUrl = userInfo?.profileImage;
 
     return SingleChildScrollView(
       padding: EdgeInsets.all(16.w),
@@ -118,15 +147,7 @@ class ProfileScreen extends ConsumerWidget {
             child: Row(
               children: [
                 // 프로필 이미지
-                CircleAvatar(
-                  radius: 32.r,
-                  backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.1),
-                  child: Icon(
-                    Icons.person,
-                    size: 32.sp,
-                    color: Theme.of(context).primaryColor,
-                  ),
-                ),
+                _buildProfileImage(profileImageUrl),
                 SizedBox(width: 16.w),
                 // 사용자 정보
                 Expanded(
@@ -134,7 +155,7 @@ class ProfileScreen extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        userInfo?.email ?? '사용자',
+                        displayName,
                         style: TextStyle(
                           fontSize: 16.sp,
                           fontWeight: FontWeight.w600,
@@ -142,13 +163,22 @@ class ProfileScreen extends ConsumerWidget {
                         ),
                       ),
                       SizedBox(height: 4.h),
-                      Text(
-                        userInfo?.email ?? '',
-                        style: TextStyle(
-                          fontSize: 12.sp,
-                          fontWeight: FontWeight.w400,
-                          color: const Color(0xFF6C7278),
-                        ),
+                      Row(
+                        children: [
+                          _buildLoginMethodBadge(userInfo?.loginMethod),
+                          SizedBox(width: 8.w),
+                          Expanded(
+                            child: Text(
+                              userInfo?.email ?? '',
+                              style: TextStyle(
+                                fontSize: 12.sp,
+                                fontWeight: FontWeight.w400,
+                                color: const Color(0xFF6C7278),
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -171,22 +201,6 @@ class ProfileScreen extends ConsumerWidget {
             ),
             child: Column(
               children: [
-                _buildMenuItem(
-                  icon: Icons.article_outlined,
-                  title: '내 리뷰 관리',
-                  onTap: () {
-                    // TODO: 내 리뷰 관리 화면으로 이동
-                  },
-                ),
-                _buildDivider(),
-                _buildMenuItem(
-                  icon: Icons.favorite_border,
-                  title: '찜한 장소',
-                  onTap: () {
-                    // TODO: 찜한 장소 화면으로 이동
-                  },
-                ),
-                _buildDivider(),
                 _buildMenuItem(
                   icon: Icons.notifications_outlined,
                   title: '알림 설정',
@@ -220,10 +234,12 @@ class ProfileScreen extends ConsumerWidget {
 
           SizedBox(height: 24.h),
 
-          // 앱 정보
+          // 앱 정보 (동적 버전)
           Center(
             child: Text(
-              'ReviewMaps v1.3.2',
+              _appVersion.isNotEmpty
+                  ? 'ReviewMaps v$_appVersion'
+                  : 'ReviewMaps',
               style: TextStyle(
                 fontSize: 12.sp,
                 fontWeight: FontWeight.w400,
@@ -232,6 +248,75 @@ class ProfileScreen extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// 프로필 이미지 위젯
+  Widget _buildProfileImage(String? imageUrl) {
+    if (imageUrl != null && imageUrl.isNotEmpty) {
+      return CircleAvatar(
+        radius: 32.r,
+        backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+        backgroundImage: NetworkImage(imageUrl),
+        onBackgroundImageError: (_, __) {
+          // 이미지 로드 실패 시 기본 아이콘 표시
+        },
+        child: null,
+      );
+    }
+
+    return CircleAvatar(
+      radius: 32.r,
+      backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+      child: Icon(
+        Icons.person,
+        size: 32.sp,
+        color: Theme.of(context).primaryColor,
+      ),
+    );
+  }
+
+  /// 로그인 방식 뱃지
+  Widget _buildLoginMethodBadge(String? loginMethod) {
+    if (loginMethod == null || loginMethod == 'email') {
+      return const SizedBox.shrink();
+    }
+
+    IconData icon;
+    Color bgColor;
+
+    switch (loginMethod) {
+      case 'kakao':
+        icon = Icons.chat_bubble;
+        bgColor = const Color(0xFFFEE500);
+        break;
+      case 'google':
+        icon = Icons.g_mobiledata;
+        bgColor = const Color(0xFF4285F4);
+        break;
+      case 'apple':
+        icon = Icons.apple;
+        bgColor = Colors.black;
+        break;
+      case 'naver':
+        icon = Icons.north;
+        bgColor = const Color(0xFF03C75A);
+        break;
+      default:
+        return const SizedBox.shrink();
+    }
+
+    return Container(
+      padding: EdgeInsets.all(4.w),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(4.r),
+      ),
+      child: Icon(
+        icon,
+        size: 12.sp,
+        color: loginMethod == 'kakao' ? Colors.black : Colors.white,
       ),
     );
   }

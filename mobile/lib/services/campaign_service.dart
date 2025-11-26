@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 
 import '../models/store_model.dart';
 import '../config/config.dart';
+import '../utils/network_error_handler.dart';
 import 'package:geolocator/geolocator.dart';
 
 
@@ -90,19 +91,24 @@ class CampaignService {
         return await task();
       } catch (e) {
         lastErr = e;
+        // 재시도 가능한 에러가 아니면 즉시 종료
+        if (!NetworkErrorHandler.isRetryableError(e)) {
+          throw Exception(NetworkErrorHandler.getErrorMessage(e));
+        }
         // 0.4s, 0.8s, 1.6s …
         final delay = Duration(milliseconds: 400 * (1 << attempt));
         await Future.delayed(delay);
         attempt++;
+        debugPrint('[CampaignService] 재시도 $attempt/$retries');
       }
     }
-    throw lastErr ?? Exception('unknown error');
+    throw Exception(NetworkErrorHandler.getErrorMessage(lastErr ?? '알 수 없는 오류가 발생했습니다.'));
   }
 
   /// 공통: 응답 검사 + JSON 파싱 + items 배열 추출
   List<dynamic> _parseItemsOrThrow(http.Response r, {String context = ''}) {
     if (r.statusCode != 200) {
-      throw Exception('$context 실패: ${r.statusCode}');
+      throw Exception(NetworkErrorHandler.getHttpErrorMessage(r.statusCode));
     }
     final decoded = jsonDecode(utf8.decode(r.bodyBytes));
     final List items =

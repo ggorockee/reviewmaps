@@ -31,19 +31,13 @@ async def get_my_info(request):
     """
     user = request.auth  # JWTAuth에서 검증된 사용자
 
-    # 연결된 소셜 계정 조회 (profile_image, name 포함)
+    # 연결된 소셜 계정 조회
     social_accounts_qs = SocialAccount.objects.filter(
         user=user
     ).values('provider', 'email', 'profile_image', 'name', 'created_at')
 
     # async iteration으로 리스트 변환
     social_accounts = [account async for account in social_accounts_qs]
-
-    # 디버그 로그
-    logger.info(f"[api_me] user_id={user.id}, email={user.email}")
-    logger.info(f"[api_me] social_accounts count: {len(social_accounts)}")
-    for acc in social_accounts:
-        logger.info(f"[api_me] social_account: provider={acc.get('provider')}, name={acc.get('name')}, profile_image={acc.get('profile_image')}")
 
     social_accounts_list = [
         SocialAccountInfo(
@@ -55,25 +49,14 @@ async def get_my_info(request):
         for account in social_accounts
     ]
 
-    # 첫 번째 소셜 계정의 프로필 이미지와 이름 사용
-    profile_image = None
-    name = None
-    for account in social_accounts:
-        if account.get('profile_image'):
-            profile_image = account['profile_image']
-            break
-    for account in social_accounts:
-        if account.get('name'):
-            name = account['name']
-            break
-
-    logger.info(f"[api_me] final: name={name}, profile_image={profile_image}")
+    # User 모델에서 직접 name, profile_image 조회
+    logger.info(f"[api_me] user_id={user.id}, email={user.email}, name={user.name}, profile_image={user.profile_image}")
 
     return {
         "id": user.id,
         "email": user.email,
-        "name": name,
-        "profile_image": profile_image,
+        "name": user.name or None,
+        "profile_image": user.profile_image or None,
         "is_active": user.is_active,
         "date_joined": user.date_joined,
         "login_method": user.login_method,
@@ -107,15 +90,12 @@ async def update_my_info(request, payload: UpdateProfileRequest):
     """
     user = request.auth  # JWTAuth에서 검증된 사용자
 
-    # 현재는 수정할 필드가 없으므로 그대로 반환
-    # 향후 필드 추가 시 여기서 업데이트 처리
-    # user.nickname = payload.nickname
-    # await user.asave()
-
-    # 연결된 소셜 계정 조회 (profile_image, name 포함)
-    social_accounts = await SocialAccount.objects.filter(
+    # 연결된 소셜 계정 조회
+    social_accounts_qs = SocialAccount.objects.filter(
         user=user
-    ).values('provider', 'email', 'profile_image', 'name', 'created_at').all()
+    ).values('provider', 'email', 'profile_image', 'name', 'created_at')
+
+    social_accounts = [account async for account in social_accounts_qs]
 
     social_accounts_list = [
         SocialAccountInfo(
@@ -127,23 +107,11 @@ async def update_my_info(request, payload: UpdateProfileRequest):
         for account in social_accounts
     ]
 
-    # 첫 번째 소셜 계정의 프로필 이미지와 이름 사용
-    profile_image = None
-    name = None
-    for account in social_accounts:
-        if account.get('profile_image'):
-            profile_image = account['profile_image']
-            break
-    for account in social_accounts:
-        if account.get('name'):
-            name = account['name']
-            break
-
     return {
         "id": user.id,
         "email": user.email,
-        "name": name,
-        "profile_image": profile_image,
+        "name": user.name or None,
+        "profile_image": user.profile_image or None,
         "is_active": user.is_active,
         "date_joined": user.date_joined,
         "login_method": user.login_method,

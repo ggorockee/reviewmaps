@@ -9,14 +9,17 @@ class UserAdmin(BaseUserAdmin):
     """Custom User Admin - email + login_method 기반 인증"""
 
     # 목록 페이지에서 보여질 필드
-    list_display = ('username', 'email', 'login_method', 'is_active', 'is_staff', 'is_superuser', 'date_joined')
+    list_display = ('username', 'email', 'name', 'login_method', 'is_active', 'is_staff', 'is_superuser', 'date_joined')
     list_filter = ('login_method', 'is_active', 'is_staff', 'is_superuser', 'date_joined')
-    search_fields = ('email', 'username')
+    search_fields = ('email', 'username', 'name')
     ordering = ('-date_joined',)
 
     # 사용자 상세/수정 페이지
     fieldsets = (
         (None, {'fields': ('username', 'email', 'login_method', 'password')}),
+        (_('프로필'), {
+            'fields': ('name', 'profile_image'),
+        }),
         (_('권한'), {
             'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions'),
         }),

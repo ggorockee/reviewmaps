@@ -71,12 +71,27 @@ async def kakao_login(request, payload: KakaoLoginRequest):
             social_account.access_token = payload.access_token
             social_account.save()
 
+            # User 모델에도 프로필 정보 업데이트
+            user.name = kakao_user_info.get('name', '') or user.name
+            user.profile_image = kakao_user_info.get('profile_image', '') or user.profile_image
+            user.save(update_fields=['name', 'profile_image'])
+
         except SocialAccount.DoesNotExist:
             # 2. 이메일 + 로그인 방식으로 기존 사용자 확인
             user, created = User.objects.get_or_create(
                 email=email,
                 login_method='kakao',
+                defaults={
+                    'name': kakao_user_info.get('name', ''),
+                    'profile_image': kakao_user_info.get('profile_image', ''),
+                }
             )
+
+            # 기존 사용자인 경우 프로필 정보 업데이트
+            if not created:
+                user.name = kakao_user_info.get('name', '') or user.name
+                user.profile_image = kakao_user_info.get('profile_image', '') or user.profile_image
+                user.save(update_fields=['name', 'profile_image'])
 
             # 3. SocialAccount 생성
             social_account = SocialAccount.objects.create(
@@ -150,12 +165,27 @@ async def google_login(request, payload: GoogleLoginRequest):
             social_account.access_token = payload.access_token
             social_account.save()
 
+            # User 모델에도 프로필 정보 업데이트
+            user.name = google_user_info.get('name', '') or user.name
+            user.profile_image = google_user_info.get('profile_image', '') or user.profile_image
+            user.save(update_fields=['name', 'profile_image'])
+
         except SocialAccount.DoesNotExist:
             # 이메일 + 로그인 방식으로 기존 사용자 확인
             user, created = User.objects.get_or_create(
                 email=email,
                 login_method='google',
+                defaults={
+                    'name': google_user_info.get('name', ''),
+                    'profile_image': google_user_info.get('profile_image', ''),
+                }
             )
+
+            # 기존 사용자인 경우 프로필 정보 업데이트
+            if not created:
+                user.name = google_user_info.get('name', '') or user.name
+                user.profile_image = google_user_info.get('profile_image', '') or user.profile_image
+                user.save(update_fields=['name', 'profile_image'])
 
             social_account = SocialAccount.objects.create(
                 user=user,

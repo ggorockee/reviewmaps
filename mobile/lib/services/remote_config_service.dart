@@ -35,7 +35,7 @@ class RemoteConfigService {
       // 원격 설정 가져오기 및 활성화
       await fetchAndActivate();
     } catch (e) {
-      print('Remote Config 초기화 오류: $e');
+      debugPrint('Remote Config 초기화 오류: $e');
     }
   }
 
@@ -46,7 +46,7 @@ class RemoteConfigService {
         await _remoteConfig!.fetchAndActivate();
       }
     } catch (e) {
-      print('Remote Config fetchAndActivate 오류: $e');
+      debugPrint('Remote Config fetchAndActivate 오류: $e');
     }
   }
 

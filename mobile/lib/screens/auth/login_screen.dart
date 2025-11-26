@@ -118,69 +118,40 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     try {
-      // 1. Kakao SDK로 로그인하여 Kakao access token 받기
-      print('[LoginScreen] ========== Kakao 로그인 시작 ==========');
-      print('[LoginScreen] 1. Kakao SDK 로그인 시작');
+      // 1. Kakao SDK 로그인
       final kakaoAccessToken = await KakaoLoginService.login();
-      print('[LoginScreen] 1. Kakao SDK 로그인 성공');
-      print('[LoginScreen]    - Kakao token: ${kakaoAccessToken.substring(0, 30)}...');
-
       if (!mounted) return;
 
-      // 2. AuthService로 서버 로그인 (Kakao token → 서버 JWT token)
-      print('[LoginScreen] 2. 서버 Kakao 로그인 시작');
-      final authResponse = await _authService.kakaoLogin(kakaoAccessToken);
-      print('[LoginScreen] 2. 서버 Kakao 로그인 성공');
-      print('[LoginScreen]    - JWT access token: ${authResponse.accessToken.substring(0, 30)}...');
-      print('[LoginScreen]    - JWT refresh token: ${authResponse.refreshToken.substring(0, 30)}...');
-
+      // 2. 서버 로그인
+      await _authService.kakaoLogin(kakaoAccessToken);
       if (!mounted) return;
 
-      // 토큰이 제대로 저장되었는지 확인
-      print('[LoginScreen] 3. 토큰 저장 확인');
+      // 3. 토큰 저장 확인
       final storedAccessToken = await _authService.getStoredAccessToken();
-      final storedRefreshToken = await _authService.getStoredRefreshToken();
-      print('[LoginScreen]    - 저장된 access token: ${storedAccessToken?.substring(0, 30) ?? 'null'}...');
-      print('[LoginScreen]    - 저장된 refresh token: ${storedRefreshToken?.substring(0, 30) ?? 'null'}...');
-
       if (storedAccessToken == null) {
         throw Exception('토큰 저장에 실패했습니다.\n다시 시도해 주세요.');
       }
 
       if (!mounted) return;
 
-      // 3. 사용자 정보 가져오기
-      print('[LoginScreen] 4. 사용자 정보 가져오기 시작');
+      // 4. 사용자 정보 가져오기
       final userInfo = await _authService.getUserInfo();
-      print('[LoginScreen] 4. 사용자 정보 가져오기 성공');
-      print('[LoginScreen]    - 이메일: ${userInfo.email}');
-      print('[LoginScreen]    - 로그인 방식: ${userInfo.loginMethod}');
-
       if (!mounted) return;
 
-      // 4. Riverpod authProvider 상태 업데이트
-      print('[LoginScreen] 5. authProvider 상태 업데이트 시작');
+      // 5. authProvider 상태 업데이트
       await ref.read(authProvider.notifier).updateAfterLogin(userInfo);
-      print('[LoginScreen] 5. authProvider 상태 업데이트 완료');
-
       if (!mounted) return;
 
-      // 5. 로그인 성공 - MainScreen으로 이동
-      print('[LoginScreen] 6. MainScreen으로 이동');
-      print('[LoginScreen] ========== Kakao 로그인 완료 ==========');
+      // 6. MainScreen으로 이동
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (context) => const MainScreen(),
         ),
       );
-    } catch (e, stackTrace) {
+    } catch (e) {
       if (!mounted) return;
 
-      print('[LoginScreen] ========== Kakao 로그인 에러 ==========');
-      print('[LoginScreen] 에러 타입: ${e.runtimeType}');
-      print('[LoginScreen] 에러 메시지: $e');
-      print('[LoginScreen] Stack trace: $stackTrace');
-      print('[LoginScreen] ==========================================');
+      debugPrint('Kakao 로그인 에러: $e');
 
       String errorMessage = '카카오 로그인 중 문제가 발생했습니다.\n잠시 후 다시 시도해 주세요.';
       final errorText = e.toString();
@@ -221,41 +192,32 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     try {
-      // 1. Google SDK로 로그인하여 Google access token 받기
-      print('[LoginScreen] ========== Google 로그인 시작 ==========');
+      // 1. Google SDK 로그인
       final googleAccessToken = await GoogleLoginService.login();
-      print('[LoginScreen] Google SDK 로그인 성공');
-
       if (!mounted) return;
 
-      // 2. AuthService로 서버 로그인 (Google token → 서버 JWT token)
+      // 2. 서버 로그인
       await _authService.googleLogin(googleAccessToken);
-      print('[LoginScreen] 서버 Google 로그인 성공');
-
       if (!mounted) return;
 
       // 3. 사용자 정보 가져오기
       final userInfo = await _authService.getUserInfo();
-
       if (!mounted) return;
 
-      // 4. Riverpod authProvider 상태 업데이트
+      // 4. authProvider 상태 업데이트
       await ref.read(authProvider.notifier).updateAfterLogin(userInfo);
-
       if (!mounted) return;
 
-      // 5. 로그인 성공 - MainScreen으로 이동
-      print('[LoginScreen] ========== Google 로그인 완료 ==========');
+      // 5. MainScreen으로 이동
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (context) => const MainScreen(),
         ),
       );
-    } catch (e, stackTrace) {
+    } catch (e) {
       if (!mounted) return;
 
-      print('[LoginScreen] Google 로그인 에러: $e');
-      print('[LoginScreen] Stack trace: $stackTrace');
+      debugPrint('Google 로그인 에러: $e');
 
       String errorMessage = 'Google 로그인할 수 없습니다.\n잠시 후 다시 시도해 주세요.';
       final errorText = e.toString();
@@ -303,44 +265,35 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     try {
-      // 1. Apple Sign In으로 identity token 받기
-      print('[LoginScreen] ========== Apple 로그인 시작 ==========');
+      // 1. Apple Sign In
       final appleCredentials = await AppleLoginService.login();
-      print('[LoginScreen] Apple Sign In 성공');
-
       if (!mounted) return;
 
-      // 2. AuthService로 서버 로그인 (Apple token → 서버 JWT token)
+      // 2. 서버 로그인
       await _authService.appleLogin(
         appleCredentials['identity_token']!,
         appleCredentials['authorization_code'],
       );
-      print('[LoginScreen] 서버 Apple 로그인 성공');
-
       if (!mounted) return;
 
       // 3. 사용자 정보 가져오기
       final userInfo = await _authService.getUserInfo();
-
       if (!mounted) return;
 
-      // 4. Riverpod authProvider 상태 업데이트
+      // 4. authProvider 상태 업데이트
       await ref.read(authProvider.notifier).updateAfterLogin(userInfo);
-
       if (!mounted) return;
 
-      // 5. 로그인 성공 - MainScreen으로 이동
-      print('[LoginScreen] ========== Apple 로그인 완료 ==========');
+      // 5. MainScreen으로 이동
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (context) => const MainScreen(),
         ),
       );
-    } catch (e, stackTrace) {
+    } catch (e) {
       if (!mounted) return;
 
-      print('[LoginScreen] Apple 로그인 에러: $e');
-      print('[LoginScreen] Stack trace: $stackTrace');
+      debugPrint('Apple 로그인 에러: $e');
 
       String errorMessage = 'Apple 로그인 중 문제가 발생했습니다.\n잠시 후 다시 시도해 주세요.';
       final errorText = e.toString();

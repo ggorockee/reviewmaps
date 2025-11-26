@@ -46,55 +46,45 @@ Future<void> main() async {
   // 1) Firebase 초기화
   try {
     await Firebase.initializeApp();
-    print('[Main] Firebase 초기화 완료');
-
     // FCM 백그라운드 메시지 핸들러 등록 (Firebase 초기화 직후 설정)
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   } catch (e) {
-    print('[Main] Firebase 초기화 실패: $e');
+    debugPrint('Firebase 초기화 실패: $e');
   }
 
   // 2) AdMob 초기화
   try {
     await MobileAds.instance.initialize();
-
-    // 빌드 모드에 따른 디버깅 정보 출력
     if (kDebugMode) {
       // DEBUG 모드에서는 테스트 광고 강제 사용
       final configuration = RequestConfiguration(
-        testDeviceIds: ['d032385e-b579-421a-ae28-2bd485f4b306'], // AdMob 콘솔에서 확인한 테스트 기기 ID
+        testDeviceIds: ['d032385e-b579-421a-ae28-2bd485f4b306'],
       );
       MobileAds.instance.updateRequestConfiguration(configuration);
-      print('[Main] AdMob 초기화 완료 (DEBUG 모드 - 테스트 광고 표시)');
-    } else {
-      print('[Main] AdMob 초기화 완료 (RELEASE 모드 - 실제 광고 표시)');
     }
   } catch (e) {
-    print('[Main] AdMob 초기화 실패: $e');
+    debugPrint('AdMob 초기화 실패: $e');
   }
 
   // 3) 광고 서비스 초기화
   try {
     await AdService().initialize();
-    print('[Main] 광고 서비스 초기화 완료');
   } catch (e) {
-    print('[Main] 광고 서비스 초기화 실패: $e');
+    debugPrint('광고 서비스 초기화 실패: $e');
   }
 
-  // 4) App Open Ad 서비스 초기화 (앱 시작/포그라운드 복귀 시 표시)
+  // 4) App Open Ad 서비스 초기화
   try {
     await AppOpenAdService().initialize();
-    print('[Main] App Open Ad 서비스 초기화 완료');
   } catch (e) {
-    print('[Main] App Open Ad 서비스 초기화 실패: $e');
+    debugPrint('App Open Ad 초기화 실패: $e');
   }
 
-  // 5) 전면광고 매니저 초기화 (이벤트 기반 광고용)
+  // 5) 전면광고 매니저 초기화
   try {
     await InterstitialAdManager().initialize();
-    print('[Main] 전면광고 매니저 초기화 완료');
   } catch (e) {
-    print('[Main] 전면광고 매니저 초기화 실패: $e');
+    debugPrint('전면광고 매니저 초기화 실패: $e');
   }
 
   // 6) .env 로드
@@ -106,12 +96,10 @@ Future<void> main() async {
   await dotenv.load(fileName: ".env");
 
   // 7) Kakao SDK 초기화
-  // - Native App Key로 Kakao SDK 초기화
   try {
     KakaoSdk.init(nativeAppKey: AppConfig.KAKAO_NATIVE_APP_KEY);
-    print('[Main] Kakao SDK 초기화 완료');
   } catch (e) {
-    print('[Main] Kakao SDK 초기화 실패: $e');
+    debugPrint('Kakao SDK 초기화 실패: $e');
   }
 
   // 8) Naver Map SDK 초기화
@@ -134,17 +122,15 @@ Future<void> main() async {
   // 9) Firebase Remote Config 초기화
   try {
     await RemoteConfigService().initialize();
-    print('[Main] Firebase Remote Config 초기화 완료');
   } catch (e) {
-    print('[Main] Firebase Remote Config 초기화 실패: $e');
+    debugPrint('Firebase Remote Config 초기화 실패: $e');
   }
 
   // 10) FCM 푸시 알림 서비스 초기화
   try {
     await FcmService.instance.initialize();
-    print('[Main] FCM 서비스 초기화 완료');
   } catch (e) {
-    print('[Main] FCM 서비스 초기화 실패: $e');
+    debugPrint('FCM 서비스 초기화 실패: $e');
   }
 
   // 11) Flutter 앱 실행

@@ -729,12 +729,18 @@ class _NotificationScreenState extends State<NotificationScreen>
 
       setState(() {
         _alerts.removeAt(index);
+        // 읽지 않음 카운트 업데이트
+        if (!alert.isRead && _unreadCount > 0) {
+          _unreadCount--;
+        }
       });
 
       _showSnackBar("'${alert.keyword}' 알림이 삭제되었습니다");
     } catch (e) {
       if (!mounted) return;
-      _showSnackBar('알림 삭제 실패: $e', isError: true);
+      // 기술적 에러 메시지는 로그로만 출력
+      debugPrint('알림 삭제 실패: $e');
+      _showSnackBar('알림을 삭제할 수 없습니다', isError: true);
     }
   }
 
@@ -797,13 +803,6 @@ class _NotificationScreenState extends State<NotificationScreen>
           child: Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              Text(
-                '정렬: ',
-                style: TextStyle(
-                  fontSize: 12.sp,
-                  color: const Color(0xFF6C7278),
-                ),
-              ),
               _buildSortChip('거리순', 'distance'),
               SizedBox(width: 8.w),
               _buildSortChip('최신순', 'created_at'),
@@ -913,11 +912,37 @@ class _NotificationScreenState extends State<NotificationScreen>
   /// 알림 카드 - 검색 결과와 동일한 디자인
   Widget _buildAlertCard(AlertInfo alert) {
     final bool isTablet = MediaQuery.of(context).size.shortestSide >= 600;
+    final bool isCampaignDeleted = alert.campaignContentLink == null || 
+                                    alert.campaignContentLink!.isEmpty;
 
     return InkWell(
-      onTap: () {
-        _markAlertAsRead(alert);
-        _openCampaignLink(alert.campaignContentLink);
+      onTap: () async {
+        if (isCampaignDeleted) {
+          // 삭제된 캠페인인 경우 팝업 표시
+          await showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('알림'),
+              content: const Text('삭제된 체험단이거나, 유효하지 않은 체험단입니다.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text(
+                    '확인',
+                    style: TextStyle(
+                      color: Theme.of(context).primaryColor,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        } else {
+          // 정상 캠페인인 경우 읽음 처리 후 링크 열기
+          _markAlertAsRead(alert);
+          _openCampaignLink(alert.campaignContentLink);
+        }
       },
       child: Container(
         padding: EdgeInsets.symmetric(vertical: 12.h),
@@ -985,6 +1010,8 @@ class _NotificationScreenState extends State<NotificationScreen>
         ? alert.campaignCompany!
         : alert.campaignTitle;
     final isNew = _isNewAlert(alert.createdAt);
+    final bool isCampaignDeleted = alert.campaignContentLink == null || 
+                                    alert.campaignContentLink!.isEmpty;
 
     return RichText(
       maxLines: 2,
@@ -1040,8 +1067,8 @@ class _NotificationScreenState extends State<NotificationScreen>
               ),
             ),
           ],
-          // 읽지 않은 표시
-          if (!alert.isRead) ...[
+          // 읽지 않은 표시 (삭제된 캠페인이 아닌 경우에만 표시)
+          if (!alert.isRead && !isCampaignDeleted) ...[
             WidgetSpan(
               child: Padding(
                 padding: EdgeInsets.only(left: 6.w),

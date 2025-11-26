@@ -945,6 +945,7 @@ class _NotificationScreenState extends State<NotificationScreen>
         }
       },
       child: Container(
+        width: double.infinity, // 가로 전체 영역 터치 가능
         padding: EdgeInsets.symmetric(vertical: 12.h),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

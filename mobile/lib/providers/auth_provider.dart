@@ -121,6 +121,14 @@ class AuthNotifier extends Notifier<AuthState> {
     state = const AuthState();
   }
 
+  /// 회원 탈퇴
+  Future<void> deleteAccount({String? reason}) async {
+    // FCM 토큰 서버에서 해제 (푸시 알림 중지)
+    await FcmService.instance.unregisterToken();
+    await _authService.deleteAccount(reason: reason);
+    state = const AuthState();
+  }
+
   /// 리소스 정리
   void dispose() {
     _authService.dispose();

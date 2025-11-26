@@ -536,6 +536,47 @@ class AuthService {
     }
   }
 
+  /// 회원 탈퇴
+  /// DELETE /v1/auth/me
+  /// - 계정 비활성화 (Soft delete)
+  /// - 연결된 SNS 계정 삭제
+  Future<void> deleteAccount({String? reason}) async {
+    final uri = Uri.parse('$baseUrl/auth/me');
+    final headers = await _authHeaders();
+
+    try {
+      debugPrint('[AuthService] deleteAccount 호출');
+      debugPrint('[AuthService] URL: $uri');
+
+      final body = reason != null ? jsonEncode({'reason': reason}) : null;
+
+      final response = await _client
+          .delete(
+            uri,
+            headers: headers,
+            body: body,
+          )
+          .timeout(const Duration(seconds: 10));
+
+      _debugPrintResponse('DELETE', uri.toString(), response);
+
+      if (response.statusCode == 401) {
+        throw Exception('로그인이 만료되었습니다.\n다시 로그인해 주세요.');
+      } else if (response.statusCode != 200) {
+        final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
+        throw Exception(errorBody['detail'] ?? '회원 탈퇴 처리 중 오류가 발생했습니다.');
+      }
+
+      // 탈퇴 성공 - 로컬 토큰 삭제
+      await _tokenStorage.clearTokens();
+
+      debugPrint('[AuthService] 회원 탈퇴 완료');
+    } catch (e) {
+      debugPrint('회원 탈퇴 오류: $e');
+      rethrow;
+    }
+  }
+
   /// 로그아웃
   /// - 로컬 토큰 삭제
   Future<void> logout() async {

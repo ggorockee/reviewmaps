@@ -5,8 +5,10 @@ import 'package:mobile/config/config.dart';
 /// Google 소셜 로그인 서비스
 class GoogleLoginService {
   // iOS에서는 clientId가 필요함
+  // serverClientId는 서버 사이드 인증을 위한 Web Client ID
   static final GoogleSignIn _googleSignIn = GoogleSignIn(
     clientId: Platform.isIOS ? AppConfig.GOOGLE_IOS_CLIENT_ID : null,
+    serverClientId: AppConfig.GOOGLE_WEB_CLIENT_ID,
     scopes: [
       'email',
       'profile',

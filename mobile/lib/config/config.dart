@@ -70,6 +70,8 @@ class AppConfig {
   // 📌 Google Login
   // - Google Sign In iOS Client ID (Firebase Console에서 발급)
   static final String GOOGLE_IOS_CLIENT_ID = _getEnv('GOOGLE_IOS_CLIENT_ID');
+  // - Google Web Client ID (서버 사이드 인증용)
+  static final String GOOGLE_WEB_CLIENT_ID = _getEnv('GOOGLE_WEB_CLIENT_ID');
 
 
 

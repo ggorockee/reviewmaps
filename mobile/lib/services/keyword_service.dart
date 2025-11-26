@@ -237,6 +237,32 @@ class KeywordService {
     });
   }
 
+  /// 알람 삭제
+  /// DELETE /v1/keyword-alerts/alerts/{alert_id}
+  Future<void> deleteAlert(int alertId) async {
+    final uri = Uri.parse('$baseUrl/alerts/$alertId');
+    final headers = await _getAuthHeaders();
+
+    return _withRetry(() async {
+      try {
+        final response = await _client
+            .delete(uri, headers: headers)
+            .timeout(const Duration(seconds: 10));
+
+        _debugPrintResponse('DELETE', uri.toString(), response);
+
+        if (response.statusCode != 200) {
+          _handleHttpError(response, '알람을 삭제할 수 없습니다.');
+        }
+      } catch (e) {
+        if (e is Exception && e.toString().contains('Exception:')) {
+          rethrow;
+        }
+        throw Exception(NetworkErrorHandler.getErrorMessage(e));
+      }
+    });
+  }
+
   /// 알람 읽음 처리
   /// POST /v1/keyword-alerts/alerts/read
   Future<void> markAlertsAsRead(List<int> alertIds) async {

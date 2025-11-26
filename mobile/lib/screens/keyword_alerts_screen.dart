@@ -27,7 +27,13 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(_onTabChanged);
     _loadData();
+  }
+
+  void _onTabChanged() {
+    // 탭 전환 시 UI 업데이트 (AppBar의 "모두 읽음" 버튼 표시 갱신)
+    if (mounted) setState(() {});
   }
 
   /// 데이터 로드
@@ -158,6 +164,65 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
     }
   }
 
+  /// 모든 알람 읽음 처리
+  Future<void> _markAllAsRead() async {
+    final unreadAlerts = _allAlerts.where((a) => !a.isRead).toList();
+    if (unreadAlerts.isEmpty) return;
+
+    final alertIds = unreadAlerts.map((a) => a.id).toList();
+
+    try {
+      await _keywordService.markAlertsAsRead(alertIds);
+      // UI 즉시 업데이트
+      setState(() {
+        for (var alert in _allAlerts) {
+          if (!alert.isRead) {
+            // AlertInfo가 immutable이면 새 객체 생성 필요
+            final index = _allAlerts.indexOf(alert);
+            _allAlerts[index] = AlertInfo(
+              id: alert.id,
+              keyword: alert.keyword,
+              campaignId: alert.campaignId,
+              campaignTitle: alert.campaignTitle,
+              campaignCompany: alert.campaignCompany,
+              campaignOffer: alert.campaignOffer,
+              campaignAddress: alert.campaignAddress,
+              campaignLat: alert.campaignLat,
+              campaignLng: alert.campaignLng,
+              campaignImgUrl: alert.campaignImgUrl,
+              campaignPlatform: alert.campaignPlatform,
+              campaignApplyDeadline: alert.campaignApplyDeadline,
+              campaignContentLink: alert.campaignContentLink,
+              campaignChannel: alert.campaignChannel,
+              matchedField: alert.matchedField,
+              isRead: true,
+              createdAt: alert.createdAt,
+              distance: alert.distance,
+            );
+          }
+        }
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${alertIds.length}개의 알림을 읽음 처리했습니다.'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('[KeywordAlertsScreen] 모든 알람 읽음 처리 실패: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('읽음 처리 실패: ${e.toString().replaceFirst('Exception: ', '')}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   /// 에러 다이얼로그 표시
   void _showErrorDialog(String message) {
     showDialog(
@@ -177,6 +242,9 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
 
   @override
   Widget build(BuildContext context) {
+    // 읽지 않은 알림 수 계산
+    final unreadCount = _allAlerts.where((a) => !a.isRead).length;
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -192,6 +260,20 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
         elevation: 0,
         centerTitle: true,
         iconTheme: const IconThemeData(color: Color(0xFF1A1C1E)),
+        actions: [
+          // 알람 탭에서만 "모두 읽음" 버튼 표시
+          if (_tabController.index == 1 && unreadCount > 0)
+            TextButton(
+              onPressed: _markAllAsRead,
+              child: Text(
+                '모두 읽음',
+                style: TextStyle(
+                  fontSize: 14.sp,
+                  color: PRIMARY_COLOR,
+                ),
+              ),
+            ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           labelColor: PRIMARY_COLOR,
@@ -252,6 +334,19 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
                 color: const Color(0xFF6C7278),
               ),
               textAlign: TextAlign.center,
+            ),
+            SizedBox(height: 12.h),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 32.w),
+              child: Text(
+                '※ 키워드 등록 이후에 새로 등록된 캠페인에 대해서만 알림을 받습니다.',
+                style: TextStyle(
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w400,
+                  color: const Color(0xFF9CA3AF),
+                ),
+                textAlign: TextAlign.center,
+              ),
             ),
           ],
         ),
@@ -381,19 +476,91 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
         final alert = _allAlerts[index];
         final bool showDivider = index > 0;
 
-        return Container(
-          constraints: BoxConstraints(minHeight: 80.h),
-          decoration: showDivider
-              ? BoxDecoration(
-                  border: Border(
-                    top: BorderSide(color: Colors.grey.shade300, width: 1),
+        return Dismissible(
+          key: Key('alert_${alert.id}'),
+          direction: DismissDirection.endToStart,
+          background: Container(
+            alignment: Alignment.centerRight,
+            padding: EdgeInsets.only(right: 20.w),
+            color: Colors.red,
+            child: Icon(
+              Icons.delete,
+              color: Colors.white,
+              size: 24.sp,
+            ),
+          ),
+          confirmDismiss: (direction) async {
+            return await showDialog<bool>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('알림 삭제'),
+                content: const Text('이 알림을 삭제하시겠습니까?'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: const Text('취소'),
                   ),
-                )
-              : null,
-          child: _buildAlertCard(alert),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    style: TextButton.styleFrom(foregroundColor: Colors.red),
+                    child: const Text('삭제'),
+                  ),
+                ],
+              ),
+            ) ?? false;
+          },
+          onDismissed: (direction) {
+            _deleteAlert(alert.id, index);
+          },
+          child: Container(
+            constraints: BoxConstraints(minHeight: 80.h),
+            decoration: showDivider
+                ? BoxDecoration(
+                    border: Border(
+                      top: BorderSide(color: Colors.grey.shade300, width: 1),
+                    ),
+                  )
+                : null,
+            child: _buildAlertCard(alert),
+          ),
         );
       },
     );
+  }
+
+  /// 알림 삭제
+  Future<void> _deleteAlert(int alertId, int index) async {
+    // 먼저 UI에서 제거 (이미 Dismissible에서 제거됨)
+    final removedAlert = _allAlerts[index];
+    setState(() {
+      _allAlerts.removeAt(index);
+    });
+
+    try {
+      await _keywordService.deleteAlert(alertId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('알림이 삭제되었습니다.'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('[KeywordAlertsScreen] 알림 삭제 실패: $e');
+      // 삭제 실패 시 복원
+      setState(() {
+        _allAlerts.insert(index, removedAlert);
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('삭제 실패: ${e.toString().replaceFirst('Exception: ', '')}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   /// 알람 카드 - 검색 결과와 동일한 디자인
@@ -706,6 +873,7 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
 
   @override
   void dispose() {
+    _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     _keywordService.dispose();
     super.dispose();

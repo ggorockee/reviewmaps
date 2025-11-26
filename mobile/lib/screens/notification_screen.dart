@@ -271,11 +271,7 @@ class _NotificationScreenState extends State<NotificationScreen>
         _keywords[index] = updated;
       });
 
-      final statusText = updated.isActive ? '활성화' : '비활성화';
-      _showSnackBar(
-        "'${old.keyword}' 알림이 $statusText되었습니다",
-        isSuccess: updated.isActive,
-      );
+      // 토글 성공 시 토스트 메시지 제거 (사용자 요청)
     } catch (e) {
       if (!mounted) return;
 

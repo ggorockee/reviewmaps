@@ -188,10 +188,7 @@ class _NotificationScreenState extends State<NotificationScreen>
       return;
     }
 
-    if (_keywords.length >= 20) {
-      _showSnackBar('키워드는 최대 20개까지 등록할 수 있습니다');
-      return;
-    }
+    // 서버에서 키워드 제한 검증 (AppSetting 기반으로 동적 관리)
 
     setState(() {
       _isLoading = true;
@@ -215,7 +212,8 @@ class _NotificationScreenState extends State<NotificationScreen>
         _isLoading = false;
       });
 
-      _showSnackBar('키워드 추가 실패: $e', isError: true);
+      // 서버 에러 메시지 사용 (키워드 제한 초과 등)
+      _showSnackBar('$e', isError: true);
     }
   }
 

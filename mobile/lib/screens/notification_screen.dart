@@ -721,6 +721,23 @@ class _NotificationScreenState extends State<NotificationScreen>
     );
   }
 
+  /// 알림 삭제
+  Future<void> _deleteAlert(AlertInfo alert, int index) async {
+    try {
+      await _keywordService.deleteAlert(alert.id);
+      if (!mounted) return;
+
+      setState(() {
+        _alerts.removeAt(index);
+      });
+
+      _showSnackBar("'${alert.keyword}' 알림이 삭제되었습니다");
+    } catch (e) {
+      if (!mounted) return;
+      _showSnackBar('알림 삭제 실패: $e', isError: true);
+    }
+  }
+
   /// 알림 기록 탭
   Widget _buildNotificationHistoryTab() {
     if (_isAlertsLoading) {
@@ -793,7 +810,7 @@ class _NotificationScreenState extends State<NotificationScreen>
             ],
           ),
         ),
-        // 알림 목록
+        // 알림 목록 (슬라이드 삭제 기능)
         Expanded(
           child: ListView.builder(
             padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
@@ -802,15 +819,70 @@ class _NotificationScreenState extends State<NotificationScreen>
               final alert = _alerts[index];
               final bool showDivider = index > 0;
 
-              return Container(
-                decoration: showDivider
-                    ? BoxDecoration(
-                        border: Border(
-                          top: BorderSide(color: Colors.grey.shade300, width: 1),
+              return Dismissible(
+                key: Key('alert_${alert.id}'),
+                direction: DismissDirection.endToStart,
+                onDismissed: (_) => _deleteAlert(alert, index),
+                confirmDismiss: (direction) async {
+                  // 삭제 확인 다이얼로그
+                  return await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('알림 삭제'),
+                      content: Text(
+                        "'${alert.keyword}' 알림을 삭제하시겠습니까?",
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(false),
+                          child: Text(
+                            '취소',
+                            style: TextStyle(
+                              color: const Color(0xFF6C7278),
+                            ),
+                          ),
                         ),
-                      )
-                    : null,
-                child: _buildAlertCard(alert),
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(true),
+                          child: Text(
+                            '삭제',
+                            style: TextStyle(
+                              color: Colors.red,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ) ?? false;
+                },
+                background: Container(
+                  alignment: Alignment.centerRight,
+                  padding: EdgeInsets.only(right: 20.w),
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    border: showDivider
+                        ? Border(
+                            top: BorderSide(color: Colors.grey.shade300, width: 1),
+                          )
+                        : null,
+                  ),
+                  child: Icon(
+                    Icons.delete,
+                    color: Colors.white,
+                    size: 28.sp,
+                  ),
+                ),
+                child: Container(
+                  decoration: showDivider
+                      ? BoxDecoration(
+                          border: Border(
+                            top: BorderSide(color: Colors.grey.shade300, width: 1),
+                          ),
+                        )
+                      : null,
+                  child: _buildAlertCard(alert),
+                ),
               );
             },
           ),

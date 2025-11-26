@@ -71,6 +71,20 @@ class User(AbstractBaseUser, PermissionsMixin):
         verbose_name="로그인 방식",
         help_text="사용자가 가입한 방식 (email, google, apple, kakao, naver)"
     )
+    name = models.CharField(
+        max_length=100,
+        blank=True,
+        default='',
+        verbose_name="이름",
+        help_text="SNS 로그인 시 제공받은 사용자 이름"
+    )
+    profile_image = models.URLField(
+        max_length=500,
+        blank=True,
+        default='',
+        verbose_name="프로필 이미지 URL",
+        help_text="SNS 로그인 시 제공받은 프로필 이미지 URL"
+    )
     is_active = models.BooleanField(default=True, verbose_name="활성 상태")
     is_staff = models.BooleanField(default=False, verbose_name="스태프 권한")
     date_joined = models.DateTimeField(default=timezone.now, verbose_name="가입일시")

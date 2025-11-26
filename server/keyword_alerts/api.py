@@ -303,34 +303,59 @@ async def list_alerts(
     alert_list = []
     for alert in alerts:
         campaign = alert.campaign
-        campaign_lat = float(campaign.lat) if campaign.lat else None
-        campaign_lng = float(campaign.lng) if campaign.lng else None
 
-        # 거리 계산
-        distance = None
-        if lat is not None and lng is not None and campaign_lat and campaign_lng:
-            distance = round(calculate_distance(lat, lng, campaign_lat, campaign_lng), 2)
+        # 캠페인이 삭제된 경우 처리
+        if campaign:
+            campaign_lat = float(campaign.lat) if campaign.lat else None
+            campaign_lng = float(campaign.lng) if campaign.lng else None
 
-        alert_list.append({
-            "id": alert.id,
-            "keyword": alert.keyword.keyword,
-            "campaign_id": campaign.id,
-            "campaign_title": campaign.title,
-            "campaign_company": campaign.company,
-            "campaign_offer": campaign.offer,
-            "campaign_address": campaign.address,
-            "campaign_lat": campaign_lat,
-            "campaign_lng": campaign_lng,
-            "campaign_img_url": campaign.img_url,
-            "campaign_platform": campaign.platform,
-            "campaign_apply_deadline": campaign.apply_deadline,
-            "campaign_content_link": campaign.content_link,
-            "campaign_channel": campaign.campaign_channel,
-            "matched_field": alert.matched_field,
-            "is_read": alert.is_read,
-            "created_at": alert.created_at,
-            "distance": distance,
-        })
+            # 거리 계산
+            distance = None
+            if lat is not None and lng is not None and campaign_lat and campaign_lng:
+                distance = round(calculate_distance(lat, lng, campaign_lat, campaign_lng), 2)
+
+            alert_list.append({
+                "id": alert.id,
+                "keyword": alert.keyword.keyword,
+                "campaign_id": campaign.id,
+                "campaign_title": campaign.title,
+                "campaign_company": campaign.company,
+                "campaign_offer": campaign.offer,
+                "campaign_address": campaign.address,
+                "campaign_lat": campaign_lat,
+                "campaign_lng": campaign_lng,
+                "campaign_img_url": campaign.img_url,
+                "campaign_platform": campaign.platform,
+                "campaign_apply_deadline": campaign.apply_deadline,
+                "campaign_content_link": campaign.content_link,
+                "campaign_channel": campaign.campaign_channel,
+                "matched_field": alert.matched_field,
+                "is_read": alert.is_read,
+                "created_at": alert.created_at,
+                "distance": distance,
+            })
+        else:
+            # 삭제된 캠페인 알림 정보
+            alert_list.append({
+                "id": alert.id,
+                "keyword": alert.keyword.keyword,
+                "campaign_id": None,
+                "campaign_title": "(삭제된 캠페인)",
+                "campaign_company": None,
+                "campaign_offer": None,
+                "campaign_address": None,
+                "campaign_lat": None,
+                "campaign_lng": None,
+                "campaign_img_url": None,
+                "campaign_platform": None,
+                "campaign_apply_deadline": None,
+                "campaign_content_link": None,
+                "campaign_channel": None,
+                "matched_field": alert.matched_field,
+                "is_read": alert.is_read,
+                "created_at": alert.created_at,
+                "distance": None,
+            })
 
     # 거리순 정렬 (distance가 있는 경우만)
     if sort == "distance" and lat is not None and lng is not None:

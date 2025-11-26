@@ -18,6 +18,7 @@ from .schemas import (
     AnonymousSessionRequest,
     AnonymousSessionResponse,
     UserResponse,
+    UserDetailResponse,
     AnonymousUserResponse,
     ConvertAnonymousRequest,
 )
@@ -190,7 +191,7 @@ async def convert_anonymous_to_user(request, payload: ConvertAnonymousRequest):
     }
 
 
-@router.get("/me", response=Union[UserResponse, AnonymousUserResponse], summary="내 정보 조회")
+@router.get("/me", response=Union[UserDetailResponse, AnonymousUserResponse], summary="내 정보 조회")
 async def get_my_info(request):
     """
     내 정보 조회 API
@@ -211,6 +212,8 @@ async def get_my_info(request):
         return {
             "id": user.id,
             "email": user.email,
+            "name": user.name or None,
+            "profile_image": user.profile_image or None,
             "is_active": user.is_active,
             "date_joined": user.date_joined,
             "login_method": user.login_method,

@@ -2,11 +2,13 @@
 Keyword Alerts API - Django Ninja 비동기 API
 """
 import math
+from datetime import timedelta
 from typing import Optional
 from ninja import Router, Query
 from ninja.errors import HttpError
 from django.contrib.auth import get_user_model
 from django.db.models import Q, Count
+from django.utils import timezone
 from asgiref.sync import sync_to_async
 
 from .models import Keyword, KeywordAlert, FCMDevice
@@ -266,8 +268,22 @@ async def list_alerts(
             Keyword.objects.filter(anonymous_session_id=session_id, is_active=True).values_list('id', flat=True)
         )
 
-    # 알람 조회
-    query = KeywordAlert.objects.filter(keyword_id__in=my_keywords)
+    # 보관 기간 조회 (AppSetting에서 동적으로 설정 가능)
+    try:
+        setting = await AppSetting.objects.aget(key='alert_retention', is_active=True)
+        retention_days = setting.value.get('retention_days', 30)
+    except AppSetting.DoesNotExist:
+        # 기본값: 30일
+        retention_days = 30
+
+    # 보관 기간 기준 날짜 계산
+    retention_threshold = timezone.now() - timedelta(days=retention_days)
+
+    # 알람 조회 (보관 기간 내 데이터만)
+    query = KeywordAlert.objects.filter(
+        keyword_id__in=my_keywords,
+        created_at__gte=retention_threshold
+    )
     if is_read is not None:
         query = query.filter(is_read=is_read)
 

@@ -5,10 +5,13 @@ from ninja import Router, Schema
 from ninja.errors import HttpError
 from django.contrib.auth import get_user_model
 from typing import Optional
+import logging
 
 from .schemas import UserDetailResponse, SocialAccountInfo
 from .auth import JWTAuth
 from .models import SocialAccount
+
+logger = logging.getLogger(__name__)
 
 User = get_user_model()
 router = Router(tags=["사용자 정보 (본인)"])
@@ -29,9 +32,18 @@ async def get_my_info(request):
     user = request.auth  # JWTAuth에서 검증된 사용자
 
     # 연결된 소셜 계정 조회 (profile_image, name 포함)
-    social_accounts = await SocialAccount.objects.filter(
+    social_accounts_qs = SocialAccount.objects.filter(
         user=user
-    ).values('provider', 'email', 'profile_image', 'name', 'created_at').all()
+    ).values('provider', 'email', 'profile_image', 'name', 'created_at')
+
+    # async iteration으로 리스트 변환
+    social_accounts = [account async for account in social_accounts_qs]
+
+    # 디버그 로그
+    logger.info(f"[api_me] user_id={user.id}, email={user.email}")
+    logger.info(f"[api_me] social_accounts count: {len(social_accounts)}")
+    for acc in social_accounts:
+        logger.info(f"[api_me] social_account: provider={acc.get('provider')}, name={acc.get('name')}, profile_image={acc.get('profile_image')}")
 
     social_accounts_list = [
         SocialAccountInfo(
@@ -54,6 +66,8 @@ async def get_my_info(request):
         if account.get('name'):
             name = account['name']
             break
+
+    logger.info(f"[api_me] final: name={name}, profile_image={profile_image}")
 
     return {
         "id": user.id,

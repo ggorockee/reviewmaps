@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:package_info_plus/package_info_plus.dart';
+import '../config/app_version.dart';
 import '../providers/auth_provider.dart';
 import 'auth/login_screen.dart';
 import 'notification_screen.dart';
@@ -222,7 +222,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           // 앱 정보 (논리 버전 사용)
           Center(
             child: Text(
-              '리뷰맵 v2.0.0',
+              '리뷰맵 v${AppVersion.current}',
               style: TextStyle(
                 fontSize: 12.sp,
                 fontWeight: FontWeight.w400,

@@ -721,26 +721,28 @@ class _NotificationScreenState extends State<NotificationScreen>
     );
   }
 
-  /// 알림 삭제
+  /// 알림 삭제 (사용자 강제 삭제 가능)
   Future<void> _deleteAlert(AlertInfo alert, int index) async {
+    // 먼저 UI에서 삭제 (사용자 경험 우선)
+    if (!mounted) return;
+    
+    setState(() {
+      _alerts.removeAt(index);
+      // 읽지 않음 카운트 업데이트
+      if (!alert.isRead && _unreadCount > 0) {
+        _unreadCount--;
+      }
+    });
+
+    _showSnackBar("'${alert.keyword}' 알림이 삭제되었습니다");
+
+    // 백그라운드에서 서버 삭제 시도 (실패해도 UI는 유지)
     try {
       await _keywordService.deleteAlert(alert.id);
-      if (!mounted) return;
-
-      setState(() {
-        _alerts.removeAt(index);
-        // 읽지 않음 카운트 업데이트
-        if (!alert.isRead && _unreadCount > 0) {
-          _unreadCount--;
-        }
-      });
-
-      _showSnackBar("'${alert.keyword}' 알림이 삭제되었습니다");
+      debugPrint('알림 서버 삭제 성공: ${alert.id}');
     } catch (e) {
-      if (!mounted) return;
-      // 기술적 에러 메시지는 로그로만 출력
-      debugPrint('알림 삭제 실패: $e');
-      _showSnackBar('알림을 삭제할 수 없습니다', isError: true);
+      // 서버 삭제 실패해도 사용자에게는 알리지 않음 (이미 UI에서 삭제됨)
+      debugPrint('알림 서버 삭제 실패 (로컬에서는 삭제됨): $e');
     }
   }
 

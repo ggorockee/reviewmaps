@@ -8,22 +8,7 @@ import '../models/auth_models.dart';
 import '../config/config.dart';
 import 'token_storage_service.dart';
 
-/// JWT 디버깅: 페이로드 디코딩 (디버그용)
-Map<String, dynamic>? _decodeJwtPayload(String token) {
-  try {
-    final parts = token.split('.');
-    if (parts.length != 3) return null;
-
-    final payload = parts[1];
-    // Base64 URL 디코딩
-    final normalized = base64Url.normalize(payload);
-    final decoded = utf8.decode(base64Url.decode(normalized));
-    return jsonDecode(decoded) as Map<String, dynamic>;
-  } catch (e) {
-    debugPrint('[JWT Debug] 디코딩 실패: $e');
-    return null;
-  }
-}
+// JWT 디코딩은 token_storage_service.dart의 decodeJwtPayload 함수 사용
 
 /// AuthService
 /// ------------------------------------------------------------
@@ -193,7 +178,7 @@ class AuthService {
       // JWT 페이로드 디버깅
       if (kDebugMode) {
         debugPrint('[AuthService] JWT 페이로드 디코딩 시작');
-        final payload = _decodeJwtPayload(authResponse.accessToken);
+        final payload = decodeJwtPayload(authResponse.accessToken);
         if (payload != null) {
           debugPrint('[AuthService] JWT 내용:');
           debugPrint('[AuthService]   - user_id: ${payload['user_id'] ?? payload['sub']}');
@@ -251,7 +236,7 @@ class AuthService {
       // JWT 페이로드 디버깅
       if (kDebugMode) {
         debugPrint('[AuthService] Google JWT 페이로드 디코딩 시작');
-        final payload = _decodeJwtPayload(authResponse.accessToken);
+        final payload = decodeJwtPayload(authResponse.accessToken);
         if (payload != null) {
           debugPrint('[AuthService] JWT 내용:');
           debugPrint('[AuthService]   - user_id: ${payload['user_id'] ?? payload['sub']}');
@@ -304,7 +289,7 @@ class AuthService {
       // JWT 페이로드 디버깅
       if (kDebugMode) {
         debugPrint('[AuthService] Apple JWT 페이로드 디코딩 시작');
-        final payload = _decodeJwtPayload(authResponse.accessToken);
+        final payload = decodeJwtPayload(authResponse.accessToken);
         if (payload != null) {
           debugPrint('[AuthService] JWT 내용:');
           debugPrint('[AuthService]   - user_id: ${payload['user_id'] ?? payload['sub']}');
@@ -575,5 +560,55 @@ class AuthService {
   /// 저장된 Refresh Token 조회 (디버깅용)
   Future<String?> getStoredRefreshToken() async {
     return await _tokenStorage.getRefreshToken();
+  }
+
+  /// 유효한 Access Token 조회 (자동 갱신 포함)
+  /// - 만료 5분 전이면 자동으로 토큰 갱신
+  /// - 갱신 실패 시 null 반환 (재로그인 필요)
+  /// - API 호출 전에 이 메서드를 사용하여 유효한 토큰 확보
+  Future<String?> getValidAccessToken() async {
+    final token = await _tokenStorage.getAccessToken();
+    if (token == null) return null;
+
+    // 익명 사용자는 Access Token 자동 갱신 대상 아님
+    final isAnonymousUser = await _tokenStorage.isAnonymous();
+    if (isAnonymousUser) {
+      return await _tokenStorage.getSessionToken();
+    }
+
+    // 토큰 만료 임박 여부 확인 (5분 전)
+    final isExpiringSoon = await _tokenStorage.isAccessTokenExpiringSoon(thresholdMinutes: 5);
+
+    if (isExpiringSoon) {
+      debugPrint('[AuthService] Access Token 만료 임박 - 자동 갱신 시도');
+
+      try {
+        await refreshToken();
+        debugPrint('[AuthService] Access Token 자동 갱신 성공');
+        return await _tokenStorage.getAccessToken();
+      } catch (e) {
+        debugPrint('[AuthService] Access Token 자동 갱신 실패: $e');
+        // 갱신 실패해도 기존 토큰이 아직 유효할 수 있으므로 반환
+        final isExpired = await _tokenStorage.isAccessTokenExpired();
+        if (!isExpired) {
+          return token;
+        }
+        // 완전히 만료되었으면 null 반환 (재로그인 필요)
+        return null;
+      }
+    }
+
+    return token;
+  }
+
+  /// 인증 헤더 조회 (자동 갱신 포함)
+  /// - getValidAccessToken을 사용하여 유효한 토큰으로 헤더 생성
+  /// - API 호출 시 이 메서드 사용 권장
+  Future<Map<String, String>> getValidAuthHeaders() async {
+    final accessToken = await getValidAccessToken();
+    return {
+      ..._headers,
+      if (accessToken != null) 'Authorization': 'Bearer $accessToken',
+    };
   }
 }

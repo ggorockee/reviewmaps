@@ -375,6 +375,39 @@ async def mark_alerts_read(request, payload: MarkAlertReadRequest):
     }
 
 
+@router.delete("/alerts/{alert_id}", summary="알람 삭제")
+async def delete_alert(request, alert_id: int):
+    """
+    알람 삭제 API
+    - 단일 알람을 DB에서 완전히 삭제 (hard delete)
+    """
+    user, session_id = await sync_to_async(get_auth_info)(request)
+
+    # 내 키워드 조회 (활성/비활성 모두 포함)
+    if user:
+        my_keywords = await sync_to_async(list)(
+            Keyword.objects.filter(user=user).values_list('id', flat=True)
+        )
+    else:
+        my_keywords = await sync_to_async(list)(
+            Keyword.objects.filter(anonymous_session_id=session_id).values_list('id', flat=True)
+        )
+
+    # 알람 조회
+    try:
+        alert = await sync_to_async(KeywordAlert.objects.get)(
+            id=alert_id,
+            keyword_id__in=my_keywords
+        )
+    except KeywordAlert.DoesNotExist:
+        raise HttpError(404, "알람을 찾을 수 없습니다.")
+
+    # Hard delete (실제 삭제)
+    await sync_to_async(alert.delete)()
+
+    return {"message": "삭제되었습니다."}
+
+
 @router.post("/fcm/register", response=FCMDeviceResponse, summary="FCM 디바이스 토큰 등록")
 async def register_fcm_device(request, payload: FCMDeviceRegisterRequest):
     """

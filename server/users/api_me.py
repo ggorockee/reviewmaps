@@ -7,11 +7,16 @@ from django.contrib.auth import get_user_model
 from typing import Optional
 import logging
 
-from .schemas import UserDetailResponse, SocialAccountInfo
+from .schemas import UserDetailResponse, SocialAccountInfo, MessageResponse
 from .auth import JWTAuth
 from .models import SocialAccount
 
 logger = logging.getLogger(__name__)
+
+
+class DeleteAccountRequest(Schema):
+    """회원 탈퇴 요청"""
+    reason: Optional[str] = None  # 탈퇴 사유 (선택)
 
 User = get_user_model()
 router = Router(tags=["사용자 정보 (본인)"])
@@ -119,16 +124,54 @@ async def update_my_info(request, payload: UpdateProfileRequest):
     }
 
 
-# 향후 확장 가능한 API들
+@router.delete("/me", response=MessageResponse, auth=JWTAuth(), summary="회원 탈퇴")
+async def delete_my_account(request, payload: DeleteAccountRequest = None):
+    """
+    회원 탈퇴 (Soft delete)
 
-# @router.delete("/me", auth=JWTAuth(), summary="회원 탈퇴")
-# async def delete_my_account(request):
-#     """
-#     회원 탈퇴 (Soft delete)
-#     - is_active = False로 설정
-#     - 데이터는 보존
-#     """
-#     pass
+    - JWT 인증 필수
+    - is_active = False로 설정하여 비활성화
+    - 연결된 SNS 계정도 함께 삭제
+    - 사용자 데이터는 보존 (법적 요구사항 대응)
+
+    Args:
+        payload: 탈퇴 사유 (선택)
+
+    Returns:
+        MessageResponse: 탈퇴 완료 메시지
+    """
+    from django.db import transaction
+
+    user = request.auth  # JWTAuth에서 검증된 사용자
+
+    # 탈퇴 사유 로깅 (선택)
+    reason = payload.reason if payload else None
+    logger.info(f"[회원 탈퇴] user_id={user.id}, email={user.email}, reason={reason}")
+
+    try:
+        # 트랜잭션으로 원자성 보장
+        with transaction.atomic():
+            # 1. 연결된 SNS 계정 삭제
+            deleted_count = await SocialAccount.objects.filter(user=user).adelete()
+            logger.info(f"[회원 탈퇴] 삭제된 SNS 계정 수: {deleted_count[0]}")
+
+            # 2. 사용자 비활성화 (Soft delete)
+            user.is_active = False
+            await user.asave(update_fields=['is_active'])
+
+            logger.info(f"[회원 탈퇴] 완료 - user_id={user.id}")
+
+        return MessageResponse(
+            message="회원 탈퇴가 완료되었습니다. 그동안 이용해 주셔서 감사합니다.",
+            success=True
+        )
+
+    except Exception as e:
+        logger.error(f"[회원 탈퇴] 실패 - user_id={user.id}, error={str(e)}")
+        raise HttpError(500, "회원 탈퇴 처리 중 오류가 발생했습니다.")
+
+
+# 향후 확장 가능한 API들
 
 # @router.post("/me/change-password", auth=JWTAuth(), summary="비밀번호 변경")
 # async def change_password(request, payload: ChangePasswordRequest):

@@ -104,3 +104,9 @@ class UserDetailResponse(UserResponse):
     name: Optional[str] = None  # 사용자 이름
     profile_image: Optional[str] = None  # 프로필 이미지 URL (첫 번째 소셜 계정의 이미지)
     social_accounts: list[SocialAccountInfo] = []
+
+
+class MessageResponse(Schema):
+    """일반 메시지 응답"""
+    message: str
+    success: bool = True

@@ -812,12 +812,16 @@ class _NotificationScreenState extends State<NotificationScreen>
         ),
         // 알림 목록 (슬라이드 삭제 기능)
         Expanded(
-          child: ListView.builder(
+          child: ListView.separated(
             padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
             itemCount: _alerts.length,
+            separatorBuilder: (context, index) => Divider(
+              height: 1,
+              thickness: 1,
+              color: Colors.grey.shade300,
+            ),
             itemBuilder: (context, index) {
               final alert = _alerts[index];
-              final bool showDivider = index > 0;
 
               return Dismissible(
                 key: Key('alert_${alert.id}'),
@@ -859,14 +863,7 @@ class _NotificationScreenState extends State<NotificationScreen>
                 background: Container(
                   alignment: Alignment.centerRight,
                   padding: EdgeInsets.only(right: 20.w),
-                  decoration: BoxDecoration(
-                    color: Colors.red,
-                    border: showDivider
-                        ? Border(
-                            top: BorderSide(color: Colors.grey.shade300, width: 1),
-                          )
-                        : null,
-                  ),
+                  color: Colors.red,
                   child: Icon(
                     Icons.delete,
                     color: Colors.white,
@@ -874,13 +871,7 @@ class _NotificationScreenState extends State<NotificationScreen>
                   ),
                 ),
                 child: Container(
-                  decoration: showDivider
-                      ? BoxDecoration(
-                          border: Border(
-                            top: BorderSide(color: Colors.grey.shade300, width: 1),
-                          ),
-                        )
-                      : null,
+                  color: Colors.white,
                   child: _buildAlertCard(alert),
                 ),
               );

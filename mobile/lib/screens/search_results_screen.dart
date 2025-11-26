@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:mobile/config/config.dart';
-import 'package:mobile/const/colors.dart';
 import 'package:mobile/models/store_model.dart';
 import 'package:mobile/services/campaign_service.dart';
 import 'package:mobile/services/interstitial_ad_manager.dart';
@@ -13,7 +12,6 @@ import '../widgets/friendly.dart';
 import '../widgets/sort_filter_widget.dart';
 import '../widgets/native_ad_widget.dart'; // 네이티브 광고 위젯
 import '../providers/location_provider.dart';
-import 'dart:math' as math;
 
 // 1. CampaignService를 제공하는 Provider 정의 (의존성 주입)
 final campaignServiceProvider = Provider<CampaignService>((ref) {

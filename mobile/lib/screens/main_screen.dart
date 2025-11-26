@@ -11,7 +11,6 @@ import 'package:mobile/providers/location_provider.dart';
 import 'package:mobile/providers/auth_provider.dart';
 import 'package:mobile/services/version_service.dart';
 import 'package:mobile/widgets/update_dialog.dart';
-import 'package:mobile/models/version_check_models.dart';
 
 
 /// MainScreen

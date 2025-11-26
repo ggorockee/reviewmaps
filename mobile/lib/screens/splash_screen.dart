@@ -5,7 +5,6 @@ import 'package:mobile/services/ad_service.dart';
 import 'package:mobile/const/colors.dart';
 import 'package:mobile/screens/main_screen.dart';
 import 'package:mobile/widgets/friendly.dart';
-import 'package:mobile/widgets/notice_dialog.dart';
 
 /// SplashScreen
 /// ------------------------------------------------------------

@@ -831,6 +831,7 @@ class _NotificationScreenState extends State<NotificationScreen>
                   return await showDialog<bool>(
                     context: context,
                     builder: (context) => AlertDialog(
+                      backgroundColor: Colors.white,
                       title: const Text('알림 삭제'),
                       content: Text(
                         "'${alert.keyword}' 알림을 삭제하시겠습니까?",
@@ -922,6 +923,7 @@ class _NotificationScreenState extends State<NotificationScreen>
           await showDialog(
             context: context,
             builder: (context) => AlertDialog(
+              backgroundColor: Colors.white,
               title: const Text('알림'),
               content: const Text('삭제된 체험단이거나, 유효하지 않은 체험단입니다.'),
               actions: [

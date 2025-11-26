@@ -721,6 +721,31 @@ class _NotificationScreenState extends State<NotificationScreen>
     );
   }
 
+  /// 알림 삭제 (사용자 강제 삭제 가능)
+  Future<void> _deleteAlert(AlertInfo alert, int index) async {
+    // 먼저 UI에서 삭제 (사용자 경험 우선)
+    if (!mounted) return;
+    
+    setState(() {
+      _alerts.removeAt(index);
+      // 읽지 않음 카운트 업데이트
+      if (!alert.isRead && _unreadCount > 0) {
+        _unreadCount--;
+      }
+    });
+
+    _showSnackBar("'${alert.keyword}' 알림이 삭제되었습니다");
+
+    // 백그라운드에서 서버 삭제 시도 (실패해도 UI는 유지)
+    try {
+      await _keywordService.deleteAlert(alert.id);
+      debugPrint('알림 서버 삭제 성공: ${alert.id}');
+    } catch (e) {
+      // 서버 삭제 실패해도 사용자에게는 알리지 않음 (이미 UI에서 삭제됨)
+      debugPrint('알림 서버 삭제 실패 (로컬에서는 삭제됨): $e');
+    }
+  }
+
   /// 알림 기록 탭
   Widget _buildNotificationHistoryTab() {
     if (_isAlertsLoading) {
@@ -780,37 +805,77 @@ class _NotificationScreenState extends State<NotificationScreen>
           child: Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              Text(
-                '정렬: ',
-                style: TextStyle(
-                  fontSize: 12.sp,
-                  color: const Color(0xFF6C7278),
-                ),
-              ),
               _buildSortChip('거리순', 'distance'),
               SizedBox(width: 8.w),
               _buildSortChip('최신순', 'created_at'),
             ],
           ),
         ),
-        // 알림 목록
+        // 알림 목록 (슬라이드 삭제 기능)
         Expanded(
-          child: ListView.builder(
+          child: ListView.separated(
             padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
             itemCount: _alerts.length,
+            separatorBuilder: (context, index) => Divider(
+              height: 1,
+              thickness: 1,
+              color: Colors.grey.shade300,
+            ),
             itemBuilder: (context, index) {
               final alert = _alerts[index];
-              final bool showDivider = index > 0;
 
-              return Container(
-                decoration: showDivider
-                    ? BoxDecoration(
-                        border: Border(
-                          top: BorderSide(color: Colors.grey.shade300, width: 1),
+              return Dismissible(
+                key: Key('alert_${alert.id}'),
+                direction: DismissDirection.endToStart,
+                onDismissed: (_) => _deleteAlert(alert, index),
+                confirmDismiss: (direction) async {
+                  // 삭제 확인 다이얼로그
+                  return await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      backgroundColor: Colors.white,
+                      title: const Text('알림 삭제'),
+                      content: Text(
+                        "'${alert.keyword}' 알림을 삭제하시겠습니까?",
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(false),
+                          child: Text(
+                            '취소',
+                            style: TextStyle(
+                              color: const Color(0xFF6C7278),
+                            ),
+                          ),
                         ),
-                      )
-                    : null,
-                child: _buildAlertCard(alert),
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(true),
+                          child: Text(
+                            '삭제',
+                            style: TextStyle(
+                              color: Colors.red,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ) ?? false;
+                },
+                background: Container(
+                  alignment: Alignment.centerRight,
+                  padding: EdgeInsets.only(right: 20.w),
+                  color: Colors.red,
+                  child: Icon(
+                    Icons.delete,
+                    color: Colors.white,
+                    size: 28.sp,
+                  ),
+                ),
+                child: Container(
+                  color: Colors.white,
+                  child: _buildAlertCard(alert),
+                ),
               );
             },
           ),
@@ -850,13 +915,41 @@ class _NotificationScreenState extends State<NotificationScreen>
   /// 알림 카드 - 검색 결과와 동일한 디자인
   Widget _buildAlertCard(AlertInfo alert) {
     final bool isTablet = MediaQuery.of(context).size.shortestSide >= 600;
+    final bool isCampaignDeleted = alert.campaignContentLink == null || 
+                                    alert.campaignContentLink!.isEmpty;
 
     return InkWell(
-      onTap: () {
-        _markAlertAsRead(alert);
-        _openCampaignLink(alert.campaignContentLink);
+      onTap: () async {
+        if (isCampaignDeleted) {
+          // 삭제된 캠페인인 경우 팝업 표시
+          await showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              backgroundColor: Colors.white,
+              title: const Text('알림'),
+              content: const Text('삭제된 체험단이거나, 유효하지 않은 체험단입니다.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text(
+                    '확인',
+                    style: TextStyle(
+                      color: Theme.of(context).primaryColor,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        } else {
+          // 정상 캠페인인 경우 읽음 처리 후 링크 열기
+          _markAlertAsRead(alert);
+          _openCampaignLink(alert.campaignContentLink);
+        }
       },
       child: Container(
+        width: double.infinity, // 가로 전체 영역 터치 가능
         padding: EdgeInsets.symmetric(vertical: 12.h),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -922,6 +1015,8 @@ class _NotificationScreenState extends State<NotificationScreen>
         ? alert.campaignCompany!
         : alert.campaignTitle;
     final isNew = _isNewAlert(alert.createdAt);
+    final bool isCampaignDeleted = alert.campaignContentLink == null || 
+                                    alert.campaignContentLink!.isEmpty;
 
     return RichText(
       maxLines: 2,
@@ -977,8 +1072,8 @@ class _NotificationScreenState extends State<NotificationScreen>
               ),
             ),
           ],
-          // 읽지 않은 표시
-          if (!alert.isRead) ...[
+          // 읽지 않은 표시 (삭제된 캠페인이 아닌 경우에만 표시)
+          if (!alert.isRead && !isCampaignDeleted) ...[
             WidgetSpan(
               child: Padding(
                 padding: EdgeInsets.only(left: 6.w),

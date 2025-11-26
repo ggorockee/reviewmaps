@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:package_info_plus/package_info_plus.dart';
+import '../config/app_version.dart';
 import '../providers/auth_provider.dart';
 import 'auth/login_screen.dart';
+import 'notification_screen.dart';
 
 /// 내정보 화면
 /// - 비회원: 로그인 안내 표시
@@ -16,27 +17,6 @@ class ProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
-  String _appVersion = '';
-
-  @override
-  void initState() {
-    super.initState();
-    _loadAppVersion();
-  }
-
-  /// 앱 버전 정보 로드
-  Future<void> _loadAppVersion() async {
-    try {
-      final packageInfo = await PackageInfo.fromPlatform();
-      if (mounted) {
-        setState(() {
-          _appVersion = packageInfo.version;
-        });
-      }
-    } catch (e) {
-      debugPrint('앱 버전 로드 실패: $e');
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -205,18 +185,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   icon: Icons.notifications_outlined,
                   title: '알림 설정',
                   onTap: () {
-                    // TODO: 알림 설정 화면으로 이동
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const NotificationScreen(),
+                      ),
+                    );
                   },
                 ),
                 _buildDivider(),
-                _buildMenuItem(
-                  icon: Icons.settings_outlined,
-                  title: '설정',
-                  onTap: () {
-                    // TODO: 설정 화면으로 이동
-                  },
-                ),
-                _buildDivider(),
+                // 설정 메뉴 (향후 사용 예정)
+                // _buildMenuItem(
+                //   icon: Icons.settings_outlined,
+                //   title: '설정',
+                //   onTap: () {
+                //     // TODO: 설정 화면으로 이동
+                //   },
+                // ),
+                // _buildDivider(),
                 _buildMenuItem(
                   icon: Icons.logout,
                   title: '로그아웃',
@@ -234,12 +219,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
           SizedBox(height: 24.h),
 
-          // 앱 정보 (동적 버전)
+          // 앱 정보 (논리 버전 사용)
           Center(
             child: Text(
-              _appVersion.isNotEmpty
-                  ? 'ReviewMaps v$_appVersion'
-                  : 'ReviewMaps',
+              '리뷰맵 v${AppVersion.current}',
               style: TextStyle(
                 fontSize: 12.sp,
                 fontWeight: FontWeight.w400,

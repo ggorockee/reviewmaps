@@ -37,24 +37,42 @@ class FcmService {
         return;
       }
 
-      // 2. FCM 토큰 획득
+      // 2. iOS의 경우 APNS 토큰 대기
+      if (Platform.isIOS) {
+        String? apnsToken = await _messaging.getAPNSToken();
+        if (apnsToken == null) {
+          // APNS 토큰이 없으면 잠시 대기 후 재시도
+          debugPrint('⏳ APNS 토큰 대기 중...');
+          await Future.delayed(const Duration(seconds: 3));
+          apnsToken = await _messaging.getAPNSToken();
+        }
+        if (apnsToken != null) {
+          debugPrint('🍎 APNS 토큰 획득: ${apnsToken.substring(0, 20)}...');
+        } else {
+          debugPrint('⚠️ APNS 토큰을 받지 못했습니다 (시뮬레이터에서는 정상)');
+        }
+      }
+
+      // 3. FCM 토큰 획득
       _currentToken = await _messaging.getToken();
       if (_currentToken != null) {
         debugPrint('🔑 FCM 토큰 획득: ${_currentToken!.substring(0, 20)}...');
         await _registerTokenToServer(_currentToken!);
+      } else {
+        debugPrint('⚠️ FCM 토큰을 받지 못했습니다');
       }
 
-      // 3. 토큰 갱신 리스너 설정
+      // 4. 토큰 갱신 리스너 설정
       _messaging.onTokenRefresh.listen((newToken) async {
         debugPrint('🔄 FCM 토큰 갱신됨');
         _currentToken = newToken;
         await _registerTokenToServer(newToken);
       });
 
-      // 4. 포그라운드 메시지 핸들러 설정
+      // 5. 포그라운드 메시지 핸들러 설정
       FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
 
-      // 5. 백그라운드에서 앱 열림 시 메시지 핸들러
+      // 6. 백그라운드에서 앱 열림 시 메시지 핸들러
       FirebaseMessaging.onMessageOpenedApp.listen(_handleMessageOpenedApp);
 
       _isInitialized = true;

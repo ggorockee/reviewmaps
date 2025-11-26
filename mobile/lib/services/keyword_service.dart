@@ -1,16 +1,21 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:http/io_client.dart';
 import 'package:mobile/config/config.dart';
 import 'package:mobile/models/keyword_models.dart';
 import 'package:mobile/services/token_storage_service.dart';
+import 'package:mobile/utils/network_error_handler.dart';
 
 /// 키워드 알람 서비스
 /// - 키워드 등록, 조회, 삭제
 /// - 알람 조회 및 읽음 처리
+/// - 네트워크 재시도 로직 포함
 class KeywordService {
   final String baseUrl = '${AppConfig.ReviewMapbaseUrl}/keyword-alerts';
-  final http.Client _client = http.Client();
+  late final http.Client _client;
   final TokenStorageService _tokenStorage = TokenStorageService();
 
   final Map<String, String> _headers = {
@@ -18,8 +23,16 @@ class KeywordService {
     'X-API-KEY': AppConfig.ReviewMapApiKey,
   };
 
+  KeywordService() {
+    final io = HttpClient()
+      ..connectionTimeout = const Duration(seconds: 10)
+      ..idleTimeout = const Duration(seconds: 10);
+    _client = IOClient(io);
+  }
+
   /// 디버그 출력
   void _debugPrintResponse(String method, String url, http.Response response) {
+    if (!AppConfig.isDebugMode) return;
     debugPrint('[$method] $url');
     debugPrint('Status: ${response.statusCode}');
     if (response.statusCode != 200 && response.statusCode != 201) {
@@ -42,6 +55,48 @@ class KeywordService {
     };
   }
 
+  /// 공통 리트라이 래퍼 (지수적 백오프)
+  Future<T> _withRetry<T>(Future<T> Function() task, {int retries = 3}) async {
+    int attempt = 0;
+    Object? lastErr;
+    while (attempt < retries) {
+      try {
+        return await task();
+      } catch (e) {
+        lastErr = e;
+        // 재시도 가능한 에러인 경우에만 재시도
+        if (!NetworkErrorHandler.isRetryableError(e)) {
+          rethrow;
+        }
+        // 0.5s, 1s, 2s …
+        final delay = Duration(milliseconds: 500 * (1 << attempt));
+        await Future.delayed(delay);
+        attempt++;
+        debugPrint('[KeywordService] 재시도 $attempt/$retries (${delay.inMilliseconds}ms 후)');
+      }
+    }
+    throw lastErr ?? Exception('알 수 없는 오류가 발생했습니다.');
+  }
+
+  /// HTTP 응답 에러 처리
+  void _handleHttpError(http.Response response, String defaultMessage) {
+    try {
+      final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
+      final serverMessage = errorBody['detail'] as String?;
+      throw Exception(
+        NetworkErrorHandler.getHttpErrorMessage(
+          response.statusCode,
+          serverMessage: serverMessage,
+        ),
+      );
+    } catch (e) {
+      if (e is Exception) rethrow;
+      throw Exception(
+        NetworkErrorHandler.getHttpErrorMessage(response.statusCode)
+      );
+    }
+  }
+
   /// 키워드 등록
   /// POST /v1/keyword-alerts/keywords
   Future<KeywordInfo> registerKeyword(String keyword) async {
@@ -49,27 +104,30 @@ class KeywordService {
     final headers = await _getAuthHeaders();
     final request = KeywordRegisterRequest(keyword: keyword);
 
-    try {
-      final response = await _client
-          .post(
-            uri,
-            headers: headers,
-            body: jsonEncode(request.toJson()),
-          )
-          .timeout(const Duration(seconds: 10));
+    return _withRetry(() async {
+      try {
+        final response = await _client
+            .post(
+              uri,
+              headers: headers,
+              body: jsonEncode(request.toJson()),
+            )
+            .timeout(const Duration(seconds: 10));
 
-      _debugPrintResponse('POST', uri.toString(), response);
+        _debugPrintResponse('POST', uri.toString(), response);
 
-      if (response.statusCode != 200 && response.statusCode != 201) {
-        final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
-        throw Exception(errorBody['detail'] ?? '키워드를 등록할 수 없습니다. 잠시 후 다시 시도해 주세요.');
+        if (response.statusCode != 200 && response.statusCode != 201) {
+          _handleHttpError(response, '키워드를 등록할 수 없습니다.');
+        }
+
+        return KeywordInfo.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
+      } catch (e) {
+        if (e is Exception && e.toString().contains('Exception:')) {
+          rethrow;
+        }
+        throw Exception(NetworkErrorHandler.getErrorMessage(e));
       }
-
-      return KeywordInfo.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
-    } catch (e) {
-      debugPrint('키워드 등록 오류: $e');
-      rethrow;
-    }
+    });
   }
 
   /// 내 키워드 목록 조회
@@ -78,26 +136,29 @@ class KeywordService {
     final uri = Uri.parse('$baseUrl/keywords');
     final headers = await _getAuthHeaders();
 
-    try {
-      final response = await _client
-          .get(uri, headers: headers)
-          .timeout(const Duration(seconds: 10));
+    return _withRetry(() async {
+      try {
+        final response = await _client
+            .get(uri, headers: headers)
+            .timeout(const Duration(seconds: 10));
 
-      _debugPrintResponse('GET', uri.toString(), response);
+        _debugPrintResponse('GET', uri.toString(), response);
 
-      if (response.statusCode != 200) {
-        final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
-        throw Exception(errorBody['detail'] ?? '키워드 목록을 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.');
+        if (response.statusCode != 200) {
+          _handleHttpError(response, '키워드 목록을 불러올 수 없습니다.');
+        }
+
+        final keywordList = KeywordListResponse.fromJson(
+          jsonDecode(utf8.decode(response.bodyBytes)),
+        );
+        return keywordList.keywords;
+      } catch (e) {
+        if (e is Exception && e.toString().contains('Exception:')) {
+          rethrow;
+        }
+        throw Exception(NetworkErrorHandler.getErrorMessage(e));
       }
-
-      final keywordList = KeywordListResponse.fromJson(
-        jsonDecode(utf8.decode(response.bodyBytes)),
-      );
-      return keywordList.keywords;
-    } catch (e) {
-      debugPrint('키워드 목록 조회 오류: $e');
-      rethrow;
-    }
+    });
   }
 
   /// 키워드 삭제
@@ -106,21 +167,24 @@ class KeywordService {
     final uri = Uri.parse('$baseUrl/keywords/$keywordId');
     final headers = await _getAuthHeaders();
 
-    try {
-      final response = await _client
-          .delete(uri, headers: headers)
-          .timeout(const Duration(seconds: 10));
+    return _withRetry(() async {
+      try {
+        final response = await _client
+            .delete(uri, headers: headers)
+            .timeout(const Duration(seconds: 10));
 
-      _debugPrintResponse('DELETE', uri.toString(), response);
+        _debugPrintResponse('DELETE', uri.toString(), response);
 
-      if (response.statusCode != 200) {
-        final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
-        throw Exception(errorBody['detail'] ?? '키워드를 삭제할 수 없습니다. 잠시 후 다시 시도해 주세요.');
+        if (response.statusCode != 200) {
+          _handleHttpError(response, '키워드를 삭제할 수 없습니다.');
+        }
+      } catch (e) {
+        if (e is Exception && e.toString().contains('Exception:')) {
+          rethrow;
+        }
+        throw Exception(NetworkErrorHandler.getErrorMessage(e));
       }
-    } catch (e) {
-      debugPrint('키워드 삭제 오류: $e');
-      rethrow;
-    }
+    });
   }
 
   /// 내 알람 목록 조회
@@ -149,25 +213,28 @@ class KeywordService {
     final uri = Uri.parse('$baseUrl/alerts').replace(queryParameters: queryParams);
     final headers = await _getAuthHeaders();
 
-    try {
-      final response = await _client
-          .get(uri, headers: headers)
-          .timeout(const Duration(seconds: 10));
+    return _withRetry(() async {
+      try {
+        final response = await _client
+            .get(uri, headers: headers)
+            .timeout(const Duration(seconds: 10));
 
-      _debugPrintResponse('GET', uri.toString(), response);
+        _debugPrintResponse('GET', uri.toString(), response);
 
-      if (response.statusCode != 200) {
-        final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
-        throw Exception(errorBody['detail'] ?? '알람 목록을 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.');
+        if (response.statusCode != 200) {
+          _handleHttpError(response, '알람 목록을 불러올 수 없습니다.');
+        }
+
+        return AlertListResponse.fromJson(
+          jsonDecode(utf8.decode(response.bodyBytes)),
+        );
+      } catch (e) {
+        if (e is Exception && e.toString().contains('Exception:')) {
+          rethrow;
+        }
+        throw Exception(NetworkErrorHandler.getErrorMessage(e));
       }
-
-      return AlertListResponse.fromJson(
-        jsonDecode(utf8.decode(response.bodyBytes)),
-      );
-    } catch (e) {
-      debugPrint('알람 목록 조회 오류: $e');
-      rethrow;
-    }
+    });
   }
 
   /// 알람 읽음 처리
@@ -177,25 +244,28 @@ class KeywordService {
     final headers = await _getAuthHeaders();
     final request = MarkAlertsReadRequest(alertIds: alertIds);
 
-    try {
-      final response = await _client
-          .post(
-            uri,
-            headers: headers,
-            body: jsonEncode(request.toJson()),
-          )
-          .timeout(const Duration(seconds: 10));
+    return _withRetry(() async {
+      try {
+        final response = await _client
+            .post(
+              uri,
+              headers: headers,
+              body: jsonEncode(request.toJson()),
+            )
+            .timeout(const Duration(seconds: 10));
 
-      _debugPrintResponse('POST', uri.toString(), response);
+        _debugPrintResponse('POST', uri.toString(), response);
 
-      if (response.statusCode != 200) {
-        final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
-        throw Exception(errorBody['detail'] ?? '알람을 읽음 처리할 수 없습니다. 잠시 후 다시 시도해 주세요.');
+        if (response.statusCode != 200) {
+          _handleHttpError(response, '알람을 읽음 처리할 수 없습니다.');
+        }
+      } catch (e) {
+        if (e is Exception && e.toString().contains('Exception:')) {
+          rethrow;
+        }
+        throw Exception(NetworkErrorHandler.getErrorMessage(e));
       }
-    } catch (e) {
-      debugPrint('알람 읽음 처리 오류: $e');
-      rethrow;
-    }
+    });
   }
 
   /// 키워드 활성화/비활성화 토글
@@ -204,23 +274,26 @@ class KeywordService {
     final uri = Uri.parse('$baseUrl/keywords/$keywordId/toggle');
     final headers = await _getAuthHeaders();
 
-    try {
-      final response = await _client
-          .patch(uri, headers: headers)
-          .timeout(const Duration(seconds: 10));
+    return _withRetry(() async {
+      try {
+        final response = await _client
+            .patch(uri, headers: headers)
+            .timeout(const Duration(seconds: 10));
 
-      _debugPrintResponse('PATCH', uri.toString(), response);
+        _debugPrintResponse('PATCH', uri.toString(), response);
 
-      if (response.statusCode != 200) {
-        final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
-        throw Exception(errorBody['detail'] ?? '키워드 상태를 변경할 수 없습니다. 잠시 후 다시 시도해 주세요.');
+        if (response.statusCode != 200) {
+          _handleHttpError(response, '키워드 상태를 변경할 수 없습니다.');
+        }
+
+        return KeywordInfo.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
+      } catch (e) {
+        if (e is Exception && e.toString().contains('Exception:')) {
+          rethrow;
+        }
+        throw Exception(NetworkErrorHandler.getErrorMessage(e));
       }
-
-      return KeywordInfo.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
-    } catch (e) {
-      debugPrint('키워드 토글 오류: $e');
-      rethrow;
-    }
+    });
   }
 
   /// FCM 디바이스 토큰 등록
@@ -229,30 +302,33 @@ class KeywordService {
     final uri = Uri.parse('$baseUrl/fcm/register');
     final headers = await _getAuthHeaders();
 
-    try {
-      final response = await _client
-          .post(
-            uri,
-            headers: headers,
-            body: jsonEncode({
-              'fcm_token': fcmToken,
-              'device_type': deviceType,
-            }),
-          )
-          .timeout(const Duration(seconds: 10));
+    return _withRetry(() async {
+      try {
+        final response = await _client
+            .post(
+              uri,
+              headers: headers,
+              body: jsonEncode({
+                'fcm_token': fcmToken,
+                'device_type': deviceType,
+              }),
+            )
+            .timeout(const Duration(seconds: 10));
 
-      _debugPrintResponse('POST', uri.toString(), response);
+        _debugPrintResponse('POST', uri.toString(), response);
 
-      if (response.statusCode != 200 && response.statusCode != 201) {
-        final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
-        throw Exception(errorBody['detail'] ?? 'FCM 토큰 등록에 실패했습니다.');
+        if (response.statusCode != 200 && response.statusCode != 201) {
+          _handleHttpError(response, 'FCM 토큰 등록에 실패했습니다.');
+        }
+
+        debugPrint('FCM 토큰 등록 성공');
+      } catch (e) {
+        if (e is Exception && e.toString().contains('Exception:')) {
+          rethrow;
+        }
+        throw Exception(NetworkErrorHandler.getErrorMessage(e));
       }
-
-      debugPrint('✅ FCM 토큰 등록 성공');
-    } catch (e) {
-      debugPrint('FCM 토큰 등록 오류: $e');
-      rethrow;
-    }
+    });
   }
 
   /// FCM 디바이스 토큰 해제
@@ -263,23 +339,26 @@ class KeywordService {
     );
     final headers = await _getAuthHeaders();
 
-    try {
-      final response = await _client
-          .delete(uri, headers: headers)
-          .timeout(const Duration(seconds: 10));
+    return _withRetry(() async {
+      try {
+        final response = await _client
+            .delete(uri, headers: headers)
+            .timeout(const Duration(seconds: 10));
 
-      _debugPrintResponse('DELETE', uri.toString(), response);
+        _debugPrintResponse('DELETE', uri.toString(), response);
 
-      if (response.statusCode != 200) {
-        final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
-        throw Exception(errorBody['detail'] ?? 'FCM 토큰 해제에 실패했습니다.');
+        if (response.statusCode != 200) {
+          _handleHttpError(response, 'FCM 토큰 해제에 실패했습니다.');
+        }
+
+        debugPrint('FCM 토큰 해제 성공');
+      } catch (e) {
+        if (e is Exception && e.toString().contains('Exception:')) {
+          rethrow;
+        }
+        throw Exception(NetworkErrorHandler.getErrorMessage(e));
       }
-
-      debugPrint('✅ FCM 토큰 해제 성공');
-    } catch (e) {
-      debugPrint('FCM 토큰 해제 오류: $e');
-      rethrow;
-    }
+    });
   }
 
   void dispose() {

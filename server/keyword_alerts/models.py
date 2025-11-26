@@ -147,9 +147,12 @@ class KeywordAlert(CoreModel):
     )
     campaign = models.ForeignKey(
         'campaigns.Campaign',  # lazy reference
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name='keyword_alerts',
-        verbose_name="캠페인"
+        verbose_name="캠페인",
+        help_text="캠페인이 삭제되어도 알림 히스토리는 보존됨"
     )
     matched_field = models.CharField(
         max_length=50,
@@ -174,4 +177,5 @@ class KeywordAlert(CoreModel):
         ]
 
     def __str__(self):
-        return f"{self.keyword.keyword} → {self.campaign.title[:30]}"
+        campaign_title = self.campaign.title[:30] if self.campaign else "(삭제된 캠페인)"
+        return f"{self.keyword.keyword} → {campaign_title}"

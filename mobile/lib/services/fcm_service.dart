@@ -1,12 +1,14 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:mobile/services/keyword_service.dart';
 
 /// FCM 푸시 알림 서비스
 /// - FCM 토큰 관리
 /// - 푸시 알림 권한 요청
 /// - 토큰 갱신 감지 및 서버 등록
+/// - 포그라운드 알림 표시 (flutter_local_notifications)
 class FcmService {
   static FcmService? _instance;
   static FcmService get instance => _instance ??= FcmService._internal();
@@ -15,14 +17,22 @@ class FcmService {
 
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
   final KeywordService _keywordService = KeywordService();
+  final FlutterLocalNotificationsPlugin _localNotifications =
+      FlutterLocalNotificationsPlugin();
 
   String? _currentToken;
   bool _isInitialized = false;
+
+  /// Android 알림 채널 ID
+  static const String _androidChannelId = 'keyword_alerts';
+  static const String _androidChannelName = '키워드 알림';
+  static const String _androidChannelDescription = '관심 키워드와 매칭되는 캠페인 알림';
 
   /// FCM 서비스 초기화
   /// - 권한 요청
   /// - 토큰 획득 및 서버 등록
   /// - 토큰 갱신 리스너 설정
+  /// - 로컬 알림 초기화
   Future<void> initialize() async {
     if (_isInitialized) return;
 
@@ -37,7 +47,10 @@ class FcmService {
         return;
       }
 
-      // 2. iOS의 경우 APNS 토큰 대기
+      // 2. 로컬 알림 초기화 (포그라운드 알림 표시용)
+      await _initializeLocalNotifications();
+
+      // 3. iOS의 경우 APNS 토큰 대기
       if (Platform.isIOS) {
         String? apnsToken = await _messaging.getAPNSToken();
         if (apnsToken == null) {
@@ -53,26 +66,28 @@ class FcmService {
         }
       }
 
-      // 3. FCM 토큰 획득
+      // 4. FCM 토큰 획득
       _currentToken = await _messaging.getToken();
       if (_currentToken != null) {
         debugPrint('🔑 FCM 토큰 획득: ${_currentToken!.substring(0, 20)}...');
+        // 디버그용: 전체 토큰 출력 (Firebase Console 테스트용)
+        debugPrint('🔑 [DEBUG] FCM 전체 토큰: $_currentToken');
         await _registerTokenToServer(_currentToken!);
       } else {
         debugPrint('⚠️ FCM 토큰을 받지 못했습니다');
       }
 
-      // 4. 토큰 갱신 리스너 설정
+      // 5. 토큰 갱신 리스너 설정
       _messaging.onTokenRefresh.listen((newToken) async {
         debugPrint('🔄 FCM 토큰 갱신됨');
         _currentToken = newToken;
         await _registerTokenToServer(newToken);
       });
 
-      // 5. 포그라운드 메시지 핸들러 설정
+      // 6. 포그라운드 메시지 핸들러 설정
       FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
 
-      // 6. 백그라운드에서 앱 열림 시 메시지 핸들러
+      // 7. 백그라운드에서 앱 열림 시 메시지 핸들러
       FirebaseMessaging.onMessageOpenedApp.listen(_handleMessageOpenedApp);
 
       _isInitialized = true;
@@ -80,6 +95,55 @@ class FcmService {
     } catch (e) {
       debugPrint('❌ FCM 서비스 초기화 실패: $e');
     }
+  }
+
+  /// 로컬 알림 초기화
+  Future<void> _initializeLocalNotifications() async {
+    // Android 설정
+    const androidSettings = AndroidInitializationSettings('@mipmap/launcher_icon');
+
+    // iOS 설정
+    const iosSettings = DarwinInitializationSettings(
+      requestAlertPermission: false, // FCM에서 이미 요청함
+      requestBadgePermission: false,
+      requestSoundPermission: false,
+    );
+
+    const initSettings = InitializationSettings(
+      android: androidSettings,
+      iOS: iosSettings,
+    );
+
+    await _localNotifications.initialize(
+      initSettings,
+      onDidReceiveNotificationResponse: _onNotificationTapped,
+    );
+
+    // Android 알림 채널 생성 (Android 8.0+ 필수)
+    if (Platform.isAndroid) {
+      const androidChannel = AndroidNotificationChannel(
+        _androidChannelId,
+        _androidChannelName,
+        description: _androidChannelDescription,
+        importance: Importance.high,
+        playSound: true,
+        enableVibration: true,
+      );
+
+      await _localNotifications
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
+          ?.createNotificationChannel(androidChannel);
+
+      debugPrint('📢 Android 알림 채널 생성 완료');
+    }
+  }
+
+  /// 알림 탭 시 처리
+  void _onNotificationTapped(NotificationResponse response) {
+    debugPrint('🔔 알림 탭됨: ${response.payload}');
+    // TODO: 캠페인 상세 화면으로 네비게이션
+    // payload에 campaign_id가 있으면 해당 캠페인으로 이동
   }
 
   /// 푸시 알림 권한 요청
@@ -114,12 +178,48 @@ class FcmService {
     debugPrint('  - 내용: ${message.notification?.body}');
     debugPrint('  - 데이터: ${message.data}');
 
-    // 키워드 알림인 경우 처리
-    if (message.data['type'] == 'keyword_alert') {
-      final campaignId = message.data['campaign_id'];
-      debugPrint('  - 캠페인 ID: $campaignId');
-      // TODO: 인앱 알림 표시 또는 알림 화면 새로고침
-    }
+    // 포그라운드에서 로컬 알림 표시
+    _showLocalNotification(message);
+  }
+
+  /// 로컬 알림 표시 (포그라운드용)
+  Future<void> _showLocalNotification(RemoteMessage message) async {
+    final notification = message.notification;
+    if (notification == null) return;
+
+    final androidDetails = AndroidNotificationDetails(
+      _androidChannelId,
+      _androidChannelName,
+      channelDescription: _androidChannelDescription,
+      importance: Importance.high,
+      priority: Priority.high,
+      showWhen: true,
+      icon: '@mipmap/launcher_icon',
+    );
+
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    final details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    // 캠페인 ID를 payload로 전달
+    final payload = message.data['campaign_id'];
+
+    await _localNotifications.show(
+      message.hashCode, // 고유 ID
+      notification.title,
+      notification.body,
+      details,
+      payload: payload,
+    );
+
+    debugPrint('📢 로컬 알림 표시 완료');
   }
 
   /// 백그라운드에서 앱 열림 시 메시지 처리

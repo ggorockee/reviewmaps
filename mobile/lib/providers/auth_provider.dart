@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/auth_service.dart';
+import '../services/fcm_service.dart';
 import '../models/auth_models.dart';
 
 /// 인증 상태
@@ -98,6 +99,9 @@ class AuthNotifier extends Notifier<AuthState> {
       isAnonymous: false,
       userInfo: userInfo,
     );
+
+    // FCM 토큰 서버에 재등록 (로그인 후 푸시 알림 수신을 위해 필수)
+    await FcmService.instance.refreshToken();
   }
 
   /// 익명 로그인 성공 후 상태 업데이트
@@ -111,6 +115,8 @@ class AuthNotifier extends Notifier<AuthState> {
 
   /// 로그아웃
   Future<void> logout() async {
+    // FCM 토큰 서버에서 해제 (푸시 알림 중지)
+    await FcmService.instance.unregisterToken();
     await _authService.logout();
     state = const AuthState();
   }

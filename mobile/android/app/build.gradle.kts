@@ -2,7 +2,8 @@ import java.util.Properties
 import java.io.FileInputStream
 
 val dotenv = Properties()
-val dotenvFile = rootProject.file(".env")
+// .env 파일은 mobile/ 폴더에 있음 (android/의 상위 폴더)
+val dotenvFile = rootProject.file("../.env")
 if (dotenvFile.exists()) {
     dotenvFile.inputStream().use { dotenv.load(it) }
 }
@@ -27,6 +28,8 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
+        // flutter_local_notifications 패키지에 필요한 core library desugaring 활성화
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
@@ -51,6 +54,7 @@ android {
                 "NAVER_MAP_CLIENT_SECRET" to (dotenv["NAVER_MAP_CLIENT_SECRET"] ?: ""),
                 "NAVER_APP_KEY" to (dotenv["NAVER_APP_KEY"] ?: ""),
                 "NAVER_APP_SECRET" to (dotenv["NAVER_APP_SECRET"] ?: ""),
+                "KAKAO_NATIVE_APP_KEY" to (dotenv["KAKAO_NATIVE_APP_KEY"] ?: ""),
             )
         )
     }
@@ -82,6 +86,8 @@ flutter {
 }
 
 dependencies {
+    // Core library desugaring (flutter_local_notifications 필요)
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     // Unity Ads SDK
     implementation("com.unity3d.ads:unity-ads:4.12.2")
     // Unity Ads Mediation Adapter

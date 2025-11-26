@@ -78,8 +78,8 @@ def send_push_notifications_for_alerts(alerts: list[KeywordAlert], campaign):
     print(f"[Signal] FCM 푸시 전송 대상: {len(tokens)}개 디바이스", flush=True)
 
     # 푸시 알림 전송
-    title = "새로운 캠페인 알림"
-    body = f"관심 키워드와 매칭되는 캠페인: {campaign.company[:50] if campaign.company else '새 캠페인'}"
+    title = "새로운 체험단 알림"
+    body = "관심 키워드와 매칭되는 캠페인이 등록되었습니다. 앱에서 확인해보세요."
     data = {
         "type": "keyword_alert",
         "campaign_id": str(campaign.id),

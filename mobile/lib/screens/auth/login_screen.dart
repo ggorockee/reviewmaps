@@ -257,17 +257,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       print('[LoginScreen] Google 로그인 에러: $e');
       print('[LoginScreen] Stack trace: $stackTrace');
 
-      String errorMessage = 'Google 로그인 중 문제가 발생했습니다.\n잠시 후 다시 시도해 주세요.';
+      String errorMessage = 'Google 로그인할 수 없습니다.\n잠시 후 다시 시도해 주세요.';
       final errorText = e.toString();
 
       if (errorText.contains('Exception:')) {
         final serverMessage = errorText.replaceAll('Exception:', '').trim();
 
         if (serverMessage.contains('취소')) {
-          errorMessage = '로그인이 취소되었습니다.';
-        } else if (serverMessage.contains('network') || serverMessage.contains('timeout')) {
+          // 사용자가 취소한 경우는 에러 다이얼로그 표시 안 함
+          setState(() {
+            _isLoading = false;
+          });
+          return;
+        } else if (serverMessage.contains('Google 로그인에 실패했습니다')) {
+          errorMessage = 'Google 로그인할 수 없습니다.\n잠시 후 다시 시도해 주세요.';
+        } else if (serverMessage.contains('네트워크')) {
           errorMessage = '네트워크 연결이 불안정합니다.\n잠시 후 다시 시도해 주세요.';
-        } else if (serverMessage.isNotEmpty) {
+        } else if (serverMessage.contains('access token')) {
+          errorMessage = 'Google 로그인할 수 없습니다.\n잠시 후 다시 시도해 주세요.';
+        } else if (serverMessage.isNotEmpty && !serverMessage.contains('PlatformException')) {
           errorMessage = serverMessage;
         }
       }

@@ -39,10 +39,30 @@ class GoogleLoginService {
 
       return accessToken;
     } catch (e) {
+      // 사용자가 취소한 경우
       if (e.toString().contains('취소')) {
         rethrow;
       }
-      throw Exception('Google 로그인 실패: $e');
+      
+      // PlatformException 및 기타 에러를 사용자 친화적으로 변환
+      final errorMessage = e.toString();
+      
+      if (errorMessage.contains('sign_in_canceled') || 
+          errorMessage.contains('SIGN_IN_CANCELLED')) {
+        throw Exception('Google 로그인이 취소되었습니다.');
+      } else if (errorMessage.contains('sign_in_failed') ||
+                 errorMessage.contains('SIGN_IN_FAILED')) {
+        throw Exception('Google 로그인에 실패했습니다.');
+      } else if (errorMessage.contains('network_error') ||
+                 errorMessage.contains('NETWORK_ERROR')) {
+        throw Exception('네트워크 연결이 불안정합니다.');
+      } else if (errorMessage.contains('PlatformException')) {
+        // 기술적인 PlatformException은 간단하게 표시
+        throw Exception('Google 로그인에 실패했습니다.');
+      } else {
+        // 기타 에러
+        throw Exception('Google 로그인에 실패했습니다.');
+      }
     }
   }
 

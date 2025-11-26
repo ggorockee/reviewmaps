@@ -5,8 +5,10 @@ import 'package:mobile/config/config.dart';
 /// Google 소셜 로그인 서비스
 class GoogleLoginService {
   // iOS에서는 clientId가 필요함
+  // serverClientId는 서버 사이드 인증을 위한 Web Client ID
   static final GoogleSignIn _googleSignIn = GoogleSignIn(
     clientId: Platform.isIOS ? AppConfig.GOOGLE_IOS_CLIENT_ID : null,
+    serverClientId: AppConfig.GOOGLE_WEB_CLIENT_ID,
     scopes: [
       'email',
       'profile',
@@ -39,10 +41,30 @@ class GoogleLoginService {
 
       return accessToken;
     } catch (e) {
+      // 사용자가 취소한 경우
       if (e.toString().contains('취소')) {
         rethrow;
       }
-      throw Exception('Google 로그인 실패: $e');
+      
+      // PlatformException 및 기타 에러를 사용자 친화적으로 변환
+      final errorMessage = e.toString();
+      
+      if (errorMessage.contains('sign_in_canceled') || 
+          errorMessage.contains('SIGN_IN_CANCELLED')) {
+        throw Exception('Google 로그인이 취소되었습니다.');
+      } else if (errorMessage.contains('sign_in_failed') ||
+                 errorMessage.contains('SIGN_IN_FAILED')) {
+        throw Exception('Google 로그인에 실패했습니다.');
+      } else if (errorMessage.contains('network_error') ||
+                 errorMessage.contains('NETWORK_ERROR')) {
+        throw Exception('네트워크 연결이 불안정합니다.');
+      } else if (errorMessage.contains('PlatformException')) {
+        // 기술적인 PlatformException은 간단하게 표시
+        throw Exception('Google 로그인에 실패했습니다.');
+      } else {
+        // 기타 에러
+        throw Exception('Google 로그인에 실패했습니다.');
+      }
     }
   }
 

@@ -50,4 +50,9 @@ GoogleService-Info.plist
 ios/Runner/GoogleService-Info.plist
 myreqeust.txt
 
+# Credentials and secrets
+config/credentials/
+*.json.secret
+*client_secret*.json
+
 unity.info

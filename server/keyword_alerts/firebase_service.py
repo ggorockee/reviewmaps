@@ -1,4 +1,5 @@
 """
+import logging
 Firebase Admin SDK 초기화 및 FCM 푸시 전송 서비스
 
 환경변수:
@@ -11,6 +12,8 @@ from typing import Optional
 import firebase_admin
 from firebase_admin import credentials, messaging
 
+
+logger = logging.getLogger(__name__)
 
 class FirebasePushService:
     """
@@ -36,26 +39,26 @@ class FirebasePushService:
         try:
             # 이미 초기화되어 있으면 스킵
             if firebase_admin._apps:
-                print("[Firebase] Already initialized", flush=True)
+                logger.info("[Firebase] Already initialized")
                 return
 
             # 환경변수에서 credentials JSON 가져오기
             cred_json = os.getenv('FIREBASE_CREDENTIALS')
 
             if not cred_json:
-                print("[Firebase] FIREBASE_CREDENTIALS 환경변수가 설정되지 않았습니다.", flush=True)
+                logger.info("[Firebase] FIREBASE_CREDENTIALS 환경변수가 설정되지 않았습니다.")
                 return
 
             # JSON 문자열을 dict로 파싱
             cred_dict = json.loads(cred_json)
             cred = credentials.Certificate(cred_dict)
             firebase_admin.initialize_app(cred)
-            print("[Firebase] Successfully initialized from environment variable", flush=True)
+            logger.info("[Firebase] Successfully initialized from environment variable")
 
         except json.JSONDecodeError as e:
-            print(f"[Firebase] Invalid JSON in FIREBASE_CREDENTIALS: {e}", flush=True)
+            logger.info(f"[Firebase] Invalid JSON in FIREBASE_CREDENTIALS: {e}")
         except Exception as e:
-            print(f"[Firebase] Initialization error: {e}", flush=True)
+            logger.info(f"[Firebase] Initialization error: {e}")
 
     def send_push_notification(
         self,
@@ -78,7 +81,7 @@ class FirebasePushService:
         """
         try:
             if not firebase_admin._apps:
-                print("[Firebase] Not initialized, skipping push", flush=True)
+                logger.info("[Firebase] Not initialized, skipping push")
                 return False
 
             message = messaging.Message(
@@ -91,16 +94,16 @@ class FirebasePushService:
             )
 
             response = messaging.send(message)
-            print(f"[Firebase] Push sent successfully: {response}", flush=True)
+            logger.info(f"[Firebase] Push sent successfully: {response}")
             return True
 
         except messaging.UnregisteredError:
             # 토큰이 유효하지 않음 - 디바이스 비활성화 필요
-            print(f"[Firebase] Token unregistered: {token[:20]}...", flush=True)
+            logger.info(f"[Firebase] Token unregistered: {token[:20]}...")
             return False
 
         except Exception as e:
-            print(f"[Firebase] Push error: {e}", flush=True)
+            logger.info(f"[Firebase] Push error: {e}")
             return False
 
     def send_push_to_multiple(
@@ -129,7 +132,7 @@ class FirebasePushService:
         }
 
         if not firebase_admin._apps:
-            print("[Firebase] Not initialized, skipping push", flush=True)
+            logger.info("[Firebase] Not initialized, skipping push")
             result["failure_count"] = len(tokens)
             result["failed_tokens"] = tokens
             return result
@@ -156,10 +159,10 @@ class FirebasePushService:
                 if not send_response.success:
                     result["failed_tokens"].append(tokens[idx])
 
-            print(f"[Firebase] Multicast sent - success: {result['success_count']}, failure: {result['failure_count']}", flush=True)
+            logger.info(f"[Firebase] Multicast sent - success: {result['success_count']}, failure: {result['failure_count']}")
 
         except Exception as e:
-            print(f"[Firebase] Multicast error: {e}", flush=True)
+            logger.info(f"[Firebase] Multicast error: {e}")
             result["failure_count"] = len(tokens)
             result["failed_tokens"] = tokens
 

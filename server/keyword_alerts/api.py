@@ -175,30 +175,28 @@ async def list_keywords(request):
 async def delete_keyword(request, keyword_id: int):
     """
     키워드 삭제 API
-    - is_active를 False로 변경 (soft delete)
+    - 키워드를 DB에서 완전히 삭제 (hard delete)
+    - 활성화/비활성화 상태 모두 삭제 가능
     """
     user, session_id = await sync_to_async(get_auth_info)(request)
 
-    # 키워드 조회
+    # 키워드 조회 (is_active 조건 없이 - 비활성화 상태도 삭제 가능)
     try:
         if user:
             keyword = await sync_to_async(Keyword.objects.get)(
                 id=keyword_id,
                 user=user,
-                is_active=True
             )
         else:
             keyword = await sync_to_async(Keyword.objects.get)(
                 id=keyword_id,
                 anonymous_session_id=session_id,
-                is_active=True
             )
     except Keyword.DoesNotExist:
         raise HttpError(404, "키워드를 찾을 수 없습니다.")
 
-    # Soft delete
-    keyword.is_active = False
-    await sync_to_async(keyword.save)()
+    # Hard delete (실제 삭제)
+    await sync_to_async(keyword.delete)()
 
     return {"message": "삭제되었습니다."}
 

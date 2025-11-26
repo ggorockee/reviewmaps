@@ -195,7 +195,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           errorMessage = '카카오 계정에 이메일이 없습니다.\n이메일 제공 동의가 필요합니다.';
         } else if (serverMessage.contains('network') || serverMessage.contains('timeout')) {
           errorMessage = '네트워크 연결이 불안정합니다.\n잠시 후 다시 시도해 주세요.';
-        } else if (serverMessage.isNotEmpty) {
+        } else if (serverMessage.contains('REDIRECT_URI_MISMATCH')) {
+          errorMessage = '카카오 로그인 설정 오류입니다.\n잠시 후 다시 시도해 주세요.';
+        } else if (serverMessage.contains('PlatformException')) {
+          errorMessage = '카카오 로그인 중 문제가 발생했습니다.\n잠시 후 다시 시도해 주세요.';
+        } else if (serverMessage.isNotEmpty && !serverMessage.contains('Exception')) {
           errorMessage = serverMessage;
         }
       }

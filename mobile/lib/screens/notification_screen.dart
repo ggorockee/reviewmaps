@@ -488,7 +488,7 @@ class _NotificationScreenState extends State<NotificationScreen>
                       color: const Color(0xFF1A1C1E),
                     ),
                     decoration: InputDecoration(
-                      hintText: '예: 아이폰, 갤럭시, 노트북',
+                      hintText: '예: 강남, 맛집, 카페, 뷰티',
                       hintStyle: TextStyle(
                         fontSize: 14.sp,
                         fontWeight: FontWeight.w400,
@@ -558,7 +558,7 @@ class _NotificationScreenState extends State<NotificationScreen>
 
           // 안내 문구
           Text(
-            '관심있는 상품의 키워드를 등록하면 관련 체험단이 올라올 때 알림을 받을 수 있습니다.',
+            '관심있는 키워드를 등록하면 관련 체험단이 올라올 때 알림을 받을 수 있습니다.\n※ 키워드 등록 이후에 새로 등록된 캠페인에 대해서만 알림을 받습니다.',
             style: TextStyle(
               fontSize: 12.sp,
               fontWeight: FontWeight.w400,

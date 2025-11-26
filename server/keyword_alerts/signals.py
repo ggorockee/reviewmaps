@@ -6,11 +6,14 @@
 - 검색 대상: 업체명(company), 제공내역(offer)
 """
 import re
+import logging
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 from campaigns.models import Campaign
 from .models import Keyword, KeywordAlert, FCMDevice
+
+logger = logging.getLogger(__name__)
 
 
 def normalize_text(text: str) -> str:
@@ -38,7 +41,7 @@ def send_push_notifications_for_alerts(alerts: list[KeywordAlert], campaign):
     try:
         from .firebase_service import firebase_push_service
     except ImportError as e:
-        print(f"[Signal] Firebase service import error: {e}", flush=True)
+        logger.info(f"[Signal] Firebase service import error: {e}")
         return
 
     # 키워드별로 그룹화 (같은 사용자에게 중복 푸시 방지)
@@ -70,12 +73,12 @@ def send_push_notifications_for_alerts(alerts: list[KeywordAlert], campaign):
         tokens.extend(list(session_devices))
 
     if not tokens:
-        print(f"[Signal] 전송할 FCM 토큰 없음", flush=True)
+        logger.info(f"[Signal] 전송할 FCM 토큰 없음")
         return
 
     # 중복 제거
     tokens = list(set(tokens))
-    print(f"[Signal] FCM 푸시 전송 대상: {len(tokens)}개 디바이스", flush=True)
+    logger.info(f"[Signal] FCM 푸시 전송 대상: {len(tokens)}개 디바이스")
 
     # 푸시 알림 전송
     title = "새로운 체험단 알림"
@@ -92,12 +95,12 @@ def send_push_notifications_for_alerts(alerts: list[KeywordAlert], campaign):
         data=data
     )
 
-    print(f"[Signal] FCM 푸시 결과 - 성공: {result['success_count']}, 실패: {result['failure_count']}", flush=True)
+    logger.info(f"[Signal] FCM 푸시 결과 - 성공: {result['success_count']}, 실패: {result['failure_count']}")
 
     # 실패한 토큰 비활성화
     if result['failed_tokens']:
         FCMDevice.objects.filter(fcm_token__in=result['failed_tokens']).update(is_active=False)
-        print(f"[Signal] {len(result['failed_tokens'])}개의 비활성 토큰 처리됨", flush=True)
+        logger.info(f"[Signal] {len(result['failed_tokens'])}개의 비활성 토큰 처리됨")
 
 
 @receiver(post_save, sender=Campaign)
@@ -109,18 +112,18 @@ def create_keyword_alerts_on_campaign_save(sender, instance, created, **kwargs):
     - 캠페인 업체명(company) 또는 제공내역(offer)에서 키워드 검색
     - 공백/특수문자 제거 후 정규화된 매칭
     """
-    print(f"[Signal] Campaign post_save 호출됨 - ID: {instance.id}, created: {created}", flush=True)
+    logger.info(f"[Signal] Campaign post_save 호출됨 - ID: {instance.id}, created: {created}")
 
     if not created:
-        print(f"[Signal] 업데이트된 캠페인이므로 스킵 - ID: {instance.id}", flush=True)
+        logger.info(f"[Signal] 업데이트된 캠페인이므로 스킵 - ID: {instance.id}")
         return
 
     # 활성화된 모든 키워드 조회 (필요한 필드만)
     active_keywords = list(Keyword.objects.filter(is_active=True).only('id', 'keyword', 'user_id', 'anonymous_session_id'))
-    print(f"[Signal] 활성 키워드 수: {len(active_keywords)}", flush=True)
+    logger.info(f"[Signal] 활성 키워드 수: {len(active_keywords)}")
 
     if not active_keywords:
-        print(f"[Signal] 활성 키워드 없음 - 스킵", flush=True)
+        logger.info(f"[Signal] 활성 키워드 없음 - 스킵")
         return
 
     # 캠페인 텍스트 정규화 (공백/특수문자 제거)
@@ -131,8 +134,8 @@ def create_keyword_alerts_on_campaign_save(sender, instance, created, **kwargs):
     # 원본 텍스트도 유지 (로깅용)
     campaign_company_original = instance.company or ""
 
-    print(f"[Signal] 캠페인 업체명(정규화): '{campaign_company_normalized}'", flush=True)
-    print(f"[Signal] 캠페인 제공내역(정규화): '{campaign_offer_normalized[:100]}...'", flush=True)
+    logger.info(f"[Signal] 캠페인 업체명(정규화): '{campaign_company_normalized}'")
+    logger.info(f"[Signal] 캠페인 제공내역(정규화): '{campaign_offer_normalized[:100]}...'")
 
     # 이미 존재하는 알림 조회 (한 번에 조회하여 N+1 방지)
     existing_alerts = set(
@@ -173,14 +176,14 @@ def create_keyword_alerts_on_campaign_save(sender, instance, created, **kwargs):
                     is_read=False
                 )
             )
-            print(f"[Signal] 매칭됨 - 키워드: '{keyword.keyword}' → {matched_field}", flush=True)
+            logger.info(f"[Signal] 매칭됨 - 키워드: '{keyword.keyword}' → {matched_field}")
 
     # 벌크 생성으로 성능 최적화
     if alerts_to_create:
         created_alerts = KeywordAlert.objects.bulk_create(alerts_to_create)
-        print(f"[Signal] {len(created_alerts)}개의 알림 생성 완료 - 캠페인 ID: {instance.id}", flush=True)
+        logger.info(f"[Signal] {len(created_alerts)}개의 알림 생성 완료 - 캠페인 ID: {instance.id}")
 
         # FCM 푸시 알림 전송
         send_push_notifications_for_alerts(created_alerts, instance)
     else:
-        print(f"[Signal] 매칭된 키워드 없음 - 캠페인 ID: {instance.id}, 업체명: {campaign_company_original[:50]}", flush=True)
+        logger.info(f"[Signal] 매칭된 키워드 없음 - 캠페인 ID: {instance.id}, 업체명: {campaign_company_original[:50]}")

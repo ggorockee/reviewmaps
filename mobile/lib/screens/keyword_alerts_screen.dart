@@ -70,6 +70,7 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
         title: const Text('키워드 등록'),
         content: TextField(
           controller: controller,
@@ -119,6 +120,7 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
         title: const Text('키워드 삭제'),
         content: Text('\'${keyword.keyword}\' 키워드를 삭제하시겠습니까?'),
         actions: [
@@ -228,6 +230,7 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
         title: const Text('알림'),
         content: Text(message),
         actions: [
@@ -493,6 +496,7 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
             return await showDialog<bool>(
               context: context,
               builder: (context) => AlertDialog(
+                backgroundColor: Colors.white,
                 title: const Text('알림 삭제'),
                 content: const Text('이 알림을 삭제하시겠습니까?'),
                 actions: [

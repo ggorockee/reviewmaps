@@ -376,7 +376,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 alignment: Alignment.centerRight,
                 child: TextButton(
                   onPressed: () {
-                    // TODO: 비밀번호 찾기 처리
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const PasswordResetScreen(),
+                      ),
+                    );
                   },
                   child: Text(
                     '비밀번호를 잊으셨나요?',

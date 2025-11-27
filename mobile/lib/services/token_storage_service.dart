@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 /// JWT 페이로드 디코딩 유틸리티
 Map<String, dynamic>? decodeJwtPayload(String token) {
@@ -21,7 +21,8 @@ Map<String, dynamic>? decodeJwtPayload(String token) {
 
 /// TokenStorageService
 /// ------------------------------------------------------------
-/// - SharedPreferences를 사용한 토큰 저장/로드 서비스
+/// - FlutterSecureStorage를 사용한 보안 토큰 저장/로드 서비스
+/// - iOS Keychain / Android Keystore를 활용한 안전한 토큰 관리
 /// - 인증 토큰(access_token, refresh_token) 및 익명 세션 토큰 관리
 /// - 로그아웃 시 모든 토큰 삭제
 /// - 토큰 만료 전 자동 갱신 지원
@@ -31,16 +32,24 @@ class TokenStorageService {
   static const String _sessionTokenKey = 'session_token';
   static const String _isAnonymousKey = 'is_anonymous';
 
+  // FlutterSecureStorage 인스턴스 (Singleton)
+  static final _storage = FlutterSecureStorage(
+    aOptions: AndroidOptions(
+      encryptedSharedPreferences: true, // Android: EncryptedSharedPreferences 사용
+    ),
+    iOptions: IOSOptions(
+      accessibility: KeychainAccessibility.first_unlock, // iOS: 첫 잠금 해제 후 접근 가능
+    ),
+  );
+
   /// Access Token 저장
   Future<void> saveAccessToken(String token) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_accessTokenKey, token);
+    await _storage.write(key: _accessTokenKey, value: token);
   }
 
   /// Refresh Token 저장
   Future<void> saveRefreshToken(String token) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_refreshTokenKey, token);
+    await _storage.write(key: _refreshTokenKey, value: token);
   }
 
   /// 인증 토큰 쌍(access + refresh) 저장
@@ -48,41 +57,36 @@ class TokenStorageService {
     required String accessToken,
     required String refreshToken,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_accessTokenKey, accessToken);
-    await prefs.setString(_refreshTokenKey, refreshToken);
-    await prefs.setBool(_isAnonymousKey, false);
+    await _storage.write(key: _accessTokenKey, value: accessToken);
+    await _storage.write(key: _refreshTokenKey, value: refreshToken);
+    await _storage.write(key: _isAnonymousKey, value: 'false');
   }
 
   /// 익명 세션 토큰 저장
   Future<void> saveSessionToken(String token) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_sessionTokenKey, token);
-    await prefs.setBool(_isAnonymousKey, true);
+    await _storage.write(key: _sessionTokenKey, value: token);
+    await _storage.write(key: _isAnonymousKey, value: 'true');
   }
 
   /// Access Token 조회
   Future<String?> getAccessToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_accessTokenKey);
+    return await _storage.read(key: _accessTokenKey);
   }
 
   /// Refresh Token 조회
   Future<String?> getRefreshToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_refreshTokenKey);
+    return await _storage.read(key: _refreshTokenKey);
   }
 
   /// 익명 세션 토큰 조회
   Future<String?> getSessionToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_sessionTokenKey);
+    return await _storage.read(key: _sessionTokenKey);
   }
 
   /// 익명 사용자 여부 확인
   Future<bool> isAnonymous() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_isAnonymousKey) ?? false;
+    final value = await _storage.read(key: _isAnonymousKey);
+    return value == 'true';
   }
 
   /// 로그인 상태 확인 (토큰 존재 여부)
@@ -94,11 +98,10 @@ class TokenStorageService {
 
   /// 모든 토큰 삭제 (로그아웃)
   Future<void> clearTokens() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_accessTokenKey);
-    await prefs.remove(_refreshTokenKey);
-    await prefs.remove(_sessionTokenKey);
-    await prefs.remove(_isAnonymousKey);
+    await _storage.delete(key: _accessTokenKey);
+    await _storage.delete(key: _refreshTokenKey);
+    await _storage.delete(key: _sessionTokenKey);
+    await _storage.delete(key: _isAnonymousKey);
   }
 
   /// Access Token 만료 임박 여부 확인

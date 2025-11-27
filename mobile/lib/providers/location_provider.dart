@@ -36,7 +36,9 @@ class LocationNotifier extends Notifier<LocationState> {
     if (perm == LocationPermission.always || 
         perm == LocationPermission.whileInUse) {
       pos = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
       );
     }
 

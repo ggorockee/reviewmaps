@@ -26,7 +26,7 @@ List<String> expandQuery(String q) {
 
   // 고촌 → 고촌읍/고촌역/김포 고촌/김포시 고촌읍
   if (s.length <= 4) {
-    cands.addAll({'$s읍', '$s동', '$s역', '김포 $s', '김포시 $s', '김포시 ${s}읍'});
+    cands.addAll({'$s읍', '$s동', '$s역', '김포 $s', '김포시 $s', '김포시 $s읍'});
   }
   // 괄호/특수문자 정리 (혹시 모를 경우)
   return cands.map((e) => e.replaceAll(RegExp(r'[<>]'), '')).toList();

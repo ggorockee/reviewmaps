@@ -63,14 +63,7 @@ final searchResultsProvider = FutureProvider.family.autoDispose<List<Store>, Str
     case SortOption.newest:
       // 1. 최신등록순: createdAt 최신순, 거리는 표시용으로만 사용
       return resultsWithDistance..sort((a, b) {
-        final aCreated = a.createdAt;
-        final bCreated = b.createdAt;
-        
-        if (aCreated == null && bCreated == null) return 0;
-        if (aCreated == null) return 1;
-        if (bCreated == null) return -1;
-        
-        return bCreated.compareTo(aCreated); // 최신순 (내림차순)
+        return b.createdAt.compareTo(a.createdAt); // 최신순 (내림차순)
       });
       
     case SortOption.deadline:
@@ -137,7 +130,7 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
   /// 검색 결과 아이템의 높이를 텍스트 배율과 디바이스에 따라 동적으로 계산
   double _calcItemHeight(BuildContext context) {
     final isTab = _isTablet(context);
-    final ts = MediaQuery.textScalerOf(context).textScaleFactor;
+    final ts = MediaQuery.textScalerOf(context).scale(1.0);
 
     // 기본 높이(폰/태블릿) 완화
     final double base = isTab ? 205.h : 80.h;

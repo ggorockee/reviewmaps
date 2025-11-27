@@ -22,7 +22,7 @@ class MetaBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isTablet = _isTablet(context);
-    final textScaleFactor = MediaQuery.textScalerOf(context).textScaleFactor;
+    final textScaleFactor = MediaQuery.textScalerOf(context).scale(1.0);
     final List<Widget> items = [];
 
     // 플랫폼 정보
@@ -80,10 +80,10 @@ class MetaBar extends StatelessWidget {
         vertical: adjustedVerticalPadding,
       ),
       decoration: BoxDecoration(
-        color: Colors.grey.withOpacity(0.1),
+        color: Colors.grey.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(adjustedBorderRadius),
         border: Border.all(
-          color: Colors.grey.withOpacity(0.3),
+          color: Colors.grey.withValues(alpha: 0.3),
           width: 0.5,
         ),
       ),
@@ -121,7 +121,7 @@ class SimpleMeta extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isTablet = _isTablet(context);
-    final textScaleFactor = MediaQuery.textScalerOf(context).textScaleFactor;
+    final textScaleFactor = MediaQuery.textScalerOf(context).scale(1.0);
     
     // 태블릿에서 시스템 폰트 크기에 따라 동적 조정
     final double baseHorizontalPadding = dense ? 4.0 : (isTablet ? 8.0 : 6.0);
@@ -140,10 +140,10 @@ class SimpleMeta extends StatelessWidget {
         vertical: adjustedVerticalPadding,
       ),
       decoration: BoxDecoration(
-        color: (color ?? Colors.grey).withOpacity(0.1),
+        color: (color ?? Colors.grey).withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(adjustedBorderRadius),
         border: Border.all(
-          color: (color ?? Colors.grey).withOpacity(0.3),
+          color: (color ?? Colors.grey).withValues(alpha: 0.3),
           width: 0.5,
         ),
       ),

@@ -1,6 +1,7 @@
 /// 키워드 알람 관련 모델 클래스들
 /// - API 요청/응답 데이터 구조 정의
 /// - JSON 직렬화/역직렬화 지원
+library;
 
 /// 키워드 등록 요청 데이터
 class KeywordRegisterRequest {

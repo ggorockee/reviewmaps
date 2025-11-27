@@ -160,7 +160,7 @@ class _CampaignListScreenState extends ConsumerState<CampaignListScreen> {
   /// 아이템 높이 계산 (텍스트 스케일 대응)
   double _getItemHeight() {
     final bool isTab = _isTablet(context);
-    final ts = MediaQuery.textScalerOf(context).textScaleFactor.clamp(1.0, 1.3);
+    final ts = MediaQuery.textScalerOf(context).scale(1.0).clamp(1.0, 1.3);
     
     if (widget.isSearchResult) {
       // 검색결과는 한 줄이므로 높이를 더 작게

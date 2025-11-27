@@ -175,7 +175,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         duration: const Duration(milliseconds: 120),
         opacity: _loading ? 1.0 : 0.0,
         child: Container(
-          color: Colors.black.withOpacity(0.25),
+          color: Colors.black.withValues(alpha: 0.25),
           alignment: Alignment.center,
           child: const CircularProgressIndicator(),
         ),
@@ -186,7 +186,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   // 카테고리 이름에 맞는 아이콘 반환 (클라이언트에서 관리)
   Widget _getIconForCategory(String categoryName) {
     // 폰트 배율에 따른 아이콘 크기 조정
-    final textScaleFactor = MediaQuery.textScalerOf(context).textScaleFactor;
+    final textScaleFactor = MediaQuery.textScalerOf(context).scale(1.0);
     final baseIconSize = t(context, 15.sp, 18.sp);
     final iconSize = baseIconSize * (1.0 + (textScaleFactor - 1.0) * 0.3).clamp(1.0, 1.2);
 
@@ -300,7 +300,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   Widget _buildSectionHeader(String title, {VoidCallback? onClearAll}) {
     // 폰트 배율에 따른 제목 크기 조정
-    final textScaleFactor = MediaQuery.textScalerOf(context).textScaleFactor;
+    final textScaleFactor = MediaQuery.textScalerOf(context).scale(1.0);
     final baseFontSize = 16.sp;
     final titleFontSize = baseFontSize * (1.0 + (textScaleFactor - 1.0) * 0.5).clamp(1.0, 1.3);
     final subtitleFontSize = 13.sp * (1.0 + (textScaleFactor - 1.0) * 0.5).clamp(1.0, 1.3);
@@ -326,7 +326,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   Widget _buildRecentSearchItem(String term) {
     // 폰트 배율에 따른 텍스트 크기 조정
-    final textScaleFactor = MediaQuery.textScalerOf(context).textScaleFactor;
+    final textScaleFactor = MediaQuery.textScalerOf(context).scale(1.0);
     final baseFontSize = 16.sp;
     final fontSize = baseFontSize * (1.0 + (textScaleFactor - 1.0) * 0.5).clamp(1.0, 1.3);
 

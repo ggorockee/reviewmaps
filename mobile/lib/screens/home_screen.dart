@@ -346,7 +346,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
       // 현재 위치 가져오기
       final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
       ).timeout(const Duration(seconds: 5));
 
       // 각 스토어에 대해 거리 계산하고 리스트 업데이트
@@ -387,7 +389,9 @@ class _HomeScreenState extends State<HomeScreen> {
       await _ensureLocationPermissionOnce();
 
       final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
       ).timeout(const Duration(seconds: 10));
 
       if (!mounted) return;
@@ -731,7 +735,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   double _nearestItemWidth(BuildContext context) {
-    final ts = MediaQuery.textScalerOf(context).textScaleFactor.clamp(1.0, 1.3);
+    final ts = MediaQuery.textScalerOf(context).scale(1.0).clamp(1.0, 1.3);
     final t = ((ts - 1.0) / (1.3 - 1.0)).clamp(0.0, 1.0);
     return lerpDouble(150.w, 170.w, t)!; // 글자 커지면 카드 폭도 살짝 증가
   }
@@ -741,7 +745,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // 근처 가로 카드 영역의 동적 높이(텍스트 스케일 반영)
   double _nearestRowHeight(BuildContext context) {
     final bool isTab = _isTablet(context);
-    final double ts = MediaQuery.textScalerOf(context).textScaleFactor.clamp(1.0, 1.3);
+    final double ts = MediaQuery.textScalerOf(context).scale(1.0).clamp(1.0, 1.3);
 
     final double denom = isTab ? (1.10 - 1.00) : (1.30 - 1.00);
     final double t = denom == 0 ? 0 : ((ts - 1.0) / denom).clamp(0.0, 1.0);
@@ -764,7 +768,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // 추천 그리드: 텍스트 스케일에 따른 셀 높이 보간
   double _recommendedCellHeight(BuildContext context) {
     final bool isTab = _isTablet(context);
-    final double ts = MediaQuery.textScalerOf(context).textScaleFactor;
+    final double ts = MediaQuery.textScalerOf(context).scale(1.0);
 
     final double denom = isTab ? (1.10 - 1.00) : (1.30 - 1.00);
     final double t = denom == 0 ? 0 : ((ts - 1.0) / denom).clamp(0.0, 1.0);

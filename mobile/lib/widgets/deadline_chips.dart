@@ -16,7 +16,7 @@ class DeadlineChips extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isTablet = _isTablet(context);
-    final textScaleFactor = MediaQuery.textScalerOf(context).textScaleFactor;
+    final textScaleFactor = MediaQuery.textScalerOf(context).scale(1.0);
     final List<Widget> chips = [];
 
     // 마감일 칩
@@ -62,10 +62,10 @@ class DeadlineChips extends StatelessWidget {
         vertical: adjustedVerticalPadding,
       ),
       decoration: BoxDecoration(
-        color: isUrgent ? Colors.red.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
+        color: isUrgent ? Colors.red.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(adjustedBorderRadius),
         border: Border.all(
-          color: isUrgent ? Colors.red.withOpacity(0.3) : Colors.grey.withOpacity(0.3),
+          color: isUrgent ? Colors.red.withValues(alpha: 0.3) : Colors.grey.withValues(alpha: 0.3),
           width: 0.5,
         ),
       ),
@@ -103,10 +103,10 @@ class DeadlineChips extends StatelessWidget {
         vertical: adjustedVerticalPadding,
       ),
       decoration: BoxDecoration(
-        color: Colors.blue.withOpacity(0.1),
+        color: Colors.blue.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(adjustedBorderRadius),
         border: Border.all(
-          color: Colors.blue.withOpacity(0.3),
+          color: Colors.blue.withValues(alpha: 0.3),
           width: 0.5,
         ),
       ),
@@ -148,7 +148,7 @@ class DeadlineChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isTablet = _isTablet(context);
-    final textScaleFactor = MediaQuery.textScalerOf(context).textScaleFactor;
+    final textScaleFactor = MediaQuery.textScalerOf(context).scale(1.0);
     final dDay = _calculateDDay(deadline);
     final isUrgent = dDay != null && dDay <= 3;
 
@@ -169,10 +169,10 @@ class DeadlineChip extends StatelessWidget {
         vertical: adjustedVerticalPadding,
       ),
       decoration: BoxDecoration(
-        color: isUrgent ? Colors.red.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
+        color: isUrgent ? Colors.red.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(adjustedBorderRadius),
         border: Border.all(
-          color: isUrgent ? Colors.red.withOpacity(0.3) : Colors.grey.withOpacity(0.3),
+          color: isUrgent ? Colors.red.withValues(alpha: 0.3) : Colors.grey.withValues(alpha: 0.3),
           width: 0.5,
         ),
       ),
@@ -214,7 +214,7 @@ class DistanceChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isTablet = _isTablet(context);
-    final textScaleFactor = MediaQuery.textScalerOf(context).textScaleFactor;
+    final textScaleFactor = MediaQuery.textScalerOf(context).scale(1.0);
     final distanceText = distance >= 1 
         ? '${distance.toStringAsFixed(1)}km'
         : '${(distance * 1000).round()}m';
@@ -236,10 +236,10 @@ class DistanceChip extends StatelessWidget {
         vertical: adjustedVerticalPadding,
       ),
       decoration: BoxDecoration(
-        color: Colors.blue.withOpacity(0.1),
+        color: Colors.blue.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(adjustedBorderRadius),
         border: Border.all(
-          color: Colors.blue.withOpacity(0.3),
+          color: Colors.blue.withValues(alpha: 0.3),
           width: 0.5,
         ),
       ),

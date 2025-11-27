@@ -527,7 +527,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   borderRadius: BorderRadius.circular(10.r),
                   border: Border.all(
                     color: _isEmailVerified
-                        ? Colors.green.withOpacity(0.5)
+                        ? Colors.green.withValues(alpha: 0.5)
                         : const Color(0xFFEDF1F3),
                     width: 1,
                   ),
@@ -596,7 +596,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       )
                     : Text(
                         _resendCooldownSeconds > 0
-                            ? '${_resendCooldownSeconds}초'
+                            ? '$_resendCooldownSeconds초'
                             : (_sendCount > 0 ? '재발송' : '발송'),
                         style: TextStyle(
                           fontSize: 12.sp,
@@ -668,7 +668,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   borderRadius: BorderRadius.circular(10.r),
                   border: Border.all(
                     color: _isEmailVerified
-                        ? Colors.green.withOpacity(0.5)
+                        ? Colors.green.withValues(alpha: 0.5)
                         : const Color(0xFFEDF1F3),
                     width: 1,
                   ),

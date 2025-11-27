@@ -55,7 +55,7 @@ class LoggingClient extends http.BaseClient {
           // API 키 마스킹: 처음 4자리만 표시
           final masked = value.length > 4 
               ? '${value.substring(0, 4)}${'*' * (value.length - 4)}'
-              : '${'*' * value.length}';
+              : '*' * value.length;
           debugPrint('     $key: $masked');
         } else {
           debugPrint('     $key: $value');
@@ -89,7 +89,7 @@ class LoggingClient extends http.BaseClient {
     // Content-Length 또는 실제 body 크기
     final contentLength = response.contentLength;
     if (contentLength != null) {
-      debugPrint('   Body Size: ${contentLength} bytes');
+      debugPrint('   Body Size: $contentLength bytes');
     }
 
     // 응답 헤더 (주요 헤더만)

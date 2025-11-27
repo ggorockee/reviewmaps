@@ -56,9 +56,9 @@ class AdService {
         },
       );
 
-      print('[AdService] AdMob 초기화 완료');
+      if (kDebugMode) print('[AdService] AdMob 초기화 완료');
     } catch (e) {
-      print('[AdService] AdMob 초기화 실패: $e');
+      if (kDebugMode) print('[AdService] AdMob 초기화 실패: $e');
       await _analytics.logEvent(
         name: 'ad_service_init_error',
         parameters: {'error': e.toString()},
@@ -94,7 +94,7 @@ class AdService {
         );
       }
     } catch (e) {
-      print('[AdService] 추적 권한 확인 실패: $e');
+      if (kDebugMode) print('[AdService] 추적 권한 확인 실패: $e');
     }
   }
 
@@ -151,7 +151,7 @@ class AdService {
               parameters: {'ad_unit_id': interstitialAdId},
             );
             
-            print('[AdService] 전면광고 로드 완료');
+            if (kDebugMode) print('[AdService] 전면광고 로드 완료');
           },
           onAdFailedToLoad: (error) {
             _isInterstitialAdLoaded = false;
@@ -165,12 +165,12 @@ class AdService {
               },
             );
             
-            print('[AdService] 전면광고 로드 실패: ${error.message}');
+            if (kDebugMode) print('[AdService] 전면광고 로드 실패: ${error.message}');
           },
         ),
       );
     } catch (e) {
-      print('[AdService] 전면광고 로드 중 오류: $e');
+      if (kDebugMode) print('[AdService] 전면광고 로드 중 오류: $e');
       await _analytics.logEvent(
         name: 'interstitial_ad_load_error',
         parameters: {'error': e.toString()},
@@ -181,7 +181,7 @@ class AdService {
   /// 전면광고 표시 (앱 진입 시 3-5초 지연 후)
   Future<void> showInterstitialAd() async {
     if (!_isInterstitialAdLoaded || _interstitialAd == null) {
-      print('[AdService] 전면광고가 로드되지 않음');
+      if (kDebugMode) print('[AdService] 전면광고가 로드되지 않음');
       return;
     }
 
@@ -198,9 +198,9 @@ class AdService {
       _interstitialAd = null;
       _isInterstitialAdLoaded = false;
       
-      print('[AdService] 전면광고 표시 완료');
+      if (kDebugMode) print('[AdService] 전면광고 표시 완료');
     } catch (e) {
-      print('[AdService] 전면광고 표시 실패: $e');
+      if (kDebugMode) print('[AdService] 전면광고 표시 실패: $e');
       await _analytics.logEvent(
         name: 'interstitial_ad_show_error',
         parameters: {'error': e.toString()},
@@ -259,7 +259,7 @@ class AdService {
         },
       );
     } catch (e) {
-      print('⚠️ Analytics session start logging failed: $e');
+      debugPrint('⚠️ Analytics session start logging failed: $e');
     }
   }
 
@@ -273,7 +273,7 @@ class AdService {
         },
       );
     } catch (e) {
-      print('⚠️ Analytics session end logging failed: $e');
+      debugPrint('⚠️ Analytics session end logging failed: $e');
     }
   }
 

@@ -189,9 +189,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       });
 
       if (AppConfig.isDebugMode) {
-        print('📐 screen=$screenHeight, textScale=$textScaleFactor, clampedScale=$clampedScale');
-        print('📐 buttonBottom=$buttonBottom, safePadding=$safePadding, scaleMultiplier=$scaleMultiplier');
-        print('👉 panelMax=$_panelMax, adjustedItemHeight=$adjustedItemHeight');
+        debugPrint('📐 screen=$screenHeight, textScale=$textScaleFactor, clampedScale=$clampedScale');
+        debugPrint('📐 buttonBottom=$buttonBottom, safePadding=$safePadding, scaleMultiplier=$scaleMultiplier');
+        debugPrint('👉 panelMax=$_panelMax, adjustedItemHeight=$adjustedItemHeight');
       }
     });
 
@@ -252,7 +252,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final buttonBottom = buttonTop + buttonHeight;
     final baseSafePadding = 20.h;
     final safePadding = baseSafePadding * scaleMultiplier;
-    final maxAllowed = media.size.height - buttonBottom - safePadding;
+    final maxAllowed = MediaQuery.of(context).size.height - buttonBottom - safePadding;
 
     // 최종 높이
     final clamped = desiredHeight.clamp(minHeight, maxAllowed);
@@ -263,7 +263,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       duration: const Duration(milliseconds: 220),
     );
 
-    _currentPanelState = PanelState.waitHeight;
     _panelPos = position;
     _lastPanelHeight = clamped; // 픽셀 높이 직접 저장
   }
@@ -302,7 +301,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final buttonBottom = buttonTop + buttonHeight;
     final baseSafePadding = 20.h;
     final safePadding = baseSafePadding * scaleMultiplier;
-    final maxAllowed = media.size.height - buttonBottom - safePadding;
+    final maxAllowed = MediaQuery.of(context).size.height - buttonBottom - safePadding;
 
     // 최종 높이
     final clamped = desiredHeight.clamp(minHeight, maxAllowed);
@@ -313,7 +312,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       duration: const Duration(milliseconds: 220),
     );
 
-    _currentPanelState = PanelState.executeHeight;
     _panelPos = position;
     _lastPanelHeight = clamped; // 픽셀 높이 직접 저장
   }
@@ -323,7 +321,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     if (panelController.isAttached) {
       _lastPanelHeight = _currentPanelHeight();
       if (AppConfig.isDebugMode) {
-        print('[Map][_rememberPanelPosition] 저장된 패널 높이(px): $_lastPanelHeight');
+        debugPrint('[Map][_rememberPanelPosition] 저장된 패널 높이(px): $_lastPanelHeight');
       }
     }
   }
@@ -334,7 +332,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       final height = _lastPanelHeight!.clamp(_panelMin, _panelMax);
       final pos = (height - _panelMin) / (_panelMax - _panelMin);
       if (AppConfig.isDebugMode) {
-        print('[Map][_restorePanelPosition] 복원할 비율: $pos');
+        debugPrint('[Map][_restorePanelPosition] 복원할 비율: $pos');
       }
       await panelController.animatePanelToPosition(
         pos,
@@ -375,10 +373,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
       // 디버그 로그 추가
       if (AppConfig.isDebugMode) {
-        print('[Map][_searchInCurrentViewport] 검색된 체험단 수: ${storesInBounds.length}');
-        print('[Map][_searchInCurrentViewport] 뷰포트: south=${b.southWest.latitude}, west=${b.southWest.longitude}, north=${b.northEast.latitude}, east=${b.northEast.longitude}');
+        debugPrint('[Map][_searchInCurrentViewport] 검색된 체험단 수: ${storesInBounds.length}');
+        debugPrint('[Map][_searchInCurrentViewport] 뷰포트: south=${b.southWest.latitude}, west=${b.southWest.longitude}, north=${b.northEast.latitude}, east=${b.northEast.longitude}');
         if (storesInBounds.isNotEmpty) {
-          print('[Map][_searchInCurrentViewport] 첫 번째 체험단: ${storesInBounds.first.title}');
+          debugPrint('[Map][_searchInCurrentViewport] 첫 번째 체험단: ${storesInBounds.first.title}');
         }
       }
 
@@ -441,7 +439,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           // 사용자가 직접 검색한 경우에만 패널 내리기
           if (panelController.isAttached) {
             panelController.animatePanelToPosition(0.0, duration: const Duration(milliseconds: 180));
-            _currentPanelState = PanelState.closed;
             _lastPanelHeight = _panelMin; // 패널이 닫힌 상태도 저장
           }
         }
@@ -454,7 +451,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         }
       }
     } catch (e, st) {
-      if (AppConfig.isDebugMode) print('[Map][_searchInCurrentViewport] error=$e\n$st');
+      if (AppConfig.isDebugMode) debugPrint('[Map][_searchInCurrentViewport] error=$e\n$st');
       if (mounted) {
         showFriendlySnack(context, '앗! 주변 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요 🗺️');
       }
@@ -664,7 +661,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       ),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: PRIMARY_COLOR,
+                      backgroundColor: primaryColor,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(
@@ -771,25 +768,35 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 },
                 userPosition: ref.watch(locationProvider).position,
                 onLocationRequest: () async {
+                  // ScaffoldMessenger를 미리 캡처 (async gap 이전)
+                  final messenger = ScaffoldMessenger.of(context);
                   // Provider를 통한 위치 권한 요청
                   await ref.read(locationProvider.notifier).update();
                   if (!mounted) return; // 위젯이 dispose된 경우 중단
                   final locationState = ref.read(locationProvider);
 
                   if (!locationState.isGranted) {
-                    showFriendlySnack(
-                      context, 
-                      '위치 권한이 필요합니다.',
-                      actionLabel: '설정 열기',
-                      onAction: () => ref.read(locationProvider.notifier).openAppSettings(),
-                    );
+                    messenger.hideCurrentSnackBar();
+                    messenger.clearSnackBars();
+                    messenger.showSnackBar(SnackBar(
+                      content: const Text('위치 권한이 필요합니다.'),
+                      behavior: SnackBarBehavior.floating,
+                      action: SnackBarAction(
+                        label: '설정 열기',
+                        onPressed: () => ref.read(locationProvider.notifier).openAppSettings(),
+                      ),
+                    ));
                   } else if (locationState.position == null) {
-                    showFriendlySnack(
-                      context, 
-                      '위치 정보를 가져올 수 없습니다.',
-                      actionLabel: '설정 열기',
-                      onAction: () => ref.read(locationProvider.notifier).openLocationSettings(),
-                    );
+                    messenger.hideCurrentSnackBar();
+                    messenger.clearSnackBars();
+                    messenger.showSnackBar(SnackBar(
+                      content: const Text('위치 정보를 가져올 수 없습니다.'),
+                      behavior: SnackBarBehavior.floating,
+                      action: SnackBarAction(
+                        label: '설정 열기',
+                        onPressed: () => ref.read(locationProvider.notifier).openLocationSettings(),
+                      ),
+                    ));
                   }
                 },
               ),
@@ -972,7 +979,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
     return Container(
       height: t(context, 36.0.h, 44.0.h),
-      color: PRIMARY_COLOR,
+      color: primaryColor,
       child: categoriesAsync.when(
         data: (categories) {
           final List<Widget> chips = [

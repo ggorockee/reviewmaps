@@ -576,7 +576,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 onPressed: canSendCode ? _handleSendCode : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor:
-                      canSendCode ? PRIMARY_COLOR : const Color(0xFFE0E0E0),
+                      canSendCode ? primaryColor : const Color(0xFFE0E0E0),
                   foregroundColor: Colors.white,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
@@ -634,7 +634,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 style: TextStyle(
                   fontSize: 12.sp,
                   fontWeight: FontWeight.w500,
-                  color: _expirySeconds < 300 ? Colors.red : PRIMARY_COLOR,
+                  color: _expirySeconds < 300 ? Colors.red : primaryColor,
                   letterSpacing: -0.24,
                 ),
               ),
@@ -721,7 +721,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _isEmailVerified || _isVerifyingCode
                       ? const Color(0xFFE0E0E0)
-                      : PRIMARY_COLOR,
+                      : primaryColor,
                   foregroundColor: Colors.white,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
@@ -908,8 +908,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            PRIMARY_COLOR,
-            PRIMARY_COLOR,
+            primaryColor,
+            primaryColor,
           ],
         ),
         borderRadius: BorderRadius.circular(10.r),
@@ -917,7 +917,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       child: ElevatedButton(
         onPressed: _isLoading ? null : _handleSignUp,
         style: ElevatedButton.styleFrom(
-          backgroundColor: PRIMARY_COLOR,
+          backgroundColor: primaryColor,
           foregroundColor: Colors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(

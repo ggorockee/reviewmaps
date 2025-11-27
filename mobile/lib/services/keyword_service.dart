@@ -14,13 +14,13 @@ import 'package:mobile/utils/network_error_handler.dart';
 /// - 알람 조회 및 읽음 처리
 /// - 네트워크 재시도 로직 포함
 class KeywordService {
-  final String baseUrl = '${AppConfig.ReviewMapbaseUrl}/keyword-alerts';
+  final String baseUrl = '${AppConfig.reviewMapBaseUrl}/keyword-alerts';
   late final http.Client _client;
   final TokenStorageService _tokenStorage = TokenStorageService();
 
   final Map<String, String> _headers = {
     'Content-Type': 'application/json; charset=utf-8',
-    'X-API-KEY': AppConfig.ReviewMapApiKey,
+    'X-API-KEY': AppConfig.reviewMapApiKey,
   };
 
   KeywordService() {

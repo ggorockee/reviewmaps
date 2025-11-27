@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 /// 앱 공통 메인 컬러
 /// - 브랜드 아이덴티티 컬러 (#22A45D)
 /// - MaterialApp의 primaryColor, SeedColor 등에 활용됨
-const PRIMARY_COLOR = Color(0xFF22A45D);
+const primaryColor = Color(0xFF22A45D);
 
 /// 플랫폼별 뱃지 색상 매핑 함수
 /// --------------------------------------------
@@ -35,7 +35,7 @@ Color platformBadgeColor(String platform) {
     case '놀러와': return const Color(0xFFbb7138);          // 브라운톤
     case '오마이블로그': return const Color(0xFF80a1bd); // 색상확인인     // 그레이블루
     case '포포몬': return const Color(0xFF7d6fef);          // 바이올렛
-    case '리뷰노트': return const Color(0xFF3195d3);       // 
+    case '리뷰노트': return const Color(0xFF3195d3);       //
     case '리뷰플레이스': return const Color(0xFF6355f2);    // 블루퍼플
     case '레뷰': return const Color(0xFF9038ee);            // 퍼플
     case '링뷰': return const Color(0xFF80a1bd);            // 그레이블루
@@ -46,8 +46,8 @@ Color platformBadgeColor(String platform) {
     case '데일리뷰': return const Color(0xFF669759);          // 라이트그린
     case '똑똑체험단': return const Color(0xFF729287);          // 톤다운 그린
     case '리뷰메이커': return const Color(0xFFfb4884);          // 톤다운 그린
-    case '리뷰어랩': return const Color(0xFFda1a42);          
-    case '리뷰어스': return const Color(0xFF2f52a0);    
+    case '리뷰어랩': return const Color(0xFFda1a42);
+    case '리뷰어스': return const Color(0xFF2f52a0);
     case '리뷰웨이브': return const Color(0xFF0f5fff);
     case '리뷰윙': return const Color(0xFF559e9d);
     case '리뷰퀸': return const Color(0xFFeea6ce);

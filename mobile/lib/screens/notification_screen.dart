@@ -1170,10 +1170,10 @@ class _NotificationScreenState extends State<NotificationScreen>
             vertical: adjustedVerticalPadding,
           ),
           decoration: BoxDecoration(
-            color: PRIMARY_COLOR.withValues(alpha: 0.1),
+            color: primaryColor.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(adjustedBorderRadius),
             border: Border.all(
-              color: PRIMARY_COLOR.withValues(alpha: 0.3),
+              color: primaryColor.withValues(alpha: 0.3),
               width: 0.5,
             ),
           ),
@@ -1183,7 +1183,7 @@ class _NotificationScreenState extends State<NotificationScreen>
               Icon(
                 Icons.label_outline,
                 size: adjustedFontSize,
-                color: PRIMARY_COLOR,
+                color: primaryColor,
               ),
               SizedBox(width: 2.w),
               Text(
@@ -1191,7 +1191,7 @@ class _NotificationScreenState extends State<NotificationScreen>
                 style: TextStyle(
                   fontSize: adjustedFontSize,
                   fontWeight: FontWeight.w500,
-                  color: PRIMARY_COLOR,
+                  color: primaryColor,
                   height: 1.2,
                 ),
               ),
@@ -1229,6 +1229,6 @@ class _NotificationScreenState extends State<NotificationScreen>
     if (dDay < 0) return Colors.grey;
     if (dDay <= 3) return Colors.red;
     if (dDay <= 7) return Colors.orange;
-    return PRIMARY_COLOR;
+    return primaryColor;
   }
 }

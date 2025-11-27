@@ -112,7 +112,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
             onPressed: () => Navigator.of(context).pop(true),
             child: Text(
               '로그아웃',
-              style: TextStyle(color: PRIMARY_COLOR),
+              style: TextStyle(color: primaryColor),
             ),
           ),
         ],
@@ -281,13 +281,13 @@ class _MyPageScreenState extends State<MyPageScreen> {
             width: 80.w,
             height: 80.w,
             decoration: BoxDecoration(
-              color: PRIMARY_COLOR.withValues(alpha: 0.1),
+              color: primaryColor.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.person,
               size: 40.sp,
-              color: PRIMARY_COLOR,
+              color: primaryColor,
             ),
           ),
 
@@ -406,13 +406,13 @@ class _MyPageScreenState extends State<MyPageScreen> {
               width: 48.w,
               height: 48.w,
               decoration: BoxDecoration(
-                color: PRIMARY_COLOR.withValues(alpha: 0.1),
+                color: primaryColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12.r),
               ),
               child: Icon(
                 Icons.notifications_active,
                 size: 24.sp,
-                color: PRIMARY_COLOR,
+                color: primaryColor,
               ),
             ),
 

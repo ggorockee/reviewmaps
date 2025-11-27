@@ -56,13 +56,13 @@ class ExitRewardDialog extends StatelessWidget {
               width: 80.w,
               height: 80.w,
               decoration: BoxDecoration(
-                color: PRIMARY_COLOR.withValues(alpha: 0.1),
+                color: primaryColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(40.r),
               ),
               child: Icon(
                 Icons.card_giftcard,
                 size: 40.w,
-                color: PRIMARY_COLOR,
+                color: primaryColor,
               ),
             ),
             
@@ -162,7 +162,7 @@ class ExitRewardDialog extends StatelessWidget {
                         ? () => _showRewardedAd(context, rewardedAdService)
                         : null,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: PRIMARY_COLOR,
+                      backgroundColor: primaryColor,
                       padding: EdgeInsets.symmetric(vertical: 14.h),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12.r),
@@ -222,7 +222,7 @@ class ExitRewardDialog extends StatelessWidget {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: const Text('🎉 프리미엄 정보가 해제되었습니다!'),
-              backgroundColor: PRIMARY_COLOR,
+              backgroundColor: primaryColor,
               duration: const Duration(seconds: 3),
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(

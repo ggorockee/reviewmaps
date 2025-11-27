@@ -40,8 +40,8 @@ Future<Place?> geocodeFallback(String query) async {
     {'query': query},
   );
   final headers = {
-    'X-NCP-APIGW-API-KEY-ID': AppConfig.NAVER_MAP_CLIENT_ID,
-    'X-NCP-APIGW-API-KEY': AppConfig.NAVER_MAP_CLIENT_SECRET,
+    'X-NCP-APIGW-API-KEY-ID': AppConfig.naverMapClientId,
+    'X-NCP-APIGW-API-KEY': AppConfig.naverMapClientSecret,
   };
 
   final resp = await http
@@ -381,7 +381,11 @@ class _SearchHistoryViewState extends ConsumerState<_SearchHistoryView> {
                 },
               ),
               onTap: () async {
-                // 1) 캐시 먼저 확인
+                // 1) Navigator와 controller를 미리 캡처 (async gap 이전)
+                final navigator = Navigator.of(context);
+                final controller = _searchControllerFromWidget(context);
+
+                // 2) 캐시 먼저 확인
                 final prefs = await SharedPreferences.getInstance();
                 if (!mounted) return; // ← 중요
                 final cached = prefs.getString('placeCache:$query');
@@ -391,12 +395,11 @@ class _SearchHistoryViewState extends ConsumerState<_SearchHistoryView> {
                   final lng = (m['lng'] as num).toDouble();
                   // pop 이후엔 절대 ref/read 호출하지 않음
                   if (!mounted) return;
-                  Navigator.pop(context, NLatLng(lat, lng));
+                  navigator.pop(NLatLng(lat, lng));
                   return;
                 }
 
-                // 2) 캐시에 없으면: 화면을 '검색결과' 모드로 전환하고 바로 검색
-                final controller = _searchControllerFromWidget(context);
+                // 3) 캐시에 없으면: 화면을 '검색결과' 모드로 전환하고 바로 검색
                 controller.text = query;
                 controller.selection = TextSelection.fromPosition(
                   TextPosition(offset: query.length),
@@ -410,7 +413,7 @@ class _SearchHistoryViewState extends ConsumerState<_SearchHistoryView> {
                     .read(searchResultProvider)
                     .maybeWhen(data: (v) => v, orElse: () => const <Place>[]);
                 if (places.isNotEmpty && mounted) {
-                  Navigator.pop(context, places.first.position);
+                  navigator.pop(places.first.position);
                 }
               },
             );

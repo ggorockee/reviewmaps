@@ -99,8 +99,8 @@ class _HomeScreenState extends State<HomeScreen> {
   // Services & Controllers
   // ---------------------------
   final CampaignService _campaignService = CampaignService(
-    AppConfig.ReviewMapbaseUrl,
-    apiKey: AppConfig.ReviewMapApiKey,
+    AppConfig.reviewMapBaseUrl,
+    apiKey: AppConfig.reviewMapApiKey,
   );
   final ScrollController _mainScrollController = ScrollController();
 

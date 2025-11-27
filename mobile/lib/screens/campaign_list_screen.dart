@@ -87,8 +87,8 @@ class _CampaignListScreenState extends ConsumerState<CampaignListScreen> {
 
   // 근처 목록(위치 기반) 무한스크롤 시 사용
   final _campaignService = CampaignService(
-    AppConfig.ReviewMapbaseUrl,
-    apiKey: AppConfig.ReviewMapApiKey,
+    AppConfig.reviewMapBaseUrl,
+    apiKey: AppConfig.reviewMapApiKey,
   );
 
   final List<Store> _originalStores = []; // 원본 데이터

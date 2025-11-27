@@ -121,10 +121,10 @@ class SortFilterWidget extends StatelessWidget {
           vertical: adjustedVerticalPadding,
         ),
         decoration: BoxDecoration(
-          color: isSelected ? PRIMARY_COLOR : Colors.grey.shade100,
+          color: isSelected ? primaryColor : Colors.grey.shade100,
           borderRadius: BorderRadius.circular(isTablet ? 18.r : 16.r),
           border: Border.all(
-            color: isSelected ? PRIMARY_COLOR : Colors.grey.shade300,
+            color: isSelected ? primaryColor : Colors.grey.shade300,
             width: 1.0,
           ),
         ),

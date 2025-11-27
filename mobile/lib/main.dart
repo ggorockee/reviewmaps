@@ -21,7 +21,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart'; // 반응형 사이즈/폰트 유틸
 
 import 'package:mobile/config/config.dart';      // AppConfig: .env를 읽어 상수로 노출
-import 'package:mobile/const/colors.dart';       // PRIMARY_COLOR 등 앱 공통 컬러
+import 'package:mobile/const/colors.dart';       // primaryColor 등 앱 공통 컬러
 import 'package:mobile/screens/splash_screen.dart'; // 스플래시 화면
 import 'package:mobile/screens/auth/login_screen.dart'; // 로그인 화면
 import 'package:mobile/screens/auth/sign_up_screen.dart'; // 회원가입 화면
@@ -97,7 +97,7 @@ Future<void> main() async {
 
   // 7) Kakao SDK 초기화
   try {
-    KakaoSdk.init(nativeAppKey: AppConfig.KAKAO_NATIVE_APP_KEY);
+    KakaoSdk.init(nativeAppKey: AppConfig.kakaoNativeAppKey);
   } catch (e) {
     debugPrint('Kakao SDK 초기화 실패: $e');
   }
@@ -106,7 +106,7 @@ Future<void> main() async {
   // - clientId는 AppConfig에서 가져옴(AppConfig가 .env를 읽어 제공)
   // - onAuthFailed는 배포용에서 불필요한 콘솔 로그를 남기지 않도록 비워둠
   await FlutterNaverMap().init(
-    clientId: AppConfig.NAVER_MAP_CLIENT_ID,
+    clientId: AppConfig.naverMapClientId,
     onAuthFailed: (_) {}, // 배포: 로깅/예외 토스트 등 UI 노이즈 최소화(필요시 Sentry 등으로 전환)
   );
 
@@ -182,12 +182,12 @@ class MyApp extends StatelessWidget {
             ),
 
             // primaryColor는 M3에서 직접적 사용 빈도 낮지만, 레거시/서드파티 대응 겸 유지
-            primaryColor: PRIMARY_COLOR,
+            primaryColor: primaryColor,
 
             // ColorScheme: 시드 기반. primary 등 핵심 톤이 일관되게 파생됨
             colorScheme: ColorScheme.fromSeed(
-              seedColor: PRIMARY_COLOR,
-              primary: PRIMARY_COLOR,
+              seedColor: primaryColor,
+              primary: primaryColor,
             ),
 
             // Scaffold 기본 배경 흰색

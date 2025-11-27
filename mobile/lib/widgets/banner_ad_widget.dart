@@ -59,7 +59,7 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
               'ad_size': 'banner',
             });
             
-            print('[BannerAdWidget] 배너 광고 로드 완료');
+            debugPrint('[BannerAdWidget] 배너 광고 로드 완료');
           },
           onAdFailedToLoad: (ad, error) {
             setState(() {
@@ -73,15 +73,15 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
               'error_message': error.message,
             });
             
-            print('[BannerAdWidget] 배너 광고 로드 실패: ${error.message}');
+            debugPrint('[BannerAdWidget] 배너 광고 로드 실패: ${error.message}');
           },
           onAdOpened: (ad) {
             // 광고 클릭 이벤트 로깅
             _adService.logBannerAdClick();
-            print('[BannerAdWidget] 배너 광고 클릭됨');
+            debugPrint('[BannerAdWidget] 배너 광고 클릭됨');
           },
           onAdClosed: (ad) {
-            print('[BannerAdWidget] 배너 광고 닫힘');
+            debugPrint('[BannerAdWidget] 배너 광고 닫힘');
           },
         ),
       );
@@ -93,7 +93,7 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
         _isAdLoading = false;
       });
       
-      print('[BannerAdWidget] 배너 광고 로드 중 오류: $e');
+      debugPrint('[BannerAdWidget] 배너 광고 로드 중 오류: $e');
     }
   }
 

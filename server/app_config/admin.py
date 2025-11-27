@@ -2,7 +2,7 @@
 app_config Django Admin 설정
 """
 from django.contrib import admin
-from app_config.models import AdConfig, AppVersion, AppSetting
+from app_config.models import AdConfig, AppVersion, AppSetting, RateLimitConfig
 
 
 @admin.register(AdConfig)
@@ -89,3 +89,47 @@ class AppSettingAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
+
+
+@admin.register(RateLimitConfig)
+class RateLimitConfigAdmin(admin.ModelAdmin):
+    """Rate Limit 설정 Admin"""
+    list_display = [
+        'endpoint', 
+        'max_requests', 
+        'window_seconds', 
+        'apply_to_authenticated', 
+        'apply_to_anonymous',
+        'block_duration_seconds',
+        'is_enabled', 
+        'priority',
+        'created_at'
+    ]
+    list_filter = ['is_enabled', 'apply_to_authenticated', 'apply_to_anonymous']
+    search_fields = ['endpoint', 'description']
+    ordering = ['-priority', 'endpoint']
+    readonly_fields = ['created_at', 'updated_at']
+
+    fieldsets = (
+        ('엔드포인트 설정', {
+            'fields': ('endpoint', 'priority', 'is_enabled', 'description')
+        }),
+        ('Rate Limit 규칙', {
+            'fields': ('max_requests', 'window_seconds', 'block_duration_seconds'),
+            'description': '예: 60초 동안 최대 100개 요청 허용, 초과 시 300초 차단'
+        }),
+        ('적용 대상', {
+            'fields': ('apply_to_authenticated', 'apply_to_anonymous'),
+            'description': '인증된 사용자와 익명 사용자에 대한 Rate Limit 적용 여부'
+        }),
+        ('타임스탬프', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def get_readonly_fields(self, request, obj=None):
+        """endpoint는 생성 후 수정 불가"""
+        if obj:  # 수정 모드
+            return self.readonly_fields + ['endpoint']
+        return self.readonly_fields

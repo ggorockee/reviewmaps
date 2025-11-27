@@ -88,6 +88,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'core.middleware.rate_limit.RateLimitMiddleware',  # Rate Limiting - 인증 후 실행
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -141,6 +142,18 @@ else:
 # Django 5.2는 PostgreSQL 14+를 요구하지만, 현재 13.21 사용 중
 from django.db.backends.postgresql.features import DatabaseFeatures
 DatabaseFeatures.minimum_database_version = (13, 0)
+
+# Cache 설정
+# Rate Limiting 등에서 사용
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-reviewmaps-cache',
+        'OPTIONS': {
+            'MAX_ENTRIES': 10000,
+        }
+    }
+}
 
 
 # Password validation

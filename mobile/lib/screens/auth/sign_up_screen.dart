@@ -147,7 +147,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         _startResendCooldownTimer();
       }
 
-      _showSuccessSnackBar('인증코드가 발송되었습니다.');
+      _showSuccessToast('인증코드가 발송되었습니다.');
     } catch (e) {
       if (!mounted) return;
       _showErrorDialog(_parseErrorMessage(e));
@@ -192,7 +192,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         _verificationToken = response.verificationToken;
       });
 
-      _showSuccessSnackBar('이메일 인증이 완료되었습니다.');
+      _showSuccessToast('이메일 인증이 완료되었습니다.');
     } catch (e) {
       if (!mounted) return;
       _showErrorDialog(_parseErrorMessage(e));
@@ -315,13 +315,50 @@ class _SignUpScreenState extends State<SignUpScreen> {
     );
   }
 
-  /// 성공 스낵바 표시
-  void _showSuccessSnackBar(String message) {
+  /// 성공 토스트 메시지 표시 (2025 트렌드 - 모던한 디자인)
+  void _showSuccessToast(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.green,
+        content: Row(
+          children: [
+            Container(
+              padding: EdgeInsets.all(6.r),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.check_circle_rounded,
+                color: Colors.white,
+                size: 20.sp,
+              ),
+            ),
+            SizedBox(width: 12.w),
+            Expanded(
+              child: Text(
+                message,
+                style: TextStyle(
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white,
+                  letterSpacing: -0.14,
+                ),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: const Color(0xFF34C759), // iOS 스타일 그린
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12.r),
+        ),
+        margin: EdgeInsets.only(
+          bottom: 20.h,
+          left: 16.w,
+          right: 16.w,
+        ),
         duration: const Duration(seconds: 2),
+        elevation: 4,
       ),
     );
   }
@@ -600,7 +637,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             ? '$_resendCooldownSeconds초'
                             : (_sendCount > 0 ? '재발송' : '발송'),
                         style: TextStyle(
-                          fontSize: 16.sp,
+                          fontSize: 14.sp,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -743,7 +780,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     : Text(
                         '확인',
                         style: TextStyle(
-                          fontSize: 16.sp,
+                          fontSize: 14.sp,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -938,9 +975,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
             : Text(
                 '가입하기',
                 style: TextStyle(
-                  fontSize: 18.sp,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.18,
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.16,
                 ),
               ),
       ),

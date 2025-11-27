@@ -302,6 +302,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
         title: const Text('알림'),
         content: Text(message),
         actions: [
@@ -599,8 +600,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             ? '$_resendCooldownSeconds초'
                             : (_sendCount > 0 ? '재발송' : '발송'),
                         style: TextStyle(
-                          fontSize: 12.sp,
-                          fontWeight: FontWeight.w500,
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
               ),
@@ -742,8 +743,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     : Text(
                         '확인',
                         style: TextStyle(
-                          fontSize: 12.sp,
-                          fontWeight: FontWeight.w500,
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
               ),
@@ -937,9 +938,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
             : Text(
                 '가입하기',
                 style: TextStyle(
-                  fontSize: 14.sp,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: -0.14,
+                  fontSize: 18.sp,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.18,
                 ),
               ),
       ),

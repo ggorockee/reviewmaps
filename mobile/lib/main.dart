@@ -37,6 +37,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 
+/// 글로벌 네비게이터 키 (FCM 알림 탭 등에서 사용)
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 // 비동기 초기화가 필요하므로 main을 async로 선언
 Future<void> main() async {
@@ -157,6 +159,9 @@ class MyApp extends StatelessWidget {
       // builder 내부에서 MaterialApp을 구성하고, child를 home으로 넘겨 성능/재빌드 최소화
       builder: (context, child) {
         return MaterialApp(
+          // 글로벌 네비게이터 키 설정
+          navigatorKey: navigatorKey,
+          
           // 릴리즈에서 디버그 배너 제거
           debugShowCheckedModeBanner: false,
           title: 'Review Schedule',

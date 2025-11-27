@@ -307,4 +307,41 @@ class CampaignService {
           .toList();
     });
   }
+
+  /// 단일 캠페인 조회 (ID 기반)
+  /// 
+  /// 캠페인이 존재하면 Store 객체를 반환하고,
+  /// 삭제되었거나 존재하지 않으면 null을 반환합니다.
+  Future<Store?> fetchCampaignById(int campaignId) async {
+    final uri = Uri.parse('$baseUrl/campaigns/$campaignId');
+
+    return _withRetry(() async {
+      try {
+        final r = await _client
+            .get(uri, headers: _headers)
+            .timeout(const Duration(seconds: 3));
+
+        // 디버깅 모드에서 API 응답 출력
+        _debugPrintResponse('GET', uri.toString(), null, r);
+
+        if (r.statusCode == 404) {
+          // 캠페인이 삭제되었거나 존재하지 않음
+          return null;
+        }
+
+        if (r.statusCode != 200) {
+          throw Exception(NetworkErrorHandler.getHttpErrorMessage(r.statusCode));
+        }
+
+        final decoded = jsonDecode(utf8.decode(r.bodyBytes));
+        return Store.fromJson(decoded as Map<String, dynamic>);
+      } catch (e) {
+        // 네트워크 에러나 404는 null 반환
+        if (e.toString().contains('404') || e.toString().contains('Not Found')) {
+          return null;
+        }
+        rethrow;
+      }
+    });
+  }
 }

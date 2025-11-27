@@ -3,6 +3,7 @@ app_config 모델
 모바일 앱 설정을 중앙화 관리하는 모델
 """
 from django.db import models
+from django.core.validators import MinValueValidator
 
 
 class AdConfig(models.Model):
@@ -159,3 +160,86 @@ class AppSetting(models.Model):
 
     def __str__(self):
         return self.key
+
+
+class RateLimitConfig(models.Model):
+    """
+    API Rate Limiting 설정 모델
+    엔드포인트별 요청 제한을 Django Admin에서 관리
+    """
+    endpoint = models.CharField(
+        max_length=200,
+        unique=True,
+        verbose_name="엔드포인트",
+        help_text="예: /api/v1/campaigns/*, /api/v1/auth/*, 또는 * (전체)"
+    )
+    max_requests = models.IntegerField(
+        validators=[MinValueValidator(1)],
+        verbose_name="최대 요청 수",
+        help_text="시간 윈도우 내 최대 허용 요청 수"
+    )
+    window_seconds = models.IntegerField(
+        validators=[MinValueValidator(1)],
+        verbose_name="시간 윈도우 (초)",
+        help_text="Rate limit을 체크할 시간 범위 (예: 60초)"
+    )
+    apply_to_authenticated = models.BooleanField(
+        default=True,
+        verbose_name="인증된 사용자에게 적용",
+        help_text="로그인한 사용자에게도 Rate Limit 적용"
+    )
+    apply_to_anonymous = models.BooleanField(
+        default=True,
+        verbose_name="익명 사용자에게 적용",
+        help_text="비로그인 사용자에게 Rate Limit 적용"
+    )
+    block_duration_seconds = models.IntegerField(
+        default=300,
+        validators=[MinValueValidator(0)],
+        verbose_name="차단 시간 (초)",
+        help_text="Rate Limit 초과 시 차단할 시간 (0=차단 없음)"
+    )
+    is_enabled = models.BooleanField(
+        default=True,
+        verbose_name="활성화 여부"
+    )
+    priority = models.IntegerField(
+        default=0,
+        verbose_name="우선순위",
+        help_text="숫자가 높을수록 먼저 적용됨 (특정 엔드포인트를 * 보다 먼저 체크)"
+    )
+    description = models.TextField(
+        null=True,
+        blank=True,
+        verbose_name="설명"
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="생성일시")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="수정일시")
+
+    class Meta:
+        db_table = 'rate_limit_configs'
+        verbose_name = "Rate Limit 설정"
+        verbose_name_plural = "Rate Limit 설정"
+        ordering = ['-priority', 'endpoint']
+        indexes = [
+            models.Index(fields=['endpoint', 'is_enabled'], name='idx_ratelimit_endpoint'),
+            models.Index(fields=['-priority'], name='idx_ratelimit_priority'),
+        ]
+
+    def __str__(self):
+        return f"{self.endpoint} - {self.max_requests}/{self.window_seconds}s"
+
+    def matches_path(self, path: str) -> bool:
+        """
+        요청 경로가 이 설정과 매칭되는지 확인
+        """
+        if self.endpoint == '*':
+            return True
+        
+        # 와일드카드 처리
+        if self.endpoint.endswith('*'):
+            prefix = self.endpoint[:-1]
+            return path.startswith(prefix)
+        
+        # 정확히 일치
+        return path == self.endpoint

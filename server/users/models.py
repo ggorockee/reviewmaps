@@ -193,3 +193,38 @@ class SocialAccount(models.Model):
 
     def __str__(self):
         return f"{self.provider} - {self.email}"
+
+
+class EmailVerification(models.Model):
+    """
+    이메일 인증 코드 관리
+    회원가입 시 이메일 인증을 위한 6자리 코드 저장
+    """
+
+    email = models.EmailField(verbose_name="이메일")
+    code = models.CharField(max_length=6, verbose_name="인증코드")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="생성일시")
+    expires_at = models.DateTimeField(verbose_name="만료일시")
+    attempts = models.IntegerField(default=0, verbose_name="시도 횟수")
+    is_verified = models.BooleanField(default=False, verbose_name="인증 완료 여부")
+    verification_token = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name="인증 토큰",
+        help_text="인증 완료 후 발급되는 토큰 (회원가입 시 사용)"
+    )
+    send_count = models.IntegerField(default=1, verbose_name="발송 횟수")
+    last_sent_at = models.DateTimeField(auto_now_add=True, verbose_name="마지막 발송 시간")
+
+    class Meta:
+        db_table = 'email_verifications'
+        verbose_name = "이메일 인증"
+        verbose_name_plural = "이메일 인증"
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['email', 'code'], name='idx_email_code'),
+            models.Index(fields=['email', 'is_verified'], name='idx_email_verified'),
+        ]
+
+    def __str__(self):
+        return f"{self.email} - {'인증완료' if self.is_verified else '미인증'}"

@@ -6,16 +6,83 @@
 class SignUpRequest {
   final String email;
   final String password;
+  final String? name;
+  final String verificationToken;
 
   SignUpRequest({
     required this.email,
     required this.password,
+    this.name,
+    required this.verificationToken,
   });
 
   Map<String, dynamic> toJson() => {
     'email': email,
     'password': password,
+    if (name != null && name!.isNotEmpty) 'name': name,
+    'verification_token': verificationToken,
   };
+}
+
+/// 이메일 인증코드 발송 요청 데이터
+class EmailSendCodeRequest {
+  final String email;
+
+  EmailSendCodeRequest({required this.email});
+
+  Map<String, dynamic> toJson() => {'email': email};
+}
+
+/// 이메일 인증코드 발송 응답 데이터
+class EmailSendCodeResponse {
+  final String message;
+  final int expiresIn;
+
+  EmailSendCodeResponse({
+    required this.message,
+    required this.expiresIn,
+  });
+
+  factory EmailSendCodeResponse.fromJson(Map<String, dynamic> json) {
+    return EmailSendCodeResponse(
+      message: json['message'] as String,
+      expiresIn: json['expires_in'] as int,
+    );
+  }
+}
+
+/// 이메일 인증코드 확인 요청 데이터
+class EmailVerifyCodeRequest {
+  final String email;
+  final String code;
+
+  EmailVerifyCodeRequest({
+    required this.email,
+    required this.code,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'email': email,
+    'code': code,
+  };
+}
+
+/// 이메일 인증코드 확인 응답 데이터
+class EmailVerifyCodeResponse {
+  final bool verified;
+  final String verificationToken;
+
+  EmailVerifyCodeResponse({
+    required this.verified,
+    required this.verificationToken,
+  });
+
+  factory EmailVerifyCodeResponse.fromJson(Map<String, dynamic> json) {
+    return EmailVerifyCodeResponse(
+      verified: json['verified'] as bool,
+      verificationToken: json['verification_token'] as String,
+    );
+  }
 }
 
 /// 로그인 요청 데이터

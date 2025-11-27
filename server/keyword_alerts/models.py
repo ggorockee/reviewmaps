@@ -53,9 +53,9 @@ class FCMDevice(CoreModel):
         verbose_name = "FCM 디바이스"
         verbose_name_plural = "FCM 디바이스"
         indexes = [
-            models.Index(fields=['user', 'is_active']),
-            models.Index(fields=['anonymous_session_id', 'is_active']),
-            models.Index(fields=['fcm_token']),
+            models.Index(fields=['user', 'is_active'], name='fcm_user_active_idx'),
+            models.Index(fields=['anonymous_session_id', 'is_active'], name='fcm_anon_active_idx'),
+            models.Index(fields=['fcm_token'], name='fcm_token_idx'),
         ]
         constraints = [
             models.CheckConstraint(

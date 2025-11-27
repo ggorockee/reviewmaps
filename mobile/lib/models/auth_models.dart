@@ -330,3 +330,117 @@ class AnonymousUserInfo {
     }
   }
 }
+
+/// 비밀번호 재설정 요청 데이터
+class PasswordResetRequest {
+  final String email;
+
+  PasswordResetRequest({required this.email});
+
+  Map<String, dynamic> toJson() => {'email': email};
+}
+
+/// 비밀번호 재설정 응답 데이터
+class PasswordResetResponse {
+  final String message;
+  final int expiresIn;
+
+  PasswordResetResponse({
+    required this.message,
+    required this.expiresIn,
+  });
+
+  factory PasswordResetResponse.fromJson(Map<String, dynamic> json) {
+    return PasswordResetResponse(
+      message: json['message'] as String,
+      expiresIn: json['expires_in'] as int,
+    );
+  }
+}
+
+/// 비밀번호 재설정 인증코드 확인 요청 데이터
+class PasswordResetVerifyRequest {
+  final String email;
+  final String code;
+
+  PasswordResetVerifyRequest({
+    required this.email,
+    required this.code,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'email': email,
+    'code': code,
+  };
+}
+
+/// 비밀번호 재설정 인증코드 확인 응답 데이터
+class PasswordResetVerifyResponse {
+  final bool verified;
+  final String resetToken;
+
+  PasswordResetVerifyResponse({
+    required this.verified,
+    required this.resetToken,
+  });
+
+  factory PasswordResetVerifyResponse.fromJson(Map<String, dynamic> json) {
+    return PasswordResetVerifyResponse(
+      verified: json['verified'] as bool,
+      resetToken: json['reset_token'] as String,
+    );
+  }
+}
+
+/// 비밀번호 재설정 확정 요청 데이터
+class PasswordResetConfirmRequest {
+  final String email;
+  final String resetToken;
+  final String newPassword;
+
+  PasswordResetConfirmRequest({
+    required this.email,
+    required this.resetToken,
+    required this.newPassword,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'email': email,
+    'reset_token': resetToken,
+    'new_password': newPassword,
+  };
+}
+
+/// 비밀번호 변경 요청 데이터 (로그인한 사용자)
+class PasswordChangeRequest {
+  final String currentPassword;
+  final String newPassword;
+
+  PasswordChangeRequest({
+    required this.currentPassword,
+    required this.newPassword,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'current_password': currentPassword,
+    'new_password': newPassword,
+  };
+}
+
+/// 일반 메시지 응답 데이터
+class MessageResponse {
+  final String message;
+  final bool success;
+
+  MessageResponse({
+    required this.message,
+    required this.success,
+  });
+
+  factory MessageResponse.fromJson(Map<String, dynamic> json) {
+    return MessageResponse(
+      message: json['message'] as String,
+      success: json['success'] as bool? ?? true,
+    );
+  }
+}

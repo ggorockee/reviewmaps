@@ -739,4 +739,169 @@ class AuthService {
       if (accessToken != null) 'Authorization': 'Bearer $accessToken',
     };
   }
+
+  // ===== 비밀번호 재설정 API =====
+
+  /// 비밀번호 재설정 요청 (인증코드 발송)
+  /// POST /v1/auth/password/reset-request
+  /// - 가입된 이메일(email 로그인)로 6자리 인증코드 발송
+  /// - 유효시간: 60분
+  Future<PasswordResetResponse> passwordResetRequest({
+    required String email,
+  }) async {
+    final uri = Uri.parse('$baseUrl/auth/password/reset-request');
+    final request = PasswordResetRequest(email: email);
+
+    try {
+      final response = await _client
+          .post(
+            uri,
+            headers: _headers,
+            body: jsonEncode(request.toJson()),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      _debugPrintResponse('POST', uri.toString(), response);
+
+      if (response.statusCode == 429) {
+        final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
+        throw Exception(errorBody['detail'] ?? '잠시 후 다시 시도해 주세요.');
+      }
+
+      if (response.statusCode != 200) {
+        final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
+        throw Exception(
+            errorBody['detail'] ?? '인증코드를 발송할 수 없습니다. 잠시 후 다시 시도해 주세요.');
+      }
+
+      return PasswordResetResponse.fromJson(
+          jsonDecode(utf8.decode(response.bodyBytes)));
+    } catch (e) {
+      if (e is Exception) rethrow;
+      throw Exception('네트워크 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
+    }
+  }
+
+  /// 비밀번호 재설정 인증코드 확인
+  /// POST /v1/auth/password/reset-verify
+  /// - 인증코드 확인 후 reset_token 발급
+  /// - 5회 실패 시 재요청 필요
+  Future<PasswordResetVerifyResponse> passwordResetVerify({
+    required String email,
+    required String code,
+  }) async {
+    final uri = Uri.parse('$baseUrl/auth/password/reset-verify');
+    final request = PasswordResetVerifyRequest(email: email, code: code);
+
+    try {
+      final response = await _client
+          .post(
+            uri,
+            headers: _headers,
+            body: jsonEncode(request.toJson()),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      _debugPrintResponse('POST', uri.toString(), response);
+
+      if (response.statusCode == 429) {
+        final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
+        throw Exception(errorBody['detail'] ?? '인증 시도 횟수를 초과했습니다.');
+      }
+
+      if (response.statusCode != 200) {
+        final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
+        throw Exception(errorBody['detail'] ?? '인증코드를 확인할 수 없습니다.');
+      }
+
+      return PasswordResetVerifyResponse.fromJson(
+          jsonDecode(utf8.decode(response.bodyBytes)));
+    } catch (e) {
+      if (e is Exception) rethrow;
+      throw Exception('네트워크 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
+    }
+  }
+
+  /// 비밀번호 재설정 확정 (새 비밀번호 설정)
+  /// POST /v1/auth/password/reset-confirm
+  /// - reset_token으로 검증 후 새 비밀번호 설정
+  /// - 비밀번호 8자 이상
+  Future<MessageResponse> passwordResetConfirm({
+    required String email,
+    required String resetToken,
+    required String newPassword,
+  }) async {
+    final uri = Uri.parse('$baseUrl/auth/password/reset-confirm');
+    final request = PasswordResetConfirmRequest(
+      email: email,
+      resetToken: resetToken,
+      newPassword: newPassword,
+    );
+
+    try {
+      final response = await _client
+          .post(
+            uri,
+            headers: _headers,
+            body: jsonEncode(request.toJson()),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      _debugPrintResponse('POST', uri.toString(), response);
+
+      if (response.statusCode != 200) {
+        final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
+        throw Exception(errorBody['detail'] ?? '비밀번호를 변경할 수 없습니다.');
+      }
+
+      return MessageResponse.fromJson(
+          jsonDecode(utf8.decode(response.bodyBytes)));
+    } catch (e) {
+      if (e is Exception) rethrow;
+      throw Exception('네트워크 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
+    }
+  }
+
+  /// 비밀번호 변경 (로그인한 사용자)
+  /// POST /v1/auth/password/change
+  /// - Authorization 헤더 필수
+  /// - 현재 비밀번호 확인 후 변경
+  Future<MessageResponse> passwordChange({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final uri = Uri.parse('$baseUrl/auth/password/change');
+    final request = PasswordChangeRequest(
+      currentPassword: currentPassword,
+      newPassword: newPassword,
+    );
+
+    try {
+      final headers = await getValidAuthHeaders();
+      final response = await _client
+          .post(
+            uri,
+            headers: headers,
+            body: jsonEncode(request.toJson()),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      _debugPrintResponse('POST', uri.toString(), response);
+
+      if (response.statusCode == 401) {
+        throw Exception('로그인이 필요합니다.');
+      }
+
+      if (response.statusCode != 200) {
+        final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
+        throw Exception(errorBody['detail'] ?? '비밀번호를 변경할 수 없습니다.');
+      }
+
+      return MessageResponse.fromJson(
+          jsonDecode(utf8.decode(response.bodyBytes)));
+    } catch (e) {
+      if (e is Exception) rethrow;
+      throw Exception('네트워크 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
+    }
+  }
 }

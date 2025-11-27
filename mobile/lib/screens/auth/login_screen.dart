@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/screens/auth/sign_up_screen.dart';
+import 'package:mobile/screens/auth/password_reset_screen.dart';
 import 'package:mobile/screens/main_screen.dart';
 import 'package:mobile/services/auth_service.dart';
 import 'package:mobile/services/sns/kakao_login_service.dart';
@@ -394,6 +395,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               // 로그인 버튼
               _buildLoginButton(),
 
+              SizedBox(height: 12.h),
+
+              // 비밀번호 찾기 링크
+              _buildForgotPasswordLink(),
+
               SizedBox(height: 20.h),
 
               // 또는 구분선
@@ -748,6 +754,33 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  // 비밀번호 찾기 링크
+  Widget _buildForgotPasswordLink() {
+    return Align(
+      alignment: Alignment.centerRight,
+      child: GestureDetector(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const PasswordResetScreen(),
+            ),
+          );
+        },
+        child: Text(
+          '비밀번호 찾기',
+          style: TextStyle(
+            fontSize: 12.sp,
+            fontWeight: FontWeight.w500,
+            color: const Color(0xFF6C7278),
+            letterSpacing: -0.12,
+            decoration: TextDecoration.underline,
+          ),
         ),
       ),
     );

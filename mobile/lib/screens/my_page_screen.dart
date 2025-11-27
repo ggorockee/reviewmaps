@@ -101,6 +101,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
         title: const Text('로그아웃'),
         content: const Text('로그아웃하시겠습니까?'),
         actions: [
@@ -142,6 +143,7 @@ class _MyPageScreenState extends State<MyPageScreen> {
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
+            backgroundColor: Colors.white,
             title: const Text('알림'),
             content: const Text('로그아웃할 수 없습니다.\n잠시 후 다시 시도해 주세요.'),
             actions: [

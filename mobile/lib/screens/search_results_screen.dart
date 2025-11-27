@@ -16,8 +16,8 @@ import '../providers/location_provider.dart';
 // 1. CampaignService를 제공하는 Provider 정의 (의존성 주입)
 final campaignServiceProvider = Provider<CampaignService>((ref) {
   return CampaignService(
-    AppConfig.ReviewMapbaseUrl,
-    apiKey: AppConfig.ReviewMapApiKey,
+    AppConfig.reviewMapBaseUrl,
+    apiKey: AppConfig.reviewMapApiKey,
   );
 });
 
@@ -223,24 +223,35 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
               onSortChanged: _onSortOptionChanged,
               userPosition: locationState.position,
               onLocationRequest: () async {
+                // ScaffoldMessenger를 미리 캡처 (async gap 이전)
+                final messenger = ScaffoldMessenger.of(context);
                 // Provider를 통한 위치 권한 요청
                 await ref.read(locationProvider.notifier).update();
+                if (!mounted) return; // 위젯이 dispose된 경우 중단
                 final updatedLocationState = ref.read(locationProvider);
-                
+
                 if (!updatedLocationState.isGranted) {
-                  showFriendlySnack(
-                    context, 
-                    '위치 권한이 필요합니다.',
-                    actionLabel: '설정 열기',
-                    onAction: () => ref.read(locationProvider.notifier).openAppSettings(),
-                  );
+                  messenger.hideCurrentSnackBar();
+                  messenger.clearSnackBars();
+                  messenger.showSnackBar(SnackBar(
+                    content: const Text('위치 권한이 필요합니다.'),
+                    behavior: SnackBarBehavior.floating,
+                    action: SnackBarAction(
+                      label: '설정 열기',
+                      onPressed: () => ref.read(locationProvider.notifier).openAppSettings(),
+                    ),
+                  ));
                 } else if (updatedLocationState.position == null) {
-                  showFriendlySnack(
-                    context, 
-                    '위치 정보를 가져올 수 없습니다.',
-                    actionLabel: '설정 열기',
-                    onAction: () => ref.read(locationProvider.notifier).openLocationSettings(),
-                  );
+                  messenger.hideCurrentSnackBar();
+                  messenger.clearSnackBars();
+                  messenger.showSnackBar(SnackBar(
+                    content: const Text('위치 정보를 가져올 수 없습니다.'),
+                    behavior: SnackBarBehavior.floating,
+                    action: SnackBarAction(
+                      label: '설정 열기',
+                      onPressed: () => ref.read(locationProvider.notifier).openLocationSettings(),
+                    ),
+                  ));
                 }
               },
             ),

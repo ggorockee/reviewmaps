@@ -90,7 +90,7 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
             onPressed: () => Navigator.of(context).pop(true),
             child: Text(
               '등록',
-              style: TextStyle(color: PRIMARY_COLOR),
+              style: TextStyle(color: primaryColor),
             ),
           ),
         ],
@@ -269,16 +269,16 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
                 '모두 읽음',
                 style: TextStyle(
                   fontSize: 14.sp,
-                  color: PRIMARY_COLOR,
+                  color: primaryColor,
                 ),
               ),
             ),
         ],
         bottom: TabBar(
           controller: _tabController,
-          labelColor: PRIMARY_COLOR,
+          labelColor: primaryColor,
           unselectedLabelColor: const Color(0xFF6C7278),
-          indicatorColor: PRIMARY_COLOR,
+          indicatorColor: primaryColor,
           tabs: const [
             Tab(text: '등록 키워드'),
             Tab(text: '알람'),
@@ -297,7 +297,7 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
       floatingActionButton: _tabController.index == 0
           ? FloatingActionButton(
               onPressed: _addKeyword,
-              backgroundColor: PRIMARY_COLOR,
+              backgroundColor: primaryColor,
               child: const Icon(Icons.add, color: Colors.white),
             )
           : null,
@@ -383,13 +383,13 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
             width: 40.w,
             height: 40.w,
             decoration: BoxDecoration(
-              color: PRIMARY_COLOR.withValues(alpha: 0.1),
+              color: primaryColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8.r),
             ),
             child: Icon(
               Icons.label,
               size: 20.sp,
-              color: PRIMARY_COLOR,
+              color: primaryColor,
             ),
           ),
 
@@ -786,10 +786,10 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
             vertical: adjustedVerticalPadding,
           ),
           decoration: BoxDecoration(
-            color: PRIMARY_COLOR.withValues(alpha: 0.1),
+            color: primaryColor.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(adjustedBorderRadius),
             border: Border.all(
-              color: PRIMARY_COLOR.withValues(alpha: 0.3),
+              color: primaryColor.withValues(alpha: 0.3),
               width: 0.5,
             ),
           ),
@@ -799,7 +799,7 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
               Icon(
                 Icons.label_outline,
                 size: adjustedFontSize,
-                color: PRIMARY_COLOR,
+                color: primaryColor,
               ),
               SizedBox(width: 2.w),
               Text(
@@ -807,7 +807,7 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
                 style: TextStyle(
                   fontSize: adjustedFontSize,
                   fontWeight: FontWeight.w500,
-                  color: PRIMARY_COLOR,
+                  color: primaryColor,
                   height: 1.2,
                 ),
               ),
@@ -845,7 +845,7 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
     if (dDay < 0) return Colors.grey;
     if (dDay <= 3) return Colors.red;
     if (dDay <= 7) return Colors.orange;
-    return PRIMARY_COLOR;
+    return primaryColor;
   }
 
   /// 날짜 포맷

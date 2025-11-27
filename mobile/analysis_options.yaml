@@ -24,5 +24,11 @@ linter:
     # avoid_print: false  # Uncomment to disable the `avoid_print` rule
     # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
 
+analyzer:
+  errors:
+    # .env 파일은 gitignore에 포함되어 저장소에 없음
+    # 개발자가 직접 .env 파일을 생성해야 함
+    asset_does_not_exist: ignore
+
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options

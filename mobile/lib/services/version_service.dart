@@ -33,7 +33,7 @@ class VersionService {
       final platform = Platform.isIOS ? 'ios' : 'android';
 
       // 2. API 엔드포인트 URL 생성
-      final url = Uri.parse('${AppConfig.ReviewMapbaseUrl}/app-config/version')
+      final url = Uri.parse('${AppConfig.reviewMapBaseUrl}/app-config/version')
           .replace(queryParameters: {
         'platform': platform,
       });
@@ -42,7 +42,7 @@ class VersionService {
       final response = await http.get(
         url,
         headers: {
-          'X-API-Key': AppConfig.ReviewMapApiKey,
+          'X-API-Key': AppConfig.reviewMapApiKey,
           'Content-Type': 'application/json',
         },
       );

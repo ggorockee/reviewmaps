@@ -24,8 +24,8 @@ class AuthService {
   AuthService({
     String? baseUrl,
     String? apiKey,
-  })  : baseUrl = baseUrl ?? AppConfig.ReviewMapbaseUrl,
-        apiKey = apiKey ?? AppConfig.ReviewMapApiKey {
+  })  : baseUrl = baseUrl ?? AppConfig.reviewMapBaseUrl,
+        apiKey = apiKey ?? AppConfig.reviewMapApiKey {
     final io = HttpClient()
       ..connectionTimeout = const Duration(seconds: 10)
       ..idleTimeout = const Duration(seconds: 10);

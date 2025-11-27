@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/ad_service.dart';
 
@@ -37,9 +37,9 @@ class InterstitialAdManager {
 
       await _adService.loadInterstitialAd();
       _isInitialized = true;
-      print('[InterstitialAdManager] 전면광고 매니저 초기화 완료');
+      if (kDebugMode) print('[InterstitialAdManager] 전면광고 매니저 초기화 완료');
     } catch (e) {
-      print('[InterstitialAdManager] 초기화 실패: $e');
+      if (kDebugMode) print('[InterstitialAdManager] 초기화 실패: $e');
     }
   }
 
@@ -52,7 +52,7 @@ class InterstitialAdManager {
         _lastAdShownTime = DateTime.fromMillisecondsSinceEpoch(timestamp);
       }
     } catch (e) {
-      print('[InterstitialAdManager] 마지막 광고 표시 시간 로드 실패: $e');
+      if (kDebugMode) print('[InterstitialAdManager] 마지막 광고 표시 시간 로드 실패: $e');
     }
   }
 
@@ -63,7 +63,7 @@ class InterstitialAdManager {
       await prefs.setInt(_lastAdShownTimeKey, DateTime.now().millisecondsSinceEpoch);
       _lastAdShownTime = DateTime.now();
     } catch (e) {
-      print('[InterstitialAdManager] 마지막 광고 표시 시간 저장 실패: $e');
+      if (kDebugMode) print('[InterstitialAdManager] 마지막 광고 표시 시간 저장 실패: $e');
     }
   }
 
@@ -71,7 +71,7 @@ class InterstitialAdManager {
   bool _canShowAd() {
     // 세션당 최대 광고 표시 횟수 확인
     if (_adShownCountInSession >= _maxAdsPerSession) {
-      print('[InterstitialAdManager] 세션당 최대 광고 표시 횟수 초과 ($_adShownCountInSession/$_maxAdsPerSession)');
+      if (kDebugMode) print('[InterstitialAdManager] 세션당 최대 광고 표시 횟수 초과 ($_adShownCountInSession/$_maxAdsPerSession)');
       return false;
     }
 
@@ -80,7 +80,7 @@ class InterstitialAdManager {
       final timeSinceLastAd = DateTime.now().difference(_lastAdShownTime!);
       if (timeSinceLastAd < _minAdInterval) {
         final remainingSeconds = (_minAdInterval - timeSinceLastAd).inSeconds;
-        print('[InterstitialAdManager] 광고 표시 대기 중: $remainingSeconds초 남음');
+        if (kDebugMode) print('[InterstitialAdManager] 광고 표시 대기 중: $remainingSeconds초 남음');
         return false;
       }
     }
@@ -96,7 +96,7 @@ class InterstitialAdManager {
     VoidCallback? onAdShown,
     VoidCallback? onAdFailed,
   }) {
-    print('[InterstitialAdManager] showDelayedInterstitialAd는 더 이상 사용되지 않습니다. App Open Ad를 사용하세요.');
+    if (kDebugMode) print('[InterstitialAdManager] showDelayedInterstitialAd는 더 이상 사용되지 않습니다. App Open Ad를 사용하세요.');
   }
 
   /// 특정 이벤트 후 전면광고 표시 (예: 화면 전환, 검색 완료 등)
@@ -108,7 +108,7 @@ class InterstitialAdManager {
   }) async {
     // 무효 트래픽 방지 체크
     if (!_canShowAd()) {
-      print('[InterstitialAdManager] 광고 표시 조건 미충족');
+      if (kDebugMode) print('[InterstitialAdManager] 광고 표시 조건 미충족');
       onAdFailed?.call();
       return;
     }
@@ -129,12 +129,12 @@ class InterstitialAdManager {
       // 광고 표시 완료 콜백
       onAdShown?.call();
 
-      print('[InterstitialAdManager] 이벤트 기반 전면광고 표시 완료: $eventName ($_adShownCountInSession/$_maxAdsPerSession)');
+      if (kDebugMode) print('[InterstitialAdManager] 이벤트 기반 전면광고 표시 완료: $eventName ($_adShownCountInSession/$_maxAdsPerSession)');
 
       // 다음 광고 미리 로드
       await _adService.loadInterstitialAd();
     } catch (e) {
-      print('[InterstitialAdManager] 이벤트 기반 전면광고 표시 실패: $e');
+      if (kDebugMode) print('[InterstitialAdManager] 이벤트 기반 전면광고 표시 실패: $e');
       onAdFailed?.call();
     }
   }
@@ -144,7 +144,7 @@ class InterstitialAdManager {
     _hasShownAdInSession = false;
     _adShownCountInSession = 0;
     _delayTimer?.cancel();
-    print('[InterstitialAdManager] 세션 리셋 완료');
+    if (kDebugMode) print('[InterstitialAdManager] 세션 리셋 완료');
   }
 
   /// 타이머 정리

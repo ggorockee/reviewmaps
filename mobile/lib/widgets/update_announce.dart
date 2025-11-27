@@ -22,10 +22,10 @@ class UpdatePillBanner extends StatelessWidget {
       margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
       padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
       decoration: BoxDecoration(
-        color: PRIMARY_COLOR.withValues(alpha: 0.1),
+        color: primaryColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20.r),
         border: Border.all(
-          color: PRIMARY_COLOR.withValues(alpha: 0.3),
+          color: primaryColor.withValues(alpha: 0.3),
           width: 1,
         ),
       ),
@@ -33,7 +33,7 @@ class UpdatePillBanner extends StatelessWidget {
         children: [
           Icon(
             Icons.system_update,
-            color: PRIMARY_COLOR,
+            color: primaryColor,
             size: 20.sp,
           ),
           SizedBox(width: 8.w),
@@ -42,7 +42,7 @@ class UpdatePillBanner extends StatelessWidget {
               message,
               style: TextStyle(
                 fontSize: isTablet ? 15.sp : 13.sp,
-                color: PRIMARY_COLOR,
+                color: primaryColor,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -53,7 +53,7 @@ class UpdatePillBanner extends StatelessWidget {
               child: Container(
                 padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h),
                 decoration: BoxDecoration(
-                  color: PRIMARY_COLOR,
+                  color: primaryColor,
                   borderRadius: BorderRadius.circular(12.r),
                 ),
                 child: Text(
@@ -72,7 +72,7 @@ class UpdatePillBanner extends StatelessWidget {
               onTap: onClose,
               child: Icon(
                 Icons.close,
-                color: PRIMARY_COLOR,
+                color: primaryColor,
                 size: 18.sp,
               ),
             ),
@@ -127,7 +127,7 @@ class UpdateBanner extends StatelessWidget {
             children: [
               Icon(
                 Icons.info_outline,
-                color: PRIMARY_COLOR,
+                color: primaryColor,
                 size: 24.sp,
               ),
               SizedBox(width: 8.w),
@@ -168,7 +168,7 @@ class UpdateBanner extends StatelessWidget {
               child: ElevatedButton(
                 onPressed: onTap,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: PRIMARY_COLOR,
+                  backgroundColor: primaryColor,
                   padding: EdgeInsets.symmetric(vertical: 12.h),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8.r),

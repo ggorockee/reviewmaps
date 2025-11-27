@@ -382,7 +382,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     style: TextStyle(
                       fontSize: 12.sp,
                       fontWeight: FontWeight.w600,
-                      color: PRIMARY_COLOR,
+                      color: primaryColor,
                       letterSpacing: -0.12,
                     ),
                   ),
@@ -590,8 +590,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            PRIMARY_COLOR,
-            PRIMARY_COLOR,
+            primaryColor,
+            primaryColor,
           ],
         ),
         borderRadius: BorderRadius.circular(10.r),
@@ -599,7 +599,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       child: ElevatedButton(
         onPressed: _isLoading ? null : _handleLogin,
         style: ElevatedButton.styleFrom(
-          backgroundColor: PRIMARY_COLOR,
+          backgroundColor: primaryColor,
           foregroundColor: Colors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(

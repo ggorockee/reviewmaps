@@ -60,9 +60,9 @@ class AppOpenAdService with WidgetsBindingObserver {
         },
       );
 
-      print('[AppOpenAdService] 초기화 완료');
+      if (kDebugMode) print('[AppOpenAdService] 초기화 완료');
     } catch (e) {
-      print('[AppOpenAdService] 초기화 실패: $e');
+      if (kDebugMode) print('[AppOpenAdService] 초기화 실패: $e');
       await _analytics.logEvent(
         name: 'app_open_ad_service_init_error',
         parameters: {'error': e.toString()},
@@ -92,7 +92,7 @@ class AppOpenAdService with WidgetsBindingObserver {
         _lastAdShownTime = DateTime.fromMillisecondsSinceEpoch(timestamp);
       }
     } catch (e) {
-      print('[AppOpenAdService] 마지막 광고 표시 시간 로드 실패: $e');
+      if (kDebugMode) print('[AppOpenAdService] 마지막 광고 표시 시간 로드 실패: $e');
     }
   }
 
@@ -103,7 +103,7 @@ class AppOpenAdService with WidgetsBindingObserver {
       await prefs.setInt(_lastAdShownTimeKey, DateTime.now().millisecondsSinceEpoch);
       _lastAdShownTime = DateTime.now();
     } catch (e) {
-      print('[AppOpenAdService] 마지막 광고 표시 시간 저장 실패: $e');
+      if (kDebugMode) print('[AppOpenAdService] 마지막 광고 표시 시간 저장 실패: $e');
     }
   }
 
@@ -111,19 +111,19 @@ class AppOpenAdService with WidgetsBindingObserver {
   bool _canShowAd() {
     // 이미 세션에서 광고를 표시했으면 표시하지 않음
     if (_hasShownAdInSession) {
-      print('[AppOpenAdService] 이미 세션에서 광고를 표시했음');
+      if (kDebugMode) print('[AppOpenAdService] 이미 세션에서 광고를 표시했음');
       return false;
     }
 
     // 현재 광고를 표시 중이면 표시하지 않음
     if (_isShowingAd) {
-      print('[AppOpenAdService] 현재 광고를 표시 중');
+      if (kDebugMode) print('[AppOpenAdService] 현재 광고를 표시 중');
       return false;
     }
 
     // 광고가 로드되지 않았으면 표시하지 않음
     if (!_isAdLoaded || _appOpenAd == null) {
-      print('[AppOpenAdService] 광고가 로드되지 않음');
+      if (kDebugMode) print('[AppOpenAdService] 광고가 로드되지 않음');
       return false;
     }
 
@@ -132,7 +132,7 @@ class AppOpenAdService with WidgetsBindingObserver {
       final timeSinceLastAd = DateTime.now().difference(_lastAdShownTime!);
       if (timeSinceLastAd < _minAdInterval) {
         final remainingTime = _minAdInterval - timeSinceLastAd;
-        print('[AppOpenAdService] 광고 표시 대기 중: ${remainingTime.inMinutes}분 남음');
+        if (kDebugMode) print('[AppOpenAdService] 광고 표시 대기 중: ${remainingTime.inMinutes}분 남음');
         return false;
       }
     }
@@ -142,22 +142,22 @@ class AppOpenAdService with WidgetsBindingObserver {
 
   /// App Open Ad 로드
   Future<void> loadAd() async {
-    print('[AppOpenAdService] 광고 로드 시작 (시도 횟수: $_loadAttempts/$_maxLoadAttempts)');
+    if (kDebugMode) print('[AppOpenAdService] 광고 로드 시작 (시도 횟수: $_loadAttempts/$_maxLoadAttempts)');
 
     // 이미 광고가 로드되어 있으면 건너뜀
     if (_isAdLoaded && _appOpenAd != null) {
-      print('[AppOpenAdService] 광고가 이미 로드되어 있음');
+      if (kDebugMode) print('[AppOpenAdService] 광고가 이미 로드되어 있음');
       return;
     }
 
     // 로드 시도 횟수 제한
     if (_loadAttempts >= _maxLoadAttempts) {
-      print('[AppOpenAdService] 광고 로드 시도 횟수 초과');
+      if (kDebugMode) print('[AppOpenAdService] 광고 로드 시도 횟수 초과');
       return;
     }
 
     _loadAttempts++;
-    print('[AppOpenAdService] App Open Ad 로드 요청 - Ad Unit ID: $_appOpenAdId');
+    if (kDebugMode) print('[AppOpenAdService] App Open Ad 로드 요청 - Ad Unit ID: $_appOpenAdId');
 
     try {
       await AppOpenAd.load(
@@ -173,7 +173,7 @@ class AppOpenAdService with WidgetsBindingObserver {
             _appOpenAd!.fullScreenContentCallback = FullScreenContentCallback(
               onAdShowedFullScreenContent: (ad) {
                 _isShowingAd = true;
-                print('[AppOpenAdService] 광고 표시 시작');
+                if (kDebugMode) print('[AppOpenAdService] 광고 표시 시작');
               },
               onAdDismissedFullScreenContent: (ad) {
                 _isShowingAd = false;
@@ -184,7 +184,7 @@ class AppOpenAdService with WidgetsBindingObserver {
                 // 다음 광고 미리 로드
                 loadAd();
 
-                print('[AppOpenAdService] 광고 닫힘');
+                if (kDebugMode) print('[AppOpenAdService] 광고 닫힘');
               },
               onAdFailedToShowFullScreenContent: (ad, error) {
                 _isShowingAd = false;
@@ -200,7 +200,7 @@ class AppOpenAdService with WidgetsBindingObserver {
                   },
                 );
 
-                print('[AppOpenAdService] 광고 표시 실패: ${error.message}');
+                if (kDebugMode) print('[AppOpenAdService] 광고 표시 실패: ${error.message}');
               },
             );
 
@@ -209,7 +209,7 @@ class AppOpenAdService with WidgetsBindingObserver {
               parameters: {'ad_unit_id': _appOpenAdId},
             );
 
-            print('[AppOpenAdService] 광고 로드 완료');
+            if (kDebugMode) print('[AppOpenAdService] 광고 로드 완료');
           },
           onAdFailedToLoad: (error) {
             _isAdLoaded = false;
@@ -224,12 +224,12 @@ class AppOpenAdService with WidgetsBindingObserver {
               },
             );
 
-            print('[AppOpenAdService] 광고 로드 실패 ($_loadAttempts/$_maxLoadAttempts): ${error.message}');
+            if (kDebugMode) print('[AppOpenAdService] 광고 로드 실패 ($_loadAttempts/$_maxLoadAttempts): ${error.message}');
           },
         ),
       );
     } catch (e) {
-      print('[AppOpenAdService] 광고 로드 중 오류: $e');
+      if (kDebugMode) print('[AppOpenAdService] 광고 로드 중 오류: $e');
       await _analytics.logEvent(
         name: 'app_open_ad_load_error',
         parameters: {'error': e.toString()},
@@ -255,9 +255,9 @@ class AppOpenAdService with WidgetsBindingObserver {
       _hasShownAdInSession = true;
       await _saveLastAdShownTime();
 
-      print('[AppOpenAdService] 광고 표시 완료');
+      if (kDebugMode) print('[AppOpenAdService] 광고 표시 완료');
     } catch (e) {
-      print('[AppOpenAdService] 광고 표시 실패: $e');
+      if (kDebugMode) print('[AppOpenAdService] 광고 표시 실패: $e');
       await _analytics.logEvent(
         name: 'app_open_ad_show_error',
         parameters: {'error': e.toString()},
@@ -277,7 +277,7 @@ class AppOpenAdService with WidgetsBindingObserver {
   /// 세션 리셋
   void resetSession() {
     _hasShownAdInSession = false;
-    print('[AppOpenAdService] 세션 리셋 완료');
+    if (kDebugMode) print('[AppOpenAdService] 세션 리셋 완료');
   }
 
   /// 리소스 정리

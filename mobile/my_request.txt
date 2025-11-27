@@ -1,0 +1,467 @@
+/sc:implement
+main으로 최신화해주고고
+나는 Flutter로 iOS/Android 앱을 개발 중이며, "강제/권장 업데이트" 기능을 구현하려고 한다.
+
+중요한 전제는 다음과 같다:
+
+1. 스토어 버전은 고려하지 않고, 내가 정의한 "논리 버전(Logical Version)"을 기준으로 업데이트 여부를 판단한다.
+2. 앱은 백엔드의 다음 API를 통해 버전 정책을 조회한다:
+   GET /v1/app-config/version?platform=ios|android
+   응답 예시는 다음과 같다:
+
+   {
+     "latest_version": "1.4.0",
+     "min_version": "1.3.0",
+     "force_update": true,
+     "store_url": "https://...",
+     "message_title": "업데이트 안내",
+     "message_body": "더 안정적인 서비스 이용을 위해 최신 버전으로 업데이트해 주세요."
+   }
+
+3. 현재 앱의 논리 버전(Logical Version)은 상수로 주입한다. 2.0.0버전으로
+4. 앱 로직:
+   - current < min_version → 강제 업데이트
+   - current ≥ latest_version → 안내 없음
+
+이제 너가 해야 할 일은 다음과 같다:
+
+1. Flutter에서 논리 버전(Logical Version)을 관리하는 구조를 설계해줘.
+
+2. API 호출 → version compare → UI 동작의 전체 흐름을 제안해줘.
+   - 버전 비교 헬퍼 로직(major/minor/patch)
+   - 플랫폼 구분: Platform.isIOS / Platform.isAndroid
+
+3. UI 요구사항(네이버 스타일 안내 문구 포함):
+   - 강제 업데이트 화면:
+     - 제목: "업데이트 안내"
+     - 내용: "최신 버전으로 업데이트한 뒤 이용해 주세요."
+     - 메인 버튼: "업데이트하기"
+   - 권장 업데이트:
+     - 제목: "새 버전이 있어요"
+     - 내용: "더 나은 서비스 이용을 위해 업데이트를 추천드려요."
+     - 버튼: "업데이트하기 / 나중에"
+
+4. "나중에" 선택 시 일정 기간(예: 1~3일) 동안 다시 띄우지 않는 로직을 설계해줘.
+
+5. 앱 아키텍처(Riverpod/Bloc/GetX 등)에서 이 기능을 어디에 넣으면 좋은지 설명해줘.
+
+6. 마지막으로 전체 구현 가이드를 단계별로 정리해줘.
+
+7. 문구는 네이버 스타일로 깔끔한 한글로, 이모지는 사용하지 말것
+
+8. 현재 버전에서 테스트는 안되니 개발이 완료되면 feature 브랜치 생성 후 -> 푸쉬 -> squarse and merge PR생성 -> PR 승인진행해줘줘
+
+/sc:implement
+git을 main으로 최신화
+@docs/SIGNUP_REFACTORING_PLAN.md을 보고 개발을 진행할거야 Phase1부터 구현하도록하자. 
+
+git에 커밋대상은 docs/폴더도 포함이야 
+
+
+@/home/woohaen88/reviewmaps/server에서 campaign endpoint는 지금 서비스 되고있다. 이건 건드리지 말아줘줘
+1. API를 조사하거나 수정할 때 @/home/woohaen88/reviewmaps/server를 수정할 일이 있을거야 그렇게 되면 
+git agent로 feature 브랜치를 따주고 커밋해줘 그리고 gh로 squarse and merge로 PR을 승인까지진행해줘 
+ 
+2. @/home/woohaen88/reviewmaps/server가 수정이 되고 PR이 되면 현재 폴더인 @/home/woohaen88/reviewmaps/mobile여기서 stash -> pull -> 다시 적용 후 작업을 이어나가줘
+@home/woohaen88/reviewmaps/mobile 이 수정되면 git agent로 feature 브랜치를 따주고 커밋해줘 그리고 gh로 squarse and merge로 PR을 승인까지진행해줘 
+
+
+이 프로젝트에서는 dart와 flutter가 설치되어있지 않은데 필요하면 설치해줘. 에뮬레이터는 연결되어있지 않다.
+
+git agent로 feature 브랜치를 따주고 커밋해줘 푸쉬는 하지말아줘
+
+
+
+
+/sc:document --seq --plan
+회원가입을 수정할꺼야
+- 이름 (Optional)
+- Email (필수)
+- 생년원일 제거
+- 휴대전화 제거
+- 비밀번호
+- 비밀번호 확인(이게 요즘 사용하는 로직인가?)
+- 그리고 이메일 인증 6자리입력한게 똑같으면 확인해주고 인증하는거
+내가 말한게 뭔지 알지?
+- @docs/에 문서로 계획을 작성하고 나한테 컨펌받아 
+- @/home/woohaen88/reviewmaps/server가 수정될수도있음
+
+일단 문서부터 작성해줘
+
+
+
+
+
+
+
+자동 토큰 갱신 로직 추가 (Flutter)
+
+// API 호출 시 토큰 만료 5분 전 자동 갱신
+Future<String?> getValidAccessToken() async {
+  final token = await getAccessToken();
+  if (token == null) return null;
+
+  final payload = _decodeJwtPayload(token);
+  final exp = payload?['exp'] as int?;
+  if (exp == null) return token;
+
+  final expDate = DateTime.fromMillisecondsSinceEpoch(exp * 1000);
+  final refreshThreshold = expDate.subtract(Duration(minutes: 5));
+
+  if (DateTime.now().isAfter(refreshThreshold)) {
+    // 만료 5분 전이면 미리 갱신
+    await refreshToken();
+    return await getAccessToken();
+  }
+
+  return token;
+}
+
+하드코딩은 없애고 전부 django api를 통해 해결할수있도록 --> django admin을 통한 유연성확보보
+알림 히스토리는 30일 동안 유지하도록하고 
+키워드알람은 최대 20개 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# ReviewMaps 앱 품질 개선 계획서
+
+## 문서 개요
+
+- **작성일**: 2025-11-26
+- **목적**: 앱의 완성도 향상을 위한 분석 및 개선 계획
+- **범위**: 로그인 세션 관리, 알림 히스토리 관리, 전반적인 앱 품질
+
+---
+
+## 1. 로그인 세션 관리 분석
+
+### 1.1 현재 구현 상태
+
+**서버 측 (Django)**
+| 설정 항목 | 현재 값 | 위치 |
+|-----------|---------|------|
+| Access Token 만료 | 60분 | `config/settings.py` |
+| Refresh Token 만료 | 7일 | `config/settings.py` |
+| 익명 세션 만료 | 60시간 | `config/settings.py` |
+| JWT 알고리즘 | HS256 | `config/settings.py` |
+
+**모바일 측 (Flutter)**
+- 토큰 저장: `SharedPreferences` 사용
+- 저장 항목: `access_token`, `refresh_token`, `session_token`, `is_anonymous`
+- 토큰 갱신: 401 응답 시 `refresh_token`으로 갱신 시도
+
+### 1.2 업계 Best Practice (2024-2025 기준)
+
+**권장 토큰 만료 시간**
+
+| 토큰 유형 | 권장 시간 | 근거 |
+|-----------|-----------|------|
+| Access Token | 5-15분 | 탈취 시 피해 최소화 |
+| Refresh Token | 7-30일 | 모바일 앱 UX 고려 |
+| API Token | 1시간 | 서버간 통신용 |
+| SSO Token | 8시간 | 업무 시간 기준 |
+
+**참고 자료**:
+- [JWT Security Best Practices for 2025](https://jwt.app/blog/jwt-best-practices/)
+- [Token Best Practices - Auth0](https://auth0.com/docs/secure/tokens/token-best-practices/)
+- [JWT Best Practices for Web & Mobile Apps](https://duendesoftware.com/learn/best-practices-using-jwts-with-web-and-mobile-apps)
+
+### 1.3 현재 구현 평가
+
+**강점**:
+1. Access/Refresh 토큰 분리 구현 ✅
+2. Refresh Token 7일은 모바일 앱 UX에 적합 ✅
+3. 토큰 타입 구분 (`type: 'access'|'refresh'|'anonymous'`) ✅
+
+**개선 필요**:
+1. ⚠️ Access Token 60분은 다소 김 (권장: 15분)
+2. ⚠️ SharedPreferences는 안전하지 않음 (권장: Keychain/Keystore)
+3. ⚠️ Refresh Token Rotation 미구현 (탈취 감지 불가)
+4. ⚠️ 토큰 갱신 자동화 로직 부재 (만료 전 미리 갱신)
+
+### 1.4 개선 권장사항
+
+#### 1.4.1 단기 개선 (권장)
+
+**A. Access Token 만료 시간 단축**
+```python
+# config/settings.py
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES = 15  # 60 → 15
+```
+- 효과: 토큰 탈취 시 피해 시간 75% 감소
+- 부작용: 토큰 갱신 빈도 증가 → Refresh 로직 강화 필요
+
+**B. 자동 토큰 갱신 로직 추가 (Flutter)**
+```dart
+// API 호출 시 토큰 만료 5분 전 자동 갱신
+Future<String?> getValidAccessToken() async {
+  final token = await getAccessToken();
+  if (token == null) return null;
+
+  final payload = _decodeJwtPayload(token);
+  final exp = payload?['exp'] as int?;
+  if (exp == null) return token;
+
+  final expDate = DateTime.fromMillisecondsSinceEpoch(exp * 1000);
+  final refreshThreshold = expDate.subtract(Duration(minutes: 5));
+
+  if (DateTime.now().isAfter(refreshThreshold)) {
+    // 만료 5분 전이면 미리 갱신
+    await refreshToken();
+    return await getAccessToken();
+  }
+
+  return token;
+}
+```
+
+#### 1.4.2 중기 개선 (선택)
+
+**A. 보안 저장소 사용**
+- iOS: Keychain (`flutter_secure_storage`)
+- Android: Keystore (`flutter_secure_storage`)
+
+**B. Refresh Token Rotation**
+- Refresh 토큰 사용 시 새 Refresh 토큰 발급
+- 이전 토큰 재사용 감지 → 계정 잠금
+
+#### 1.4.3 장기 개선 (선택)
+
+**A. JWT 알고리즘 업그레이드**
+- 현재: HS256 (대칭키)
+- 권장: ES256 또는 EdDSA (비대칭키, 더 안전)
+
+---
+
+## 2. 알림 히스토리 관리 전략
+
+### 2.1 현재 구현 상태
+
+**데이터 모델**
+```
+KeywordAlert (키워드 알림)
+├── keyword: FK → Keyword (CASCADE)
+├── campaign: FK → Campaign (CASCADE)
+├── matched_field: CharField
+├── is_read: BooleanField
+└── created_at: DateTimeField
+```
+
+**현재 동작**:
+- 캠페인 생성 시 키워드 매칭 → 알림 자동 생성
+- 캠페인 삭제 시 연관 알림 자동 삭제 (`on_delete=CASCADE`)
+- 키워드 삭제 시 연관 알림 자동 삭제 (`on_delete=CASCADE`)
+- **알림 보관 기간 제한 없음**
+- **알림 개수 제한 없음**
+
+### 2.2 문제점 분석
+
+| 문제 | 영향 | 심각도 |
+|------|------|--------|
+| 무제한 알림 축적 | DB 용량 증가, 조회 성능 저하 | 🟡 중간 |
+| 오래된 알림 노출 | 사용자 경험 저하 (지난 캠페인 알림) | 🟢 낮음 |
+| 대량 알림 시 성능 | 목록 로딩 지연 | 🟡 중간 |
+
+### 2.3 권장 전략
+
+#### 2.3.1 알림 보관 기간
+
+**권장**: 30일 보관 후 자동 삭제
+
+**근거**:
+- 캠페인 신청 마감일은 보통 7-14일
+- 30일이면 충분한 확인 시간 제공
+- 오래된 알림은 사용자에게 가치 없음
+
+**구현 방안**:
+```python
+# Django Management Command 또는 Celery Task
+from datetime import timedelta
+from django.utils import timezone
+
+def cleanup_old_alerts():
+    threshold = timezone.now() - timedelta(days=30)
+    deleted_count, _ = KeywordAlert.objects.filter(
+        created_at__lt=threshold
+    ).delete()
+    return deleted_count
+```
+
+#### 2.3.2 알림 개수 제한
+
+**권장**: 사용자당 최대 100개 알림
+
+**구현 방안**:
+```python
+# 새 알림 생성 시 오래된 알림 정리
+MAX_ALERTS_PER_USER = 100
+
+def create_alert_with_limit(keyword, campaign, matched_field):
+    # 현재 알림 수 확인
+    current_count = KeywordAlert.objects.filter(
+        keyword__user=keyword.user
+    ).count()
+
+    # 한도 초과 시 오래된 것부터 삭제
+    if current_count >= MAX_ALERTS_PER_USER:
+        excess = current_count - MAX_ALERTS_PER_USER + 1
+        old_alerts = KeywordAlert.objects.filter(
+            keyword__user=keyword.user
+        ).order_by('created_at')[:excess]
+        old_alerts.delete()
+
+    # 새 알림 생성
+    return KeywordAlert.objects.create(
+        keyword=keyword,
+        campaign=campaign,
+        matched_field=matched_field
+    )
+```
+
+#### 2.3.3 캠페인 연동 (Cascade Delete)
+
+**현재 상태**: ✅ 이미 올바르게 구현됨
+```python
+campaign = models.ForeignKey(
+    'campaigns.Campaign',
+    on_delete=models.CASCADE,  # 캠페인 삭제 시 알림도 삭제
+    ...
+)
+```
+
+#### 2.3.4 AppSetting 기반 설정 관리
+
+**권장**: 운영 유연성을 위해 설정값을 DB에서 관리
+
+```python
+# AppSetting에 추가할 설정
+{
+    "key": "alert_retention",
+    "value": {
+        "retention_days": 30,
+        "max_alerts_per_user": 100,
+        "cleanup_enabled": True
+    },
+    "is_active": True
+}
+```
+
+### 2.4 구현 우선순위
+
+| 순위 | 항목 | 난이도 | 효과 |
+|------|------|--------|------|
+| 1 | 30일 자동 정리 | 낮음 | 높음 |
+| 2 | 사용자당 100개 제한 | 중간 | 중간 |
+| 3 | AppSetting 연동 | 낮음 | 높음 |
+
+---
+
+## 3. 앱 전반 품질 점검
+
+### 3.1 아키텍처 분석
+
+**강점**:
+- ✅ Riverpod 상태관리 잘 구성됨
+- ✅ 서비스 레이어 분리 (auth, campaign, keyword, fcm)
+- ✅ Firebase 통합 잘 구현됨 (Analytics, Crashlytics, Remote Config)
+- ✅ 광고 서비스 모듈화 우수
+
+**개선 기회**:
+- ⚠️ 에러 처리 일관성 개선 필요
+- ⚠️ 네트워크 재시도 로직 없음
+- ⚠️ 오프라인 지원 없음
+
+### 3.2 보안 점검
+
+| 항목 | 현재 상태 | 권장 |
+|------|-----------|------|
+| 토큰 저장 | SharedPreferences | flutter_secure_storage |
+| API 통신 | HTTPS ✅ | 유지 |
+| 민감정보 로깅 | 일부 노출 | 제거 필요 |
+| Certificate Pinning | 없음 | 선택적 구현 |
+
+### 3.3 성능 최적화 기회
+
+**1. 이미지 캐싱**
+- 현재: 기본 NetworkImage
+- 권장: `cached_network_image` 패키지 사용
+
+**2. 목록 페이지네이션**
+- 현재: 전체 목록 로딩
+- 권장: 무한 스크롤 + 페이지네이션
+
+**3. API 응답 캐싱**
+- 캠페인 목록 등 자주 변경되지 않는 데이터 캐싱
+
+---
+
+## 4. 구현 로드맵
+
+### Phase 1: 즉시 개선 (이번 스프린트)
+
+1. **문서화 완료** ✅
+   - 현재 문서
+
+2. **토큰 자동 갱신 로직**
+   - Access Token 만료 전 자동 갱신
+   - 401 에러 핸들링 강화
+
+### Phase 2: 단기 개선 (1-2주)
+
+1. **알림 보관 기간 설정**
+   - 30일 자동 정리 Cron Job/Celery Task
+   - AppSetting 연동
+
+2. **알림 개수 제한**
+   - 사용자당 100개 제한 로직
+
+### Phase 3: 중기 개선 (1개월)
+
+1. **보안 저장소 마이그레이션**
+   - flutter_secure_storage 도입
+
+2. **Access Token 만료 시간 단축**
+   - 60분 → 15분
+   - 클라이언트 토큰 갱신 로직 완성 후 적용
+
+### Phase 4: 장기 개선 (선택)
+
+1. **Refresh Token Rotation**
+2. **JWT 알고리즘 업그레이드**
+3. **오프라인 지원**
+
+---
+
+## 5. 참고 자료
+
+### JWT 보안 Best Practices
+- [JWT Security Best Practices for 2025](https://jwt.app/blog/jwt-best-practices/)
+- [Token Best Practices - Auth0](https://auth0.com/docs/secure/tokens/token-best-practices/)
+- [JWT Best Practices for Web & Mobile Apps - Duende](https://duendesoftware.com/learn/best-practices-using-jwts-with-web-and-mobile-apps)
+- [Token Expiry Best Practices - Zuplo](https://zuplo.com/blog/2025/03/01/token-expiry-best-practices)
+
+### Stack Overflow 토론
+- [Shall JWT expires in mobile apps?](https://stackoverflow.com/questions/63999174/shall-jwt-expires-in-mobile-apps)
+- [JWT automatic prolongation of expiration](https://stackoverflow.com/questions/26739167/jwt-json-web-token-automatic-prolongation-of-expiration)
+- [Proper implementation of JWT in mobile app](https://security.stackexchange.com/questions/207775/proper-implementation-of-jwt-authentication-in-mobile-app)
+
+---
+
+## 변경 이력
+
+| 버전 | 날짜 | 작성자 | 내용 |
+|------|------|--------|------|
+| 1.0 | 2025-11-26 | Claude | 초안 작성 |

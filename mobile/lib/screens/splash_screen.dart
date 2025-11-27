@@ -79,7 +79,7 @@ class _SplashScreenState extends State<SplashScreen>
 
     // 3. App Open Ad 표시 시도
     await _appOpenAdService.showAdIfAvailable();
-    print('[SplashScreen] App Open Ad 표시 시도 완료');
+    debugPrint('[SplashScreen] App Open Ad 표시 시도 완료');
 
     // 4. 공지사항 팝업 표시 후 메인 화면으로 이동
     _showNoticeAndNavigate();
@@ -90,7 +90,7 @@ class _SplashScreenState extends State<SplashScreen>
   Future<void> _navigateToMain() async {
     if (!mounted) return;
 
-    print('[SplashScreen] 메인 화면으로 이동');
+    debugPrint('[SplashScreen] 메인 화면으로 이동');
 
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
@@ -128,7 +128,7 @@ class _SplashScreenState extends State<SplashScreen>
 
     // 메인 화면으로 이동
     if (mounted) {
-      print('[SplashScreen] 화면 이동 준비');
+      debugPrint('[SplashScreen] 화면 이동 준비');
       _navigateToMain();
     }
   }
@@ -196,7 +196,7 @@ class _SplashScreenState extends State<SplashScreen>
                         height: (30.w * (1.0 + (textScaleFactor - 1.0) * 0.2)).clamp(25.w, 40.w),
                         child: CircularProgressIndicator(
                           strokeWidth: 3.0,
-                          valueColor: AlwaysStoppedAnimation<Color>(PRIMARY_COLOR),
+                          valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
                         ),
                       ),
                     ],

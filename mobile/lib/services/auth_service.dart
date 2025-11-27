@@ -65,15 +65,102 @@ class AuthService {
     _client.close();
   }
 
+  /// 이메일 인증코드 발송
+  /// POST /v1/auth/email/send-code
+  /// - 6자리 인증코드 이메일 발송
+  /// - 유효시간: 60분
+  /// - 재발송: 첫 번째는 바로 가능, 이후 60초 대기
+  Future<EmailSendCodeResponse> sendEmailCode({required String email}) async {
+    final uri = Uri.parse('$baseUrl/auth/email/send-code');
+    final request = EmailSendCodeRequest(email: email);
+
+    try {
+      final response = await _client
+          .post(
+            uri,
+            headers: _headers,
+            body: jsonEncode(request.toJson()),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      _debugPrintResponse('POST', uri.toString(), response);
+
+      if (response.statusCode == 429) {
+        final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
+        throw Exception(errorBody['detail'] ?? '잠시 후 다시 시도해 주세요.');
+      }
+
+      if (response.statusCode != 200) {
+        final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
+        throw Exception(errorBody['detail'] ?? '인증코드를 발송할 수 없습니다. 잠시 후 다시 시도해 주세요.');
+      }
+
+      return EmailSendCodeResponse.fromJson(
+          jsonDecode(utf8.decode(response.bodyBytes)));
+    } catch (e) {
+      debugPrint('이메일 인증코드 발송 오류: $e');
+      rethrow;
+    }
+  }
+
+  /// 이메일 인증코드 확인
+  /// POST /v1/auth/email/verify-code
+  /// - 인증코드 검증 후 verification_token 반환
+  /// - 5회 실패 시 재발송 필요
+  Future<EmailVerifyCodeResponse> verifyEmailCode({
+    required String email,
+    required String code,
+  }) async {
+    final uri = Uri.parse('$baseUrl/auth/email/verify-code');
+    final request = EmailVerifyCodeRequest(email: email, code: code);
+
+    try {
+      final response = await _client
+          .post(
+            uri,
+            headers: _headers,
+            body: jsonEncode(request.toJson()),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      _debugPrintResponse('POST', uri.toString(), response);
+
+      if (response.statusCode == 429) {
+        final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
+        throw Exception(errorBody['detail'] ?? '인증 시도 횟수를 초과했습니다. 인증코드를 다시 요청해 주세요.');
+      }
+
+      if (response.statusCode != 200) {
+        final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
+        throw Exception(errorBody['detail'] ?? '인증코드가 올바르지 않습니다.');
+      }
+
+      return EmailVerifyCodeResponse.fromJson(
+          jsonDecode(utf8.decode(response.bodyBytes)));
+    } catch (e) {
+      debugPrint('이메일 인증코드 확인 오류: $e');
+      rethrow;
+    }
+  }
+
   /// 회원가입
   /// POST /v1/auth/signup
-  /// - email, password를 받아 access_token, refresh_token 반환
+  /// - 이메일 인증 완료 후 회원가입
+  /// - verification_token 필수
+  /// - 비밀번호 8자 이상
   Future<AuthResponse> signUp({
     required String email,
     required String password,
+    String? name,
+    required String verificationToken,
   }) async {
     final uri = Uri.parse('$baseUrl/auth/signup');
-    final request = SignUpRequest(email: email, password: password);
+    final request = SignUpRequest(
+      email: email,
+      password: password,
+      name: name,
+      verificationToken: verificationToken,
+    );
 
     try {
       final response = await _client

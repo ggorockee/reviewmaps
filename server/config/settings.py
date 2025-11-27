@@ -280,6 +280,20 @@ if DEBUG:
         'http://127.0.0.1:8000',
     ])
 
+# ===== 이메일 발송 설정 (Gmail SMTP) =====
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True') == 'True'
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'ReviewMaps <noreply@reviewmaps.com>')
+
+# 이메일 인증 설정
+EMAIL_VERIFICATION_EXPIRE_MINUTES = int(os.getenv('EMAIL_VERIFICATION_EXPIRE_MINUTES', '60'))
+EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS = int(os.getenv('EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS', '60'))
+EMAIL_VERIFICATION_MAX_ATTEMPTS = int(os.getenv('EMAIL_VERIFICATION_MAX_ATTEMPTS', '5'))
+
 # ===== 보안 설정 검증 (프로덕션 환경) =====
 import logging
 

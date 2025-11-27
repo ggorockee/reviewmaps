@@ -10,6 +10,8 @@ class UserSignupRequest(Schema):
     """회원가입 요청"""
     email: str
     password: str
+    name: Optional[str] = None
+    verification_token: str
 
 
 class UserLoginRequest(Schema):
@@ -110,3 +112,28 @@ class MessageResponse(Schema):
     """일반 메시지 응답"""
     message: str
     success: bool = True
+
+
+# ===== 이메일 인증 스키마 =====
+
+class EmailSendCodeRequest(Schema):
+    """이메일 인증코드 발송 요청"""
+    email: str
+
+
+class EmailSendCodeResponse(Schema):
+    """이메일 인증코드 발송 응답"""
+    message: str
+    expires_in: int
+
+
+class EmailVerifyCodeRequest(Schema):
+    """이메일 인증코드 확인 요청"""
+    email: str
+    code: str
+
+
+class EmailVerifyCodeResponse(Schema):
+    """이메일 인증코드 확인 응답"""
+    verified: bool
+    verification_token: str

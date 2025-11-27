@@ -1,14 +1,18 @@
 """
 Users API - Django Ninja 비동기 API
 """
+import random
+import secrets
 from ninja import Router
 from ninja.errors import HttpError
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import check_password
+from django.core.mail import send_mail
 from datetime import datetime, timedelta
 from django.conf import settings
 from asgiref.sync import sync_to_async
 from typing import Union
+from django.utils import timezone
 
 from .schemas import (
     UserSignupRequest,
@@ -21,6 +25,10 @@ from .schemas import (
     UserDetailResponse,
     AnonymousUserResponse,
     ConvertAnonymousRequest,
+    EmailSendCodeRequest,
+    EmailSendCodeResponse,
+    EmailVerifyCodeRequest,
+    EmailVerifyCodeResponse,
 )
 from .utils import (
     create_access_token,
@@ -30,27 +38,182 @@ from .utils import (
     create_anonymous_session_id,
     decode_anonymous_session,
 )
+from .models import EmailVerification
 
 User = get_user_model()
 router = Router(tags=["인증 (Authentication)"])
+
+
+# ===== 이메일 인증 API =====
+
+@router.post("/email/send-code", response=EmailSendCodeResponse, summary="이메일 인증코드 발송")
+async def send_email_code(request, payload: EmailSendCodeRequest):
+    """
+    이메일 인증코드 발송 API
+    - 6자리 숫자 인증코드 생성 후 이메일 발송
+    - 유효시간: 60분
+    - 재발송: 첫 번째는 바로 가능, 이후 60초 대기
+    """
+    email = payload.email.lower().strip()
+
+    # 이메일 형식 검증
+    if '@' not in email or '.' not in email:
+        raise HttpError(400, "올바른 이메일 형식이 아닙니다.")
+
+    # 이미 가입된 이메일인지 확인 (email + login_method='email' 조합)
+    if await sync_to_async(User.objects.filter(email=email, login_method='email').exists)():
+        raise HttpError(400, "이미 가입된 이메일입니다.")
+
+    # 기존 인증 레코드 조회
+    existing = await sync_to_async(
+        EmailVerification.objects.filter(email=email, is_verified=False).order_by('-created_at').first
+    )()
+
+    # 재발송 쿨다운 체크 (첫 번째는 바로 가능, 이후 60초)
+    if existing and existing.send_count >= 1:
+        cooldown_seconds = settings.EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS
+        time_since_last_sent = (timezone.now() - existing.last_sent_at).total_seconds()
+        if time_since_last_sent < cooldown_seconds:
+            remaining = int(cooldown_seconds - time_since_last_sent)
+            raise HttpError(429, f"{remaining}초 후에 다시 시도해 주세요.")
+
+    # 6자리 인증코드 생성
+    code = f"{random.randint(0, 999999):06d}"
+    expires_at = timezone.now() + timedelta(minutes=settings.EMAIL_VERIFICATION_EXPIRE_MINUTES)
+
+    # 기존 레코드 업데이트 또는 새로 생성
+    if existing:
+        existing.code = code
+        existing.expires_at = expires_at
+        existing.attempts = 0
+        existing.send_count += 1
+        existing.last_sent_at = timezone.now()
+        existing.verification_token = ''
+        await sync_to_async(existing.save)()
+    else:
+        await sync_to_async(EmailVerification.objects.create)(
+            email=email,
+            code=code,
+            expires_at=expires_at,
+        )
+
+    # 이메일 발송
+    subject = "[ReviewMaps] 이메일 인증코드"
+    message = f"""안녕하세요,
+
+ReviewMaps 회원가입을 위한 인증코드입니다.
+
+인증코드: {code}
+
+이 코드는 {settings.EMAIL_VERIFICATION_EXPIRE_MINUTES}분간 유효합니다.
+본인이 요청하지 않은 경우 이 메일을 무시해 주세요.
+
+감사합니다.
+ReviewMaps 팀
+"""
+
+    try:
+        await sync_to_async(send_mail)(
+            subject=subject,
+            message=message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[email],
+            fail_silently=False,
+        )
+    except Exception as e:
+        raise HttpError(500, "이메일 발송에 실패했습니다. 잠시 후 다시 시도해 주세요.")
+
+    return {
+        "message": "인증코드가 발송되었습니다.",
+        "expires_in": settings.EMAIL_VERIFICATION_EXPIRE_MINUTES * 60,
+    }
+
+
+@router.post("/email/verify-code", response=EmailVerifyCodeResponse, summary="이메일 인증코드 확인")
+async def verify_email_code(request, payload: EmailVerifyCodeRequest):
+    """
+    이메일 인증코드 확인 API
+    - 인증코드 검증 후 verification_token 반환
+    - 5회 실패 시 재발송 필요
+    """
+    email = payload.email.lower().strip()
+    code = payload.code.strip()
+
+    # 인증 레코드 조회
+    verification = await sync_to_async(
+        EmailVerification.objects.filter(email=email, is_verified=False).order_by('-created_at').first
+    )()
+
+    if not verification:
+        raise HttpError(400, "인증 요청을 찾을 수 없습니다. 인증코드를 다시 요청해 주세요.")
+
+    # 만료 확인
+    if timezone.now() > verification.expires_at:
+        raise HttpError(400, "인증코드가 만료되었습니다. 다시 요청해 주세요.")
+
+    # 시도 횟수 확인
+    if verification.attempts >= settings.EMAIL_VERIFICATION_MAX_ATTEMPTS:
+        raise HttpError(429, "인증 시도 횟수를 초과했습니다. 인증코드를 다시 요청해 주세요.")
+
+    # 코드 검증
+    if verification.code != code:
+        verification.attempts += 1
+        await sync_to_async(verification.save)()
+        remaining = settings.EMAIL_VERIFICATION_MAX_ATTEMPTS - verification.attempts
+        raise HttpError(400, f"인증코드가 일치하지 않습니다. ({remaining}회 남음)")
+
+    # 인증 성공 - verification_token 생성
+    verification_token = secrets.token_urlsafe(32)
+    verification.is_verified = True
+    verification.verification_token = verification_token
+    await sync_to_async(verification.save)()
+
+    return {
+        "verified": True,
+        "verification_token": verification_token,
+    }
 
 
 @router.post("/signup", response=TokenResponse, summary="회원가입")
 async def signup(request, payload: UserSignupRequest):
     """
     회원가입 API
-    - email + password로 회원가입
+    - 이메일 인증 완료 후 회원가입
+    - verification_token 필수
+    - 비밀번호 8자 이상
     - 성공 시 access_token과 refresh_token 반환
     """
-    # 이메일 중복 확인
-    if await sync_to_async(User.objects.filter(email=payload.email).exists)():
+    email = payload.email.lower().strip()
+
+    # 비밀번호 길이 검증 (8자 이상)
+    if len(payload.password) < 8:
+        raise HttpError(400, "비밀번호는 8자 이상이어야 합니다.")
+
+    # verification_token 검증
+    verification = await sync_to_async(
+        EmailVerification.objects.filter(
+            email=email,
+            verification_token=payload.verification_token,
+            is_verified=True
+        ).first
+    )()
+
+    if not verification:
+        raise HttpError(400, "이메일 인증이 필요합니다.")
+
+    # 이메일 중복 확인 (email + login_method='email' 조합)
+    if await sync_to_async(User.objects.filter(email=email, login_method='email').exists)():
         raise HttpError(400, "이미 가입된 이메일입니다.")
 
     # 사용자 생성
     user = await sync_to_async(User.objects.create_user)(
-        email=payload.email,
+        email=email,
         password=payload.password,
+        name=payload.name or '',
     )
+
+    # 인증 레코드 삭제 (사용 완료)
+    await sync_to_async(verification.delete)()
 
     # JWT 토큰 생성
     access_token = create_access_token(user.id)

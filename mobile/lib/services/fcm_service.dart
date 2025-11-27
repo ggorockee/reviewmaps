@@ -1,8 +1,13 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:mobile/services/keyword_service.dart';
+import 'package:mobile/services/campaign_service.dart';
+import 'package:mobile/config/config.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:mobile/main.dart' as main_app;
 
 /// FCM 푸시 알림 서비스
 /// - FCM 토큰 관리
@@ -17,6 +22,10 @@ class FcmService {
 
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
   final KeywordService _keywordService = KeywordService();
+  final CampaignService _campaignService = CampaignService(
+    AppConfig.reviewMapBaseUrl,
+    apiKey: AppConfig.reviewMapApiKey,
+  );
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
 
@@ -140,10 +149,111 @@ class FcmService {
   }
 
   /// 알림 탭 시 처리
-  void _onNotificationTapped(NotificationResponse response) {
+  void _onNotificationTapped(NotificationResponse response) async {
     debugPrint('🔔 알림 탭됨: ${response.payload}');
-    // TODO: 캠페인 상세 화면으로 네비게이션
-    // payload에 campaign_id가 있으면 해당 캠페인으로 이동
+    
+    if (response.payload == null || response.payload!.isEmpty) {
+      debugPrint('⚠️ payload가 없습니다.');
+      return;
+    }
+
+    try {
+      final campaignId = int.parse(response.payload!);
+      await _handleCampaignNavigation(campaignId);
+    } catch (e) {
+      debugPrint('❌ 알림 탭 처리 오류: $e');
+    }
+  }
+
+  /// 캠페인 네비게이션 처리
+  Future<void> _handleCampaignNavigation(int campaignId) async {
+    final context = main_app.navigatorKey.currentContext;
+    if (context == null) {
+      debugPrint('⚠️ 네비게이터 컨텍스트를 찾을 수 없습니다.');
+      return;
+    }
+
+    try {
+      // 캠페인 정보 조회
+      final campaign = await _campaignService.fetchCampaignById(campaignId);
+
+      if (!context.mounted) return;
+
+      if (campaign == null || campaign.contentLink == null || campaign.contentLink!.isEmpty) {
+        // 삭제된 경우: 팝업 표시
+        _showDeletedCampaignDialog(context);
+      } else {
+        // 존재하는 경우: 링크로 이동
+        await _openCampaignLink(campaign.contentLink!);
+      }
+    } catch (e) {
+      debugPrint('❌ 캠페인 조회 오류: $e');
+      if (context.mounted) {
+        _showDeletedCampaignDialog(context);
+      }
+    }
+  }
+
+  /// 삭제된 캠페인 다이얼로그 표시
+  void _showDeletedCampaignDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        title: const Text(
+          '알림',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF1A1C1E),
+          ),
+        ),
+        content: const Text(
+          '체험단이 삭제되었거나 올바르지 않은 주소입니다.',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+            color: Color(0xFF6C7278),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text(
+              '확인',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 캠페인 링크 열기
+  Future<void> _openCampaignLink(String url) async {
+    try {
+      String link = url.trim();
+      if (!link.startsWith('http://') && !link.startsWith('https://')) {
+        link = 'https://$link';
+      }
+      final uri = Uri.parse(Uri.encodeFull(link));
+      
+      // 외부 브라우저로 우선 시도
+      if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+        // 실패 시 인앱 브라우저로 시도
+        await launchUrl(uri);
+      }
+      
+      debugPrint('✅ 캠페인 링크 열기 성공: $url');
+    } catch (e) {
+      debugPrint('❌ 캠페인 링크 열기 실패: $e');
+    }
   }
 
   /// 푸시 알림 권한 요청
@@ -223,16 +333,23 @@ class FcmService {
   }
 
   /// 백그라운드에서 앱 열림 시 메시지 처리
-  void _handleMessageOpenedApp(RemoteMessage message) {
+  void _handleMessageOpenedApp(RemoteMessage message) async {
     debugPrint('📱 백그라운드 메시지로 앱 열림:');
     debugPrint('  - 제목: ${message.notification?.title}');
     debugPrint('  - 데이터: ${message.data}');
 
     // 키워드 알림인 경우 해당 캠페인으로 이동
     if (message.data['type'] == 'keyword_alert') {
-      final campaignId = message.data['campaign_id'];
-      debugPrint('  - 캠페인 ID: $campaignId 로 이동 필요');
-      // TODO: 캠페인 상세 화면으로 네비게이션
+      final campaignIdStr = message.data['campaign_id'];
+      if (campaignIdStr != null) {
+        try {
+          final campaignId = int.parse(campaignIdStr.toString());
+          debugPrint('  - 캠페인 ID: $campaignId 로 이동');
+          await _handleCampaignNavigation(campaignId);
+        } catch (e) {
+          debugPrint('❌ 캠페인 ID 파싱 오류: $e');
+        }
+      }
     }
   }
 

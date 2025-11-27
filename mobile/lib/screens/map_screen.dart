@@ -8,7 +8,6 @@ import 'package:mobile/config/config.dart';
 import 'package:mobile/const/colors.dart';
 import 'package:mobile/screens/search_results_screen.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
-import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/store_model.dart';
@@ -19,9 +18,6 @@ import '../widgets/sort_filter_widget.dart';
 import '../providers/location_provider.dart';
 
 import 'map_search_screen.dart';
-
-// 패널 위치 상태 추적
-enum PanelState { closed, waitHeight, executeHeight }
 
 /// MapScreen 정렬 옵션 매핑 헬퍼
 class MapSortHelper {
@@ -89,10 +85,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   late final NaverMapController _naverController;
   final PanelController panelController = PanelController();
   String _currentSortOrder = '-created_at';
-  
-  // 패널 위치 상태 추적
-  PanelState _currentPanelState = PanelState.closed;
-  
+
   // 최초 진입 여부 추적
   bool _isFirstSearch = true;
   
@@ -165,7 +158,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
       final media = MediaQuery.of(context);
       final screenHeight = media.size.height;
-      final textScaleFactor = media.textScaleFactor;
+      final textScaleFactor = MediaQuery.textScalerOf(context).scale(1.0);
 
       // 폰트 배율에 따른 동적 조정
       final bool isTablet = _isTablet(context);
@@ -238,8 +231,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     if (!mounted) return; // 위젯이 dispose된 경우 중단
 
     // 폰트 배율에 따른 동적 조정
-    final media = MediaQuery.of(context);
-    final textScaleFactor = media.textScaleFactor;
+    final textScaleFactor = MediaQuery.textScalerOf(context).scale(1.0);
     final bool isTablet = _isTablet(context);
     final double maxScale = isTablet ? 1.10 : 1.30;
     final double clampedScale = textScaleFactor.clamp(1.0, maxScale);
@@ -289,8 +281,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     if (!mounted) return; // 위젯이 dispose된 경우 중단
 
     // 폰트 배율에 따른 동적 조정
-    final media = MediaQuery.of(context);
-    final textScaleFactor = media.textScaleFactor;
+    final textScaleFactor = MediaQuery.textScalerOf(context).scale(1.0);
     final bool isTablet = _isTablet(context);
     final double maxScale = isTablet ? 1.10 : 1.30;
     final double clampedScale = textScaleFactor.clamp(1.0, maxScale);
@@ -705,7 +696,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   child: Container(
                     padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 16.h),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.75),
+                      color: Colors.black.withValues(alpha: 0.75),
                       borderRadius: BorderRadius.circular(12.r),
                     ),
                     child: const Text(
@@ -743,24 +734,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   Widget _buildPanel() {
     return LayoutBuilder(
       builder: (context, constraints) {
-        // 현재 패널 높이 (픽셀 단위)
-        final currentHeight = _currentPanelHeight();
-
-        // 패널이 버튼을 절대 가리지 않도록 제한
-        final media = MediaQuery.of(context);
-        final buttonTop = t(context, 45.0.h, 60.0.h);
-        final buttonHeight = t(context, 30.0.h, 30.0.h);
-        final buttonBottom = buttonTop + buttonHeight;
-        final safePadding = 20.h; // 충분한 여백으로 버튼 보호
-        final maxAllowed = constraints.maxHeight - buttonBottom - safePadding;
-
-        // 최소 1.5개 아이템 보장
-        final minContent = _panelMin + _panelHeaderExtra + _itemMinHeight * 1.5;
-
-        // 현재 높이에 맞는 리스트 영역
-        final listHeight = (currentHeight - _panelMin - _panelHeaderExtra)
-            .clamp(_itemMinHeight * 1.5, maxAllowed);
-
         return Container(
           decoration: const BoxDecoration(
             color: Colors.white,
@@ -1067,7 +1040,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   Widget _buildCategoryChip(String name, bool isSelected, VoidCallback onTap) {
     final Color selectedColor = Colors.white;
-    final Color unselectedColor = Colors.white.withOpacity(0.8);
+    final Color unselectedColor = Colors.white.withValues(alpha: 0.8);
 
     return TextButton(
       onPressed: onTap,
@@ -1078,7 +1051,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         minimumSize: Size.zero, // 버튼의 최소 사이즈 제한 제거
         tapTargetSize: MaterialTapTargetSize.shrinkWrap, // 버튼의 터치 영역을 최소화
         splashFactory: NoSplash.splashFactory,
-        overlayColor: Colors.white.withOpacity(0.1),
+        overlayColor: Colors.white.withValues(alpha: 0.1),
       ),
       child: Text(
         name,
@@ -1202,66 +1175,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 
 
-  Widget _buildDeadlineChips(DateTime? deadline) {
-    if (deadline == null) {
-      return const SizedBox.shrink();
-    }
-    final today = DateTime.now();
-    final d0 = DateTime(today.year, today.month, today.day);
-    final d1 = DateTime(deadline.year, deadline.month, deadline.day);
-    final daysLeft = d1.difference(d0).inDays;
-
-    final String dLabel;
-    Color dColor;
-    Color dBg;
-
-    if (daysLeft < 0) {
-      dLabel = '마감';
-      dColor = Colors.grey.shade700;
-      dBg = Colors.grey.shade200;
-    } else if (daysLeft == 0) {
-      dLabel = 'D-DAY';
-      dColor = Colors.red.shade700;
-      dBg = Colors.red.shade50;
-    } else {
-      dLabel = 'D-$daysLeft';
-      if (daysLeft <= 3) {
-        dColor = Colors.red.shade700;
-        dBg = Colors.red.shade50;
-      } else if (daysLeft <= 7) {
-        dColor = Colors.orange.shade700;
-        dBg = Colors.orange.shade50;
-      } else {
-        dColor = Colors.green.shade700;
-        dBg = Colors.green.shade50;
-      }
-    }
-
-    final dateChip = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade200,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(DateFormat('~MM.dd').format(deadline), style: TextStyle(fontSize: _isTablet(context) ? 14.sp : 12.sp)),
-    );
-
-    final ddayChip = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: dBg,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(dLabel, style: TextStyle(fontSize: _isTablet(context) ? 14.sp : 12.sp, color: dColor, fontWeight: FontWeight.w600)),
-    );
-
-    return Row(children: [
-      dateChip,
-      const SizedBox(width: 4),
-      ddayChip,
-    ]);
-  }
-
   // 정렬 적용 함수
   void _applySorting(List<Store> stores) {
     switch (_currentSortOrder) {
@@ -1326,64 +1239,4 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     }
   }
 
-  Future<void> _moveCameraAndSearch(NLatLng target, {double zoom = 16}) async {
-    if (!_mapReady) return;
-
-    try {
-      // 수동 이동 모드로
-      _naverController.setLocationTrackingMode(NLocationTrackingMode.none);
-
-      // 카메라 이동
-      await _naverController.updateCamera(
-        NCameraUpdate.scrollAndZoomTo(target: target, zoom: zoom),
-      );
-
-      // 카메라 업데이트 직후 지도 바운드 계산이 안정되도록 아주 살짝 대기
-      await Future.delayed(const Duration(milliseconds: 150));
-
-      // 현재 뷰포트로 바로 검색
-      await _searchInCurrentViewport();
-    } catch (e) {
-      if (!mounted) return;
-      showFriendlySnack(context,   '지도를 불러오는데 살짝 삐끗했어요 💦 다시 한 번 시도해볼까요?');
-    }
-  }
-
-}
-
-// 권한 안내 위젯(필요 시 재사용)
-class _PermissionHelp extends StatelessWidget {
-  final String message;
-  final VoidCallback onRequest;
-  final VoidCallback onOpenSettings;
-  const _PermissionHelp({
-    required this.message,
-    required this.onRequest,
-    required this.onOpenSettings,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.place, size: 48, color: Colors.blue),
-            const SizedBox(height: 12),
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 12,
-              children: [
-                ElevatedButton(onPressed: onRequest, child: const Text('권한 요청')),
-                OutlinedButton(onPressed: onOpenSettings, child: const Text('설정 열기')),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

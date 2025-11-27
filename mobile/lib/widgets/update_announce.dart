@@ -22,10 +22,10 @@ class UpdatePillBanner extends StatelessWidget {
       margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
       padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
       decoration: BoxDecoration(
-        color: PRIMARY_COLOR.withOpacity(0.1),
+        color: PRIMARY_COLOR.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20.r),
         border: Border.all(
-          color: PRIMARY_COLOR.withOpacity(0.3),
+          color: PRIMARY_COLOR.withValues(alpha: 0.3),
           width: 1,
         ),
       ),
@@ -114,7 +114,7 @@ class UpdateBanner extends StatelessWidget {
         borderRadius: BorderRadius.circular(12.r),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),

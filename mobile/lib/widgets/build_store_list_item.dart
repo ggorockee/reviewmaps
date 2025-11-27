@@ -109,10 +109,10 @@ class StoreListItem extends StatelessWidget {
                     vertical: dense ? 1.h : 2.h,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
+                    color: Colors.red.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(dense ? 6.r : 8.r),
                     border: Border.all(
-                      color: Colors.red.withOpacity(0.3),
+                      color: Colors.red.withValues(alpha: 0.3),
                       width: 0.5,
                     ),
                   ),
@@ -324,12 +324,12 @@ class MapStoreListItem extends StatelessWidget {
         border: Border.all(
           color: isSelected 
               ? Colors.blue 
-              : Colors.grey.withOpacity(0.2),
+              : Colors.grey.withValues(alpha: 0.2),
           width: isSelected ? 2 : 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),

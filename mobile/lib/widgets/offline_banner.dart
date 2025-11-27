@@ -23,7 +23,7 @@ class OfflineBanner extends StatelessWidget {
         color: Colors.grey[800],
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
@@ -68,7 +68,7 @@ class OfflineBanner extends StatelessWidget {
                 onPressed: isRetrying ? null : onRetry,
                 style: TextButton.styleFrom(
                   padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-                  backgroundColor: Colors.white.withOpacity(0.15),
+                  backgroundColor: Colors.white.withValues(alpha: 0.15),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8.r),
                   ),

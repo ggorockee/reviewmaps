@@ -32,7 +32,7 @@ class ExperienceCard extends StatelessWidget {
     final bool isTab = MediaQuery.of(context).size.shortestSide >= 600;
     
     // 폰트 배율에 따른 동적 크기 조정
-    final textScaleFactor = MediaQuery.textScalerOf(context).textScaleFactor;
+    final textScaleFactor = MediaQuery.textScalerOf(context).scale(1.0);
     final bool isTablet = isTab;
     final double maxScale = isTablet ? 1.10 : 1.30;
     final double clampedScale = textScaleFactor.clamp(1.0, maxScale);

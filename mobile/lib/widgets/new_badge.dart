@@ -13,7 +13,7 @@ class NewBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isTablet = _isTablet(context);
-    final textScaleFactor = MediaQuery.textScalerOf(context).textScaleFactor;
+    final textScaleFactor = MediaQuery.textScalerOf(context).scale(1.0);
     
     // 태블릿에서 시스템 폰트 크기에 따라 동적 조정
     final double baseHorizontalPadding = dense ? 4.0 : (isTablet ? 8.0 : 6.0);
@@ -32,10 +32,10 @@ class NewBadge extends StatelessWidget {
         vertical: adjustedVerticalPadding,
       ),
       decoration: BoxDecoration(
-        color: Colors.red.withOpacity(0.1),
+        color: Colors.red.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(adjustedBorderRadius),
         border: Border.all(
-          color: Colors.red.withOpacity(0.3),
+          color: Colors.red.withValues(alpha: 0.3),
           width: 0.5,
         ),
       ),
@@ -69,7 +69,7 @@ class HotBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isTablet = _isTablet(context);
-    final textScaleFactor = MediaQuery.textScalerOf(context).textScaleFactor;
+    final textScaleFactor = MediaQuery.textScalerOf(context).scale(1.0);
     
     // 태블릿에서 시스템 폰트 크기에 따라 동적 조정
     final double baseHorizontalPadding = dense ? 4.0 : (isTablet ? 8.0 : 6.0);
@@ -88,10 +88,10 @@ class HotBadge extends StatelessWidget {
         vertical: adjustedVerticalPadding,
       ),
       decoration: BoxDecoration(
-        color: Colors.orange.withOpacity(0.1),
+        color: Colors.orange.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(adjustedBorderRadius),
         border: Border.all(
-          color: Colors.orange.withOpacity(0.3),
+          color: Colors.orange.withValues(alpha: 0.3),
           width: 0.5,
         ),
       ),
@@ -125,7 +125,7 @@ class UrgentBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isTablet = _isTablet(context);
-    final textScaleFactor = MediaQuery.textScalerOf(context).textScaleFactor;
+    final textScaleFactor = MediaQuery.textScalerOf(context).scale(1.0);
     
     // 태블릿에서 시스템 폰트 크기에 따라 동적 조정
     final double baseHorizontalPadding = dense ? 4.0 : (isTablet ? 8.0 : 6.0);
@@ -144,10 +144,10 @@ class UrgentBadge extends StatelessWidget {
         vertical: adjustedVerticalPadding,
       ),
       decoration: BoxDecoration(
-        color: Colors.red.withOpacity(0.1),
+        color: Colors.red.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(adjustedBorderRadius),
         border: Border.all(
-          color: Colors.red.withOpacity(0.3),
+          color: Colors.red.withValues(alpha: 0.3),
           width: 0.5,
         ),
       ),

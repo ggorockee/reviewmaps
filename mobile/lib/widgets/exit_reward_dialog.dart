@@ -56,7 +56,7 @@ class ExitRewardDialog extends StatelessWidget {
               width: 80.w,
               height: 80.w,
               decoration: BoxDecoration(
-                color: PRIMARY_COLOR.withOpacity(0.1),
+                color: PRIMARY_COLOR.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(40.r),
               ),
               child: Icon(
@@ -98,10 +98,10 @@ class ExitRewardDialog extends StatelessWidget {
             Container(
               padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
               decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.1),
+                color: Colors.orange.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12.r),
                 border: Border.all(
-                  color: Colors.orange.withOpacity(0.3),
+                  color: Colors.orange.withValues(alpha: 0.3),
                   width: 1,
                 ),
               ),

@@ -136,7 +136,7 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     // 폰트 배율에 따른 반응형 디자인
-    final textScaleFactor = MediaQuery.textScalerOf(context).textScaleFactor;
+    final textScaleFactor = MediaQuery.textScalerOf(context).scale(1.0);
     final bool isTablet = MediaQuery.of(context).size.width > 600;
     
     // 폰트 배율이 클 때 로고 크기와 간격 조정
@@ -159,7 +159,7 @@ class _SplashScreenState extends State<SplashScreen>
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       // 앱 로고 - 폰트 배율에 따라 크기 조정
-                      Container(
+                      SizedBox(
                         width: logoSize,
                         height: logoSize,
                         child: Image.asset(

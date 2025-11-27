@@ -11,9 +11,9 @@ class AdService {
   factory AdService() => _instance;
   AdService._internal();
 
-  // AdMob 앱 ID
-  static const String _androidAppId = 'ca-app-pub-8516861197467665~2285990824';
-  static const String _iosAppId = 'ca-app-pub-8516861197467665~7038364871';
+  // AdMob 앱 ID (참조용 - GoogleService-Info.plist 및 AndroidManifest.xml에서 설정)
+  // Android: ca-app-pub-8516861197467665~2285990824
+  // iOS: ca-app-pub-8516861197467665~7038364871
 
   // 광고 단위 ID
   static const String _androidBannerAdId = 'ca-app-pub-8516861197467665/1456124881';

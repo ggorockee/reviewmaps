@@ -33,7 +33,7 @@ class SortFilterWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isTablet = _isTablet(context);
-    final textScaleFactor = MediaQuery.textScalerOf(context).textScaleFactor;
+    final textScaleFactor = MediaQuery.textScalerOf(context).scale(1.0);
     
     // 태블릿에서 시스템 폰트 크기에 따라 높이 동적 조정
     final double baseHeight = isTablet ? 56.0 : 48.0;
@@ -88,7 +88,7 @@ class SortFilterWidget extends StatelessWidget {
   ) {
     final bool isSelected = currentSort == option;
     final bool isLocationRequired = option == SortOption.nearest && userPosition == null;
-    final textScaleFactor = MediaQuery.textScalerOf(context).textScaleFactor;
+    final textScaleFactor = MediaQuery.textScalerOf(context).scale(1.0);
     
     // 시스템 폰트 크기에 따라 칩 높이와 패딩 동적 조정
     final double baseChipHeight = isTablet ? 36.0 : 32.0;

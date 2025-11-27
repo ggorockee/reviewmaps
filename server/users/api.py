@@ -69,8 +69,8 @@ async def send_email_code(request, payload: EmailSendCodeRequest):
         EmailVerification.objects.filter(email=email, is_verified=False).order_by('-created_at').first
     )()
 
-    # 재발송 쿨다운 체크 (첫 번째는 바로 가능, 이후 60초)
-    if existing and existing.send_count >= 1:
+    # 재발송 쿨다운 체크 (첫 번째 재발송은 바로 가능, 두 번째 이후 60초 대기)
+    if existing and existing.send_count > 1:
         cooldown_seconds = settings.EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS
         time_since_last_sent = (timezone.now() - existing.last_sent_at).total_seconds()
         if time_since_last_sent < cooldown_seconds:

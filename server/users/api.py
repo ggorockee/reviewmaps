@@ -29,6 +29,13 @@ from .schemas import (
     EmailSendCodeResponse,
     EmailVerifyCodeRequest,
     EmailVerifyCodeResponse,
+    PasswordResetRequest,
+    PasswordResetResponse,
+    PasswordResetVerifyRequest,
+    PasswordResetVerifyResponse,
+    PasswordResetConfirmRequest,
+    PasswordChangeRequest,
+    MessageResponse,
 )
 from .utils import (
     create_access_token,
@@ -399,3 +406,236 @@ async def get_my_info(request):
         }
 
     raise HttpError(401, "유효하지 않은 토큰입니다.")
+
+
+# ===== 비밀번호 재설정 API =====
+
+@router.post("/password/reset-request", response=PasswordResetResponse, summary="비밀번호 재설정 요청")
+async def password_reset_request(request, payload: PasswordResetRequest):
+    """
+    비밀번호 재설정 요청 API
+    - 이메일로 6자리 인증코드 발송
+    - 가입된 이메일(login_method='email')만 가능
+    - 유효시간: 60분
+    """
+    email = payload.email.lower().strip()
+
+    # 이메일 형식 검증
+    if '@' not in email or '.' not in email:
+        raise HttpError(400, "올바른 이메일 형식이 아닙니다.")
+
+    # 가입된 이메일인지 확인 (email 로그인만)
+    user_exists = await sync_to_async(
+        User.objects.filter(email=email, login_method='email').exists
+    )()
+    
+    if not user_exists:
+        raise HttpError(404, "가입되지 않은 이메일입니다.")
+
+    # 기존 인증 레코드 조회 (비밀번호 재설정용)
+    existing = await sync_to_async(
+        EmailVerification.objects.filter(email=email, is_verified=False).order_by('-created_at').first
+    )()
+
+    # 재발송 쿨다운 체크
+    if existing and existing.send_count > 1:
+        cooldown_seconds = settings.EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS
+        time_since_last_sent = (timezone.now() - existing.last_sent_at).total_seconds()
+        if time_since_last_sent < cooldown_seconds:
+            remaining = int(cooldown_seconds - time_since_last_sent)
+            raise HttpError(429, f"{remaining}초 후에 다시 시도해 주세요.")
+
+    # 6자리 인증코드 생성
+    code = f"{random.randint(0, 999999):06d}"
+    expires_at = timezone.now() + timedelta(minutes=settings.EMAIL_VERIFICATION_EXPIRE_MINUTES)
+
+    # 기존 레코드 업데이트 또는 새로 생성
+    if existing:
+        existing.code = code
+        existing.expires_at = expires_at
+        existing.attempts = 0
+        existing.send_count += 1
+        existing.last_sent_at = timezone.now()
+        existing.verification_token = ''
+        existing.is_verified = False
+        await sync_to_async(existing.save)()
+    else:
+        await sync_to_async(EmailVerification.objects.create)(
+            email=email,
+            code=code,
+            expires_at=expires_at,
+        )
+
+    # 이메일 발송
+    subject = "[ReviewMaps] 비밀번호 재설정 인증코드"
+    message = f"""안녕하세요,
+
+ReviewMaps 비밀번호 재설정을 위한 인증코드입니다.
+
+인증코드: {code}
+
+이 코드는 {settings.EMAIL_VERIFICATION_EXPIRE_MINUTES}분간 유효합니다.
+본인이 요청하지 않은 경우 이 메일을 무시해 주세요.
+
+감사합니다.
+ReviewMaps 팀
+"""
+
+    try:
+        await sync_to_async(send_mail)(
+            subject=subject,
+            message=message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[email],
+            fail_silently=False,
+        )
+    except Exception as e:
+        raise HttpError(500, "이메일 발송에 실패했습니다. 잠시 후 다시 시도해 주세요.")
+
+    return {
+        "message": "인증코드가 발송되었습니다.",
+        "expires_in": settings.EMAIL_VERIFICATION_EXPIRE_MINUTES * 60,
+    }
+
+
+@router.post("/password/reset-verify", response=PasswordResetVerifyResponse, summary="비밀번호 재설정 인증코드 확인")
+async def password_reset_verify(request, payload: PasswordResetVerifyRequest):
+    """
+    비밀번호 재설정 인증코드 확인 API
+    - 인증코드 검증 후 reset_token 반환
+    - 5회 실패 시 재요청 필요
+    """
+    email = payload.email.lower().strip()
+    code = payload.code.strip()
+
+    # 인증 레코드 조회
+    verification = await sync_to_async(
+        EmailVerification.objects.filter(email=email, is_verified=False).order_by('-created_at').first
+    )()
+
+    if not verification:
+        raise HttpError(404, "인증 요청을 먼저 진행해 주세요.")
+
+    # 만료 확인
+    if timezone.now() > verification.expires_at:
+        raise HttpError(400, "인증코드가 만료되었습니다. 다시 요청해 주세요.")
+
+    # 시도 횟수 확인
+    if verification.attempts >= settings.EMAIL_VERIFICATION_MAX_ATTEMPTS:
+        raise HttpError(429, "인증 시도 횟수를 초과했습니다. 다시 요청해 주세요.")
+
+    # 인증코드 확인
+    if verification.code != code:
+        verification.attempts += 1
+        await sync_to_async(verification.save)()
+        remaining = settings.EMAIL_VERIFICATION_MAX_ATTEMPTS - verification.attempts
+        raise HttpError(400, f"인증코드가 일치하지 않습니다. (남은 시도: {remaining}회)")
+
+    # 인증 성공 - reset_token 발급
+    reset_token = secrets.token_urlsafe(32)
+    verification.is_verified = True
+    verification.verification_token = reset_token
+    await sync_to_async(verification.save)()
+
+    return {
+        "verified": True,
+        "reset_token": reset_token,
+    }
+
+
+@router.post("/password/reset-confirm", response=MessageResponse, summary="비밀번호 재설정 확정")
+async def password_reset_confirm(request, payload: PasswordResetConfirmRequest):
+    """
+    비밀번호 재설정 확정 API
+    - reset_token으로 검증 후 새 비밀번호 설정
+    - 비밀번호는 8자 이상
+    """
+    email = payload.email.lower().strip()
+    reset_token = payload.reset_token
+    new_password = payload.new_password
+
+    # 비밀번호 길이 검증
+    if len(new_password) < 8:
+        raise HttpError(400, "비밀번호는 8자 이상이어야 합니다.")
+
+    # 인증 레코드 확인
+    verification = await sync_to_async(
+        EmailVerification.objects.filter(
+            email=email,
+            is_verified=True,
+            verification_token=reset_token
+        ).first
+    )()
+
+    if not verification:
+        raise HttpError(400, "유효하지 않은 인증 토큰입니다.")
+
+    # 만료 확인 (인증 후 60분 이내)
+    if timezone.now() > verification.expires_at:
+        raise HttpError(400, "인증 토큰이 만료되었습니다. 다시 요청해 주세요.")
+
+    # 사용자 조회
+    user = await sync_to_async(
+        User.objects.filter(email=email, login_method='email').first
+    )()
+
+    if not user:
+        raise HttpError(404, "사용자를 찾을 수 없습니다.")
+
+    # 비밀번호 변경
+    await sync_to_async(user.set_password)(new_password)
+    await sync_to_async(user.save)()
+
+    # 인증 레코드 삭제 (재사용 방지)
+    await sync_to_async(verification.delete)()
+
+    return {
+        "message": "비밀번호가 성공적으로 변경되었습니다.",
+        "success": True,
+    }
+
+
+@router.post("/password/change", response=MessageResponse, summary="비밀번호 변경 (로그인 사용자)")
+async def password_change(request, payload: PasswordChangeRequest):
+    """
+    비밀번호 변경 API (로그인한 사용자)
+    - Authorization 헤더 필수
+    - 현재 비밀번호 확인 후 새 비밀번호로 변경
+    """
+    # 인증 확인
+    auth_header = request.headers.get('Authorization', '')
+    if not auth_header.startswith('Bearer '):
+        raise HttpError(401, "인증이 필요합니다.")
+
+    token = auth_header.replace('Bearer ', '')
+    user = await get_user_from_token(token)
+
+    if not user:
+        raise HttpError(401, "유효하지 않은 토큰입니다.")
+
+    # email 로그인 사용자만 가능
+    if user.login_method != 'email':
+        raise HttpError(400, "이메일 로그인 사용자만 비밀번호를 변경할 수 있습니다.")
+
+    # 현재 비밀번호 확인
+    current_password = payload.current_password
+    if not await sync_to_async(check_password)(current_password, user.password):
+        raise HttpError(400, "현재 비밀번호가 일치하지 않습니다.")
+
+    # 새 비밀번호 길이 검증
+    new_password = payload.new_password
+    if len(new_password) < 8:
+        raise HttpError(400, "새 비밀번호는 8자 이상이어야 합니다.")
+
+    # 새 비밀번호가 현재 비밀번호와 같은지 확인
+    if current_password == new_password:
+        raise HttpError(400, "새 비밀번호는 현재 비밀번호와 달라야 합니다.")
+
+    # 비밀번호 변경
+    await sync_to_async(user.set_password)(new_password)
+    await sync_to_async(user.save)()
+
+    return {
+        "message": "비밀번호가 성공적으로 변경되었습니다.",
+        "success": True,
+    }

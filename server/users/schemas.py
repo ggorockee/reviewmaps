@@ -137,3 +137,41 @@ class EmailVerifyCodeResponse(Schema):
     """이메일 인증코드 확인 응답"""
     verified: bool
     verification_token: str
+
+
+# ===== 비밀번호 재설정 스키마 =====
+
+class PasswordResetRequest(Schema):
+    """비밀번호 재설정 요청 (인증코드 발송)"""
+    email: str
+
+
+class PasswordResetResponse(Schema):
+    """비밀번호 재설정 응답"""
+    message: str
+    expires_in: int
+
+
+class PasswordResetVerifyRequest(Schema):
+    """비밀번호 재설정 인증코드 확인"""
+    email: str
+    code: str
+
+
+class PasswordResetVerifyResponse(Schema):
+    """비밀번호 재설정 인증코드 확인 응답"""
+    verified: bool
+    reset_token: str
+
+
+class PasswordResetConfirmRequest(Schema):
+    """비밀번호 재설정 확정 (새 비밀번호 설정)"""
+    email: str
+    reset_token: str
+    new_password: str
+
+
+class PasswordChangeRequest(Schema):
+    """비밀번호 변경 요청 (로그인한 사용자)"""
+    current_password: str
+    new_password: str

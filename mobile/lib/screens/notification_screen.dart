@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/keyword_service.dart';
+import '../services/fcm_service.dart';
 import '../models/keyword_models.dart';
 import '../const/colors.dart';
 import 'home_screen.dart'; // buildChannelIcons, platformBadgeColor
@@ -45,15 +46,29 @@ class _NotificationScreenState extends State<NotificationScreen>
     _tabController.addListener(_onTabChanged);
     _loadKeywords();
     _getUserLocation();
+
+    // FCM 알림 수신 리스너 등록 (푸시 수신 시 알림 기록 실시간 업데이트)
+    FcmService.instance.addNotificationListener(_onFcmNotificationReceived);
   }
 
   @override
   void dispose() {
+    // FCM 알림 수신 리스너 해제
+    FcmService.instance.removeNotificationListener(_onFcmNotificationReceived);
+
     _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     _keywordController.dispose();
     _keywordService.dispose();
     super.dispose();
+  }
+
+  /// FCM 알림 수신 시 호출되는 콜백
+  /// 알림 기록 탭을 자동으로 새로고침
+  void _onFcmNotificationReceived() {
+    debugPrint('🔔 [NotificationScreen] FCM 알림 수신 - 알림 기록 새로고침');
+    // 서버에서 최신 알림 목록 다시 로드
+    _loadAlerts();
   }
 
   void _onTabChanged() {

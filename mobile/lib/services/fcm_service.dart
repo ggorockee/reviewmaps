@@ -8,11 +8,15 @@ import 'package:mobile/config/config.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:mobile/main.dart' as main_app;
 
+/// FCM 알림 수신 콜백 타입
+typedef OnNotificationReceived = void Function();
+
 /// FCM 푸시 알림 서비스
 /// - FCM 토큰 관리
 /// - 푸시 알림 권한 요청
 /// - 토큰 갱신 감지 및 서버 등록
 /// - 포그라운드 알림 표시 (flutter_local_notifications)
+/// - 알림 수신 시 콜백 지원 (실시간 UI 업데이트용)
 class FcmService {
   static FcmService? _instance;
   static FcmService get instance => _instance ??= FcmService._internal();
@@ -30,6 +34,9 @@ class FcmService {
 
   String? _currentToken;
   bool _isInitialized = false;
+
+  /// 알림 수신 시 호출될 콜백 리스트
+  final List<OnNotificationReceived> _notificationListeners = [];
 
   /// Android 알림 채널 ID
   static const String _androidChannelId = 'keyword_alerts';
@@ -289,6 +296,9 @@ class FcmService {
 
     // 포그라운드에서 로컬 알림 표시
     _showLocalNotification(message);
+
+    // 알림 수신 리스너들에게 이벤트 전달 (UI 실시간 업데이트용)
+    _notifyListeners();
   }
 
   /// 로컬 알림 표시 (포그라운드용)
@@ -376,6 +386,33 @@ class FcmService {
 
   /// 초기화 상태 확인
   bool get isInitialized => _isInitialized;
+
+  /// 알림 수신 리스너 등록
+  /// NotificationScreen 등에서 사용하여 실시간 업데이트 구현
+  void addNotificationListener(OnNotificationReceived listener) {
+    if (!_notificationListeners.contains(listener)) {
+      _notificationListeners.add(listener);
+      debugPrint('🔔 알림 리스너 등록됨 (총 ${_notificationListeners.length}개)');
+    }
+  }
+
+  /// 알림 수신 리스너 해제
+  void removeNotificationListener(OnNotificationReceived listener) {
+    _notificationListeners.remove(listener);
+    debugPrint('🔔 알림 리스너 해제됨 (총 ${_notificationListeners.length}개)');
+  }
+
+  /// 모든 리스너에게 알림 수신 이벤트 전달
+  void _notifyListeners() {
+    debugPrint('🔔 알림 리스너들에게 이벤트 전달 (${_notificationListeners.length}개)');
+    for (final listener in _notificationListeners) {
+      try {
+        listener();
+      } catch (e) {
+        debugPrint('❌ 알림 리스너 호출 오류: $e');
+      }
+    }
+  }
 }
 
 /// 백그라운드 메시지 핸들러 (앱이 종료된 상태에서도 호출됨)

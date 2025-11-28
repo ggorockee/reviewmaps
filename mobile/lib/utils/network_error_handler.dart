@@ -66,9 +66,9 @@ class NetworkErrorHandler {
 
   /// HTTP 상태 코드에 따른 에러 메시지
   static String getHttpErrorMessage(int statusCode, {String? serverMessage}) {
-    // 서버에서 친화적 메시지를 제공한 경우 우선 사용
+    // 서버에서 메시지를 제공한 경우 사용자 친화적으로 변환
     if (serverMessage != null && serverMessage.isNotEmpty) {
-      return serverMessage;
+      return _transformServerMessage(serverMessage);
     }
 
     switch (statusCode) {
@@ -124,6 +124,25 @@ class NetworkErrorHandler {
     return errorString.contains('timeout') ||
         errorString.contains('connection') ||
         errorString.contains('network');
+  }
+
+  /// 서버 메시지를 사용자 친화적 메시지로 변환
+  static String _transformServerMessage(String message) {
+    // 서버 메시지 → 사용자 친화적 메시지 매핑
+    const messageMap = {
+      '이미 등록된 키워드입니다.': '이 키워드는 이미 등록되어 있어요.',
+      '이미 등록된 키워드입니다': '이 키워드는 이미 등록되어 있어요.',
+      '키워드를 찾을 수 없습니다.': '해당 키워드를 찾을 수 없어요.',
+      '키워드를 찾을 수 없습니다': '해당 키워드를 찾을 수 없어요.',
+    };
+
+    // 매핑된 메시지가 있으면 변환
+    if (messageMap.containsKey(message)) {
+      return messageMap[message]!;
+    }
+
+    // 매핑이 없으면 원본 메시지 반환
+    return message;
   }
 
   /// 사용자 친화적 메시지인지 확인

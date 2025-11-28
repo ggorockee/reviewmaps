@@ -15,7 +15,7 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
 from ninja import NinjaAPI
 from campaigns.api import router as campaigns_router
 from campaigns.category_api import router as categories_router
@@ -44,6 +44,8 @@ api.add_router("/app-config", app_config_router)  # /v1/app-config/* 로 접근
 api.add_router("", health_router)  # /v1/healthz로 접근
 
 urlpatterns = [
+    # Prometheus 메트릭 엔드포인트 (/metrics)
+    path('', include('django_prometheus.urls')),
     path('admin/', admin.site.urls),
     path('v1/', api.urls),  # /v1/campaigns, /v1/categories, /v1/healthz로 접근
 ]

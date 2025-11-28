@@ -63,6 +63,7 @@ else:
 # Application definition
 
 INSTALLED_APPS = [
+    'django_prometheus',  # Prometheus 메트릭 - 맨 위에 위치
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -81,6 +82,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'django_prometheus.middleware.PrometheusBeforeMiddleware',  # Prometheus - 맨 위 (요청 시작 측정)
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',  # WhiteNoise - static 파일 서빙
     'corsheaders.middleware.CorsMiddleware',  # CORS - 최상단 가까이 위치
@@ -91,6 +93,7 @@ MIDDLEWARE = [
     'core.middleware.rate_limit.RateLimitMiddleware',  # Rate Limiting - 인증 후 실행
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'django_prometheus.middleware.PrometheusAfterMiddleware',  # Prometheus - 맨 아래 (요청 종료 측정)
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -128,7 +131,7 @@ if 'test' in sys.argv:
 else:
     DATABASES = {
         'default': {
-            'ENGINE': 'django.db.backends.postgresql',
+            'ENGINE': 'django_prometheus.db.backends.postgresql',  # Prometheus 메트릭 수집 지원
             'NAME': os.getenv('POSTGRES_DB', 'test'),
             'USER': os.getenv('POSTGRES_USER', 'test'),
             'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'test1234'),

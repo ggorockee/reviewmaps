@@ -9,6 +9,7 @@ dependencies = [
     "django>=5.2.8",
     "django-cors-headers>=4.9.0",
     "django-ninja>=1.5.0",
+    "django-prometheus>=2.4.1",
     "dotenv>=0.9.9",
     "firebase-admin>=6.5.0",
     "gunicorn>=23.0.0",

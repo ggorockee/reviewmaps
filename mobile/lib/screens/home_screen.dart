@@ -155,10 +155,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _initialize() async {
     final stopwatch = Stopwatch()..start();
 
-    // 1. 캐시된 데이터가 있으면 즉시 표시 (UI 블로킹 없음)
+    // 1. 캐시된 추천 데이터가 있으면 즉시 표시 (UI 블로킹 없음)
     final cachedData = CampaignCacheManager.instance.getCachedRecommended();
     if (cachedData != null && cachedData.isNotEmpty) {
-      debugPrint('[HomeScreen] 캐시 히트 - 즉시 표시');
+      debugPrint('[HomeScreen] 추천 캐시 히트 - 즉시 표시');
       _shuffledCampaigns = cachedData;
       final firstPage = _getNextPage();
       if (mounted) {
@@ -171,15 +171,27 @@ class _HomeScreenState extends State<HomeScreen> {
       _calculateDistancesForStoresAsync(cachedData);
     }
 
-    // 2. 병렬로 설정 복원 및 추가 데이터 로딩
+    // 2. 캐시된 가까운 체험단 데이터가 있으면 즉시 표시
+    final cachedNearest = CampaignCacheManager.instance.getCachedNearest();
+    if (cachedNearest != null && cachedNearest.isNotEmpty) {
+      debugPrint('[HomeScreen] 가까운 캐시 히트 - 즉시 표시');
+      if (mounted) {
+        setState(() {
+          _nearestCampaigns = Future.value(cachedNearest);
+          _autoShowNearest = true;
+        });
+      }
+    }
+
+    // 3. 병렬로 설정 복원 및 추가 데이터 로딩
     await Future.wait([
       _restorePrefsAndCheckFirstRun(),
       // 캐시가 없을 때만 추천 캠페인 로드
       if (cachedData == null || cachedData.isEmpty) _loadRecommendedCampaigns(),
     ]);
 
-    // 3. 자동 근처 표시 설정이 켜져있으면 로드 (비동기로 처리)
-    if (_autoShowNearest) {
+    // 4. 자동 근처 표시 설정이 켜져있고 캐시가 없으면 로드
+    if (_autoShowNearest && cachedNearest == null) {
       _updateNearestCampaigns(); // 백그라운드에서 실행
     }
 

@@ -41,6 +41,10 @@ class CampaignCacheManager {
   bool _isPreloadComplete = false;
   bool get isPreloadComplete => _isPreloadComplete;
 
+  // 가까운 캠페인 프리로드 완료 여부
+  bool _isNearestPreloadComplete = false;
+  bool get isNearestPreloadComplete => _isNearestPreloadComplete;
+
   /// 추천 캠페인 프리로드 (스플래시에서 호출)
   /// 백그라운드에서 데이터를 미리 로드하여 캐시에 저장
   Future<void> preloadRecommended({int limit = 20}) async {
@@ -260,5 +264,90 @@ class CampaignCacheManager {
       offset: offset,
       sort: '-created_at',
     );
+  }
+
+  /// 가까운 캠페인 프리로드 (스플래시에서 호출)
+  /// 위치 권한이 있는 경우에만 백그라운드에서 미리 로드
+  Future<void> preloadNearest({int limit = 10}) async {
+    try {
+      debugPrint('[CacheManager] 가까운 캠페인 프리로드 시작...');
+      final stopwatch = Stopwatch()..start();
+
+      // 이미 로딩 중이면 기다림
+      if (_nearestLoadingCompleter != null) {
+        await _nearestLoadingCompleter!.future;
+        return;
+      }
+
+      // 캐시가 유효하면 스킵
+      if (_nearestCache != null && _nearestCacheTime != null) {
+        final age = DateTime.now().difference(_nearestCacheTime!);
+        if (age.inMinutes < _nearestCacheTtlMinutes) {
+          debugPrint('[CacheManager] 가까운 캐시 유효 - 프리로드 스킵');
+          _isNearestPreloadComplete = true;
+          return;
+        }
+      }
+
+      // 위치 권한 확인
+      final permission = await Geolocator.checkPermission();
+      if (permission != LocationPermission.always &&
+          permission != LocationPermission.whileInUse) {
+        debugPrint('[CacheManager] 위치 권한 없음 - 프리로드 스킵');
+        return;
+      }
+
+      // 위치 서비스 확인
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        debugPrint('[CacheManager] 위치 서비스 비활성화 - 프리로드 스킵');
+        return;
+      }
+
+      _nearestLoadingCompleter = Completer<List<Store>>();
+
+      // 마지막 알려진 위치 우선 사용 (빠른 응답)
+      Position? position = await Geolocator.getLastKnownPosition();
+
+      // 캐시된 위치가 없으면 현재 위치 가져오기 (타임아웃 3초)
+      position ??= await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium, // 빠른 응답을 위해 medium 사용
+        ),
+      ).timeout(
+        const Duration(seconds: 3),
+        onTimeout: () => throw Exception('위치 조회 타임아웃'),
+      );
+
+      final data = await _campaignService.fetchNearest(
+        lat: position.latitude,
+        lng: position.longitude,
+        limit: limit,
+      );
+
+      _nearestCache = data;
+      _nearestCacheTime = DateTime.now();
+      _cachedPosition = position;
+      _isNearestPreloadComplete = true;
+
+      _nearestLoadingCompleter!.complete(data);
+      _nearestLoadingCompleter = null;
+
+      stopwatch.stop();
+      debugPrint('[CacheManager] 가까운 프리로드 완료: ${data.length}개, ${stopwatch.elapsedMilliseconds}ms');
+    } catch (e) {
+      debugPrint('[CacheManager] 가까운 프리로드 실패: $e');
+      _nearestLoadingCompleter?.completeError(e);
+      _nearestLoadingCompleter = null;
+      // 실패해도 앱 실행에 영향 없음
+    }
+  }
+
+  /// 추천 + 가까운 캠페인 병렬 프리로드 (스플래시에서 호출)
+  Future<void> preloadAll({int recommendedLimit = 20, int nearestLimit = 10}) async {
+    await Future.wait([
+      preloadRecommended(limit: recommendedLimit),
+      preloadNearest(limit: nearestLimit),
+    ]);
   }
 }

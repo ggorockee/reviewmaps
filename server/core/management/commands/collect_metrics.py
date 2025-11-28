@@ -23,6 +23,7 @@ from users.models import User
 from keyword_alerts.models import FCMDevice, Keyword, KeywordAlert
 
 from core.metrics import (
+    APP_NAME,
     campaign_active_total,
     table_rows_total,
     table_size_bytes,
@@ -99,16 +100,16 @@ class Command(BaseCommand):
         for region in regions:
             if region:  # None이 아닌 경우만
                 count = active_campaigns.filter(region=region).count()
-                campaign_active_total.labels(region=region).set(count)
+                campaign_active_total.labels(region=region, app=APP_NAME).set(count)
 
         # 지역 없는 캠페인
         null_region_count = active_campaigns.filter(region__isnull=True).count()
         if null_region_count > 0:
-            campaign_active_total.labels(region='unknown').set(null_region_count)
+            campaign_active_total.labels(region='unknown', app=APP_NAME).set(null_region_count)
 
         # 전체 활성 캠페인 수
         total_active = active_campaigns.count()
-        campaign_active_total.labels(region='all').set(total_active)
+        campaign_active_total.labels(region='all', app=APP_NAME).set(total_active)
 
         logger.info(f'Campaign 메트릭 수집: 전체 활성 {total_active}개')
 
@@ -126,7 +127,7 @@ class Command(BaseCommand):
         for table_name, model in tables.items():
             try:
                 count = model.objects.count()
-                table_rows_total.labels(table_name=table_name).set(count)
+                table_rows_total.labels(table_name=table_name, app=APP_NAME).set(count)
             except Exception as e:
                 logger.warning(f'테이블 {table_name} 행 수 조회 실패: {e}')
 
@@ -164,7 +165,7 @@ class Command(BaseCommand):
                                 metric_name = 'users'
                             elif table_name.startswith('keyword_alerts_'):
                                 metric_name = table_name.replace('keyword_alerts_', '')
-                            table_size_bytes.labels(table_name=metric_name).set(size_bytes)
+                            table_size_bytes.labels(table_name=metric_name, app=APP_NAME).set(size_bytes)
                     except Exception as e:
                         logger.debug(f'테이블 {table_name} 크기 조회 실패: {e}')
         except Exception as e:
@@ -175,7 +176,7 @@ class Command(BaseCommand):
         # 최근 24시간 활성 사용자
         yesterday = timezone.now() - timedelta(hours=24)
         active_count = User.objects.filter(last_login__gte=yesterday).count()
-        active_users_total.set(active_count)
+        active_users_total.labels(app=APP_NAME).set(active_count)
 
         logger.info(f'User 메트릭 수집: 활성 사용자 {active_count}명')
 
@@ -186,14 +187,14 @@ class Command(BaseCommand):
             device_type='android',
             is_active=True
         ).count()
-        fcm_devices_active_total.labels(device_type='android').set(android_count)
+        fcm_devices_active_total.labels(device_type='android', app=APP_NAME).set(android_count)
 
         # 활성 iOS 디바이스
         ios_count = FCMDevice.objects.filter(
             device_type='ios',
             is_active=True
         ).count()
-        fcm_devices_active_total.labels(device_type='ios').set(ios_count)
+        fcm_devices_active_total.labels(device_type='ios', app=APP_NAME).set(ios_count)
 
         logger.info(f'FCM 메트릭 수집: Android {android_count}, iOS {ios_count}')
 

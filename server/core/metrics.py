@@ -7,9 +7,16 @@ ReviewMaps 커스텀 Prometheus 메트릭 정의
 - Counter: 누적 값 (증가만 가능)
 - Gauge: 현재 값 (증감 가능)
 - Histogram: 분포 측정 (응답 시간 등)
+
+모든 메트릭에 'app' 라벨 포함:
+- Grafana에서 $application 변수로 필터링 가능
+- 기본값: 'reviewmaps-server'
 """
 
 from prometheus_client import Counter, Gauge, Histogram
+
+# 앱 식별자 상수
+APP_NAME = 'reviewmaps-server'
 
 
 # =============================================================================
@@ -20,26 +27,26 @@ from prometheus_client import Counter, Gauge, Histogram
 campaign_active_total = Gauge(
     'reviewmaps_campaign_active_total',
     '현재 활성 캠페인 수',
-    ['region']
+    ['region', 'app']
 )
 
 campaign_expired_total = Counter(
     'reviewmaps_campaign_expired_total',
     '만료된 캠페인 누적 수',
-    ['region']
+    ['region', 'app']
 )
 
 # 데이터 enrichment (향후 확장용)
 enrichment_total = Counter(
     'reviewmaps_enrichment_total',
     'Enrichment 작업 횟수',
-    ['scope', 'status']  # scope: region/all, status: success/failed
+    ['scope', 'status', 'app']  # scope: region/all, status: success/failed
 )
 
 enrichment_duration_seconds = Histogram(
     'reviewmaps_enrichment_duration_seconds',
     'Enrichment 소요 시간',
-    ['scope'],
+    ['scope', 'app'],
     buckets=[0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0]
 )
 
@@ -52,19 +59,20 @@ enrichment_duration_seconds = Histogram(
 naver_api_calls_total = Counter(
     'reviewmaps_naver_api_calls_total',
     'Naver API 호출 횟수',
-    ['endpoint', 'status_code']
+    ['endpoint', 'status_code', 'app']
 )
 
 naver_api_duration_seconds = Histogram(
     'reviewmaps_naver_api_duration_seconds',
     'Naver API 응답 시간',
-    ['endpoint'],
+    ['endpoint', 'app'],
     buckets=[0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0]
 )
 
 naver_api_rate_limit_hits = Counter(
     'reviewmaps_naver_api_rate_limit_hits_total',
-    'Naver API Rate limit 도달 횟수'
+    'Naver API Rate limit 도달 횟수',
+    ['app']
 )
 
 
@@ -76,20 +84,20 @@ naver_api_rate_limit_hits = Counter(
 table_rows_total = Gauge(
     'reviewmaps_table_rows_total',
     '테이블 행 수',
-    ['table_name']
+    ['table_name', 'app']
 )
 
 table_size_bytes = Gauge(
     'reviewmaps_table_size_bytes',
     '테이블 크기 (바이트)',
-    ['table_name']
+    ['table_name', 'app']
 )
 
 # Cleanup 작업
 cleanup_deleted_rows = Counter(
     'reviewmaps_cleanup_deleted_rows_total',
     '정리된 행 수',
-    ['table_name']
+    ['table_name', 'app']
 )
 
 
@@ -101,14 +109,14 @@ cleanup_deleted_rows = Counter(
 service_up = Gauge(
     'reviewmaps_service_up',
     '서비스 UP/DOWN 상태 (1/0)',
-    ['service']  # django, database
+    ['service', 'app']  # django, database
 )
 
 # 에러 추적
 exceptions_total = Counter(
     'reviewmaps_exceptions_total',
     '발생한 예외 타입별 횟수',
-    ['exception_type', 'view_name']
+    ['exception_type', 'view_name', 'app']
 )
 
 
@@ -120,13 +128,13 @@ exceptions_total = Counter(
 api_requests_total = Counter(
     'reviewmaps_api_requests_total',
     'API 요청 횟수 (엔드포인트별)',
-    ['method', 'endpoint', 'status']
+    ['method', 'endpoint', 'status', 'app']
 )
 
 api_request_duration_seconds = Histogram(
     'reviewmaps_api_request_duration_seconds',
     'API 요청 처리 시간',
-    ['method', 'endpoint'],
+    ['method', 'endpoint', 'app'],
     buckets=[0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0]
 )
 
@@ -138,12 +146,13 @@ api_request_duration_seconds = Histogram(
 auth_attempts_total = Counter(
     'reviewmaps_auth_attempts_total',
     '인증 시도 횟수',
-    ['method', 'status']  # method: email/kakao/google/apple, status: success/failed
+    ['method', 'status', 'app']  # method: email/kakao/google/apple, status: success/failed
 )
 
 active_users_total = Gauge(
     'reviewmaps_active_users_total',
-    '활성 사용자 수 (최근 24시간 로그인)'
+    '활성 사용자 수 (최근 24시간 로그인)',
+    ['app']
 )
 
 
@@ -154,13 +163,13 @@ active_users_total = Gauge(
 keyword_alerts_sent_total = Counter(
     'reviewmaps_keyword_alerts_sent_total',
     '발송된 키워드 알람 수',
-    ['status']  # success/failed
+    ['status', 'app']  # success/failed
 )
 
 fcm_devices_active_total = Gauge(
     'reviewmaps_fcm_devices_active_total',
     '활성 FCM 디바이스 수',
-    ['device_type']  # android/ios
+    ['device_type', 'app']  # android/ios
 )
 
 
@@ -172,7 +181,8 @@ def record_exception(exception_type: str, view_name: str = 'unknown'):
     """예외 발생 시 메트릭 기록"""
     exceptions_total.labels(
         exception_type=exception_type,
-        view_name=view_name
+        view_name=view_name,
+        app=APP_NAME
     ).inc()
 
 
@@ -181,11 +191,13 @@ def record_api_request(method: str, endpoint: str, status: str, duration: float)
     api_requests_total.labels(
         method=method,
         endpoint=endpoint,
-        status=status
+        status=status,
+        app=APP_NAME
     ).inc()
     api_request_duration_seconds.labels(
         method=method,
-        endpoint=endpoint
+        endpoint=endpoint,
+        app=APP_NAME
     ).observe(duration)
 
 
@@ -193,10 +205,11 @@ def record_auth_attempt(method: str, success: bool):
     """인증 시도 메트릭 기록"""
     auth_attempts_total.labels(
         method=method,
-        status='success' if success else 'failed'
+        status='success' if success else 'failed',
+        app=APP_NAME
     ).inc()
 
 
 def update_service_status(service: str, is_up: bool):
     """서비스 상태 업데이트"""
-    service_up.labels(service=service).set(1 if is_up else 0)
+    service_up.labels(service=service, app=APP_NAME).set(1 if is_up else 0)

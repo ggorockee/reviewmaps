@@ -98,6 +98,19 @@ class Campaign(models.Model):
             # 캠페인 유형 필터링 최적화 (추가)
             # 사용: 유형별 캠페인 필터링 (방문형, 배송형 등)
             models.Index(fields=['campaign_type'], name='idx_cpg_type'),
+
+            # 가까운 체험단 API 최적화 (거리 기반 조회)
+            # 사용: lat/lng 기반 거리 정렬 쿼리 성능 향상
+            models.Index(
+                fields=['lat', 'lng', 'apply_deadline'],
+                name='idx_cpg_location_deadline'
+            ),
+
+            # 복합 인덱스: 프로모션 + 생성일 (추천 정렬용)
+            models.Index(
+                fields=['-promotion_level', '-created_at'],
+                name='idx_cpg_promo_created'
+            ),
         ]
 
     def __str__(self):

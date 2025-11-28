@@ -95,10 +95,10 @@ class _SplashScreenState extends State<SplashScreen>
     final stopwatch = Stopwatch()..start();
 
     // 1. 병렬 실행: 최소 대기 + 데이터 프리로드 + 세션 로깅
-    // 광고가 표시되는 동안 백그라운드에서 데이터를 미리 로드
+    // 광고가 표시되는 동안 백그라운드에서 추천 + 가까운 캠페인을 모두 미리 로드
     await Future.wait([
       Future.delayed(const Duration(milliseconds: 1500)), // 1.5초로 단축
-      CampaignCacheManager.instance.preloadRecommended(limit: 20), // 추천 캠페인 프리로드
+      CampaignCacheManager.instance.preloadAll(recommendedLimit: 20, nearestLimit: 10), // 추천 + 가까운 캠페인 병렬 프리로드
       _adService.logSessionStart(),
     ]);
 

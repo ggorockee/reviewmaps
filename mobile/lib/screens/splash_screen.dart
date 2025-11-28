@@ -37,7 +37,7 @@ class _SplashScreenState extends State<SplashScreen>
   void initState() {
     super.initState();
 
-    // 앱 버전 로드
+    // 앱 버전 로드 (즉시 로드 시작)
     _loadAppVersion();
 
     // 로고 애니메이션 설정
@@ -243,22 +243,21 @@ class _SplashScreenState extends State<SplashScreen>
             ),
 
             // 하단 중앙 - 앱 버전 표시
-            if (_appVersion.isNotEmpty)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 40.h,
-                child: Center(
-                  child: Text(
-                    'v.$_appVersion',
-                    style: TextStyle(
-                      fontSize: isTablet ? 14.sp : 12.sp,
-                      color: Colors.grey[400],
-                      fontWeight: FontWeight.w400,
-                    ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 40.h,
+              child: Center(
+                child: Text(
+                  _appVersion.isNotEmpty ? 'v.$_appVersion' : '',
+                  style: TextStyle(
+                    fontSize: isTablet ? 14.sp : 12.sp,
+                    color: Colors.grey[400],
+                    fontWeight: FontWeight.w400,
                   ),
                 ),
               ),
+            ),
           ],
         ),
       ),

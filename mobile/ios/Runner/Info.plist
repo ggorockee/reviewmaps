@@ -108,5 +108,12 @@
 	<!-- Firebase Analytics -->
 	<key>FIREBASE_ANALYTICS_COLLECTION_ENABLED</key>
 	<true/>
+
+	<!-- Background Modes for Push Notifications -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+		<string>fetch</string>
+	</array>
 </dict>
 </plist>

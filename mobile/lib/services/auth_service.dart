@@ -547,9 +547,10 @@ class AuthService {
   /// 사용자 정보 조회
   /// GET /v1/auth/me
   /// - 현재 로그인된 사용자 정보 반환
+  /// - 토큰 만료 임박 시 자동 갱신
   Future<UserInfo> getUserInfo() async {
     final uri = Uri.parse('$baseUrl/auth/me');
-    final headers = await _authHeaders();
+    final headers = await getValidAuthHeaders();
 
     try {
       debugPrint('[AuthService] getUserInfo 호출');

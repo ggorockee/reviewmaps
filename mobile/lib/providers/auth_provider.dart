@@ -51,6 +51,7 @@ class AuthNotifier extends Notifier<AuthState> {
 
   /// 인증 상태 확인 및 업데이트
   /// - 앱 시작 시 또는 필요 시 호출하여 로그인 상태 복원
+  /// - iOS: 토큰 만료 시 자동 갱신 시도
   Future<void> checkAuthStatus() async {
     try {
       final isLoggedIn = await _authService.isLoggedIn();
@@ -59,6 +60,7 @@ class AuthNotifier extends Notifier<AuthState> {
       if (isLoggedIn) {
         // 일반 회원 로그인
         try {
+          // getUserInfo() 내부에서 토큰 자동 갱신 처리됨
           final userInfo = await _authService.getUserInfo();
           state = AuthState(
             isAuthenticated: true,
@@ -66,8 +68,25 @@ class AuthNotifier extends Notifier<AuthState> {
             userInfo: userInfo,
           );
         } catch (e) {
-          // 사용자 정보 조회 실패 시 로그아웃 처리
-          await logout();
+          // 401 에러인 경우 토큰 갱신 한 번 더 시도
+          if (e.toString().contains('만료') || e.toString().contains('401')) {
+            try {
+              await _authService.refreshToken();
+              final userInfo = await _authService.getUserInfo();
+              state = AuthState(
+                isAuthenticated: true,
+                isAnonymous: false,
+                userInfo: userInfo,
+              );
+              return; // 갱신 성공
+            } catch (refreshError) {
+              // 갱신도 실패하면 로그아웃
+              await logout();
+            }
+          } else {
+            // 다른 에러도 로그아웃 처리
+            await logout();
+          }
         }
       } else if (isAnonymousUser) {
         // 익명 사용자

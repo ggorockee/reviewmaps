@@ -109,7 +109,9 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
         _loadData();
       } catch (e) {
         if (mounted) {
-          _showErrorDialog('키워드를 등록할 수 없습니다.\n잠시 후 다시 시도해 주세요.');
+          // "Exception: " 접두어 제거하여 사용자 친화적 메시지 표시
+          final errorMessage = e.toString().replaceFirst('Exception: ', '');
+          _showErrorDialog(errorMessage);
         }
       }
     }

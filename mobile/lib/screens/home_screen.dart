@@ -10,9 +10,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:mobile/config/config.dart';
 import 'package:mobile/screens/search_screen.dart';
-import 'package:mobile/services/campaign_service.dart';
+import 'package:mobile/services/campaign_cache_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -96,12 +95,8 @@ class HomeScreen extends StatefulWidget {
 /// - 공지 배너: SharedPreferences로 노출 여부 저장
 class _HomeScreenState extends State<HomeScreen> {
   // ---------------------------
-  // Services & Controllers
+  // Controllers
   // ---------------------------
-  final CampaignService _campaignService = CampaignService(
-    AppConfig.reviewMapBaseUrl,
-    apiKey: AppConfig.reviewMapApiKey,
-  );
   final ScrollController _mainScrollController = ScrollController();
 
   // ---------------------------
@@ -131,7 +126,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isLoading = false;
   int _currentPage = 0;
   final int _pageSize = 10;
-  final int _apiLimit = 50; // 서버 한 번에 가져오는 개수
+  final int _apiLimit = 20; // 서버 한 번에 가져오는 개수 (50→20으로 축소)
   int _apiOffset = 0;
 
   // SharedPreferences Keys
@@ -155,38 +150,66 @@ class _HomeScreenState extends State<HomeScreen> {
 
 
   // ------------------------------------------------------------
-  // 초기화: 사용자 설정 복원 → (옵션) 근처 로딩 → 추천 피드 로딩
+  // 초기화: 캐시 우선 표시 → 병렬로 설정/데이터 로딩
   // ------------------------------------------------------------
   Future<void> _initialize() async {
+    final stopwatch = Stopwatch()..start();
+
+    // 1. 캐시된 데이터가 있으면 즉시 표시 (UI 블로킹 없음)
+    final cachedData = CampaignCacheManager.instance.getCachedRecommended();
+    if (cachedData != null && cachedData.isNotEmpty) {
+      debugPrint('[HomeScreen] 캐시 히트 - 즉시 표시');
+      _shuffledCampaigns = cachedData;
+      final firstPage = _getNextPage();
+      if (mounted) {
+        setState(() {
+          _visibleCampaigns = firstPage;
+          _isLoading = false;
+        });
+      }
+      // 비동기로 거리 계산
+      _calculateDistancesForStoresAsync(cachedData);
+    }
+
+    // 2. 병렬로 설정 복원 및 추가 데이터 로딩
+    await Future.wait([
+      _restorePrefsAndCheckFirstRun(),
+      // 캐시가 없을 때만 추천 캠페인 로드
+      if (cachedData == null || cachedData.isEmpty) _loadRecommendedCampaigns(),
+    ]);
+
+    // 3. 자동 근처 표시 설정이 켜져있으면 로드 (비동기로 처리)
+    if (_autoShowNearest) {
+      _updateNearestCampaigns(); // 백그라운드에서 실행
+    }
+
+    stopwatch.stop();
+    debugPrint('[HomeScreen] 초기화 완료: ${stopwatch.elapsedMilliseconds}ms');
+  }
+
+  /// 설정 복원 및 첫 실행 체크 (병렬 실행용)
+  Future<void> _restorePrefsAndCheckFirstRun() async {
     final prefs = await SharedPreferences.getInstance();
     final firstRunDone = prefs.getBool(_kFirstRunKey) ?? false;
 
-    await _restorePrefs();
-
-    if (!firstRunDone) {
-      // 첫 실행에서는 강제로 자동 근처 OFF
-      _autoShowNearest = false;
-      await prefs.setBool(_kFirstRunKey, true);
-    } else if (_autoShowNearest) {
-      // 사용자가 이전에 허용해둔 경우에만 자동 실행
-      _updateNearestCampaigns(); // ← 여기서 권한 팝업이 뜸(사용자 선택 반영)
-    }
-
-    await _loadRecommendedCampaigns();
-  }
-
-  Future<void> _restorePrefs() async {
-    final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
     setState(() {
       _autoShowNearest = prefs.getBool(_kAutoNearestKey) ?? false;
     });
+
+    if (!firstRunDone) {
+      _autoShowNearest = false;
+      await prefs.setBool(_kFirstRunKey, true);
+    }
   }
 
-  // 당겨서 새로고침: 추천+근처(옵션) 동시 갱신
+  // 당겨서 새로고침: 캐시 무효화 후 추천+근처(옵션) 동시 갱신
   Future<void> _handleRefresh() async {
+    // 캐시 무효화 (강제 새로고침)
+    CampaignCacheManager.instance.invalidateAll();
+
     final futures = <Future>[
-      _loadRecommendedCampaigns(),
+      _loadRecommendedCampaigns(forceRefresh: true),
       if (_autoShowNearest) _refreshNearestCampaigns(),
     ];
     await Future.wait(futures);
@@ -241,9 +264,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // ------------------------------------------------------------
-  // 데이터 로딩(추천)
+  // 데이터 로딩(추천) - 캐시 매니저 기반 최적화
   // ------------------------------------------------------------
-  Future<void> _loadRecommendedCampaigns() async {
+  Future<void> _loadRecommendedCampaigns({bool forceRefresh = false}) async {
+    // 이미 로딩 중이면 스킵
+    if (_isLoading) return;
+
     setState(() {
       _isLoading = true;
       _visibleCampaigns = [];
@@ -251,27 +277,30 @@ class _HomeScreenState extends State<HomeScreen> {
       _currentPage = 0;
       _apiOffset = 0;
     });
+
     try {
-      final firstBatch = await _campaignService.fetchPage(
+      // 캐시 매니저를 통해 데이터 로드 (캐시 히트 시 즉시 반환)
+      final firstBatch = await CampaignCacheManager.instance.getRecommended(
         limit: _apiLimit,
-        offset: _apiOffset,
-        sort: '-created_at',
+        forceRefresh: forceRefresh,
       );
+
       if (!mounted) return;
 
-      _apiOffset += firstBatch.length;
-      firstBatch.shuffle();             // 노출 다양화
-      
-      // 거리 계산 추가
-      await _calculateDistancesForStores(firstBatch);
-      
-      _shuffledCampaigns = firstBatch;  // 로컬 큐로 축적
+      _apiOffset = firstBatch.length;
+
+      // 거리 계산은 비동기로 나중에 수행 (UI 블로킹 방지)
+      _calculateDistancesForStoresAsync(firstBatch);
+
+      _shuffledCampaigns = firstBatch;
 
       final firstPage = _getNextPage();
       setState(() {
         _visibleCampaigns = firstPage;
         _isLoading = false;
       });
+
+      debugPrint('[HomeScreen] 추천 캠페인 로드 완료: ${firstBatch.length}개');
     } catch (_) {
       if (!mounted) return;
       setState(() => _isLoading = false);
@@ -296,22 +325,21 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    // 2) 로컬 큐 고갈 시 서버에서 보충
+    // 2) 로컬 큐 고갈 시 서버에서 보충 (캐시 매니저 사용)
     setState(() => _isLoading = true);
     try {
-      final batch = await _campaignService.fetchPage(
-        limit: _apiLimit,
+      final batch = await CampaignCacheManager.instance.fetchMoreRecommended(
         offset: _apiOffset,
-        sort: '-created_at',
+        limit: _apiLimit,
       );
       if (!mounted) return;
 
       _apiOffset += batch.length;
       batch.shuffle();
-      
-      // 거리 계산 추가
-      await _calculateDistancesForStores(batch);
-      
+
+      // 거리 계산은 비동기로 나중에 수행 (UI 블로킹 방지)
+      _calculateDistancesForStoresAsync(batch);
+
       _shuffledCampaigns.addAll(batch);
 
       final refill = _getNextPage();
@@ -336,6 +364,15 @@ class _HomeScreenState extends State<HomeScreen> {
   // ------------------------------------------------------------
   // 거리 계산 유틸리티
   // ------------------------------------------------------------
+
+  /// 비동기 거리 계산 (UI 블로킹 없이 백그라운드에서 실행)
+  /// 완료되면 setState로 UI 업데이트
+  void _calculateDistancesForStoresAsync(List<Store> stores) {
+    _calculateDistancesForStores(stores).then((_) {
+      if (mounted) setState(() {}); // 거리 계산 완료 후 UI 갱신
+    });
+  }
+
   Future<void> _calculateDistancesForStores(List<Store> stores) async {
     try {
       // 위치 권한 확인
@@ -344,12 +381,18 @@ class _HomeScreenState extends State<HomeScreen> {
         return; // 권한이 없으면 거리 계산하지 않음
       }
 
-      // 현재 위치 가져오기
-      final position = await Geolocator.getCurrentPosition(
+      // 현재 위치 가져오기 (캐시된 위치 우선 사용)
+      Position? position;
+      try {
+        position = await Geolocator.getLastKnownPosition();
+      } catch (_) {}
+
+      // 캐시된 위치가 없으면 새로 가져오기
+      position ??= await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
+          accuracy: LocationAccuracy.medium, // high→medium으로 변경 (속도 향상)
         ),
-      ).timeout(const Duration(seconds: 5));
+      ).timeout(const Duration(seconds: 3)); // 5초→3초로 단축
 
       // 각 스토어에 대해 거리 계산하고 리스트 업데이트
       for (int i = 0; i < stores.length; i++) {
@@ -361,7 +404,7 @@ class _HomeScreenState extends State<HomeScreen> {
             store.lat!,
             store.lng!,
           ) / 1000; // km 단위로 변환
-          
+
           // 새로운 Store 객체로 교체
           stores[i] = store.copyWith(distance: distance);
         }
@@ -372,7 +415,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
   Future<List<Store>> _fetchNearestCampaigns(Position position) async {
     try {
-      return _campaignService.fetchNearest(
+      // 캐시 매니저를 통해 가까운 캠페인 로드
+      return CampaignCacheManager.instance.getNearest(
         lat: position.latitude,
         lng: position.longitude,
         limit: 10,

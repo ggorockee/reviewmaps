@@ -37,15 +37,35 @@
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
 
-	<!-- Google Sign In URL Scheme -->
+	<!-- URL Schemes (Google Sign In + Kakao Login) -->
 	<key>CFBundleURLTypes</key>
 	<array>
+		<!-- Google Sign In URL Scheme -->
 		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>com.googleusercontent.apps.314527970123-s7n0c1rcf466vn964iptivtdjl435cfn</string>
 			</array>
 		</dict>
+		<!-- Kakao Login URL Scheme -->
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>kakaoa215cc2ff3532bc4410c3a4c1da0a341</string>
+			</array>
+		</dict>
+	</array>
+
+	<!-- Kakao SDK: Query Schemes (카카오톡 앱 설치 확인용) -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>kakaokompassauth</string>
+		<string>kakaolink</string>
+		<string>kakaotalk</string>
 	</array>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
@@ -88,5 +108,12 @@
 	<!-- Firebase Analytics -->
 	<key>FIREBASE_ANALYTICS_COLLECTION_ENABLED</key>
 	<true/>
+
+	<!-- Background Modes for Push Notifications -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+		<string>fetch</string>
+	</array>
 </dict>
 </plist>

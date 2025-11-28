@@ -301,6 +301,10 @@ class AuthService {
     final uri = Uri.parse('$baseUrl/auth/google');
     final request = GoogleLoginRequest(accessToken: accessToken);
 
+    debugPrint('[AuthService] Google 로그인 시작');
+    debugPrint('[AuthService] URL: $uri');
+    debugPrint('[AuthService] Access Token: ${accessToken.substring(0, 20)}...');
+
     try {
       final response = await _client
           .post(
@@ -310,10 +314,19 @@ class AuthService {
           )
           .timeout(const Duration(seconds: 10));
 
+      debugPrint('[AuthService] Google 응답 상태: ${response.statusCode}');
+      debugPrint('[AuthService] Google 응답 본문: ${response.body.substring(0, response.body.length > 200 ? 200 : response.body.length)}...');
+
       _debugPrintResponse('POST', uri.toString(), response);
 
       if (response.statusCode != 200 && response.statusCode != 201) {
-        final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
+        // HTML 응답 감지 (서버 에러 페이지)
+        final bodyString = utf8.decode(response.bodyBytes);
+        if (bodyString.contains('<!doctype') || bodyString.contains('<html')) {
+          debugPrint('[AuthService] 서버가 HTML 에러 페이지 반환 - 상태: ${response.statusCode}');
+          throw Exception('Google 로그인 서버 오류가 발생했습니다.\n잠시 후 다시 시도해 주세요. (${response.statusCode})');
+        }
+        final errorBody = jsonDecode(bodyString);
         throw Exception(errorBody['detail'] ?? 'Google 로그인 중 문제가 발생했습니다.\n잠시 후 다시 시도해 주세요.');
       }
 
@@ -534,9 +547,10 @@ class AuthService {
   /// 사용자 정보 조회
   /// GET /v1/auth/me
   /// - 현재 로그인된 사용자 정보 반환
+  /// - 토큰 만료 임박 시 자동 갱신
   Future<UserInfo> getUserInfo() async {
     final uri = Uri.parse('$baseUrl/auth/me');
-    final headers = await _authHeaders();
+    final headers = await getValidAuthHeaders();
 
     try {
       debugPrint('[AuthService] getUserInfo 호출');

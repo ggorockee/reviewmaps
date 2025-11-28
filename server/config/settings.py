@@ -83,6 +83,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django_prometheus.middleware.PrometheusBeforeMiddleware',  # Prometheus - 맨 위 (요청 시작 측정)
+    'core.middleware.metrics.MetricsMiddleware',  # 커스텀 메트릭 수집 (Prometheus 직후)
+    'core.middleware.metrics.ServiceHealthMiddleware',  # 서비스 상태 체크
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',  # WhiteNoise - static 파일 서빙
     'corsheaders.middleware.CorsMiddleware',  # CORS - 최상단 가까이 위치

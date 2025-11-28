@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:mobile/services/app_open_ad_service.dart';
 import 'package:mobile/services/ad_service.dart';
+import 'package:mobile/services/campaign_cache_manager.dart';
 import 'package:mobile/const/colors.dart';
 import 'package:mobile/screens/main_screen.dart';
 import 'package:mobile/widgets/friendly.dart';
@@ -28,10 +30,16 @@ class _SplashScreenState extends State<SplashScreen>
   final AppOpenAdService _appOpenAdService = AppOpenAdService();
   final AdService _adService = AdService();
 
+  // 앱 버전 정보
+  String _appVersion = '';
+
   @override
   void initState() {
     super.initState();
-    
+
+    // 앱 버전 로드
+    _loadAppVersion();
+
     // 로고 애니메이션 설정
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 1500),
@@ -67,22 +75,46 @@ class _SplashScreenState extends State<SplashScreen>
     super.dispose();
   }
 
+  /// 앱 버전 정보 로드
+  Future<void> _loadAppVersion() async {
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      if (mounted) {
+        setState(() {
+          _appVersion = packageInfo.version;
+        });
+      }
+    } catch (_) {
+      // 버전 정보 로드 실패 시 무시
+    }
+  }
+
   /// 스플래시 시퀀스: 로딩 → 광고 → 메인 화면
+  /// 광고 로딩 중 백그라운드에서 데이터 프리페치하여 홈 화면 즉시 표시
   Future<void> _startSplashSequence() async {
-    // 1. 최소 스플래시 시간 대기 (사용자 경험)
-    await Future.delayed(const Duration(milliseconds: 2000));
-    
+    final stopwatch = Stopwatch()..start();
+
+    // 1. 병렬 실행: 최소 대기 + 데이터 프리로드 + 세션 로깅
+    // 광고가 표시되는 동안 백그라운드에서 데이터를 미리 로드
+    await Future.wait([
+      Future.delayed(const Duration(milliseconds: 1500)), // 1.5초로 단축
+      CampaignCacheManager.instance.preloadRecommended(limit: 20), // 추천 캠페인 프리로드
+      _adService.logSessionStart(),
+    ]);
+
     if (!mounted) return;
 
-    // 2. 세션 시작 이벤트 로깅
-    await _adService.logSessionStart();
+    debugPrint('[SplashScreen] 프리로드 완료: ${stopwatch.elapsedMilliseconds}ms');
 
-    // 3. App Open Ad 표시 시도
+    // 2. App Open Ad 표시 시도 (광고 표시 중에도 데이터는 이미 캐시됨)
     await _appOpenAdService.showAdIfAvailable();
     debugPrint('[SplashScreen] App Open Ad 표시 시도 완료');
 
-    // 4. 공지사항 팝업 표시 후 메인 화면으로 이동
+    // 3. 공지사항 팝업 표시 후 메인 화면으로 이동
     _showNoticeAndNavigate();
+
+    stopwatch.stop();
+    debugPrint('[SplashScreen] 전체 스플래시 시퀀스: ${stopwatch.elapsedMilliseconds}ms');
   }
 
   /// 메인 화면으로 이동
@@ -147,64 +179,87 @@ class _SplashScreenState extends State<SplashScreen>
       max: isTablet ? 1.10 : 1.30,
       child: Scaffold(
         backgroundColor: Colors.white,
-        body: Center(
-          child: AnimatedBuilder(
-            animation: _animationController,
-            builder: (context, child) {
-              return FadeTransition(
-                opacity: _fadeAnimation,
-                child: ScaleTransition(
-                  scale: _scaleAnimation,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // 앱 로고 - 폰트 배율에 따라 크기 조정
-                      SizedBox(
-                        width: logoSize,
-                        height: logoSize,
-                        child: Image.asset(
-                          'asset/image/logo/application/splashloading_logo.png',
-                          width: logoSize,
-                          height: logoSize,
-                          fit: BoxFit.contain,
-                        ),
-                      ),
-                      
-                      SizedBox(height: (24.h * spacingMultiplier)),
-                      
-                      // 서브타이틀 - 폰트 배율에 따라 간격 조정
-                      Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 20.w),
-                        child: Text(
-                          '내 주변 체험단을 지도로 찾아보세요',
-                          style: TextStyle(
-                            fontSize: isTablet ? 18.sp : 16.sp,
-                            color: Colors.grey[600],
-                            fontWeight: FontWeight.w400,
+        body: Stack(
+          children: [
+            // 메인 콘텐츠 (중앙 정렬)
+            Center(
+              child: AnimatedBuilder(
+                animation: _animationController,
+                builder: (context, child) {
+                  return FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: ScaleTransition(
+                      scale: _scaleAnimation,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // 앱 로고 - 폰트 배율에 따라 크기 조정
+                          SizedBox(
+                            width: logoSize,
+                            height: logoSize,
+                            child: Image.asset(
+                              'asset/image/logo/application/splashloading_logo.png',
+                              width: logoSize,
+                              height: logoSize,
+                              fit: BoxFit.contain,
+                            ),
                           ),
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+
+                          SizedBox(height: (24.h * spacingMultiplier)),
+
+                          // 서브타이틀 - 폰트 배율에 따라 간격 조정
+                          Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 20.w),
+                            child: Text(
+                              '내 주변 체험단을 지도로 찾아보세요',
+                              style: TextStyle(
+                                fontSize: isTablet ? 18.sp : 16.sp,
+                                color: Colors.grey[600],
+                                fontWeight: FontWeight.w400,
+                              ),
+                              textAlign: TextAlign.center,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+
+                          SizedBox(height: (60.h * spacingMultiplier)),
+
+                          // 로딩 인디케이터 - 폰트 배율에 따라 크기 조정
+                          SizedBox(
+                            width: (30.w * (1.0 + (textScaleFactor - 1.0) * 0.2)).clamp(25.w, 40.w),
+                            height: (30.w * (1.0 + (textScaleFactor - 1.0) * 0.2)).clamp(25.w, 40.w),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 3.0,
+                              valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
+                            ),
+                          ),
+                        ],
                       ),
-                      
-                      SizedBox(height: (60.h * spacingMultiplier)),
-                      
-                      // 로딩 인디케이터 - 폰트 배율에 따라 크기 조정
-                      SizedBox(
-                        width: (30.w * (1.0 + (textScaleFactor - 1.0) * 0.2)).clamp(25.w, 40.w),
-                        height: (30.w * (1.0 + (textScaleFactor - 1.0) * 0.2)).clamp(25.w, 40.w),
-                        child: CircularProgressIndicator(
-                          strokeWidth: 3.0,
-                          valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
-                        ),
-                      ),
-                    ],
+                    ),
+                  );
+                },
+              ),
+            ),
+
+            // 하단 중앙 - 앱 버전 표시
+            if (_appVersion.isNotEmpty)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 40.h,
+                child: Center(
+                  child: Text(
+                    'v.$_appVersion',
+                    style: TextStyle(
+                      fontSize: isTablet ? 14.sp : 12.sp,
+                      color: Colors.grey[400],
+                      fontWeight: FontWeight.w400,
+                    ),
                   ),
                 ),
-              );
-            },
-          ),
+              ),
+          ],
         ),
       ),
     );

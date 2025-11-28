@@ -17,24 +17,44 @@ import 'package:geolocator/geolocator.dart';
 /// - 배포 기준: 콘솔 로그/프린트 전부 제거(무소음)
 /// - 공통 타임아웃/리트라이 적용으로 네트워크 탄성 확보
 /// - 예외는 상위(UI)에서 스낵바 등으로 사용자 친화 처리
+/// - HTTP 연결 풀링 및 Keep-Alive로 성능 최적화
 class CampaignService {
   final String baseUrl;
   final String apiKey;
   late final http.Client _client;
 
-  CampaignService(this.baseUrl, {required this.apiKey}) {
-    // 플랫폼 간 일관된 소켓 타임아웃 설정
+  // 싱글톤 인스턴스 캐시 (동일 설정의 서비스 재사용)
+  static CampaignService? _cachedInstance;
+
+  /// 팩토리 생성자 - 동일한 설정이면 기존 인스턴스 재사용
+  factory CampaignService(String baseUrl, {required String apiKey}) {
+    if (_cachedInstance != null &&
+        _cachedInstance!.baseUrl == baseUrl &&
+        _cachedInstance!.apiKey == apiKey) {
+      return _cachedInstance!;
+    }
+    _cachedInstance = CampaignService._internal(baseUrl, apiKey: apiKey);
+    return _cachedInstance!;
+  }
+
+  CampaignService._internal(this.baseUrl, {required this.apiKey}) {
+    // HTTP 연결 풀링 최적화
+    // - maxConnectionsPerHost: 동시 연결 수 증가
+    // - idleTimeout: Keep-Alive 연결 유지 시간 증가
+    // - connectionTimeout: 빠른 연결 시도
     final io = HttpClient()
-      ..connectionTimeout = const Duration(seconds: 3)
-      ..idleTimeout = const Duration(seconds: 3);
+      ..connectionTimeout = const Duration(seconds: 5)
+      ..idleTimeout = const Duration(seconds: 30) // Keep-Alive 30초
+      ..maxConnectionsPerHost = 6; // 동시 연결 6개로 증가
     _client = IOClient(io);
   }
 
-  /// 공통 헤더
+  /// 공통 헤더 (Keep-Alive 및 압축 지원)
   Map<String, String> get _headers => {
     'X-API-KEY': apiKey,
     'Accept': 'application/json',
-    // 서버 트래픽 구분용 User-Agent (필요 시 변경)
+    'Accept-Encoding': 'gzip, deflate', // 응답 압축 요청
+    'Connection': 'keep-alive', // HTTP Keep-Alive
     'User-Agent': 'review-maps-app/1.0 (Flutter; iOS/Android)',
   };
 

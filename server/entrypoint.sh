@@ -12,7 +12,10 @@ mkdir -p "${PROMETHEUS_MULTIPROC_DIR}"
 rm -rf "${PROMETHEUS_MULTIPROC_DIR}"/*  # 시작 시 기존 메트릭 파일 정리
 chmod 777 "${PROMETHEUS_MULTIPROC_DIR}"
 
-# Django 마이그레이션 실행
+# Django 마이그레이션 생성 및 실행
+echo "Creating Django migrations (if any)..."
+/app/.venv/bin/python manage.py makemigrations --noinput
+
 echo "Running Django migrations..."
 /app/.venv/bin/python manage.py migrate --noinput
 

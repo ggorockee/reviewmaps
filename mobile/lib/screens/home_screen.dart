@@ -131,7 +131,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isLoading = false;
   int _currentPage = 0;
   final int _pageSize = 10;
-  final int _apiLimit = 50; // 서버 한 번에 가져오는 개수
+  final int _apiLimit = 20; // 서버 한 번에 가져오는 개수 (50→20으로 축소)
   int _apiOffset = 0;
 
   // SharedPreferences Keys
@@ -261,10 +261,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
       _apiOffset += firstBatch.length;
       firstBatch.shuffle();             // 노출 다양화
-      
-      // 거리 계산 추가
-      await _calculateDistancesForStores(firstBatch);
-      
+
+      // 거리 계산은 비동기로 나중에 수행 (UI 블로킹 방지)
+      _calculateDistancesForStoresAsync(firstBatch);
+
       _shuffledCampaigns = firstBatch;  // 로컬 큐로 축적
 
       final firstPage = _getNextPage();
@@ -308,10 +308,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
       _apiOffset += batch.length;
       batch.shuffle();
-      
-      // 거리 계산 추가
-      await _calculateDistancesForStores(batch);
-      
+
+      // 거리 계산은 비동기로 나중에 수행 (UI 블로킹 방지)
+      _calculateDistancesForStoresAsync(batch);
+
       _shuffledCampaigns.addAll(batch);
 
       final refill = _getNextPage();
@@ -336,6 +336,15 @@ class _HomeScreenState extends State<HomeScreen> {
   // ------------------------------------------------------------
   // 거리 계산 유틸리티
   // ------------------------------------------------------------
+
+  /// 비동기 거리 계산 (UI 블로킹 없이 백그라운드에서 실행)
+  /// 완료되면 setState로 UI 업데이트
+  void _calculateDistancesForStoresAsync(List<Store> stores) {
+    _calculateDistancesForStores(stores).then((_) {
+      if (mounted) setState(() {}); // 거리 계산 완료 후 UI 갱신
+    });
+  }
+
   Future<void> _calculateDistancesForStores(List<Store> stores) async {
     try {
       // 위치 권한 확인
@@ -344,12 +353,18 @@ class _HomeScreenState extends State<HomeScreen> {
         return; // 권한이 없으면 거리 계산하지 않음
       }
 
-      // 현재 위치 가져오기
-      final position = await Geolocator.getCurrentPosition(
+      // 현재 위치 가져오기 (캐시된 위치 우선 사용)
+      Position? position;
+      try {
+        position = await Geolocator.getLastKnownPosition();
+      } catch (_) {}
+
+      // 캐시된 위치가 없으면 새로 가져오기
+      position ??= await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
+          accuracy: LocationAccuracy.medium, // high→medium으로 변경 (속도 향상)
         ),
-      ).timeout(const Duration(seconds: 5));
+      ).timeout(const Duration(seconds: 3)); // 5초→3초로 단축
 
       // 각 스토어에 대해 거리 계산하고 리스트 업데이트
       for (int i = 0; i < stores.length; i++) {
@@ -361,7 +376,7 @@ class _HomeScreenState extends State<HomeScreen> {
             store.lat!,
             store.lng!,
           ) / 1000; // km 단위로 변환
-          
+
           // 새로운 Store 객체로 교체
           stores[i] = store.copyWith(distance: distance);
         }

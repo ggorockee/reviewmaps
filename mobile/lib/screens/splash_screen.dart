@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import 'package:mobile/services/app_open_ad_service.dart';
 import 'package:mobile/services/ad_service.dart';
 import 'package:mobile/services/campaign_cache_manager.dart';
+import 'package:mobile/config/app_version.dart';
 import 'package:mobile/const/colors.dart';
 import 'package:mobile/screens/main_screen.dart';
 import 'package:mobile/widgets/friendly.dart';
@@ -30,15 +30,9 @@ class _SplashScreenState extends State<SplashScreen>
   final AppOpenAdService _appOpenAdService = AppOpenAdService();
   final AdService _adService = AdService();
 
-  // 앱 버전 정보
-  String _appVersion = '';
-
   @override
   void initState() {
     super.initState();
-
-    // 앱 버전 로드 (즉시 로드 시작)
-    _loadAppVersion();
 
     // 로고 애니메이션 설정
     _animationController = AnimationController(
@@ -73,20 +67,6 @@ class _SplashScreenState extends State<SplashScreen>
   void dispose() {
     _animationController.dispose();
     super.dispose();
-  }
-
-  /// 앱 버전 정보 로드
-  Future<void> _loadAppVersion() async {
-    try {
-      final packageInfo = await PackageInfo.fromPlatform();
-      if (mounted) {
-        setState(() {
-          _appVersion = packageInfo.version;
-        });
-      }
-    } catch (_) {
-      // 버전 정보 로드 실패 시 무시
-    }
   }
 
   /// 스플래시 시퀀스: 로딩 → 광고 → 메인 화면
@@ -242,14 +222,14 @@ class _SplashScreenState extends State<SplashScreen>
               ),
             ),
 
-            // 하단 중앙 - 앱 버전 표시
+            // 하단 중앙 - 앱 버전 표시 (AppVersion.current 사용)
             Positioned(
               left: 0,
               right: 0,
               bottom: 40.h,
               child: Center(
                 child: Text(
-                  _appVersion.isNotEmpty ? 'v.$_appVersion' : '',
+                  'v.${AppVersion.current}',
                   style: TextStyle(
                     fontSize: isTablet ? 14.sp : 12.sp,
                     color: Colors.grey[400],

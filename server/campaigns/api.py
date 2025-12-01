@@ -13,6 +13,23 @@ from .schemas import CampaignListResponse, CampaignOut
 router = Router(tags=["캠페인 (Campaigns)"])
 
 
+def get_active_campaign_filter():
+    """
+    마감되지 않은 캠페인 필터 조건 반환 (Asia/Seoul 기준)
+
+    - apply_deadline이 NULL이면 무기한이므로 표시
+    - apply_deadline >= 오늘 날짜 00:00:00 이면 표시 (당일까지 보임)
+    - apply_deadline < 오늘 날짜 00:00:00 이면 숨김
+
+    예시: 마감일이 12/20이고 오늘이 12/20이면 → 보임
+          마감일이 12/20이고 오늘이 12/21이면 → 안 보임
+    """
+    # 오늘 날짜의 시작 (00:00:00) - Asia/Seoul 타임존 적용
+    today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+
+    return models.Q(apply_deadline__isnull=True) | models.Q(apply_deadline__gte=today_start)
+
+
 def calculate_distance(lat1: Decimal, lng1: Decimal, lat2: Decimal, lng2: Decimal) -> float:
     """
     Haversine 공식을 사용한 두 지점 간 거리 계산 (km 단위)
@@ -65,10 +82,8 @@ async def list_campaigns(
         if lat is None or lng is None:
             raise HttpError(400, "sort='distance' requires 'lat' and 'lng' parameters")
 
-    # 기본 쿼리: 만료되지 않은 캠페인만
-    queryset = Campaign.objects.select_related('category').filter(
-        models.Q(apply_deadline__isnull=True) | models.Q(apply_deadline__gte=timezone.now())
-    )
+    # 기본 쿼리: 만료되지 않은 캠페인만 (오늘 날짜 기준, 당일까지 보임)
+    queryset = Campaign.objects.select_related('category').filter(get_active_campaign_filter())
 
     # 필터 적용
     if region:
@@ -218,8 +233,14 @@ async def list_campaigns(
 
 @router.get("/{campaign_id}", response=CampaignOut, summary="캠페인 상세 조회")
 async def get_campaign(request, campaign_id: int):
-    """캠페인 상세 조회 API (비동기)"""
-    campaign = await Campaign.objects.select_related('category').aget(id=campaign_id)
-    if not campaign:
-        raise HttpError(404, "Campaign not found")
-    return campaign
+    """
+    캠페인 상세 조회 API (비동기)
+
+    - 마감 여부와 상관없이 조회 가능 (링크 공유, 북마크 등 대응)
+    - 응답의 is_expired 필드로 마감 여부 확인 가능
+    """
+    try:
+        campaign = await Campaign.objects.select_related('category').aget(id=campaign_id)
+        return campaign
+    except Campaign.DoesNotExist:
+        raise HttpError(404, "캠페인을 찾을 수 없습니다.")

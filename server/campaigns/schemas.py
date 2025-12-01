@@ -2,6 +2,7 @@ from ninja import Schema
 from typing import Optional
 from datetime import datetime
 from decimal import Decimal
+from django.utils import timezone
 
 
 class CategorySchema(Schema):
@@ -38,9 +39,25 @@ class CampaignOut(Schema):
     created_at: datetime
     updated_at: datetime
     distance: Optional[float] = None  # 계산된 거리 (km)
+    is_expired: Optional[bool] = None  # 마감 여부 (오늘 날짜 기준)
 
     class Config:
         from_attributes = True
+
+    @staticmethod
+    def resolve_is_expired(obj) -> Optional[bool]:
+        """
+        캠페인 마감 여부 계산 (오늘 날짜 기준, 당일까지는 유효)
+
+        - apply_deadline이 NULL이면 None (무기한)
+        - apply_deadline < 오늘 00:00:00 이면 True (마감됨)
+        - apply_deadline >= 오늘 00:00:00 이면 False (유효)
+        """
+        if obj.apply_deadline is None:
+            return None  # 무기한
+
+        today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        return obj.apply_deadline < today_start
 
 
 class CampaignListResponse(Schema):

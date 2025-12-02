@@ -140,6 +140,21 @@ else:
             'HOST': os.getenv('POSTGRES_HOST', 'localhost'),
             'PORT': os.getenv('POSTGRES_PORT', '5432'),
             'DISABLE_SERVER_SIDE_CURSORS': True,  # PostgreSQL 13 compatibility
+            # ===== 성능 최적화: DB 연결 풀링 설정 =====
+            # CONN_MAX_AGE: 연결 재사용 시간 (초)
+            # - 0: 매 요청마다 새 연결 (기본값, 비효율적)
+            # - None: 영구 연결 (connection leak 위험)
+            # - 600: 10분간 연결 재사용 (권장)
+            'CONN_MAX_AGE': int(os.getenv('DB_CONN_MAX_AGE', '600')),
+            # CONN_HEALTH_CHECKS: 연결 상태 검사 활성화 (Django 4.1+)
+            # - True: 쿼리 전 연결 유효성 검사 (약간의 오버헤드, 안정성 향상)
+            'CONN_HEALTH_CHECKS': os.getenv('DB_CONN_HEALTH_CHECKS', 'True') == 'True',
+            'OPTIONS': {
+                # 연결 타임아웃 설정 (초)
+                'connect_timeout': int(os.getenv('DB_CONNECT_TIMEOUT', '10')),
+                # 쿼리 실행 타임아웃 (밀리초) - 느린 쿼리 방지
+                'options': f"-c statement_timeout={os.getenv('DB_STATEMENT_TIMEOUT', '30000')}",
+            },
         }
     }
 

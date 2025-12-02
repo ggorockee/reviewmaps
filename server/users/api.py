@@ -1,5 +1,10 @@
 """
 Users API - Django Ninja 비동기 API
+
+성능 최적화:
+- Django 5.x 네이티브 async ORM 사용 (sync_to_async 최소화)
+- async 함수에서 직접 ORM 비동기 메서드 호출
+- sync_to_async는 동기 전용 함수에만 사용 (set_password, check_password 등)
 """
 import random
 import secrets
@@ -68,13 +73,14 @@ async def send_email_code(request, payload: EmailSendCodeRequest):
         raise HttpError(400, "올바른 이메일 형식이 아닙니다.")
 
     # 이미 가입된 이메일인지 확인 (email + login_method='email' 조합)
-    if await sync_to_async(User.objects.filter(email=email, login_method='email').exists)():
+    # Django 5.x 네이티브 async ORM 사용
+    if await User.objects.filter(email=email, login_method='email').aexists():
         raise HttpError(400, "이미 가입된 이메일입니다.")
 
-    # 기존 인증 레코드 조회
-    existing = await sync_to_async(
-        EmailVerification.objects.filter(email=email, is_verified=False).order_by('-created_at').first
-    )()
+    # 기존 인증 레코드 조회 - Django 5.x 네이티브 async ORM
+    existing = await EmailVerification.objects.filter(
+        email=email, is_verified=False
+    ).order_by('-created_at').afirst()
 
     # 재발송 쿨다운 체크 (첫 번째 재발송은 바로 가능, 두 번째 이후 60초 대기)
     if existing and existing.send_count > 1:
@@ -88,7 +94,7 @@ async def send_email_code(request, payload: EmailSendCodeRequest):
     code = f"{random.randint(0, 999999):06d}"
     expires_at = timezone.now() + timedelta(minutes=settings.EMAIL_VERIFICATION_EXPIRE_MINUTES)
 
-    # 기존 레코드 업데이트 또는 새로 생성
+    # 기존 레코드 업데이트 또는 새로 생성 - Django 5.x 네이티브 async ORM
     if existing:
         existing.code = code
         existing.expires_at = expires_at
@@ -96,9 +102,9 @@ async def send_email_code(request, payload: EmailSendCodeRequest):
         existing.send_count += 1
         existing.last_sent_at = timezone.now()
         existing.verification_token = ''
-        await sync_to_async(existing.save)()
+        await existing.asave()
     else:
-        await sync_to_async(EmailVerification.objects.create)(
+        await EmailVerification.objects.acreate(
             email=email,
             code=code,
             expires_at=expires_at,
@@ -146,10 +152,10 @@ async def verify_email_code(request, payload: EmailVerifyCodeRequest):
     email = payload.email.lower().strip()
     code = payload.code.strip()
 
-    # 인증 레코드 조회
-    verification = await sync_to_async(
-        EmailVerification.objects.filter(email=email, is_verified=False).order_by('-created_at').first
-    )()
+    # 인증 레코드 조회 - Django 5.x 네이티브 async ORM
+    verification = await EmailVerification.objects.filter(
+        email=email, is_verified=False
+    ).order_by('-created_at').afirst()
 
     if not verification:
         raise HttpError(400, "인증 요청을 찾을 수 없습니다. 인증코드를 다시 요청해 주세요.")
@@ -165,7 +171,7 @@ async def verify_email_code(request, payload: EmailVerifyCodeRequest):
     # 코드 검증
     if verification.code != code:
         verification.attempts += 1
-        await sync_to_async(verification.save)()
+        await verification.asave()
         remaining = settings.EMAIL_VERIFICATION_MAX_ATTEMPTS - verification.attempts
         raise HttpError(400, f"인증코드가 일치하지 않습니다. ({remaining}회 남음)")
 
@@ -173,7 +179,7 @@ async def verify_email_code(request, payload: EmailVerifyCodeRequest):
     verification_token = secrets.token_urlsafe(32)
     verification.is_verified = True
     verification.verification_token = verification_token
-    await sync_to_async(verification.save)()
+    await verification.asave()
 
     return {
         "verified": True,
@@ -196,31 +202,29 @@ async def signup(request, payload: UserSignupRequest):
     if len(payload.password) < 8:
         raise HttpError(400, "비밀번호는 8자 이상이어야 합니다.")
 
-    # verification_token 검증
-    verification = await sync_to_async(
-        EmailVerification.objects.filter(
-            email=email,
-            verification_token=payload.verification_token,
-            is_verified=True
-        ).first
-    )()
+    # verification_token 검증 - Django 5.x 네이티브 async ORM
+    verification = await EmailVerification.objects.filter(
+        email=email,
+        verification_token=payload.verification_token,
+        is_verified=True
+    ).afirst()
 
     if not verification:
         raise HttpError(400, "이메일 인증이 필요합니다.")
 
     # 이메일 중복 확인 (email + login_method='email' 조합)
-    if await sync_to_async(User.objects.filter(email=email, login_method='email').exists)():
+    if await User.objects.filter(email=email, login_method='email').aexists():
         raise HttpError(400, "이미 가입된 이메일입니다.")
 
-    # 사용자 생성
+    # 사용자 생성 - create_user는 동기 함수이므로 sync_to_async 필요
     user = await sync_to_async(User.objects.create_user)(
         email=email,
         password=payload.password,
         name=payload.name or '',
     )
 
-    # 인증 레코드 삭제 (사용 완료)
-    await sync_to_async(verification.delete)()
+    # 인증 레코드 삭제 (사용 완료) - Django 5.x 네이티브 async ORM
+    await verification.adelete()
 
     # JWT 토큰 생성
     access_token = create_access_token(user.id)
@@ -240,13 +244,13 @@ async def login(request, payload: UserLoginRequest):
     - email + password로 로그인
     - 성공 시 access_token과 refresh_token 반환
     """
-    # 사용자 조회
+    # 사용자 조회 - Django 5.x 네이티브 async ORM
     try:
-        user = await sync_to_async(User.objects.get)(email=payload.email)
+        user = await User.objects.aget(email=payload.email)
     except User.DoesNotExist:
         raise HttpError(401, "로그인 정보가 올바르지 않습니다.")
 
-    # 비밀번호 확인
+    # 비밀번호 확인 - check_password는 동기 함수이므로 sync_to_async 필요
     if not await sync_to_async(check_password)(payload.password, user.password):
         raise HttpError(401, "로그인 정보가 올바르지 않습니다.")
 
@@ -276,10 +280,10 @@ async def refresh_token(request, payload: TokenRefreshRequest):
     if not token_payload or token_payload.get('type') != 'refresh':
         raise HttpError(401, "유효하지 않은 토큰입니다.")
 
-    # 사용자 조회
+    # 사용자 조회 - Django 5.x 네이티브 async ORM
     user_id = token_payload.get('user_id')
     try:
-        user = await sync_to_async(User.objects.get)(id=user_id, is_active=True)
+        user = await User.objects.aget(id=user_id, is_active=True)
     except User.DoesNotExist:
         raise HttpError(401, "회원 정보를 찾을 수 없습니다.")
 
@@ -330,11 +334,11 @@ async def convert_anonymous_to_user(request, payload: ConvertAnonymousRequest):
     if not session_id:
         raise HttpError(401, "유효하지 않은 세션입니다.")
 
-    # 이메일 중복 확인
-    if await sync_to_async(User.objects.filter(email=payload.email).exists)():
+    # 이메일 중복 확인 - Django 5.x 네이티브 async ORM
+    if await User.objects.filter(email=payload.email).aexists():
         raise HttpError(400, "이미 가입된 이메일입니다.")
 
-    # 사용자 생성
+    # 사용자 생성 - create_user는 동기 함수이므로 sync_to_async 필요
     user = await sync_to_async(User.objects.create_user)(
         email=payload.email,
         password=payload.password,
@@ -343,12 +347,11 @@ async def convert_anonymous_to_user(request, payload: ConvertAnonymousRequest):
     # 익명 사용자 데이터를 정식 사용자로 마이그레이션
     # 키워드 알람 데이터를 session_id에서 user_id로 변경
     from keyword_alerts.models import Keyword
-    migrated_count = await sync_to_async(
-        Keyword.objects.filter(
-            anonymous_session_id=session_id,
-            user__isnull=True
-        ).update
-    )(user=user, anonymous_session_id=None)
+    # aupdate는 Django 5.x에서 지원 - 네이티브 async
+    migrated_count = await Keyword.objects.filter(
+        anonymous_session_id=session_id,
+        user__isnull=True
+    ).aupdate(user=user, anonymous_session_id=None)
 
     # JWT 토큰 생성
     access_token = create_access_token(user.id)
@@ -424,18 +427,16 @@ async def password_reset_request(request, payload: PasswordResetRequest):
     if '@' not in email or '.' not in email:
         raise HttpError(400, "올바른 이메일 형식이 아닙니다.")
 
-    # 가입된 이메일인지 확인 (email 로그인만)
-    user_exists = await sync_to_async(
-        User.objects.filter(email=email, login_method='email').exists
-    )()
-    
+    # 가입된 이메일인지 확인 (email 로그인만) - Django 5.x 네이티브 async ORM
+    user_exists = await User.objects.filter(email=email, login_method='email').aexists()
+
     if not user_exists:
         raise HttpError(404, "가입되지 않은 이메일입니다.")
 
-    # 기존 인증 레코드 조회 (비밀번호 재설정용)
-    existing = await sync_to_async(
-        EmailVerification.objects.filter(email=email, is_verified=False).order_by('-created_at').first
-    )()
+    # 기존 인증 레코드 조회 (비밀번호 재설정용) - Django 5.x 네이티브 async ORM
+    existing = await EmailVerification.objects.filter(
+        email=email, is_verified=False
+    ).order_by('-created_at').afirst()
 
     # 재발송 쿨다운 체크
     if existing and existing.send_count > 1:
@@ -449,7 +450,7 @@ async def password_reset_request(request, payload: PasswordResetRequest):
     code = f"{random.randint(0, 999999):06d}"
     expires_at = timezone.now() + timedelta(minutes=settings.EMAIL_VERIFICATION_EXPIRE_MINUTES)
 
-    # 기존 레코드 업데이트 또는 새로 생성
+    # 기존 레코드 업데이트 또는 새로 생성 - Django 5.x 네이티브 async ORM
     if existing:
         existing.code = code
         existing.expires_at = expires_at
@@ -458,9 +459,9 @@ async def password_reset_request(request, payload: PasswordResetRequest):
         existing.last_sent_at = timezone.now()
         existing.verification_token = ''
         existing.is_verified = False
-        await sync_to_async(existing.save)()
+        await existing.asave()
     else:
-        await sync_to_async(EmailVerification.objects.create)(
+        await EmailVerification.objects.acreate(
             email=email,
             code=code,
             expires_at=expires_at,
@@ -508,10 +509,10 @@ async def password_reset_verify(request, payload: PasswordResetVerifyRequest):
     email = payload.email.lower().strip()
     code = payload.code.strip()
 
-    # 인증 레코드 조회
-    verification = await sync_to_async(
-        EmailVerification.objects.filter(email=email, is_verified=False).order_by('-created_at').first
-    )()
+    # 인증 레코드 조회 - Django 5.x 네이티브 async ORM
+    verification = await EmailVerification.objects.filter(
+        email=email, is_verified=False
+    ).order_by('-created_at').afirst()
 
     if not verification:
         raise HttpError(404, "인증 요청을 먼저 진행해 주세요.")
@@ -527,7 +528,7 @@ async def password_reset_verify(request, payload: PasswordResetVerifyRequest):
     # 인증코드 확인
     if verification.code != code:
         verification.attempts += 1
-        await sync_to_async(verification.save)()
+        await verification.asave()
         remaining = settings.EMAIL_VERIFICATION_MAX_ATTEMPTS - verification.attempts
         raise HttpError(400, f"인증코드가 일치하지 않습니다. (남은 시도: {remaining}회)")
 
@@ -535,7 +536,7 @@ async def password_reset_verify(request, payload: PasswordResetVerifyRequest):
     reset_token = secrets.token_urlsafe(32)
     verification.is_verified = True
     verification.verification_token = reset_token
-    await sync_to_async(verification.save)()
+    await verification.asave()
 
     return {
         "verified": True,
@@ -558,14 +559,12 @@ async def password_reset_confirm(request, payload: PasswordResetConfirmRequest):
     if len(new_password) < 8:
         raise HttpError(400, "비밀번호는 8자 이상이어야 합니다.")
 
-    # 인증 레코드 확인
-    verification = await sync_to_async(
-        EmailVerification.objects.filter(
-            email=email,
-            is_verified=True,
-            verification_token=reset_token
-        ).first
-    )()
+    # 인증 레코드 확인 - Django 5.x 네이티브 async ORM
+    verification = await EmailVerification.objects.filter(
+        email=email,
+        is_verified=True,
+        verification_token=reset_token
+    ).afirst()
 
     if not verification:
         raise HttpError(400, "유효하지 않은 인증 토큰입니다.")
@@ -574,20 +573,18 @@ async def password_reset_confirm(request, payload: PasswordResetConfirmRequest):
     if timezone.now() > verification.expires_at:
         raise HttpError(400, "인증 토큰이 만료되었습니다. 다시 요청해 주세요.")
 
-    # 사용자 조회
-    user = await sync_to_async(
-        User.objects.filter(email=email, login_method='email').first
-    )()
+    # 사용자 조회 - Django 5.x 네이티브 async ORM
+    user = await User.objects.filter(email=email, login_method='email').afirst()
 
     if not user:
         raise HttpError(404, "사용자를 찾을 수 없습니다.")
 
-    # 비밀번호 변경
+    # 비밀번호 변경 - set_password는 동기 함수
     await sync_to_async(user.set_password)(new_password)
-    await sync_to_async(user.save)()
+    await user.asave()
 
-    # 인증 레코드 삭제 (재사용 방지)
-    await sync_to_async(verification.delete)()
+    # 인증 레코드 삭제 (재사용 방지) - Django 5.x 네이티브 async ORM
+    await verification.adelete()
 
     return {
         "message": "비밀번호가 성공적으로 변경되었습니다.",
@@ -631,9 +628,9 @@ async def password_change(request, payload: PasswordChangeRequest):
     if current_password == new_password:
         raise HttpError(400, "새 비밀번호는 현재 비밀번호와 달라야 합니다.")
 
-    # 비밀번호 변경
+    # 비밀번호 변경 - set_password는 동기 함수
     await sync_to_async(user.set_password)(new_password)
-    await sync_to_async(user.save)()
+    await user.asave()
 
     return {
         "message": "비밀번호가 성공적으로 변경되었습니다.",

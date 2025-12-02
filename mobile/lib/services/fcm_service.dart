@@ -100,7 +100,10 @@ class FcmService {
       });
 
       // 6. 포그라운드 메시지 핸들러 설정
-      FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
+      FirebaseMessaging.onMessage.listen((message) {
+        debugPrint('🚨🚨🚨 FCM 메시지 수신됨! 🚨🚨🚨');
+        _handleForegroundMessage(message);
+      });
 
       // 7. 백그라운드에서 앱 열림 시 메시지 핸들러
       FirebaseMessaging.onMessageOpenedApp.listen(_handleMessageOpenedApp);
@@ -133,6 +136,20 @@ class FcmService {
       initSettings,
       onDidReceiveNotificationResponse: _onNotificationTapped,
     );
+
+    // iOS 알림 권한 명시적 요청
+    if (Platform.isIOS) {
+      final iosImpl = _localNotifications
+          .resolvePlatformSpecificImplementation<IOSFlutterLocalNotificationsPlugin>();
+      if (iosImpl != null) {
+        final granted = await iosImpl.requestPermissions(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+        debugPrint('📱 iOS 로컬 알림 권한: $granted');
+      }
+    }
 
     // Android 알림 채널 생성 (Android 8.0+ 필수)
     if (Platform.isAndroid) {

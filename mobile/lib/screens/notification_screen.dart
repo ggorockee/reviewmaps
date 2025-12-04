@@ -14,7 +14,14 @@ import 'home_screen.dart'; // buildChannelIcons, platformBadgeColor
 /// - 키워드 추가/삭제, 알림 활성화/비활성화 기능
 /// - 위치 기반 거리순 정렬 지원
 class NotificationScreen extends StatefulWidget {
-  const NotificationScreen({super.key});
+  /// 초기 탭 인덱스 (0: 키워드 관리, 1: 알림 기록)
+  /// 푸시 알림에서 진입 시 알림 기록 탭으로 바로 이동
+  final int initialTabIndex;
+
+  const NotificationScreen({
+    super.key,
+    this.initialTabIndex = 0,
+  });
 
   @override
   State<NotificationScreen> createState() => _NotificationScreenState();
@@ -42,7 +49,11 @@ class _NotificationScreenState extends State<NotificationScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(
+      length: 2,
+      vsync: this,
+      initialIndex: widget.initialTabIndex,
+    );
     _tabController.addListener(_onTabChanged);
     _loadKeywords();
     _getUserLocation();

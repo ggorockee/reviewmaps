@@ -21,7 +21,17 @@ import 'package:mobile/widgets/update_dialog.dart';
 /// - 인증 체크: 알림/내정보 탭은 회원만 접근 가능
 /// - 버전 체크: 앱 시작 시 업데이트 필요 여부 확인
 class MainScreen extends ConsumerStatefulWidget {
-  const MainScreen({super.key});
+  /// 초기 탭 인덱스 (푸시 알림 등에서 특정 탭으로 바로 이동할 때 사용)
+  final int initialTabIndex;
+
+  /// 알림 기록 탭으로 바로 이동할지 여부
+  final bool openAlertHistoryTab;
+
+  const MainScreen({
+    super.key,
+    this.initialTabIndex = 0,
+    this.openAlertHistoryTab = false,
+  });
 
   @override
   ConsumerState<MainScreen> createState() => _MainScreenState();
@@ -49,6 +59,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   void initState() {
     super.initState();
 
+    // 초기 탭 인덱스 설정 (푸시 알림 등에서 전달받은 경우)
+    _selectedIndex = widget.initialTabIndex;
+
     // 앱 시작 시 권한/위치 초기화 및 인증 상태 체크
     Future.microtask(() async{
       await ref.read(locationProvider.notifier).update();
@@ -62,8 +75,23 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       null, // ProfileScreen도 lazy loading
     ];
 
+    // 초기 탭이 알림 탭인 경우 NotificationScreen 생성
+    // 푸시 알림에서 진입한 경우 알림 기록 탭(index 1)으로 바로 이동
+    if (_selectedIndex == 2) {
+      _tabs[2] = NotificationScreen(
+        initialTabIndex: widget.openAlertHistoryTab ? 1 : 0,
+      );
+    }
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _maybeCheckUpdateOnFirstHome();
+
+      // 알림 기록 탭으로 바로 이동 (푸시 알림 탭 시)
+      if (widget.openAlertHistoryTab && _selectedIndex == 2) {
+        // NotificationScreen의 TabController를 알림 기록 탭(index 1)으로 이동시키기 위해
+        // GlobalKey를 사용하거나, 이벤트 버스를 사용할 수 있음
+        // 여기서는 NotificationScreen이 openAlertHistoryTab을 처리하도록 함
+      }
     });
   }
 

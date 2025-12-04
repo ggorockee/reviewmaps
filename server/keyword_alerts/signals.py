@@ -127,14 +127,17 @@ def create_keyword_alerts_on_campaign_save(sender, instance, created, **kwargs):
         return
 
     # 캠페인 텍스트 정규화 (공백/특수문자 제거)
-    # 업체명(company)과 제공내역(offer)에서 검색
+    # 업체명(company), 제목(title), 제공내역(offer)에서 검색
     campaign_company_normalized = normalize_text(instance.company)
+    campaign_title_normalized = normalize_text(instance.title)  # title 필드 추가
     campaign_offer_normalized = normalize_text(instance.offer)
 
     # 원본 텍스트도 유지 (로깅용)
     campaign_company_original = instance.company or ""
+    campaign_title_original = instance.title or ""
 
     logger.info(f"[Signal] 캠페인 업체명(정규화): '{campaign_company_normalized}'")
+    logger.info(f"[Signal] 캠페인 제목(정규화): '{campaign_title_normalized[:100] if campaign_title_normalized else ''}'")
     logger.info(f"[Signal] 캠페인 제공내역(정규화): '{campaign_offer_normalized[:100]}...'")
 
     # 이미 존재하는 알림 조회 (한 번에 조회하여 N+1 방지)
@@ -163,6 +166,9 @@ def create_keyword_alerts_on_campaign_save(sender, instance, created, **kwargs):
         # 업체명에서 키워드 매칭 (정규화된 텍스트에서)
         if keyword_normalized in campaign_company_normalized:
             matched_field = "company"
+        # 제목에서 키워드 매칭 (title 필드 - "[김포] 꾸미오가구" 같은 형식)
+        elif campaign_title_normalized and keyword_normalized in campaign_title_normalized:
+            matched_field = "title"
         # 제공내역에서 키워드 매칭
         elif keyword_normalized in campaign_offer_normalized:
             matched_field = "offer"
@@ -186,4 +192,4 @@ def create_keyword_alerts_on_campaign_save(sender, instance, created, **kwargs):
         # FCM 푸시 알림 전송
         send_push_notifications_for_alerts(created_alerts, instance)
     else:
-        logger.info(f"[Signal] 매칭된 키워드 없음 - 캠페인 ID: {instance.id}, 업체명: {campaign_company_original[:50]}")
+        logger.info(f"[Signal] 매칭된 키워드 없음 - 캠페인 ID: {instance.id}, 업체명: {campaign_company_original[:50]}, 제목: {campaign_title_original[:50]}")

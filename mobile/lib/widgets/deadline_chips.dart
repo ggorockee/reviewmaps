@@ -124,10 +124,14 @@ class DeadlineChips extends StatelessWidget {
 
   int? _calculateDDay(DateTime deadline) {
     final now = DateTime.now();
-    final difference = deadline.difference(now).inDays;
+    // 날짜만 비교 (시간 무시) - 정확한 D-Day 계산을 위해
+    // deadline이 오늘이면 D-0, 내일이면 D-1, 어제면 null (마감됨)
+    final deadlineDate = DateTime(deadline.year, deadline.month, deadline.day);
+    final nowDate = DateTime(now.year, now.month, now.day);
+    final difference = deadlineDate.difference(nowDate).inDays;
     return difference >= 0 ? difference : null;
   }
-  
+
   /// 태블릿 여부 확인
   bool _isTablet(BuildContext context) {
     return MediaQuery.of(context).size.shortestSide >= 600;
@@ -190,10 +194,14 @@ class DeadlineChip extends StatelessWidget {
 
   int? _calculateDDay(DateTime deadline) {
     final now = DateTime.now();
-    final difference = deadline.difference(now).inDays;
+    // 날짜만 비교 (시간 무시) - 정확한 D-Day 계산을 위해
+    // deadline이 오늘이면 D-0, 내일이면 D-1, 어제면 null (마감됨)
+    final deadlineDate = DateTime(deadline.year, deadline.month, deadline.day);
+    final nowDate = DateTime(now.year, now.month, now.day);
+    final difference = deadlineDate.difference(nowDate).inDays;
     return difference >= 0 ? difference : null;
   }
-  
+
   /// 태블릿 여부 확인
   bool _isTablet(BuildContext context) {
     return MediaQuery.of(context).size.shortestSide >= 600;

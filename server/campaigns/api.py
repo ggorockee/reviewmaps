@@ -18,16 +18,21 @@ def get_active_campaign_filter():
     마감되지 않은 캠페인 필터 조건 반환 (Asia/Seoul 기준)
 
     - apply_deadline이 NULL이면 무기한이므로 표시
-    - apply_deadline >= 오늘 날짜 00:00:00 이면 표시 (당일까지 보임)
-    - apply_deadline < 오늘 날짜 00:00:00 이면 숨김
+    - apply_deadline >= 오늘 날짜 00:00:00 (KST) 이면 표시 (당일까지 보임)
+    - apply_deadline < 오늘 날짜 00:00:00 (KST) 이면 숨김
 
     예시: 마감일이 12/20이고 오늘이 12/20이면 → 보임
           마감일이 12/20이고 오늘이 12/21이면 → 안 보임
-    """
-    # 오늘 날짜의 시작 (00:00:00) - Asia/Seoul 타임존 적용
-    today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
-    return models.Q(apply_deadline__isnull=True) | models.Q(apply_deadline__gte=today_start)
+    주의: timezone.now()는 UTC 기준이므로, 로컬 타임존(Asia/Seoul)으로 변환 후
+          오늘 시작 시간을 계산해야 정확한 필터링이 가능
+    """
+    # 로컬 타임존(Asia/Seoul) 기준 현재 시간
+    now_local = timezone.localtime(timezone.now())
+    # 오늘 날짜의 시작 (00:00:00 KST)
+    today_start_local = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    return models.Q(apply_deadline__isnull=True) | models.Q(apply_deadline__gte=today_start_local)
 
 
 def calculate_distance(lat1: Decimal, lng1: Decimal, lat2: Decimal, lng2: Decimal) -> float:

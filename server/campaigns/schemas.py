@@ -50,14 +50,20 @@ class CampaignOut(Schema):
         캠페인 마감 여부 계산 (오늘 날짜 기준, 당일까지는 유효)
 
         - apply_deadline이 NULL이면 None (무기한)
-        - apply_deadline < 오늘 00:00:00 이면 True (마감됨)
-        - apply_deadline >= 오늘 00:00:00 이면 False (유효)
+        - apply_deadline < 오늘 00:00:00 (KST) 이면 True (마감됨)
+        - apply_deadline >= 오늘 00:00:00 (KST) 이면 False (유효)
+
+        주의: timezone.now()는 UTC 기준이므로, 로컬 타임존(Asia/Seoul)으로 변환 후
+              오늘 시작 시간을 계산해야 정확한 마감 여부 판단이 가능
         """
         if obj.apply_deadline is None:
             return None  # 무기한
 
-        today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        return obj.apply_deadline < today_start
+        # 로컬 타임존(Asia/Seoul) 기준 현재 시간
+        now_local = timezone.localtime(timezone.now())
+        # 오늘 날짜의 시작 (00:00:00 KST)
+        today_start_local = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+        return obj.apply_deadline < today_start_local
 
 
 class CampaignListResponse(Schema):

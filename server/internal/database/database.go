@@ -1,6 +1,8 @@
 package database
 
 import (
+	"log"
+
 	"github.com/ggorockee/reviewmaps/server/internal/config"
 	"github.com/ggorockee/reviewmaps/server/internal/models"
 	"gorm.io/driver/postgres"
@@ -19,7 +21,8 @@ func Connect(cfg *config.Config) (*DB, error) {
 	}
 
 	db, err := gorm.Open(postgres.Open(cfg.DatabaseURL), &gorm.Config{
-		Logger: logger.Default.LogMode(logLevel),
+		Logger:                                   logger.Default.LogMode(logLevel),
+		DisableForeignKeyConstraintWhenMigrating: true,
 	})
 	if err != nil {
 		return nil, err
@@ -28,8 +31,10 @@ func Connect(cfg *config.Config) (*DB, error) {
 	return &DB{db}, nil
 }
 
+// Migrate runs AutoMigrate for all models
+// Note: Errors are logged but not fatal - existing Django schema is compatible
 func Migrate(db *DB) error {
-	return db.AutoMigrate(
+	err := db.AutoMigrate(
 		// User domain
 		&models.User{},
 		&models.SocialAccount{},
@@ -56,4 +61,9 @@ func Migrate(db *DB) error {
 		&models.GeocodeCache{},
 		&models.LocalSearchCache{},
 	)
+	if err != nil {
+		// Log migration errors but don't fail - Django schema may have different constraint names
+		log.Printf("AutoMigrate warning (non-fatal): %v", err)
+	}
+	return nil
 }

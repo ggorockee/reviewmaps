@@ -180,11 +180,19 @@ definitions:
     properties:
       created_at:
         type: string
+      email:
+        type: string
       id:
         type: integer
+      name:
+        type: string
+      profile_image:
+        type: string
       provider:
         type: string
-      provider_id:
+      provider_user_id:
+        type: string
+      token_expires_at:
         type: string
       updated_at:
         type: string
@@ -254,8 +262,10 @@ definitions:
         type: string
       refresh_token:
         type: string
+      token_type:
+        type: string
       user:
-        $ref: '#/definitions/models.User'
+        $ref: '#/definitions/services.UserResponse'
     type: object
   services.CampaignListResponse:
     properties:
@@ -337,6 +347,19 @@ definitions:
       name:
         type: string
       profile_image:
+        type: string
+    type: object
+  services.UserResponse:
+    properties:
+      date_joined:
+        type: string
+      email:
+        type: string
+      id:
+        type: integer
+      is_active:
+        type: boolean
+      login_method:
         type: string
     type: object
   services.VerifyEmailCodeRequest:

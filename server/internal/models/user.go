@@ -31,13 +31,20 @@ func (User) TableName() string {
 }
 
 // SocialAccount represents SNS account connections
+// Note: Field names match Django model for DB compatibility
 type SocialAccount struct {
-	ID         uint      `gorm:"primaryKey" json:"id"`
-	UserID     uint      `gorm:"not null;uniqueIndex:idx_social_user_provider" json:"user_id"`
-	Provider   string    `gorm:"size:20;not null;uniqueIndex:idx_social_user_provider" json:"provider"`
-	ProviderID string    `gorm:"size:255;not null;uniqueIndex:idx_social_provider_id" json:"provider_id"`
-	CreatedAt  time.Time `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt  time.Time `gorm:"autoUpdateTime" json:"updated_at"`
+	ID             uint      `gorm:"primaryKey" json:"id"`
+	UserID         uint      `gorm:"not null;index:idx_user_provider" json:"user_id"`
+	Provider       string    `gorm:"column:provider;size:20;not null;uniqueIndex:social_accounts_provider_provider_user_id_key,priority:1" json:"provider"`
+	ProviderUserID string    `gorm:"column:provider_user_id;size:255;not null;uniqueIndex:social_accounts_provider_provider_user_id_key,priority:2" json:"provider_user_id"`
+	Email          string    `gorm:"size:255" json:"email"`
+	Name           string    `gorm:"size:100" json:"name"`
+	ProfileImage   string    `gorm:"size:500" json:"profile_image"`
+	AccessToken    string    `gorm:"type:text" json:"-"`
+	RefreshToken   string    `gorm:"type:text" json:"-"`
+	TokenExpiresAt *time.Time `json:"token_expires_at,omitempty"`
+	CreatedAt      time.Time `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt      time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 
 	// Relations
 	User User `gorm:"foreignKey:UserID" json:"user,omitempty"`

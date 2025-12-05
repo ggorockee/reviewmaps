@@ -1,0 +1,126 @@
+"""
+Campaigns 모델 - GORM이 관리하는 테이블 (managed=False)
+Django Admin CRUD 전용
+"""
+from django.db import models
+
+
+class Category(models.Model):
+    """캠페인 카테고리 - GORM 테이블 참조"""
+
+    name = models.CharField(max_length=100, unique=True, verbose_name="카테고리명")
+    slug = models.CharField(max_length=100, unique=True, verbose_name="슬러그")
+    sort_order = models.IntegerField(default=0, verbose_name="표시 순서")
+    is_active = models.BooleanField(default=True, verbose_name="활성 상태")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="생성일시")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="수정일시")
+
+    class Meta:
+        db_table = 'categories'
+        managed = False
+        verbose_name = "카테고리"
+        verbose_name_plural = "카테고리"
+        ordering = ['sort_order', 'id']
+
+    def __str__(self):
+        return self.name
+
+
+class Campaign(models.Model):
+    """캠페인 모델 - GORM 테이블 참조"""
+
+    category = models.ForeignKey(
+        Category,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='campaigns',
+        verbose_name="카테고리"
+    )
+
+    # 기본 정보
+    platform = models.CharField(max_length=20, verbose_name="플랫폼")
+    company = models.CharField(max_length=255, verbose_name="업체명")
+    company_link = models.TextField(null=True, blank=True, verbose_name="업체 링크")
+    offer = models.TextField(verbose_name="제공 내용")
+
+    # 날짜 정보
+    apply_deadline = models.DateTimeField(null=True, blank=True, verbose_name="신청 마감일")
+    review_deadline = models.DateTimeField(null=True, blank=True, verbose_name="리뷰 마감일")
+    apply_from = models.DateTimeField(null=True, blank=True, verbose_name="신청 시작일")
+
+    # 위치 정보
+    address = models.TextField(null=True, blank=True, verbose_name="주소")
+    lat = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True, verbose_name="위도")
+    lng = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True, verbose_name="경도")
+
+    # 이미지 및 링크
+    img_url = models.TextField(null=True, blank=True, verbose_name="이미지 URL")
+    content_link = models.TextField(null=True, blank=True, verbose_name="콘텐츠 링크")
+
+    # 검색 및 분류
+    search_text = models.CharField(max_length=20, null=True, blank=True, verbose_name="검색 텍스트")
+    source = models.CharField(max_length=100, null=True, blank=True, verbose_name="출처")
+    title = models.TextField(null=True, blank=True, verbose_name="제목")
+    campaign_type = models.CharField(max_length=50, null=True, blank=True, verbose_name="캠페인 유형")
+    region = models.CharField(max_length=100, null=True, blank=True, verbose_name="지역")
+    campaign_channel = models.CharField(max_length=255, null=True, blank=True, verbose_name="캠페인 채널")
+
+    # 프로모션
+    promotion_level = models.IntegerField(default=0, verbose_name="프로모션 레벨")
+
+    # 타임스탬프
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="생성일시")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="수정일시")
+
+    class Meta:
+        db_table = 'campaign'
+        managed = False
+        verbose_name = "캠페인"
+        verbose_name_plural = "캠페인"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.company} - {self.offer[:50] if self.offer else ''}"
+
+
+class RawCategory(models.Model):
+    """원본 카테고리 - GORM 테이블 참조"""
+
+    name = models.CharField(max_length=255, verbose_name="원본 텍스트")
+    source = models.CharField(max_length=100, verbose_name="출처")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="생성일시")
+
+    class Meta:
+        db_table = 'raw_categories'
+        managed = False
+        verbose_name = "원본 카테고리"
+        verbose_name_plural = "원본 카테고리"
+
+    def __str__(self):
+        return self.name
+
+
+class CategoryMapping(models.Model):
+    """카테고리 매핑 - GORM 테이블 참조"""
+
+    raw_category = models.OneToOneField(
+        RawCategory,
+        on_delete=models.CASCADE,
+        verbose_name="원본 카테고리"
+    )
+    category = models.ForeignKey(
+        Category,
+        on_delete=models.CASCADE,
+        verbose_name="표준 카테고리"
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="생성일시")
+
+    class Meta:
+        db_table = 'category_mappings'
+        managed = False
+        verbose_name = "카테고리 매핑"
+        verbose_name_plural = "카테고리 매핑"
+
+    def __str__(self):
+        return f"{self.raw_category.name} -> {self.category.name}"

@@ -25,17 +25,17 @@ def update_image(file_path: str, service: str, new_tag: str, new_repo: str | Non
     if not p.exists():
         print(f"❌ Error: file not found: {file_path}")
         sys.exit(1)
-        
+
     data = yaml.load(p.read_text(encoding="utf-8"))
     if data is None:
         data = {}
-        
+
     image = ensure_path(data, service, "image")
     before_tag = image.get("tag")
     before_repo = image.get("repository")
-    
+
     changed = False
-    
+
     if new_repo is not None and new_repo != before_repo:
         image["repository"] = new_repo
         changed = True
@@ -63,7 +63,7 @@ def parse_args():
         description="Update {service}.image.tag (and optionally repository) in values.yaml"
     )
     ap.add_argument("file", help="path to values.yaml")
-    ap.add_argument("service", help="service key (e.g., scrape, server, web, mobile)")
+    ap.add_argument("service", help="service key (e.g., scrape, server, web, admin)")
     ap.add_argument("tag", help="new image tag")
     ap.add_argument("--repo", help="(optional) new image repository", default=None)
     return ap.parse_args()

@@ -42,7 +42,7 @@ type Config struct {
 func Load() *Config {
 	return &Config{
 		// Server
-		ServerPort: getEnv("SERVER_PORT", "8000"),
+		ServerPort: getEnv("SERVER_PORT", "3000"),
 		ServerEnv:  getEnv("SERVER_ENV", "development"),
 
 		// Database - DATABASE_URL 우선, 없으면 개별 환경변수로 구성

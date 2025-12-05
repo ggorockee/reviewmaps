@@ -172,3 +172,8 @@ cd mobile && flutter test
 | `fix/` | 버그 수정 | `fix/login-error` |
 | `refactor/` | 코드 리팩토링 | `refactor/api-structure` |
 | `docs/` | 문서 작업 | `docs/readme-update` |
+
+### 에러 수정 자동화 규칙
+- **에러 수정 완료 시**: 수정 후 자동으로 PR 생성 및 승인까지 진행
+- **워크플로우**: 에러 분석 → 수정 → 커밋 → PR 생성 → Squash and Merge → 브랜치 삭제
+- **적용 대상**: CI/CD 에러, 빌드 에러, 린트 에러 등 모든 에러 수정 작업

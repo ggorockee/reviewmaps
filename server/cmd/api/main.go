@@ -24,7 +24,7 @@ import (
 // @title ReviewMaps API
 // @version 1.0.0
 // @description 캠페인 추천 시스템 API
-// @host localhost:8000
+// @host localhost:3000
 // @BasePath /v1
 // @securityDefinitions.apikey BearerAuth
 // @in header
@@ -85,7 +85,7 @@ func main() {
 	// Start server
 	port := cfg.ServerPort
 	if port == "" {
-		port = "8000"
+		port = "3000"
 	}
 
 	// Graceful shutdown

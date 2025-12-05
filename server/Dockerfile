@@ -34,7 +34,7 @@ COPY --from=builder /app/api .
 COPY --from=builder /app/docs ./docs
 
 # Expose port
-EXPOSE 8000
+EXPOSE 3000
 
 # Run
 CMD ["./api"]

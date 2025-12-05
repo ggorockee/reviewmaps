@@ -363,7 +363,7 @@ definitions:
       update_message:
         type: string
     type: object
-host: localhost:8000
+host: localhost:3000
 info:
   contact: {}
   description: 캠페인 추천 시스템 API

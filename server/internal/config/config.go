@@ -90,15 +90,15 @@ func getEnvAsInt(key string, defaultValue int) int {
 	return defaultValue
 }
 
-// getDatabaseURL returns DATABASE_URL or builds it from individual env vars (Django compatible)
+// getDatabaseURL returns DATABASE_URL or builds it from individual env vars
 func getDatabaseURL() string {
 	// 1. DATABASE_URL이 있으면 그대로 사용
 	if url := os.Getenv("DATABASE_URL"); url != "" {
 		return url
 	}
 
-	// 2. Django 스타일 개별 환경변수로 구성
-	host := getEnv("POSTGRES_SERVER", "localhost")
+	// 2. 개별 환경변수로 구성 (k8s secret 키 이름과 일치)
+	host := getEnv("POSTGRES_HOST", "localhost")
 	port := getEnv("POSTGRES_PORT", "5432")
 	user := getEnv("POSTGRES_USER", "postgres")
 	password := getEnv("POSTGRES_PASSWORD", "")

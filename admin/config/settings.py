@@ -65,6 +65,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
+
 # Database - Same PostgreSQL as Go Fiber API
 # DATABASE_URL 우선, 없으면 개별 POSTGRES_* 환경변수로 구성 (Go server와 동일한 패턴)
 def get_database_url():
@@ -80,6 +81,7 @@ def get_database_url():
     sslmode = os.getenv("POSTGRES_SSLMODE", "disable")
 
     return f"postgres://{user}:{password}@{host}:{port}/{dbname}?sslmode={sslmode}"
+
 
 DATABASES = {
     "default": dj_database_url.config(

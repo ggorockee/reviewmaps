@@ -384,7 +384,7 @@ func (s *AuthService) AppleLogin(identityToken string) (*AuthResponse, error) {
 	resultCh := make(chan verifyResult, 1)
 
 	go func() {
-		user, err := sns.VerifyAppleToken(ctx, identityToken, s.cfg.AppleBundleID)
+		user, err := sns.VerifyAppleToken(ctx, identityToken, s.cfg.AppleClientID)
 		resultCh <- verifyResult{user, err}
 	}()
 

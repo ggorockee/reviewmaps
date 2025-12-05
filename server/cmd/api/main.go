@@ -56,12 +56,9 @@ func main() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	// Run migrations only in development
-	// Production uses Django Admin migrations
-	if cfg.ServerEnv == "development" {
-		if err := database.Migrate(db); err != nil {
-			log.Fatalf("Failed to run migrations: %v", err)
-		}
+	// Run migrations
+	if err := database.Migrate(db); err != nil {
+		log.Fatalf("Failed to run migrations: %v", err)
 	}
 
 	// Initialize Fiber app

@@ -2,6 +2,7 @@
 Campaigns 모델 - GORM이 관리하는 테이블 (managed=False)
 Django Admin CRUD 전용
 """
+
 from django.db import models
 
 
@@ -16,11 +17,11 @@ class Category(models.Model):
     updated_at = models.DateTimeField(auto_now=True, verbose_name="수정일시")
 
     class Meta:
-        db_table = 'categories'
+        db_table = "categories"
         managed = False
         verbose_name = "카테고리"
         verbose_name_plural = "카테고리"
-        ordering = ['sort_order', 'id']
+        ordering = ["sort_order", "id"]
 
     def __str__(self):
         return self.name
@@ -30,12 +31,7 @@ class Campaign(models.Model):
     """캠페인 모델 - GORM 테이블 참조"""
 
     category = models.ForeignKey(
-        Category,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='campaigns',
-        verbose_name="카테고리"
+        Category, on_delete=models.SET_NULL, null=True, blank=True, related_name="campaigns", verbose_name="카테고리"
     )
 
     # 기본 정보
@@ -74,11 +70,11 @@ class Campaign(models.Model):
     updated_at = models.DateTimeField(auto_now=True, verbose_name="수정일시")
 
     class Meta:
-        db_table = 'campaign'
+        db_table = "campaign"
         managed = False
         verbose_name = "캠페인"
         verbose_name_plural = "캠페인"
-        ordering = ['-created_at']
+        ordering = ["-created_at"]
 
     def __str__(self):
         return f"{self.company} - {self.offer[:50] if self.offer else ''}"
@@ -92,7 +88,7 @@ class RawCategory(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="생성일시")
 
     class Meta:
-        db_table = 'raw_categories'
+        db_table = "raw_categories"
         managed = False
         verbose_name = "원본 카테고리"
         verbose_name_plural = "원본 카테고리"
@@ -104,20 +100,12 @@ class RawCategory(models.Model):
 class CategoryMapping(models.Model):
     """카테고리 매핑 - GORM 테이블 참조"""
 
-    raw_category = models.OneToOneField(
-        RawCategory,
-        on_delete=models.CASCADE,
-        verbose_name="원본 카테고리"
-    )
-    category = models.ForeignKey(
-        Category,
-        on_delete=models.CASCADE,
-        verbose_name="표준 카테고리"
-    )
+    raw_category = models.OneToOneField(RawCategory, on_delete=models.CASCADE, verbose_name="원본 카테고리")
+    category = models.ForeignKey(Category, on_delete=models.CASCADE, verbose_name="표준 카테고리")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="생성일시")
 
     class Meta:
-        db_table = 'category_mappings'
+        db_table = "category_mappings"
         managed = False
         verbose_name = "카테고리 매핑"
         verbose_name_plural = "카테고리 매핑"

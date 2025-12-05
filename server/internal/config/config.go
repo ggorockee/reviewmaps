@@ -33,7 +33,7 @@ type Config struct {
 	// Apple
 	AppleTeamID   string
 	AppleKeyID    string
-	AppleBundleID string
+	AppleClientID string // Bundle ID for Apple Sign In (APPLE_CLIENT_ID or APPLE_BUNDLE_ID)
 
 	// SigNoz
 	SigNozEndpoint string
@@ -64,10 +64,10 @@ func Load() *Config {
 		GoogleClientIDAndroid: getEnv("GOOGLE_CLIENT_ID_ANDROID", ""),
 		GoogleClientIDWeb:     getEnv("GOOGLE_CLIENT_ID_WEB", ""),
 
-		// Apple
+		// Apple (APPLE_CLIENT_ID 우선, APPLE_BUNDLE_ID fallback - k8s secret 호환)
 		AppleTeamID:   getEnv("APPLE_TEAM_ID", ""),
 		AppleKeyID:    getEnv("APPLE_KEY_ID", ""),
-		AppleBundleID: getEnv("APPLE_BUNDLE_ID", ""),
+		AppleClientID: getEnvWithFallback("APPLE_CLIENT_ID", "APPLE_BUNDLE_ID", ""),
 
 		// SigNoz
 		SigNozEndpoint: getEnv("SIGNOZ_ENDPOINT", ""),
@@ -76,6 +76,17 @@ func Load() *Config {
 
 func getEnv(key, defaultValue string) string {
 	if value, exists := os.LookupEnv(key); exists {
+		return value
+	}
+	return defaultValue
+}
+
+// getEnvWithFallback tries primary key first, then fallback key
+func getEnvWithFallback(primary, fallback, defaultValue string) string {
+	if value, exists := os.LookupEnv(primary); exists && value != "" {
+		return value
+	}
+	if value, exists := os.LookupEnv(fallback); exists && value != "" {
 		return value
 	}
 	return defaultValue

@@ -1,0 +1,142 @@
+name: Admin CI/CD
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "admin/**"
+      - ".github/workflows/ci-admin.yml"
+
+# infra repo 동시 업데이트 방지 (Server CI와 공유)
+concurrency:
+  group: reviewmaps-infra-update
+  cancel-in-progress: false
+
+env:
+  PYTHON_VERSION: "3.12"
+  DOCKER_IMAGE: ggorockee/reviewmaps-admin
+  INFRA_REPO: ggorockee/infra
+  VALUES_FILE_PATH: charts/helm/prod/reviewmaps/values.yaml
+
+jobs:
+  # 린트 및 테스트
+  lint-and-test:
+    name: Lint & Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./admin
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Setup Python
+        run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Run ruff check
+        run: uv run ruff check .
+
+      - name: Run ruff format check
+        run: uv run ruff format --check .
+
+      - name: Check Django configuration
+        run: uv run python manage.py check
+        env:
+          DJANGO_SECRET_KEY: test-secret-key
+          POSTGRES_SERVER: localhost
+          POSTGRES_DB: test
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+
+  # Docker 빌드 및 푸시 (main 브랜치 푸시 시에만)
+  build-and-push:
+    name: Build & Push Docker
+    runs-on: ubuntu-latest
+    needs: lint-and-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tag }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Generate image tag
+        id: meta
+        run: |
+          TAG=$(date +%Y%m%d)-$(git rev-parse --short HEAD)
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./admin
+          push: true
+          tags: |
+            ${{ env.DOCKER_IMAGE }}:${{ steps.meta.outputs.tag }}
+            ${{ env.DOCKER_IMAGE }}:latest
+
+  # 매니페스트 업데이트 (ArgoCD GitOps)
+  update-manifest:
+    name: Update Kubernetes Manifest
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout App Repo for script
+        uses: actions/checkout@v4
+
+      - name: Checkout Infra Repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.INFRA_REPO }}
+          token: ${{ secrets.INFRA_GITHUB_TOKEN }}
+          ref: main
+          path: "infra"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install ruamel.yaml
+
+      - name: Update values.yaml
+        run: |
+          python .github/workflows/scripts/update_values.py \
+            infra/${{ env.VALUES_FILE_PATH }} \
+            admin \
+            "${{ needs.build-and-push.outputs.image_tag }}"
+
+      - name: Commit and push changes
+        working-directory: ./infra
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add ${{ env.VALUES_FILE_PATH }}
+
+          if git diff --staged --quiet; then
+            echo "No changes to commit in values.yaml."
+            exit 0
+          fi
+
+          git commit -m "ci: Update reviewmaps-admin image tag to ${{ needs.build-and-push.outputs.image_tag }}"
+          git push

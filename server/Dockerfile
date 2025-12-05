@@ -1,38 +1,40 @@
-# --- 1. 기반 이미지
-FROM python:3.12-slim-bookworm
+# Build stage
+FROM golang:1.23-alpine AS builder
 
-# --- 2. 환경 변수
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    DJANGO_SETTINGS_MODULE=config.settings
-
-# --- 3. 시스템 의존성 설치
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    tini \
-    postgresql-client \
-    libpq-dev \
-    gcc \
-    && rm -rf /var/lib/apt/lists/*
-
-# --- 4. 작업 디렉토리
 WORKDIR /app
 
-# --- 5. uv 설치 (Python 패키지 관리자)
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+# Install dependencies
+RUN apk add --no-cache git
 
-# --- 6. 의존성 파일 복사 및 설치
-COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev
+# Copy go mod files
+COPY go.mod go.sum ./
+RUN go mod download
 
-# --- 7. 소스 복사
+# Copy source code
 COPY . .
 
-# --- 8. 엔트리포인트 스크립트 권한
-RUN chmod +x /app/entrypoint.sh
+# Build binary
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o api cmd/api/main.go
 
-# --- 9. 포트
+# Runtime stage
+FROM alpine:3.19
+
+WORKDIR /app
+
+# Install ca-certificates for HTTPS
+RUN apk --no-cache add ca-certificates tzdata
+
+# Set timezone
+ENV TZ=Asia/Seoul
+
+# Copy binary from builder
+COPY --from=builder /app/api .
+
+# Copy Swagger docs
+COPY --from=builder /app/docs ./docs
+
+# Expose port
 EXPOSE 8000
 
-# --- 10. 실행
-ENTRYPOINT ["/usr/bin/tini", "--"]
-CMD ["/app/entrypoint.sh"]
+# Run
+CMD ["./api"]

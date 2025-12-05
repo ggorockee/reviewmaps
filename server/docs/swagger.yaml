@@ -1,0 +1,1027 @@
+basePath: /v1
+definitions:
+  models.AdConfig:
+    properties:
+      ad_type:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      is_active:
+        type: boolean
+      platform:
+        type: string
+      show_after_count:
+        type: integer
+      show_frequency:
+        type: integer
+      unit_id:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  models.AppSetting:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: integer
+      key:
+        type: string
+      updated_at:
+        type: string
+      value:
+        type: string
+      value_type:
+        type: string
+    type: object
+  models.Campaign:
+    properties:
+      address:
+        type: string
+      apply_deadline:
+        type: string
+      apply_from:
+        type: string
+      campaign_channel:
+        type: string
+      campaign_type:
+        type: string
+      category:
+        allOf:
+        - $ref: '#/definitions/models.Category'
+        description: Relations
+      category_id:
+        type: integer
+      company:
+        type: string
+      company_link:
+        type: string
+      content_link:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      img_url:
+        type: string
+      lat:
+        type: number
+      lng:
+        type: number
+      offer:
+        type: string
+      platform:
+        type: string
+      promotion_level:
+        type: integer
+      region:
+        type: string
+      review_deadline:
+        type: string
+      search_text:
+        type: string
+      source:
+        type: string
+      title:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  models.Category:
+    properties:
+      campaigns:
+        description: Relations
+        items:
+          $ref: '#/definitions/models.Campaign'
+        type: array
+      created_at:
+        type: string
+      id:
+        type: integer
+      is_active:
+        type: boolean
+      name:
+        type: string
+      slug:
+        type: string
+      sort_order:
+        type: integer
+      updated_at:
+        type: string
+    type: object
+  models.FCMDevice:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: integer
+      is_active:
+        type: boolean
+      platform:
+        type: string
+      token:
+        type: string
+      updated_at:
+        type: string
+      user:
+        allOf:
+        - $ref: '#/definitions/models.User'
+        description: Relations
+      user_id:
+        type: integer
+    type: object
+  models.Keyword:
+    properties:
+      alerts:
+        items:
+          $ref: '#/definitions/models.KeywordAlert'
+        type: array
+      created_at:
+        type: string
+      id:
+        type: integer
+      is_active:
+        type: boolean
+      keyword:
+        type: string
+      updated_at:
+        type: string
+      user:
+        allOf:
+        - $ref: '#/definitions/models.User'
+        description: Relations
+      user_id:
+        type: integer
+    type: object
+  models.KeywordAlert:
+    properties:
+      campaign:
+        $ref: '#/definitions/models.Campaign'
+      campaign_id:
+        type: integer
+      created_at:
+        type: string
+      id:
+        type: integer
+      is_read:
+        type: boolean
+      is_sent:
+        type: boolean
+      keyword:
+        allOf:
+        - $ref: '#/definitions/models.Keyword'
+        description: Relations
+      keyword_id:
+        type: integer
+    type: object
+  models.SocialAccount:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: integer
+      provider:
+        type: string
+      provider_id:
+        type: string
+      updated_at:
+        type: string
+      user:
+        allOf:
+        - $ref: '#/definitions/models.User'
+        description: Relations
+      user_id:
+        type: integer
+    type: object
+  models.User:
+    properties:
+      date_joined:
+        type: string
+      email:
+        type: string
+      fcm_devices:
+        items:
+          $ref: '#/definitions/models.FCMDevice'
+        type: array
+      id:
+        type: integer
+      is_active:
+        type: boolean
+      is_staff:
+        type: boolean
+      is_superuser:
+        type: boolean
+      keywords:
+        items:
+          $ref: '#/definitions/models.Keyword'
+        type: array
+      last_login:
+        type: string
+      login_method:
+        type: string
+      name:
+        type: string
+      profile_image:
+        type: string
+      social_accounts:
+        description: Relations
+        items:
+          $ref: '#/definitions/models.SocialAccount'
+        type: array
+      username:
+        type: string
+    type: object
+  services.AlertListResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/models.KeywordAlert'
+        type: array
+      limit:
+        type: integer
+      page:
+        type: integer
+      total:
+        type: integer
+      total_pages:
+        type: integer
+    type: object
+  services.AuthResponse:
+    properties:
+      access_token:
+        type: string
+      refresh_token:
+        type: string
+      user:
+        $ref: '#/definitions/models.User'
+    type: object
+  services.CampaignListResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/models.Campaign'
+        type: array
+      limit:
+        type: integer
+      page:
+        type: integer
+      total:
+        type: integer
+      total_pages:
+        type: integer
+    type: object
+  services.CreateKeywordRequest:
+    properties:
+      keyword:
+        type: string
+    type: object
+  services.FCMRegisterRequest:
+    properties:
+      platform:
+        type: string
+      token:
+        type: string
+    type: object
+  services.FCMUnregisterRequest:
+    properties:
+      token:
+        type: string
+    type: object
+  services.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    type: object
+  services.MarkReadRequest:
+    properties:
+      alert_ids:
+        items:
+          type: integer
+        type: array
+    type: object
+  services.RefreshTokenRequest:
+    properties:
+      refresh_token:
+        type: string
+    type: object
+  services.SNSLoginRequest:
+    properties:
+      access_token:
+        type: string
+    type: object
+  services.SendEmailCodeRequest:
+    properties:
+      email:
+        type: string
+    type: object
+  services.SetKeywordLimitRequest:
+    properties:
+      limit:
+        type: integer
+    type: object
+  services.SignupRequest:
+    properties:
+      email:
+        type: string
+      name:
+        type: string
+      password:
+        type: string
+    type: object
+  services.UpdateUserRequest:
+    properties:
+      name:
+        type: string
+      profile_image:
+        type: string
+    type: object
+  services.VerifyEmailCodeRequest:
+    properties:
+      code:
+        type: string
+      email:
+        type: string
+    type: object
+  services.VersionCheckResponse:
+    properties:
+      force_update:
+        type: boolean
+      latest_version:
+        type: string
+      maintenance_mode:
+        type: boolean
+      min_version:
+        type: string
+      needs_update:
+        type: boolean
+      store_url:
+        type: string
+      update_message:
+        type: string
+    type: object
+host: localhost:8000
+info:
+  contact: {}
+  description: 캠페인 추천 시스템 API
+  title: ReviewMaps API
+  version: 1.0.0
+paths:
+  /app-config/ads:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: Platform (ios/android)
+        in: query
+        name: platform
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.AdConfig'
+            type: array
+      summary: Get ad configurations
+      tags:
+      - app-config
+  /app-config/settings:
+    get:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.AppSetting'
+            type: array
+      summary: List app settings
+      tags:
+      - app-config
+  /app-config/settings/{key}:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: Setting key
+        in: path
+        name: key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.AppSetting'
+      summary: Get app setting by key
+      tags:
+      - app-config
+  /app-config/settings/keyword-limit:
+    get:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: integer
+            type: object
+      summary: Get keyword limit setting
+      tags:
+      - app-config
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Limit value
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/services.SetKeywordLimitRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: integer
+            type: object
+      summary: Set keyword limit setting
+      tags:
+      - app-config
+  /app-config/version:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: Platform (ios/android)
+        in: query
+        name: platform
+        required: true
+        type: string
+      - description: Current app version
+        in: query
+        name: version
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/services.VersionCheckResponse'
+      summary: Get app version info
+      tags:
+      - app-config
+  /auth/anonymous:
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/services.AuthResponse'
+      summary: Create anonymous session
+      tags:
+      - auth
+  /auth/apple:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Apple ID token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/services.SNSLoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/services.AuthResponse'
+      summary: Apple OAuth login
+      tags:
+      - auth
+  /auth/email/send-code:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Email
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/services.SendEmailCodeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Send email verification code
+      tags:
+      - auth
+  /auth/email/verify-code:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Email and code
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/services.VerifyEmailCodeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+      summary: Verify email code
+      tags:
+      - auth
+  /auth/google:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Google ID token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/services.SNSLoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/services.AuthResponse'
+      summary: Google OAuth login
+      tags:
+      - auth
+  /auth/kakao:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Kakao access token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/services.SNSLoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/services.AuthResponse'
+      summary: Kakao OAuth login
+      tags:
+      - auth
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Login credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/services.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/services.AuthResponse'
+      summary: User login
+      tags:
+      - auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Refresh token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/services.RefreshTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/services.AuthResponse'
+      summary: Refresh access token
+      tags:
+      - auth
+  /auth/signup:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Signup data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/services.SignupRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/services.AuthResponse'
+      summary: User signup
+      tags:
+      - auth
+  /campaigns:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Items per page
+        in: query
+        name: limit
+        type: integer
+      - description: Filter by category
+        in: query
+        name: category_id
+        type: integer
+      - description: Filter by platform
+        in: query
+        name: platform
+        type: string
+      - description: Filter by region
+        in: query
+        name: region
+        type: string
+      - description: User latitude
+        in: query
+        name: lat
+        type: number
+      - description: User longitude
+        in: query
+        name: lng
+        type: number
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/services.CampaignListResponse'
+      summary: List campaigns
+      tags:
+      - campaigns
+  /campaigns/{id}:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: Campaign ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Campaign'
+      summary: Get campaign by ID
+      tags:
+      - campaigns
+  /categories:
+    get:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Category'
+            type: array
+      summary: List categories
+      tags:
+      - categories
+  /healthz:
+    get:
+      consumes:
+      - application/json
+      description: Returns the health status of the API
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Health check endpoint
+      tags:
+      - health
+  /keyword-alerts/alerts:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/services.AlertListResponse'
+      security:
+      - BearerAuth: []
+      summary: List user alerts
+      tags:
+      - keyword-alerts
+  /keyword-alerts/alerts/{id}:
+    delete:
+      consumes:
+      - application/json
+      parameters:
+      - description: Alert ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+      security:
+      - BearerAuth: []
+      summary: Delete alert
+      tags:
+      - keyword-alerts
+  /keyword-alerts/alerts/read:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Alert IDs
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/services.MarkReadRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: integer
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Mark alerts as read
+      tags:
+      - keyword-alerts
+  /keyword-alerts/fcm/register:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: FCM token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/services.FCMRegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.FCMDevice'
+      security:
+      - BearerAuth: []
+      summary: Register FCM token
+      tags:
+      - keyword-alerts
+  /keyword-alerts/fcm/unregister:
+    delete:
+      consumes:
+      - application/json
+      parameters:
+      - description: FCM token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/services.FCMUnregisterRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+      security:
+      - BearerAuth: []
+      summary: Unregister FCM token
+      tags:
+      - keyword-alerts
+  /keyword-alerts/keywords:
+    get:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Keyword'
+            type: array
+      security:
+      - BearerAuth: []
+      summary: List user keywords
+      tags:
+      - keyword-alerts
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Keyword data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/services.CreateKeywordRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.Keyword'
+      security:
+      - BearerAuth: []
+      summary: Create keyword
+      tags:
+      - keyword-alerts
+  /keyword-alerts/keywords/{id}:
+    delete:
+      consumes:
+      - application/json
+      parameters:
+      - description: Keyword ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+      security:
+      - BearerAuth: []
+      summary: Delete keyword
+      tags:
+      - keyword-alerts
+  /keyword-alerts/keywords/{id}/toggle:
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Keyword ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Keyword'
+      security:
+      - BearerAuth: []
+      summary: Toggle keyword active status
+      tags:
+      - keyword-alerts
+  /users/me:
+    delete:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+      security:
+      - BearerAuth: []
+      summary: Delete current user
+      tags:
+      - users
+    get:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.User'
+      security:
+      - BearerAuth: []
+      summary: Get current user info
+      tags:
+      - users
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Update data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/services.UpdateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.User'
+      security:
+      - BearerAuth: []
+      summary: Update current user info
+      tags:
+      - users
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

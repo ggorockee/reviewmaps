@@ -1,0 +1,23 @@
+[project]
+name = "reviewmaps-admin"
+version = "1.0.0"
+description = "ReviewMaps Django Admin with Unfold Theme"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "django>=5.2",
+    "django-unfold>=0.40.0",
+    "psycopg2-binary>=2.9.9",
+    "python-dotenv>=1.0.0",
+    "dj-database-url>=2.2.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=8.0.0",
+    "pytest-django>=4.8.0",
+]

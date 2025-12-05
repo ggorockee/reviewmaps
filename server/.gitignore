@@ -1,14 +1,49 @@
-my-request.txt
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+/server
+/api
 
-# Django static files
-staticfiles/
-static/
+# Build output
+/bin/
+/dist/
 
-# Secret files and configurations
-secret_files/
-secrets/
-k8s-secret.yaml
-*.p8
-*firebase-adminsdk*.json
+# Test binary
+*.test
 
-.env.backup
+# Output of the go coverage tool
+*.out
+
+# Dependency directories
+/vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Secrets
+/secrets/
+*.pem
+*.key
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/

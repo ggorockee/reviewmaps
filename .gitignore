@@ -8,3 +8,6 @@ server/database/docker-compose.yml
 mobile/.env
 *.xcconfig
 scrape/.env
+server_backup/
+docker-compose.yml
+my_req.txt

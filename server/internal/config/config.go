@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 )
@@ -44,8 +45,8 @@ func Load() *Config {
 		ServerPort: getEnv("SERVER_PORT", "8000"),
 		ServerEnv:  getEnv("SERVER_ENV", "development"),
 
-		// Database
-		DatabaseURL: getEnv("DATABASE_URL", ""),
+		// Database - DATABASE_URL 우선, 없으면 개별 환경변수로 구성
+		DatabaseURL: getDatabaseURL(),
 
 		// JWT
 		JWTSecretKey:              getEnv("JWT_SECRET_KEY", ""),
@@ -87,4 +88,23 @@ func getEnvAsInt(key string, defaultValue int) int {
 		}
 	}
 	return defaultValue
+}
+
+// getDatabaseURL returns DATABASE_URL or builds it from individual env vars (Django compatible)
+func getDatabaseURL() string {
+	// 1. DATABASE_URL이 있으면 그대로 사용
+	if url := os.Getenv("DATABASE_URL"); url != "" {
+		return url
+	}
+
+	// 2. Django 스타일 개별 환경변수로 구성
+	host := getEnv("POSTGRES_SERVER", "localhost")
+	port := getEnv("POSTGRES_PORT", "5432")
+	user := getEnv("POSTGRES_USER", "postgres")
+	password := getEnv("POSTGRES_PASSWORD", "")
+	dbname := getEnv("POSTGRES_DB", "reviewmaps")
+	sslmode := getEnv("POSTGRES_SSLMODE", "disable")
+
+	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s",
+		user, password, host, port, dbname, sslmode)
 }

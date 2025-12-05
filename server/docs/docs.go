@@ -1332,13 +1332,25 @@ const docTemplate = `{
                 "created_at": {
                     "type": "string"
                 },
+                "email": {
+                    "type": "string"
+                },
                 "id": {
                     "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "profile_image": {
+                    "type": "string"
                 },
                 "provider": {
                     "type": "string"
                 },
-                "provider_id": {
+                "provider_user_id": {
+                    "type": "string"
+                },
+                "token_expires_at": {
                     "type": "string"
                 },
                 "updated_at": {
@@ -1446,8 +1458,11 @@ const docTemplate = `{
                 "refresh_token": {
                     "type": "string"
                 },
+                "token_type": {
+                    "type": "string"
+                },
                 "user": {
-                    "$ref": "#/definitions/models.User"
+                    "$ref": "#/definitions/services.UserResponse"
                 }
             }
         },
@@ -1576,6 +1591,26 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "profile_image": {
+                    "type": "string"
+                }
+            }
+        },
+        "services.UserResponse": {
+            "type": "object",
+            "properties": {
+                "date_joined": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "is_active": {
+                    "type": "boolean"
+                },
+                "login_method": {
                     "type": "string"
                 }
             }

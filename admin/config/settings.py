@@ -66,9 +66,24 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 
 # Database - Same PostgreSQL as Go Fiber API
+# DATABASE_URL 우선, 없으면 개별 POSTGRES_* 환경변수로 구성 (Go server와 동일한 패턴)
+def get_database_url():
+    """Build DATABASE_URL from individual POSTGRES_* env vars if DATABASE_URL not set."""
+    if url := os.getenv("DATABASE_URL"):
+        return url
+
+    host = os.getenv("POSTGRES_SERVER", "localhost")
+    port = os.getenv("POSTGRES_PORT", "5432")
+    user = os.getenv("POSTGRES_USER", "postgres")
+    password = os.getenv("POSTGRES_PASSWORD", "")
+    dbname = os.getenv("POSTGRES_DB", "reviewmaps")
+    sslmode = os.getenv("POSTGRES_SSLMODE", "disable")
+
+    return f"postgres://{user}:{password}@{host}:{port}/{dbname}?sslmode={sslmode}"
+
 DATABASES = {
     "default": dj_database_url.config(
-        default=os.getenv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/reviewmaps"),
+        default=get_database_url(),
         conn_max_age=600,
     )
 }

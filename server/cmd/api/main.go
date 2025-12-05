@@ -109,7 +109,7 @@ func main() {
 
 func setupRoutes(app *fiber.App, db *database.DB, cfg *config.Config) {
 	// Swagger UI
-	app.Get("/swagger/*", swagger.HandlerDefault)
+	app.Get("/v1/docs/*", swagger.HandlerDefault)
 
 	// Health check
 	app.Get("/v1/healthz", handlers.HealthCheck)

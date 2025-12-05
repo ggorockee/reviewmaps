@@ -111,7 +111,8 @@ func setupRoutes(app *fiber.App, db *database.DB, cfg *config.Config) {
 	// Swagger UI
 	app.Get("/v1/docs/*", swagger.HandlerDefault)
 
-	// Health check
+	// Health check (both root and v1 for k8s probes)
+	app.Get("/healthz", handlers.HealthCheck)
 	app.Get("/v1/healthz", handlers.HealthCheck)
 
 	// API v1 group

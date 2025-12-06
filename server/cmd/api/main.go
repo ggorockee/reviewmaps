@@ -70,18 +70,24 @@ func main() {
 
 	// Middleware
 	app.Use(recover.New())
+	// JSON 구조화 로깅 (원본 Django AccessLogMiddleware와 동일 형식)
 	app.Use(logger.New(logger.Config{
-		Format:     "${time} | ${status} | ${latency} | ${ip} | ${method} | ${path} | ${error}\n",
-		TimeFormat: "2006-01-02 15:04:05",
+		Format:     `{"time":"${time}","status":${status},"latency":"${latency}","ip":"${ip}","method":"${method}","path":"${path}","user_agent":"${ua}","error":"${error}"}` + "\n",
+		TimeFormat: "2006-01-02T15:04:05Z07:00",
 		TimeZone:   "Asia/Seoul",
 	}))
 	app.Use(telemetry.New(telemetry.Config{
 		ServiceName: "reviewmaps-api",
 	}))
+	// CORS 설정 (원본 Django 설정과 동일)
+	// Mobile app (Android/iOS)에서 API 호출을 위해 모든 origin 허용
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "*",
-		AllowHeaders: "Origin, Content-Type, Accept, Authorization, X-API-Key",
-		AllowMethods: "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+		AllowOrigins:     "*",
+		AllowMethods:     "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+		AllowHeaders:     "Accept, Accept-Encoding, Authorization, Content-Type, DNT, Origin, User-Agent, X-Requested-With, X-API-Key",
+		AllowCredentials: false, // AllowOrigins가 "*"일 때는 false여야 함
+		ExposeHeaders:    "Content-Length, Content-Type",
+		MaxAge:           86400, // Preflight 캐시 24시간
 	}))
 
 	// Setup routes

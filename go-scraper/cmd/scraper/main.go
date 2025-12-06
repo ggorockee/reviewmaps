@@ -12,6 +12,7 @@ import (
 	"github.com/ggorockee/reviewmaps/go-scraper/internal/config"
 	"github.com/ggorockee/reviewmaps/go-scraper/internal/db"
 	"github.com/ggorockee/reviewmaps/go-scraper/internal/logger"
+	"github.com/ggorockee/reviewmaps/go-scraper/internal/scraper/inflexer"
 	"github.com/ggorockee/reviewmaps/go-scraper/internal/scraper/reviewnote"
 	"github.com/ggorockee/reviewmaps/go-scraper/internal/telemetry"
 )
@@ -127,12 +128,15 @@ func runScraper(ctx context.Context, name string, cfg *config.Config, database *
 	case "reviewnote":
 		scraper := reviewnote.New(cfg, database, tel)
 		return scraper.Run(ctx, keyword)
+	case "inflexer":
+		scraper := inflexer.New(cfg, database, tel)
+		return scraper.Run(ctx, keyword)
 	case "cleanup":
 		cleaner := cleanup.New(cfg, database, tel)
 		return cleaner.Run(ctx)
 	default:
 		log.Errorf("'%s' 스크레이퍼를 찾을 수 없습니다.", name)
-		log.Info("사용 가능한 명령어: reviewnote, cleanup")
+		log.Info("사용 가능한 명령어: reviewnote, inflexer, cleanup")
 		return nil
 	}
 }

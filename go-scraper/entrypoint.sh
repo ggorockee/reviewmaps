@@ -5,6 +5,7 @@ set -e
 # Usage: entrypoint.sh <command> [args...]
 # Commands:
 #   reviewnote [--keyword <keyword>]  - Run reviewnote scraper
+#   inflexer --keyword <keyword>      - Run inflexer scraper (keyword required)
 #   cleanup                           - Clean up expired campaigns
 #   help                              - Show this help message
 
@@ -15,6 +16,11 @@ case "$COMMAND" in
         shift
         echo "[$(date -Iseconds)] Starting reviewnote scraper..."
         exec /app/scraper reviewnote "$@"
+        ;;
+    inflexer)
+        shift
+        echo "[$(date -Iseconds)] Starting inflexer scraper..."
+        exec /app/scraper inflexer "$@"
         ;;
     cleanup)
         shift
@@ -28,6 +34,7 @@ case "$COMMAND" in
         echo ""
         echo "Commands:"
         echo "  reviewnote [--keyword <keyword>]  Run reviewnote scraper"
+        echo "  inflexer --keyword <keyword>      Run inflexer scraper (keyword required)"
         echo "  cleanup                           Clean up expired campaigns"
         echo "  help                              Show this help message"
         echo ""

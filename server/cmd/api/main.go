@@ -24,8 +24,9 @@ import (
 // @title ReviewMaps API
 // @version 1.0.0
 // @description 캠페인 추천 시스템 API
-// @host localhost:3000
+// @host api.review-maps.com
 // @BasePath /v1
+// @schemes https
 // @securityDefinitions.apikey BearerAuth
 // @in header
 // @name Authorization
@@ -69,7 +70,11 @@ func main() {
 
 	// Middleware
 	app.Use(recover.New())
-	app.Use(logger.New())
+	app.Use(logger.New(logger.Config{
+		Format:     "${time} | ${status} | ${latency} | ${ip} | ${method} | ${path} | ${error}\n",
+		TimeFormat: "2006-01-02 15:04:05",
+		TimeZone:   "Asia/Seoul",
+	}))
 	app.Use(telemetry.New(telemetry.Config{
 		ServiceName: "reviewmaps-api",
 	}))
@@ -111,9 +116,12 @@ func setupRoutes(app *fiber.App, db *database.DB, cfg *config.Config) {
 	// Swagger UI
 	app.Get("/v1/docs/*", swagger.HandlerDefault)
 
-	// Health check (both root and v1 for k8s probes)
+	// Health check endpoints for k8s probes
 	app.Get("/healthz", handlers.HealthCheck)
 	app.Get("/v1/healthz", handlers.HealthCheck)
+	app.Get("/v1/health", handlers.HealthCheck)
+	app.Get("/v1/readiness", handlers.ReadinessCheck(db))
+	app.Get("/v1/liveness", handlers.LivenessCheck)
 
 	// API v1 group
 	v1 := app.Group("/v1")

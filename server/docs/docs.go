@@ -1048,6 +1048,67 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/v1/liveness": {
+            "get": {
+                "description": "Returns liveness status for k8s",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "health"
+                ],
+                "summary": "Liveness probe endpoint",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/v1/readiness": {
+            "get": {
+                "description": "Returns readiness status including DB connection for k8s",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "health"
+                ],
+                "summary": "Readiness probe endpoint",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -1665,9 +1726,9 @@ const docTemplate = `{
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0.0",
-	Host:             "localhost:3000",
+	Host:             "api.review-maps.com",
 	BasePath:         "/v1",
-	Schemes:          []string{},
+	Schemes:          []string{"https"},
 	Title:            "ReviewMaps API",
 	Description:      "캠페인 추천 시스템 API",
 	InfoInstanceName: "swagger",

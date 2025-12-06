@@ -386,7 +386,7 @@ definitions:
       update_message:
         type: string
     type: object
-host: localhost:3000
+host: api.review-maps.com
 info:
   contact: {}
   description: 캠페인 추천 시스템 API
@@ -1042,6 +1042,48 @@ paths:
       summary: Update current user info
       tags:
       - users
+  /v1/liveness:
+    get:
+      consumes:
+      - application/json
+      description: Returns liveness status for k8s
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Liveness probe endpoint
+      tags:
+      - health
+  /v1/readiness:
+    get:
+      consumes:
+      - application/json
+      description: Returns readiness status including DB connection for k8s
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "503":
+          description: Service Unavailable
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Readiness probe endpoint
+      tags:
+      - health
+schemes:
+- https
 securityDefinitions:
   BearerAuth:
     in: header

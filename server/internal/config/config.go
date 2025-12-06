@@ -10,6 +10,7 @@ type Config struct {
 	// Server
 	ServerPort string
 	ServerEnv  string
+	ServerHost string // Swagger host 설정용
 
 	// Database
 	DatabaseURL string
@@ -44,6 +45,7 @@ func Load() *Config {
 		// Server
 		ServerPort: getEnv("SERVER_PORT", "3000"),
 		ServerEnv:  getEnv("SERVER_ENV", "development"),
+		ServerHost: getEnv("SERVER_HOST", "localhost:3000"),
 
 		// Database - DATABASE_URL 우선, 없으면 개별 환경변수로 구성
 		DatabaseURL: getDatabaseURL(),

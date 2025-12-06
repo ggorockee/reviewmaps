@@ -177,3 +177,20 @@ cd mobile && flutter test
 - **에러 수정 완료 시**: 수정 후 자동으로 PR 생성 및 승인까지 진행
 - **워크플로우**: 에러 분석 → 수정 → 커밋 → PR 생성 → Squash and Merge → 브랜치 삭제
 - **적용 대상**: CI/CD 에러, 빌드 에러, 린트 에러 등 모든 에러 수정 작업
+
+## Python Code Quality Rules
+
+### Ruff 포맷 검사 (필수)
+Python 파일 수정 후 커밋 전 반드시 실행:
+
+| 디렉토리 | 명령어 |
+|----------|--------|
+| `admin/` | `cd admin && uv run ruff format --check .` |
+| `scrape/` | `cd scrape && uv run ruff format --check .` |
+| `server/` (Python) | `cd server && uv run ruff format --check .` |
+
+**워크플로우:**
+1. Python 코드 수정
+2. `uv run ruff format --check .` 실행
+3. 에러 발생 시 `uv run ruff format .` 로 자동 수정
+4. 커밋 진행

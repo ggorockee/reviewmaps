@@ -91,11 +91,11 @@ jobs:
       - name: Install ruamel.yaml
         run: pip install ruamel.yaml
 
-      - name: Update tag (goScraper)
+      - name: Update tag (go-scraper)
         run: |
           python ./.github/workflows/scripts/update_values.py \
             ./infra/${{ env.VALUES_FILE_PATH }} \
-            goScraper \
+            go-scraper \
             ${{ needs.build-go-scraper.outputs.image_tag }}
 
       - name: Commit and push changes
@@ -110,6 +110,6 @@ jobs:
             exit 0
           fi
 
-          commit_message="ci: Update image tags (goScraper: ${{ needs.build-go-scraper.outputs.image_tag }})"
+          commit_message="ci: Update image tags (go-scraper: ${{ needs.build-go-scraper.outputs.image_tag }})"
           git commit -m "$commit_message"
           git push

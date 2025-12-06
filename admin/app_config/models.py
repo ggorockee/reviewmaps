@@ -20,8 +20,8 @@ class AdConfig(models.Model):
     is_active = models.BooleanField(default=True, verbose_name="활성화 여부")
     show_frequency = models.IntegerField(default=1, verbose_name="표시 빈도")
     show_after_count = models.IntegerField(default=0, verbose_name="표시 시작 카운트")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="생성일시")
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="수정일시")
+    created_at = models.DateTimeField(null=True, blank=True, verbose_name="생성일시")
+    updated_at = models.DateTimeField(null=True, blank=True, verbose_name="수정일시")
 
     class Meta:
         db_table = "ad_configs"
@@ -48,8 +48,8 @@ class AppVersion(models.Model):
     update_message = models.TextField(null=True, blank=True, verbose_name="업데이트 메시지")
     store_url = models.CharField(max_length=500, null=True, blank=True, verbose_name="스토어 URL")
     maintenance_mode = models.BooleanField(default=False, verbose_name="점검 모드")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="생성일시")
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="수정일시")
+    created_at = models.DateTimeField(null=True, blank=True, verbose_name="생성일시")
+    updated_at = models.DateTimeField(null=True, blank=True, verbose_name="수정일시")
 
     class Meta:
         db_table = "app_versions"
@@ -67,8 +67,8 @@ class AppSetting(models.Model):
     key = models.CharField(max_length=100, unique=True, verbose_name="설정 키")
     value = models.TextField(verbose_name="설정 값")
     value_type = models.CharField(max_length=20, default="string", verbose_name="값 타입")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="생성일시")
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="수정일시")
+    created_at = models.DateTimeField(null=True, blank=True, verbose_name="생성일시")
+    updated_at = models.DateTimeField(null=True, blank=True, verbose_name="수정일시")
 
     class Meta:
         db_table = "app_settings"
@@ -88,8 +88,8 @@ class RateLimitConfig(models.Model):
     max_requests = models.IntegerField(default=100, verbose_name="최대 요청 수")
     window_sec = models.IntegerField(default=60, verbose_name="시간 윈도우 (초)")
     is_active = models.BooleanField(default=True, verbose_name="활성화 여부")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="생성일시")
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="수정일시")
+    created_at = models.DateTimeField(null=True, blank=True, verbose_name="생성일시")
+    updated_at = models.DateTimeField(null=True, blank=True, verbose_name="수정일시")
 
     class Meta:
         db_table = "rate_limit_configs"

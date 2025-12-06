@@ -1,0 +1,115 @@
+name: go-scraper CI/CD
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "go-scraper/**"
+      - ".github/workflows/ci-go-scraper.yml"
+
+env:
+  DOCKER_IMAGE: ggorockee/go-scraper
+  INFRA_REPO: ggorockee/infra
+  VALUES_FILE_PATH: charts/helm/prod/reviewmaps/values.yaml
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      go_scraper: ${{ steps.filter.outputs.go_scraper }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Paths filter
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          ref: ${{ github.sha }}
+          base: ${{ github.event.before }}
+          filters: |
+            go_scraper:
+              - 'go-scraper/**'
+
+  build-go-scraper:
+    name: Build & Push Go Scraper
+    runs-on: ubuntu-latest
+    if: needs.changes.outputs.go_scraper == 'true' && contains(github.event.head_commit.message, '[skip-go-scraper]') == false
+    needs: changes
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tag }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Generate image tag
+        id: meta
+        run: |
+          TAG=$(date +%Y%m%d)-$(git rev-parse --short HEAD)
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./go-scraper
+          push: true
+          tags: ${{ env.DOCKER_IMAGE }}:${{ steps.meta.outputs.tag }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  update-manifest:
+    name: Update Kubernetes Manifest
+    needs: [changes, build-go-scraper]
+    if: github.event_name == 'push' && always() && needs.changes.outputs.go_scraper == 'true' && needs.build-go-scraper.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout App Repo for script
+        uses: actions/checkout@v4
+
+      - name: Checkout Infra Repo to update values
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.INFRA_REPO }}
+          token: ${{ secrets.INFRA_GITHUB_TOKEN }}
+          ref: main
+          path: "infra"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install ruamel.yaml
+        run: pip install ruamel.yaml
+
+      - name: Update tag (goScraper)
+        run: |
+          python ./.github/workflows/scripts/update_values.py \
+            ./infra/${{ env.VALUES_FILE_PATH }} \
+            goScraper \
+            ${{ needs.build-go-scraper.outputs.image_tag }}
+
+      - name: Commit and push changes
+        working-directory: ./infra
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add ${{ env.VALUES_FILE_PATH }}
+
+          if git diff --staged --quiet; then
+            echo "No changes to commit in values.yaml."
+            exit 0
+          fi
+
+          commit_message="ci: Update image tags (goScraper: ${{ needs.build-go-scraper.outputs.image_tag }})"
+          git commit -m "$commit_message"
+          git push

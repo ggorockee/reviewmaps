@@ -16,6 +16,7 @@ def liveness_check(request):
 def readiness_check(request):
     """Readiness probe endpoint for k8s"""
     from django.db import connection
+
     try:
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1")

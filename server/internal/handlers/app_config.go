@@ -52,15 +52,15 @@ func (h *AppConfigHandler) GetAdConfigs(c *fiber.Ctx) error {
 // @Accept json
 // @Produce json
 // @Param platform query string true "Platform (ios/android)"
-// @Param version query string true "Current app version"
+// @Param version query string false "Current app version (optional - client can compare locally)"
 // @Success 200 {object} services.VersionCheckResponse
 // @Router /app-config/version [get]
 func (h *AppConfigHandler) GetVersion(c *fiber.Ctx) error {
 	platform := c.Query("platform")
-	version := c.Query("version")
+	version := c.Query("version") // 옵셔널 - 모바일 클라이언트는 자체 비교 수행
 
-	if platform == "" || version == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "platform and version are required"})
+	if platform == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "platform is required"})
 	}
 
 	response, err := h.service.CheckVersion(platform, version)

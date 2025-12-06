@@ -38,6 +38,12 @@ type Telemetry struct {
 	EnrichCacheHits  metric.Int64Counter
 	EnrichAPICalls   metric.Int64Counter
 	EnrichGeocodes   metric.Int64Counter
+
+	// Cleanup Metrics
+	CleanupTotal    metric.Int64Counter
+	CleanupDeleted  metric.Int64Counter
+	CleanupDuration metric.Float64Histogram
+	CleanupErrors   metric.Int64Counter
 }
 
 // New 새로운 Telemetry 인스턴스 생성
@@ -193,6 +199,43 @@ func (t *Telemetry) registerMetrics() error {
 		return err
 	}
 
+	// Cleanup total counter
+	t.CleanupTotal, err = t.meter.Int64Counter(
+		"scraper.cleanup.total",
+		metric.WithDescription("Total number of cleanup operations"),
+	)
+	if err != nil {
+		return err
+	}
+
+	// Cleanup deleted counter
+	t.CleanupDeleted, err = t.meter.Int64Counter(
+		"scraper.cleanup.deleted",
+		metric.WithDescription("Total number of campaigns deleted by cleanup"),
+	)
+	if err != nil {
+		return err
+	}
+
+	// Cleanup duration histogram
+	t.CleanupDuration, err = t.meter.Float64Histogram(
+		"scraper.cleanup.duration",
+		metric.WithDescription("Duration of cleanup operations in seconds"),
+		metric.WithUnit("s"),
+	)
+	if err != nil {
+		return err
+	}
+
+	// Cleanup errors counter
+	t.CleanupErrors, err = t.meter.Int64Counter(
+		"scraper.cleanup.errors",
+		metric.WithDescription("Total number of cleanup errors"),
+	)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -241,6 +284,26 @@ func (t *Telemetry) RecordEnrichStats(ctx context.Context, scraper string, total
 	t.EnrichCacheHits.Add(ctx, cacheHits, attrs)
 	t.EnrichAPICalls.Add(ctx, apiCalls, attrs)
 	t.EnrichGeocodes.Add(ctx, geocodes, attrs)
+}
+
+// IncrementCleanupTotal cleanup total 증가
+func (t *Telemetry) IncrementCleanupTotal(ctx context.Context) {
+	t.CleanupTotal.Add(ctx, 1)
+}
+
+// AddCleanupDeleted cleanup deleted 추가
+func (t *Telemetry) AddCleanupDeleted(ctx context.Context, count int64) {
+	t.CleanupDeleted.Add(ctx, count)
+}
+
+// RecordCleanupDuration cleanup duration 기록
+func (t *Telemetry) RecordCleanupDuration(ctx context.Context, duration time.Duration) {
+	t.CleanupDuration.Record(ctx, duration.Seconds())
+}
+
+// IncrementCleanupErrors cleanup errors 증가
+func (t *Telemetry) IncrementCleanupErrors(ctx context.Context) {
+	t.CleanupErrors.Add(ctx, 1)
 }
 
 // Shutdown 텔레메트리 종료

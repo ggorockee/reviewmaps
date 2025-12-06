@@ -16,13 +16,14 @@ func NewAppConfigService(db *database.DB) *AppConfigService {
 	return &AppConfigService{db: db}
 }
 
+// VersionCheckResponse - 모바일 클라이언트와 호환되는 응답 구조
 type VersionCheckResponse struct {
-	NeedsUpdate    bool    `json:"needs_update"`
-	ForceUpdate    bool    `json:"force_update"`
-	LatestVersion  string  `json:"latest_version"`
-	MinimumVersion string  `json:"minimum_version"`
-	UpdateMessage  *string `json:"update_message,omitempty"`
-	StoreURL       *string `json:"store_url,omitempty"`
+	NeedsUpdate   bool    `json:"needs_update"`
+	ForceUpdate   bool    `json:"force_update"`
+	LatestVersion string  `json:"latest_version"`
+	MinVersion    string  `json:"min_version"` // 모바일에서 min_version으로 파싱
+	UpdateMessage *string `json:"update_message,omitempty"`
+	StoreURL      *string `json:"store_url,omitempty"`
 }
 
 type SetKeywordLimitRequest struct {
@@ -43,22 +44,32 @@ func (s *AppConfigService) GetAdConfigs(platform string) ([]models.AdConfig, err
 }
 
 // CheckVersion checks app version against requirements
+// currentVersion이 빈 문자열이면 버전 비교 없이 정책 정보만 반환 (모바일 클라이언트가 자체 비교)
 func (s *AppConfigService) CheckVersion(platform, currentVersion string) (*VersionCheckResponse, error) {
 	var appVersion models.AppVersion
 	if err := s.db.Where("platform = ? AND is_active = ?", platform, true).First(&appVersion).Error; err != nil {
 		return nil, errors.New("platform not found")
 	}
 
-	needsUpdate := compareVersions(currentVersion, appVersion.Version) < 0
-	forceUpdate := compareVersions(currentVersion, appVersion.MinimumVersion) < 0
+	// 버전 비교 로직 (currentVersion이 제공된 경우에만)
+	needsUpdate := false
+	forceUpdate := appVersion.ForceUpdate // 서버 정책 기본값
+
+	if currentVersion != "" {
+		needsUpdate = compareVersions(currentVersion, appVersion.Version) < 0
+		// 현재 버전이 최소 버전보다 낮으면 강제 업데이트
+		if compareVersions(currentVersion, appVersion.MinimumVersion) < 0 {
+			forceUpdate = true
+		}
+	}
 
 	return &VersionCheckResponse{
-		NeedsUpdate:    needsUpdate,
-		ForceUpdate:    forceUpdate || appVersion.ForceUpdate,
-		LatestVersion:  appVersion.Version,
-		MinimumVersion: appVersion.MinimumVersion,
-		UpdateMessage:  appVersion.UpdateMessage,
-		StoreURL:       appVersion.StoreURL,
+		NeedsUpdate:   needsUpdate,
+		ForceUpdate:   forceUpdate,
+		LatestVersion: appVersion.Version,
+		MinVersion:    appVersion.MinimumVersion,
+		UpdateMessage: appVersion.UpdateMessage,
+		StoreURL:      appVersion.StoreURL,
 	}, nil
 }
 

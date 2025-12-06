@@ -5,6 +5,7 @@ import (
 	"flag"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -46,13 +47,30 @@ func main() {
 	}
 
 	// CLI 인자 파싱
-	scraperName := flag.String("scraper", "", "실행할 스크레이퍼의 이름")
-	keyword := flag.String("keyword", "", "검색할 특정 키워드 (선택)")
-	flag.Parse()
+	// 사용법: scraper <name> [--keyword <keyword>]
+	// 예: scraper inflexer --keyword "경기 김포"
+	args := os.Args[1:]
+	var scraperNameVal string
+	var keywordVal string
 
-	// positional argument도 지원
-	if *scraperName == "" && flag.NArg() > 0 {
-		*scraperName = flag.Arg(0)
+	// 첫 번째 인자가 플래그가 아니면 scraper 이름으로 처리
+	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
+		scraperNameVal = args[0]
+		args = args[1:] // 나머지 인자만 flag로 파싱
+	}
+
+	// 나머지 인자에서 --keyword 파싱
+	fs := flag.NewFlagSet("scraper", flag.ExitOnError)
+	keyword := fs.String("keyword", "", "검색할 특정 키워드 (선택)")
+	scraperName := fs.String("scraper", "", "실행할 스크레이퍼의 이름")
+	fs.Parse(args)
+
+	// positional argument 우선
+	if scraperNameVal != "" {
+		*scraperName = scraperNameVal
+	}
+	if *keyword != "" {
+		keywordVal = *keyword
 	}
 
 	if *scraperName == "" {
@@ -86,8 +104,8 @@ func main() {
 
 	// 키워드 설정
 	var keywordPtr *string
-	if *keyword != "" {
-		keywordPtr = keyword
+	if keywordVal != "" {
+		keywordPtr = &keywordVal
 	}
 
 	// 스크레이퍼 실행

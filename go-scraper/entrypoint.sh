@@ -18,26 +18,33 @@ COMMAND=${1:-help}
 run_with_keywords() {
     SCRAPER_NAME=$1
     shift
+    EXTRA_ARGS="$@"
 
     # Check if --keyword is already provided in args
-    if echo "$@" | grep -q "\-\-keyword"; then
-        exec /app/scraper "$SCRAPER_NAME" "$@"
+    if echo "$EXTRA_ARGS" | grep -q "\-\-keyword"; then
+        exec /app/scraper "$SCRAPER_NAME" $EXTRA_ARGS
     elif [ -n "$SCRAPE_KEYWORDS" ]; then
         # Use keywords from environment variable (comma-separated)
         # Run for each keyword sequentially
         echo "[$(date -Iseconds)] Keywords from env: $SCRAPE_KEYWORDS"
 
-        # Split by comma and run for each keyword
-        echo "$SCRAPE_KEYWORDS" | tr ',' '\n' | while read -r keyword; do
-            keyword=$(echo "$keyword" | xargs)  # trim whitespace
+        # Save original IFS and split by comma
+        OLD_IFS="$IFS"
+        IFS=','
+        set -- $SCRAPE_KEYWORDS
+        IFS="$OLD_IFS"
+
+        for keyword in "$@"; do
+            # Trim whitespace
+            keyword=$(echo "$keyword" | xargs)
             if [ -n "$keyword" ]; then
                 echo "[$(date -Iseconds)] Running $SCRAPER_NAME with keyword: $keyword"
-                /app/scraper "$SCRAPER_NAME" --keyword "$keyword" "$@"
+                /app/scraper "$SCRAPER_NAME" --keyword "$keyword" $EXTRA_ARGS
             fi
         done
     else
         # No keywords - run without
-        exec /app/scraper "$SCRAPER_NAME" "$@"
+        exec /app/scraper "$SCRAPER_NAME" $EXTRA_ARGS
     fi
 }
 

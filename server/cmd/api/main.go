@@ -39,15 +39,26 @@ func main() {
 	// Load configuration
 	cfg := config.Load()
 
-	// Initialize OpenTelemetry
+	// Initialize OpenTelemetry Tracer
 	ctx := context.Background()
-	shutdown, err := telemetry.InitTracer(ctx, "reviewmaps-api", cfg.SigNozEndpoint)
+	tracerShutdown, err := telemetry.InitTracer(ctx, "reviewmaps-api", cfg.SigNozEndpoint)
 	if err != nil {
-		log.Printf("Failed to initialize telemetry: %v", err)
+		log.Printf("Failed to initialize tracer: %v", err)
 	}
 	defer func() {
-		if err := shutdown(ctx); err != nil {
-			log.Printf("Error shutting down telemetry: %v", err)
+		if err := tracerShutdown(ctx); err != nil {
+			log.Printf("Error shutting down tracer: %v", err)
+		}
+	}()
+
+	// Initialize OpenTelemetry Metrics
+	meterShutdown, err := telemetry.InitMeter(ctx, "reviewmaps-api", cfg.SigNozEndpoint)
+	if err != nil {
+		log.Printf("Failed to initialize metrics: %v", err)
+	}
+	defer func() {
+		if err := meterShutdown(ctx); err != nil {
+			log.Printf("Error shutting down metrics: %v", err)
 		}
 	}()
 

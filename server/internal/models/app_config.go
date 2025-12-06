@@ -11,7 +11,7 @@ type AdConfig struct {
 	Platform  string          `gorm:"size:20;not null" json:"platform"`
 	AdNetwork string          `gorm:"size:50;not null" json:"ad_network"`
 	IsEnabled bool            `gorm:"not null" json:"is_enabled"`
-	AdUnitIDs json.RawMessage `gorm:"type:jsonb;not null" json:"ad_unit_ids"`
+	AdUnitIDs json.RawMessage `gorm:"type:jsonb;not null" json:"ad_unit_ids" swaggertype:"object"` // JSONB map
 	Priority  int             `gorm:"not null" json:"priority"`
 	CreatedAt time.Time       `gorm:"not null" json:"created_at"`
 	UpdatedAt time.Time       `gorm:"not null" json:"updated_at"`
@@ -44,7 +44,7 @@ func (AppVersion) TableName() string {
 type AppSetting struct {
 	ID          uint            `gorm:"primaryKey" json:"id"`
 	Key         string          `gorm:"size:100;not null;uniqueIndex" json:"key"`
-	Value       json.RawMessage `gorm:"type:jsonb;not null" json:"value"`
+	Value       json.RawMessage `gorm:"type:jsonb;not null" json:"value" swaggertype:"object"` // JSONB value
 	Description *string         `gorm:"type:text" json:"description,omitempty"`
 	IsActive    bool            `gorm:"not null" json:"is_active"`
 	CreatedAt   time.Time       `gorm:"not null" json:"created_at"`

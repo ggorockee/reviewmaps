@@ -6,9 +6,10 @@ import (
 
 // User represents the users table
 // Note: unique constraints are managed by existing Django migrations
+// GORM tags avoid creating new constraints that conflict with Django schema
 type User struct {
 	ID           uint       `gorm:"primaryKey" json:"id"`
-	Username     string     `gorm:"size:255;not null" json:"username"`
+	Username     string     `gorm:"size:255;not null;->" json:"username"` // -> means read-only for migrations
 	Email        string     `gorm:"size:255;not null" json:"email"`
 	Password     string     `gorm:"size:255" json:"-"`
 	LoginMethod  string     `gorm:"size:20;default:email" json:"login_method"`

@@ -13,10 +13,11 @@ func NewCategoryService(db *database.DB) *CategoryService {
 	return &CategoryService{db: db}
 }
 
-// List retrieves all active categories
+// List retrieves all categories ordered by display_order
+// Note: Django model doesn't have is_active field
 func (s *CategoryService) List() ([]models.Category, error) {
 	var categories []models.Category
-	err := s.db.Where("is_active = ?", true).Order("sort_order ASC").Find(&categories).Error
+	err := s.db.Order("display_order ASC, id ASC").Find(&categories).Error
 	if err != nil {
 		return nil, err
 	}

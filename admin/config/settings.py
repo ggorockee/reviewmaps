@@ -16,6 +16,9 @@ SECRET_KEY = os.getenv("SECRET_KEY", "django-insecure-dev-key-change-in-producti
 DEBUG = os.getenv("DEBUG", "True").lower() == "true"
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1,admin.review-maps.com").split(",")
 
+# CSRF settings for HTTPS
+CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", "https://admin.review-maps.com").split(",")
+
 # Application definition
 INSTALLED_APPS = [
     # Unfold must be before django.contrib.admin

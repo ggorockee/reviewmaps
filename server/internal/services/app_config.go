@@ -1,8 +1,8 @@
 package services
 
 import (
+	"encoding/json"
 	"errors"
-	"strconv"
 
 	"github.com/ggorockee/reviewmaps/server/internal/database"
 	"github.com/ggorockee/reviewmaps/server/internal/models"
@@ -17,13 +17,12 @@ func NewAppConfigService(db *database.DB) *AppConfigService {
 }
 
 type VersionCheckResponse struct {
-	NeedsUpdate     bool    `json:"needs_update"`
-	ForceUpdate     bool    `json:"force_update"`
-	LatestVersion   string  `json:"latest_version"`
-	MinVersion      string  `json:"min_version"`
-	UpdateMessage   *string `json:"update_message,omitempty"`
-	StoreURL        *string `json:"store_url,omitempty"`
-	MaintenanceMode bool    `json:"maintenance_mode"`
+	NeedsUpdate    bool    `json:"needs_update"`
+	ForceUpdate    bool    `json:"force_update"`
+	LatestVersion  string  `json:"latest_version"`
+	MinimumVersion string  `json:"minimum_version"`
+	UpdateMessage  *string `json:"update_message,omitempty"`
+	StoreURL       *string `json:"store_url,omitempty"`
 }
 
 type SetKeywordLimitRequest struct {
@@ -33,34 +32,33 @@ type SetKeywordLimitRequest struct {
 // GetAdConfigs retrieves ad configurations
 func (s *AppConfigService) GetAdConfigs(platform string) ([]models.AdConfig, error) {
 	var configs []models.AdConfig
-	query := s.db.Where("is_active = ?", true)
+	query := s.db.Where("is_enabled = ?", true)
 
 	if platform != "" {
 		query = query.Where("platform = ?", platform)
 	}
 
-	err := query.Find(&configs).Error
+	err := query.Order("priority DESC").Find(&configs).Error
 	return configs, err
 }
 
 // CheckVersion checks app version against requirements
 func (s *AppConfigService) CheckVersion(platform, currentVersion string) (*VersionCheckResponse, error) {
 	var appVersion models.AppVersion
-	if err := s.db.Where("platform = ?", platform).First(&appVersion).Error; err != nil {
+	if err := s.db.Where("platform = ? AND is_active = ?", platform, true).First(&appVersion).Error; err != nil {
 		return nil, errors.New("platform not found")
 	}
 
-	needsUpdate := compareVersions(currentVersion, appVersion.LatestVersion) < 0
-	forceUpdate := compareVersions(currentVersion, appVersion.MinVersion) < 0
+	needsUpdate := compareVersions(currentVersion, appVersion.Version) < 0
+	forceUpdate := compareVersions(currentVersion, appVersion.MinimumVersion) < 0
 
 	return &VersionCheckResponse{
-		NeedsUpdate:     needsUpdate,
-		ForceUpdate:     forceUpdate || appVersion.ForceUpdate,
-		LatestVersion:   appVersion.LatestVersion,
-		MinVersion:      appVersion.MinVersion,
-		UpdateMessage:   appVersion.UpdateMessage,
-		StoreURL:        appVersion.StoreURL,
-		MaintenanceMode: appVersion.MaintenanceMode,
+		NeedsUpdate:    needsUpdate,
+		ForceUpdate:    forceUpdate || appVersion.ForceUpdate,
+		LatestVersion:  appVersion.Version,
+		MinimumVersion: appVersion.MinimumVersion,
+		UpdateMessage:  appVersion.UpdateMessage,
+		StoreURL:       appVersion.StoreURL,
 	}, nil
 }
 
@@ -87,8 +85,8 @@ func (s *AppConfigService) GetKeywordLimit() (int, error) {
 		return 10, nil // Default
 	}
 
-	limit, err := strconv.Atoi(setting.Value)
-	if err != nil {
+	var limit int
+	if err := json.Unmarshal(setting.Value, &limit); err != nil {
 		return 10, nil
 	}
 	return limit, nil
@@ -99,18 +97,20 @@ func (s *AppConfigService) SetKeywordLimit(limit int) error {
 	var setting models.AppSetting
 	err := s.db.Where("key = ?", "keyword_limit").First(&setting).Error
 
+	valueJSON, _ := json.Marshal(limit)
+
 	if err != nil {
 		// Create new
 		setting = models.AppSetting{
-			Key:       "keyword_limit",
-			Value:     strconv.Itoa(limit),
-			ValueType: "int",
+			Key:      "keyword_limit",
+			Value:    valueJSON,
+			IsActive: true,
 		}
 		return s.db.Create(&setting).Error
 	}
 
 	// Update existing
-	setting.Value = strconv.Itoa(limit)
+	setting.Value = valueJSON
 	return s.db.Save(&setting).Error
 }
 

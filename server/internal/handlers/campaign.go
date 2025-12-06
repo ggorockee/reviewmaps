@@ -42,20 +42,36 @@ func SetupCampaignRoutes(router fiber.Router, db *database.DB) {
 func (h *CampaignHandler) List(c *fiber.Ctx) error {
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	limit, _ := strconv.Atoi(c.Query("limit", "20"))
+	offset, _ := strconv.Atoi(c.Query("offset", "0"))
 	categoryID, _ := strconv.Atoi(c.Query("category_id", "0"))
 	platform := c.Query("platform")
 	region := c.Query("region")
 	lat, _ := strconv.ParseFloat(c.Query("lat", "0"), 64)
 	lng, _ := strconv.ParseFloat(c.Query("lng", "0"), 64)
+	sort := c.Query("sort", "-created_at")
+	query := c.Query("q") // 검색어
+
+	// Bounding box 파라미터
+	swLat, _ := strconv.ParseFloat(c.Query("sw_lat", "0"), 64)
+	swLng, _ := strconv.ParseFloat(c.Query("sw_lng", "0"), 64)
+	neLat, _ := strconv.ParseFloat(c.Query("ne_lat", "0"), 64)
+	neLng, _ := strconv.ParseFloat(c.Query("ne_lng", "0"), 64)
 
 	filter := services.CampaignFilter{
 		Page:       page,
 		Limit:      limit,
+		Offset:     offset,
 		CategoryID: uint(categoryID),
 		Platform:   platform,
 		Region:     region,
 		Lat:        lat,
 		Lng:        lng,
+		Sort:       sort,
+		Query:      query,
+		SwLat:      swLat,
+		SwLng:      swLng,
+		NeLat:      neLat,
+		NeLng:      neLng,
 	}
 
 	response, err := h.service.List(&filter)

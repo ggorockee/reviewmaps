@@ -14,7 +14,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.getenv("SECRET_KEY", "django-insecure-dev-key-change-in-production")
 DEBUG = os.getenv("DEBUG", "True").lower() == "true"
-ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1,admin.review-maps.com").split(",")
 
 # Application definition
 INSTALLED_APPS = [
@@ -37,6 +37,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",  # Static files serving
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -110,6 +111,7 @@ USE_TZ = True
 # Static files
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
@@ -148,12 +150,12 @@ UNFOLD = {
                     {
                         "title": "사용자",
                         "icon": "person",
-                        "link": "/admin/users/user/",
+                        "link": "/users/user/",
                     },
                     {
                         "title": "SNS 계정",
                         "icon": "link",
-                        "link": "/admin/users/socialaccount/",
+                        "link": "/users/socialaccount/",
                     },
                 ],
             },
@@ -164,12 +166,12 @@ UNFOLD = {
                     {
                         "title": "캠페인",
                         "icon": "campaign",
-                        "link": "/admin/campaigns/campaign/",
+                        "link": "/campaigns/campaign/",
                     },
                     {
                         "title": "카테고리",
                         "icon": "category",
-                        "link": "/admin/campaigns/category/",
+                        "link": "/campaigns/category/",
                     },
                 ],
             },
@@ -180,17 +182,17 @@ UNFOLD = {
                     {
                         "title": "키워드",
                         "icon": "search",
-                        "link": "/admin/keyword_alerts/keyword/",
+                        "link": "/keyword_alerts/keyword/",
                     },
                     {
                         "title": "알림 기록",
                         "icon": "notifications",
-                        "link": "/admin/keyword_alerts/keywordalert/",
+                        "link": "/keyword_alerts/keywordalert/",
                     },
                     {
                         "title": "FCM 디바이스",
                         "icon": "smartphone",
-                        "link": "/admin/keyword_alerts/fcmdevice/",
+                        "link": "/keyword_alerts/fcmdevice/",
                     },
                 ],
             },
@@ -201,22 +203,22 @@ UNFOLD = {
                     {
                         "title": "광고 설정",
                         "icon": "ads_click",
-                        "link": "/admin/app_config/adconfig/",
+                        "link": "/app_config/adconfig/",
                     },
                     {
                         "title": "앱 버전",
                         "icon": "update",
-                        "link": "/admin/app_config/appversion/",
+                        "link": "/app_config/appversion/",
                     },
                     {
                         "title": "앱 설정",
                         "icon": "settings",
-                        "link": "/admin/app_config/appsetting/",
+                        "link": "/app_config/appsetting/",
                     },
                     {
                         "title": "Rate Limit",
                         "icon": "speed",
-                        "link": "/admin/app_config/ratelimitconfig/",
+                        "link": "/app_config/ratelimitconfig/",
                     },
                 ],
             },

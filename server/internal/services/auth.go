@@ -313,12 +313,12 @@ func (s *AuthService) KakaoLogin(accessToken string) (*AuthResponse, error) {
 	// Wait for verification result
 	result := <-resultCh
 	if result.err != nil {
-		return nil, fmt.Errorf("Kakao 토큰 검증에 실패했습니다: %w", result.err)
+		return nil, fmt.Errorf("kakao 토큰 검증에 실패했습니다: %w", result.err)
 	}
 
 	kakaoUser := result.user
 	if kakaoUser.Email == "" {
-		return nil, errors.New("Kakao 계정에 이메일이 없습니다. 이메일 제공 동의가 필요합니다")
+		return nil, errors.New("kakao 계정에 이메일이 없습니다. 이메일 제공 동의가 필요합니다")
 	}
 
 	return s.handleSNSLogin(
@@ -352,12 +352,12 @@ func (s *AuthService) GoogleLogin(accessToken string) (*AuthResponse, error) {
 	// Wait for verification result
 	result := <-resultCh
 	if result.err != nil {
-		return nil, fmt.Errorf("Google 토큰 검증에 실패했습니다: %w", result.err)
+		return nil, fmt.Errorf("google 토큰 검증에 실패했습니다: %w", result.err)
 	}
 
 	googleUser := result.user
 	if googleUser.Email == "" {
-		return nil, errors.New("Google 계정에 이메일이 없습니다")
+		return nil, errors.New("google 계정에 이메일이 없습니다")
 	}
 
 	return s.handleSNSLogin(
@@ -391,12 +391,12 @@ func (s *AuthService) AppleLogin(identityToken string) (*AuthResponse, error) {
 	// Wait for verification result
 	result := <-resultCh
 	if result.err != nil {
-		return nil, fmt.Errorf("Apple 토큰 검증에 실패했습니다: %w", result.err)
+		return nil, fmt.Errorf("apple 토큰 검증에 실패했습니다: %w", result.err)
 	}
 
 	appleUser := result.user
 	if appleUser.Email == "" {
-		return nil, errors.New("Apple 계정에 이메일이 없습니다")
+		return nil, errors.New("apple 계정에 이메일이 없습니다")
 	}
 
 	// Apple doesn't provide access token in the same way, pass empty

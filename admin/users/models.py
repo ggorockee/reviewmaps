@@ -121,13 +121,9 @@ class EmailVerification(models.Model):
 
     email = models.EmailField(verbose_name="이메일")
     code = models.CharField(max_length=10, verbose_name="인증코드")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="생성일시")
-    expires_at = models.DateTimeField(verbose_name="만료일시")
-    attempts = models.IntegerField(default=0, verbose_name="시도 횟수")
     is_verified = models.BooleanField(default=False, verbose_name="인증 완료 여부")
-    verification_token = models.CharField(max_length=255, blank=True, verbose_name="인증 토큰")
-    send_count = models.IntegerField(default=1, verbose_name="발송 횟수")
-    last_sent_at = models.DateTimeField(auto_now_add=True, verbose_name="마지막 발송 시간")
+    expires_at = models.DateTimeField(verbose_name="만료일시")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="생성일시")
 
     class Meta:
         db_table = "email_verifications"

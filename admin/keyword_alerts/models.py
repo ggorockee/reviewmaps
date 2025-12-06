@@ -19,8 +19,6 @@ class FCMDevice(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="fcm_devices",
-        null=True,
-        blank=True,
         verbose_name="사용자",
     )
     token = models.CharField(max_length=500, unique=True, verbose_name="FCM 토큰")
@@ -47,8 +45,6 @@ class Keyword(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="keywords",
-        null=True,
-        blank=True,
         verbose_name="사용자",
     )
     keyword = models.CharField(max_length=100, verbose_name="키워드")
@@ -73,9 +69,7 @@ class KeywordAlert(models.Model):
     keyword = models.ForeignKey(Keyword, on_delete=models.CASCADE, related_name="alerts", verbose_name="키워드")
     campaign = models.ForeignKey(
         "campaigns.Campaign",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
+        on_delete=models.CASCADE,
         related_name="keyword_alerts",
         verbose_name="캠페인",
     )

@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ggorockee/reviewmaps/go-scraper/internal/cleanup"
 	"github.com/ggorockee/reviewmaps/go-scraper/internal/config"
 	"github.com/ggorockee/reviewmaps/go-scraper/internal/db"
 	"github.com/ggorockee/reviewmaps/go-scraper/internal/logger"
@@ -126,9 +127,12 @@ func runScraper(ctx context.Context, name string, cfg *config.Config, database *
 	case "reviewnote":
 		scraper := reviewnote.New(cfg, database, tel)
 		return scraper.Run(ctx, keyword)
+	case "cleanup":
+		cleaner := cleanup.New(cfg, database, tel)
+		return cleaner.Run(ctx)
 	default:
 		log.Errorf("'%s' 스크레이퍼를 찾을 수 없습니다.", name)
-		log.Info("사용 가능한 스크레이퍼: reviewnote")
+		log.Info("사용 가능한 명령어: reviewnote, cleanup")
 		return nil
 	}
 }

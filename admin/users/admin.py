@@ -45,8 +45,8 @@ class SocialAccountAdmin(ModelAdmin):
 
 @admin.register(EmailVerification)
 class EmailVerificationAdmin(ModelAdmin):
-    list_display = ("email", "code", "is_verified", "attempts", "expires_at", "created_at")
+    list_display = ("email", "code", "is_verified", "expires_at", "created_at")
     list_filter = ("is_verified", "created_at")
     search_fields = ("email",)
     ordering = ("-created_at",)
-    readonly_fields = ("created_at", "last_sent_at")
+    readonly_fields = ("created_at",)

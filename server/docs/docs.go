@@ -185,10 +185,9 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Current app version",
+                        "description": "Current app version (optional - client can compare locally)",
                         "name": "version",
-                        "in": "query",
-                        "required": true
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -422,6 +421,61 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/services.AuthResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/me": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Get current user info (auth/me compatibility)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.User"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Delete current user (auth/me compatibility)",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     }
                 }
@@ -850,10 +904,8 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/models.Keyword"
-                            }
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -1115,8 +1167,12 @@ const docTemplate = `{
         "models.AdConfig": {
             "type": "object",
             "properties": {
-                "ad_type": {
+                "ad_network": {
                     "type": "string"
+                },
+                "ad_unit_ids": {
+                    "description": "JSONB map",
+                    "type": "object"
                 },
                 "created_at": {
                     "type": "string"
@@ -1124,20 +1180,14 @@ const docTemplate = `{
                 "id": {
                     "type": "integer"
                 },
-                "is_active": {
+                "is_enabled": {
                     "type": "boolean"
                 },
                 "platform": {
                     "type": "string"
                 },
-                "show_after_count": {
+                "priority": {
                     "type": "integer"
-                },
-                "show_frequency": {
-                    "type": "integer"
-                },
-                "unit_id": {
-                    "type": "string"
                 },
                 "updated_at": {
                     "type": "string"
@@ -1150,8 +1200,14 @@ const docTemplate = `{
                 "created_at": {
                     "type": "string"
                 },
+                "description": {
+                    "type": "string"
+                },
                 "id": {
                     "type": "integer"
+                },
+                "is_active": {
+                    "type": "boolean"
                 },
                 "key": {
                     "type": "string"
@@ -1160,10 +1216,8 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "value": {
-                    "type": "string"
-                },
-                "value_type": {
-                    "type": "string"
+                    "description": "JSONB value",
+                    "type": "object"
                 }
             }
         },
@@ -1262,22 +1316,13 @@ const docTemplate = `{
                 "created_at": {
                     "type": "string"
                 },
+                "display_order": {
+                    "type": "integer"
+                },
                 "id": {
                     "type": "integer"
                 },
-                "is_active": {
-                    "type": "boolean"
-                },
                 "name": {
-                    "type": "string"
-                },
-                "slug": {
-                    "type": "string"
-                },
-                "sort_order": {
-                    "type": "integer"
-                },
-                "updated_at": {
                     "type": "string"
                 }
             }
@@ -1483,6 +1528,7 @@ const docTemplate = `{
                     }
                 },
                 "username": {
+                    "description": "-\u003e means read-only for migrations",
                     "type": "string"
                 }
             }
@@ -1696,10 +1742,8 @@ const docTemplate = `{
                 "latest_version": {
                     "type": "string"
                 },
-                "maintenance_mode": {
-                    "type": "boolean"
-                },
                 "min_version": {
+                    "description": "모바일에서 min_version으로 파싱",
                     "type": "string"
                 },
                 "needs_update": {

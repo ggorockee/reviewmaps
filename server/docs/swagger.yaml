@@ -2,22 +2,21 @@ basePath: /v1
 definitions:
   models.AdConfig:
     properties:
-      ad_type:
+      ad_network:
         type: string
+      ad_unit_ids:
+        description: JSONB map
+        type: object
       created_at:
         type: string
       id:
         type: integer
-      is_active:
+      is_enabled:
         type: boolean
       platform:
         type: string
-      show_after_count:
+      priority:
         type: integer
-      show_frequency:
-        type: integer
-      unit_id:
-        type: string
       updated_at:
         type: string
     type: object
@@ -25,16 +24,19 @@ definitions:
     properties:
       created_at:
         type: string
+      description:
+        type: string
       id:
         type: integer
+      is_active:
+        type: boolean
       key:
         type: string
       updated_at:
         type: string
       value:
-        type: string
-      value_type:
-        type: string
+        description: JSONB value
+        type: object
     type: object
   models.Campaign:
     properties:
@@ -98,17 +100,11 @@ definitions:
         type: array
       created_at:
         type: string
+      display_order:
+        type: integer
       id:
         type: integer
-      is_active:
-        type: boolean
       name:
-        type: string
-      slug:
-        type: string
-      sort_order:
-        type: integer
-      updated_at:
         type: string
     type: object
   models.FCMDevice:
@@ -239,6 +235,7 @@ definitions:
           $ref: '#/definitions/models.SocialAccount'
         type: array
       username:
+        description: -> means read-only for migrations
         type: string
     type: object
   services.AlertListResponse:
@@ -375,9 +372,8 @@ definitions:
         type: boolean
       latest_version:
         type: string
-      maintenance_mode:
-        type: boolean
       min_version:
+        description: 모바일에서 min_version으로 파싱
         type: string
       needs_update:
         type: boolean
@@ -498,10 +494,9 @@ paths:
         name: platform
         required: true
         type: string
-      - description: Current app version
+      - description: Current app version (optional - client can compare locally)
         in: query
         name: version
-        required: true
         type: string
       produces:
       - application/json
@@ -655,6 +650,39 @@ paths:
           schema:
             $ref: '#/definitions/services.AuthResponse'
       summary: User login
+      tags:
+      - auth
+  /auth/me:
+    delete:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete current user (auth/me compatibility)
+      tags:
+      - auth
+    get:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.User'
+      security:
+      - BearerAuth: []
+      summary: Get current user info (auth/me compatibility)
       tags:
       - auth
   /auth/refresh:
@@ -919,9 +947,8 @@ paths:
         "200":
           description: OK
           schema:
-            items:
-              $ref: '#/definitions/models.Keyword'
-            type: array
+            additionalProperties: true
+            type: object
       security:
       - BearerAuth: []
       summary: List user keywords

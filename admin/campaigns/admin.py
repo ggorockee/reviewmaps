@@ -5,11 +5,10 @@ from .models import Category, Campaign, RawCategory, CategoryMapping
 
 @admin.register(Category)
 class CategoryAdmin(ModelAdmin):
-    list_display = ("name", "slug", "sort_order", "is_active", "created_at")
-    list_filter = ("is_active",)
-    search_fields = ("name", "slug")
-    ordering = ("sort_order", "id")
-    list_editable = ("sort_order", "is_active")
+    list_display = ("name", "display_order", "created_at")
+    search_fields = ("name",)
+    ordering = ("display_order", "id")
+    list_editable = ("display_order",)
 
 
 @admin.register(Campaign)

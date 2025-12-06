@@ -10,18 +10,15 @@ class Category(models.Model):
     """캠페인 카테고리 - GORM 테이블 참조"""
 
     name = models.CharField(max_length=100, unique=True, verbose_name="카테고리명")
-    slug = models.CharField(max_length=100, unique=True, verbose_name="슬러그")
-    sort_order = models.IntegerField(default=0, verbose_name="표시 순서")
-    is_active = models.BooleanField(default=True, verbose_name="활성 상태")
+    display_order = models.IntegerField(default=99, verbose_name="표시 순서")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="생성일시")
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="수정일시")
 
     class Meta:
         db_table = "categories"
         managed = False
         verbose_name = "카테고리"
         verbose_name_plural = "카테고리"
-        ordering = ["sort_order", "id"]
+        ordering = ["display_order", "id"]
 
     def __str__(self):
         return self.name

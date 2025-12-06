@@ -69,7 +69,7 @@ func (h *KeywordAlertHandler) CreateKeyword(c *fiber.Ctx) error {
 // @Accept json
 // @Produce json
 // @Security BearerAuth
-// @Success 200 {array} models.Keyword
+// @Success 200 {object} map[string]interface{}
 // @Router /keyword-alerts/keywords [get]
 func (h *KeywordAlertHandler) ListKeywords(c *fiber.Ctx) error {
 	userID := c.Locals("userID").(uint)
@@ -79,7 +79,10 @@ func (h *KeywordAlertHandler) ListKeywords(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 
-	return c.JSON(keywords)
+	// 원본 Django API 응답 형식과 동일하게 keywords 키로 감싸서 반환
+	return c.JSON(fiber.Map{
+		"keywords": keywords,
+	})
 }
 
 // DeleteKeyword godoc

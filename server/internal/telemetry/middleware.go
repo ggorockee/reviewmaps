@@ -1,9 +1,13 @@
 package telemetry
 
 import (
+	"strconv"
+	"time"
+
 	"github.com/gofiber/fiber/v2"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
 	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
 	"go.opentelemetry.io/otel/trace"
@@ -38,6 +42,21 @@ func New(config ...Config) fiber.Handler {
 			return c.Next()
 		}
 
+		// Record start time for metrics
+		start := time.Now()
+
+		// Increment active requests (metrics)
+		method := c.Method()
+		path := c.Path()
+		if HTTPActiveRequests != nil {
+			HTTPActiveRequests.Add(c.Context(), 1,
+				metric.WithAttributes(
+					attribute.String("method", method),
+					attribute.String("path", path),
+				),
+			)
+		}
+
 		// Get tracer
 		tr := otel.GetTracerProvider().Tracer(cfg.ServiceName)
 		if tr == nil {
@@ -48,13 +67,13 @@ func New(config ...Config) fiber.Handler {
 		ctx := otel.GetTextMapPropagator().Extract(c.Context(), propagation.HeaderCarrier(c.GetReqHeaders()))
 
 		// Start span
-		spanName := c.Method() + " " + c.Path()
+		spanName := method + " " + path
 		ctx, span := tr.Start(ctx, spanName,
 			trace.WithSpanKind(trace.SpanKindServer),
 			trace.WithAttributes(
-				semconv.HTTPMethodKey.String(c.Method()),
+				semconv.HTTPMethodKey.String(method),
 				semconv.HTTPURLKey.String(c.OriginalURL()),
-				semconv.HTTPTargetKey.String(c.Path()),
+				semconv.HTTPTargetKey.String(path),
 				semconv.NetHostNameKey.String(c.Hostname()),
 				semconv.HTTPUserAgentKey.String(string(c.Request().Header.UserAgent())),
 			),
@@ -76,6 +95,40 @@ func New(config ...Config) fiber.Handler {
 		if err != nil {
 			span.RecordError(err)
 			span.SetAttributes(attribute.Bool("error", true))
+		}
+
+		// Decrement active requests (metrics)
+		if HTTPActiveRequests != nil {
+			HTTPActiveRequests.Add(c.Context(), -1,
+				metric.WithAttributes(
+					attribute.String("method", method),
+					attribute.String("path", path),
+				),
+			)
+		}
+
+		// Record metrics
+		duration := time.Since(start).Seconds()
+		statusStr := strconv.Itoa(status)
+
+		if HTTPRequestsTotal != nil {
+			HTTPRequestsTotal.Add(c.Context(), 1,
+				metric.WithAttributes(
+					attribute.String("method", method),
+					attribute.String("path", path),
+					attribute.String("status", statusStr),
+				),
+			)
+		}
+
+		if HTTPRequestDuration != nil {
+			HTTPRequestDuration.Record(c.Context(), duration,
+				metric.WithAttributes(
+					attribute.String("method", method),
+					attribute.String("path", path),
+					attribute.String("status", statusStr),
+				),
+			)
 		}
 
 		return err

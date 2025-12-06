@@ -82,6 +82,11 @@ func (b *BatchConfig) Location() *time.Location {
 	return loc
 }
 
+// ScrapeConfig 스크래핑 관련 설정
+type ScrapeConfig struct {
+	MaxItems int // 최대 수집 개수 (0 = 무제한)
+}
+
 // Config 애플리케이션의 모든 설정을 통합 관리하는 메인 구조체
 type Config struct {
 	BaseURL   string
@@ -90,6 +95,7 @@ type Config struct {
 	DB        DatabaseConfig
 	NaverAPI  NaverAPIConfig
 	Batch     BatchConfig
+	Scrape    ScrapeConfig
 }
 
 // Load 환경변수에서 설정을 로드
@@ -125,6 +131,9 @@ func Load() (*Config, error) {
 			Timezone:        getEnv("TIMEZONE", "Asia/Seoul"),
 			RunAtStart:      getEnvBool("RUN_AT_START", false),
 			WaitTimeout:     time.Duration(getEnvInt("WAIT_TIMEOUT", 15)) * time.Second,
+		},
+		Scrape: ScrapeConfig{
+			MaxItems: getEnvInt("SCRAPE_MAX_ITEMS", 100),
 		},
 	}
 

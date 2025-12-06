@@ -170,6 +170,11 @@ func (s *Scraper) Scrape(ctx context.Context, keyword *string) ([]map[string]int
 
 	var allData []map[string]interface{}
 	page := 0
+	maxItems := s.Config.Scrape.MaxItems
+
+	if maxItems > 0 {
+		log.Infof("MaxItems 제한 설정: %d개", maxItems)
+	}
 
 	for {
 		select {
@@ -216,6 +221,12 @@ func (s *Scraper) Scrape(ctx context.Context, keyword *string) ([]map[string]int
 
 		// 원시 데이터를 map으로 변환하여 저장
 		for _, obj := range apiResp.Objects {
+			// MaxItems 제한 체크
+			if maxItems > 0 && len(allData) >= maxItems {
+				log.Infof("MaxItems 제한(%d)에 도달, 수집 중단", maxItems)
+				break
+			}
+
 			rawMap := make(map[string]interface{})
 			rawMap["id"] = obj.ID
 			rawMap["title"] = obj.Title
@@ -247,6 +258,11 @@ func (s *Scraper) Scrape(ctx context.Context, keyword *string) ([]map[string]int
 		}
 
 		log.Infof("Page %d: fetched %d items (total: %d)", page, len(apiResp.Objects), len(allData))
+
+		// MaxItems 제한에 도달하면 종료
+		if maxItems > 0 && len(allData) >= maxItems {
+			break
+		}
 
 		// 받은 데이터가 limit보다 적으면 마지막 페이지
 		if len(apiResp.Objects) < pageLimit {

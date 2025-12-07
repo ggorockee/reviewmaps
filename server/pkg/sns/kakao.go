@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 )
@@ -51,7 +52,9 @@ func VerifyKakaoToken(ctx context.Context, accessToken string) (*KakaoUserInfo, 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("kakao API returned status %d", resp.StatusCode)
+		// Read response body for debugging
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("kakao API returned status %d: %s", resp.StatusCode, string(body))
 	}
 
 	var kakaoResp KakaoAPIResponse

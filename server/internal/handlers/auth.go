@@ -183,6 +183,8 @@ func (h *AuthHandler) KakaoLogin(c *fiber.Ctx) error {
 
 	response, err := h.service.KakaoLogin(req.AccessToken)
 	if err != nil {
+		// Log the error for debugging
+		c.Context().Logger().Printf("[KakaoLogin] Error: %v", err)
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": err.Error()})
 	}
 
@@ -205,6 +207,8 @@ func (h *AuthHandler) GoogleLogin(c *fiber.Ctx) error {
 
 	response, err := h.service.GoogleLogin(req.AccessToken)
 	if err != nil {
+		// Log the error for debugging
+		c.Context().Logger().Printf("[GoogleLogin] Error: %v", err)
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": err.Error()})
 	}
 

@@ -144,7 +144,16 @@ func (s *FCMService) SendPushMultiple(ctx context.Context, tokens []string, titl
 		return result
 	}
 
-	if len(tokens) == 0 {
+	// Filter out empty tokens
+	validTokens := make([]string, 0, len(tokens))
+	for _, token := range tokens {
+		if token != "" {
+			validTokens = append(validTokens, token)
+		}
+	}
+
+	if len(validTokens) == 0 {
+		log.Println("[Firebase] No valid tokens to send")
 		return result
 	}
 
@@ -154,7 +163,7 @@ func (s *FCMService) SendPushMultiple(ctx context.Context, tokens []string, titl
 			Body:  body,
 		},
 		Data:   data,
-		Tokens: tokens,
+		Tokens: validTokens,
 		Android: &messaging.AndroidConfig{
 			Priority: "high",
 			Notification: &messaging.AndroidNotification{
@@ -185,8 +194,8 @@ func (s *FCMService) SendPushMultiple(ctx context.Context, tokens []string, titl
 	response, err := s.client.SendEachForMulticast(ctx, message)
 	if err != nil {
 		log.Printf("[Firebase] Multicast error: %v", err)
-		result.FailureCount = len(tokens)
-		result.FailedTokens = tokens
+		result.FailureCount = len(validTokens)
+		result.FailedTokens = validTokens
 		return result
 	}
 
@@ -196,7 +205,7 @@ func (s *FCMService) SendPushMultiple(ctx context.Context, tokens []string, titl
 	// Collect failed tokens
 	for idx, resp := range response.Responses {
 		if !resp.Success {
-			result.FailedTokens = append(result.FailedTokens, tokens[idx])
+			result.FailedTokens = append(result.FailedTokens, validTokens[idx])
 		}
 	}
 

@@ -26,8 +26,8 @@ type MarkReadRequest struct {
 }
 
 type FCMRegisterRequest struct {
-	Token    string `json:"token"`
-	Platform string `json:"platform"`
+	Token    string `json:"fcm_token"`
+	Platform string `json:"device_type"`
 }
 
 type FCMUnregisterRequest struct {

@@ -27,17 +27,17 @@ class NetworkErrorHandler {
 
     // SSL/TLS 핸드셰이크 오류
     if (error is HandshakeException) {
-      return '보안 연결에 실패했습니다.\n네트워크 환경을 확인해 주세요.';
+      return '보안 연결에 실패했어요.\n네트워크 환경을 확인해 주세요.';
     }
 
     // HTTP 오류
     if (error is HttpException) {
-      return '서버와 통신 중 오류가 발생했습니다.\n잠시 후 다시 시도해 주세요.';
+      return '서버와 통신 중 문제가 생겼어요.\n잠시 후 다시 시도해 주세요.';
     }
 
     // FormatException (JSON 파싱 오류 등)
     if (error is FormatException) {
-      return '데이터를 처리하는 중 오류가 발생했습니다.';
+      return '데이터를 처리하는 중 문제가 생겼어요.';
     }
 
     // 문자열 에러 메시지 분석
@@ -57,11 +57,11 @@ class NetworkErrorHandler {
 
     if (errorString.contains('handshake') ||
         errorString.contains('certificate')) {
-      return '보안 연결에 실패했습니다.\n네트워크 환경을 확인해 주세요.';
+      return '보안 연결에 실패했어요.\n네트워크 환경을 확인해 주세요.';
     }
 
     // 기본 메시지
-    return '일시적인 오류가 발생했습니다.\n잠시 후 다시 시도해 주세요.';
+    return '일시적인 오류가 발생했어요.\n잠시 후 다시 시도해 주세요.';
   }
 
   /// HTTP 상태 코드에 따른 에러 메시지
@@ -75,28 +75,28 @@ class NetworkErrorHandler {
       case 400:
         return '요청 정보를 확인해 주세요.';
       case 401:
-        return '로그인이 만료되었습니다.\n다시 로그인해 주세요.';
+        return '로그인이 만료되었어요.\n다시 로그인해 주세요.';
       case 403:
-        return '접근 권한이 없습니다.';
+        return '접근 권한이 없어요.';
       case 404:
         return '이미 삭제되었거나 존재하지 않는 항목이에요.';
       case 409:
-        return '이미 처리된 요청입니다.';
+        return '이미 처리된 요청이에요.';
       case 422:
         return '입력 정보를 확인해 주세요.';
       case 429:
-        return '요청이 너무 많습니다.\n잠시 후 다시 시도해 주세요.';
+        return '요청이 너무 많아요.\n잠시 후 다시 시도해 주세요.';
       case 500:
-        return '서버에 일시적인 문제가 발생했습니다.\n잠시 후 다시 시도해 주세요.';
+        return '서버에 일시적인 문제가 생겼어요.\n잠시 후 다시 시도해 주세요.';
       case 502:
       case 503:
       case 504:
-        return '서버 점검 중이거나 접속이 원활하지 않습니다.\n잠시 후 다시 시도해 주세요.';
+        return '서버 점검 중이거나 접속이 원활하지 않아요.\n잠시 후 다시 시도해 주세요.';
       default:
         if (statusCode >= 500) {
-          return '서버에 문제가 발생했습니다.\n잠시 후 다시 시도해 주세요.';
+          return '서버에 문제가 생겼어요.\n잠시 후 다시 시도해 주세요.';
         }
-        return '요청을 처리할 수 없습니다.\n잠시 후 다시 시도해 주세요.';
+        return '요청을 처리할 수 없어요.\n잠시 후 다시 시도해 주세요.';
     }
   }
 

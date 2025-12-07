@@ -20,6 +20,7 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
   late TabController _tabController;
 
   bool _isLoading = true;
+  bool _isLoadingInProgress = false; // 중복 호출 방지
   List<KeywordInfo> _keywords = [];
   List<AlertInfo> _allAlerts = [];
 
@@ -36,30 +37,47 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
     if (mounted) setState(() {});
   }
 
-  /// 데이터 로드
-  Future<void> _loadData() async {
-    setState(() {
-      _isLoading = true;
-    });
+  /// 데이터 로드 (중복 호출 방지)
+  Future<void> _loadData({bool showLoading = true}) async {
+    // 이미 로딩 중이면 무시
+    if (_isLoadingInProgress) {
+      debugPrint('[KeywordAlertsScreen] 이미 로딩 중, 중복 요청 무시');
+      return;
+    }
+
+    _isLoadingInProgress = true;
+
+    if (showLoading) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
 
     try {
-      final keywords = await _keywordService.getMyKeywords();
-      final allAlertsResponse = await _keywordService.getMyAlerts();
+      // 병렬로 API 호출
+      final results = await Future.wait([
+        _keywordService.getMyKeywords(),
+        _keywordService.getMyAlerts(),
+      ]);
+
+      if (!mounted) return;
 
       setState(() {
-        _keywords = keywords;
-        _allAlerts = allAlertsResponse.alerts;
+        _keywords = results[0] as List<KeywordInfo>;
+        _allAlerts = (results[1] as AlertListResponse).alerts;
         _isLoading = false;
       });
     } catch (e) {
       debugPrint('[KeywordAlertsScreen] 데이터 로드 실패: $e');
+      if (!mounted) return;
+
       setState(() {
         _isLoading = false;
       });
 
-      if (mounted) {
-        _showErrorDialog('데이터를 불러올 수 없습니다.\n잠시 후 다시 시도해 주세요.');
-      }
+      _showErrorDialog('데이터를 불러올 수 없습니다.\n잠시 후 다시 시도해 주세요.');
+    } finally {
+      _isLoadingInProgress = false;
     }
   }
 
@@ -100,13 +118,17 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
 
     if (result == true && controller.text.trim().isNotEmpty) {
       try {
-        await _keywordService.registerKeyword(controller.text.trim());
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('키워드가 등록되었습니다.')),
-          );
-        }
-        _loadData();
+        final newKeyword = await _keywordService.registerKeyword(controller.text.trim());
+        if (!mounted) return;
+
+        // UI 즉시 업데이트 (전체 리로드 없이)
+        setState(() {
+          _keywords.insert(0, newKeyword);
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('키워드가 등록되었습니다.')),
+        );
       } catch (e) {
         if (mounted) {
           // "Exception: " 접두어 제거하여 사용자 친화적 메시지 표시
@@ -144,12 +166,18 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
     if (confirmed == true) {
       try {
         await _keywordService.deleteKeyword(keyword.id);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('키워드가 삭제되었습니다.')),
-          );
-        }
-        _loadData();
+        if (!mounted) return;
+
+        // UI 즉시 업데이트 (전체 리로드 없이)
+        setState(() {
+          _keywords.removeWhere((k) => k.id == keyword.id);
+          // 해당 키워드의 알림도 제거
+          _allAlerts.removeWhere((a) => a.keyword == keyword.keyword);
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('키워드가 삭제되었습니다.')),
+        );
       } catch (e) {
         if (mounted) {
           _showErrorDialog('키워드를 삭제할 수 없습니다.\n잠시 후 다시 시도해 주세요.');
@@ -162,7 +190,16 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
   Future<void> _markAlertsAsRead(List<int> alertIds) async {
     try {
       await _keywordService.markAlertsAsRead(alertIds);
-      _loadData();
+      if (!mounted) return;
+
+      // UI 즉시 업데이트 (전체 리로드 없이)
+      setState(() {
+        for (int i = 0; i < _allAlerts.length; i++) {
+          if (alertIds.contains(_allAlerts[i].id) && !_allAlerts[i].isRead) {
+            _allAlerts[i] = _allAlerts[i].copyWithRead(true);
+          }
+        }
+      });
     } catch (e) {
       debugPrint('[KeywordAlertsScreen] 알람 읽음 처리 실패: $e');
     }
@@ -177,43 +214,23 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
 
     try {
       await _keywordService.markAlertsAsRead(alertIds);
+      if (!mounted) return;
+
       // UI 즉시 업데이트
       setState(() {
-        for (var alert in _allAlerts) {
-          if (!alert.isRead) {
-            // AlertInfo가 immutable이면 새 객체 생성 필요
-            final index = _allAlerts.indexOf(alert);
-            _allAlerts[index] = AlertInfo(
-              id: alert.id,
-              keyword: alert.keyword,
-              campaignId: alert.campaignId,
-              campaignTitle: alert.campaignTitle,
-              campaignCompany: alert.campaignCompany,
-              campaignOffer: alert.campaignOffer,
-              campaignAddress: alert.campaignAddress,
-              campaignLat: alert.campaignLat,
-              campaignLng: alert.campaignLng,
-              campaignImgUrl: alert.campaignImgUrl,
-              campaignPlatform: alert.campaignPlatform,
-              campaignApplyDeadline: alert.campaignApplyDeadline,
-              campaignContentLink: alert.campaignContentLink,
-              campaignChannel: alert.campaignChannel,
-              matchedField: alert.matchedField,
-              isRead: true,
-              createdAt: alert.createdAt,
-              distance: alert.distance,
-            );
+        for (int i = 0; i < _allAlerts.length; i++) {
+          if (!_allAlerts[i].isRead) {
+            _allAlerts[i] = _allAlerts[i].copyWithRead(true);
           }
         }
       });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${alertIds.length}개의 알림을 읽음 처리했습니다.'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${alertIds.length}개의 알림을 읽음 처리했습니다.'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
     } catch (e) {
       debugPrint('[KeywordAlertsScreen] 모든 알람 읽음 처리 실패: $e');
       if (mounted) {

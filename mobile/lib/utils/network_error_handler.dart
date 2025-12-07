@@ -79,7 +79,7 @@ class NetworkErrorHandler {
       case 403:
         return '접근 권한이 없습니다.';
       case 404:
-        return '요청하신 정보를 찾을 수 없습니다.';
+        return '이미 삭제되었거나 존재하지 않는 항목이에요.';
       case 409:
         return '이미 처리된 요청입니다.';
       case 422:

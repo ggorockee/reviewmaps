@@ -64,6 +64,16 @@ case "$COMMAND" in
         echo "[$(date -Iseconds)] Starting cleanup..."
         exec /app/scraper cleanup "$@"
         ;;
+    dedupe)
+        shift
+        echo "[$(date -Iseconds)] Starting dedupe (remove duplicate campaigns)..."
+        exec /app/scraper dedupe "$@"
+        ;;
+    add-unique)
+        shift
+        echo "[$(date -Iseconds)] Adding UNIQUE constraint..."
+        exec /app/scraper add-unique "$@"
+        ;;
     help|--help|-h)
         echo "go-scraper - Campaign data scraper"
         echo ""
@@ -73,6 +83,8 @@ case "$COMMAND" in
         echo "  reviewnote [--keyword <keyword>]  Run reviewnote scraper"
         echo "  inflexer [--keyword <keyword>]    Run inflexer scraper (keyword required)"
         echo "  cleanup                           Clean up expired campaigns"
+        echo "  dedupe                            Remove duplicate campaigns (keep newest)"
+        echo "  add-unique                        Add UNIQUE constraint (run after dedupe)"
         echo "  help                              Show this help message"
         echo ""
         echo "Environment variables:"

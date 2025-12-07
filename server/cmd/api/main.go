@@ -166,4 +166,8 @@ func setupRoutes(app *fiber.App, db *database.DB, cfg *config.Config) {
 	// App config routes (public)
 	appConfig := v1.Group("/app-config")
 	handlers.SetupAppConfigRoutes(appConfig, db)
+
+	// Internal API routes (Scraper 전용 - API Key 인증)
+	internal := v1.Group("/internal")
+	handlers.SetupInternalRoutes(internal, db, cfg)
 }

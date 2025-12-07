@@ -38,6 +38,9 @@ type Config struct {
 
 	// SigNoz
 	SigNozEndpoint string
+
+	// Internal API
+	InternalAPIKey string
 }
 
 func Load() *Config {
@@ -73,6 +76,9 @@ func Load() *Config {
 
 		// SigNoz
 		SigNozEndpoint: getEnv("SIGNOZ_ENDPOINT", ""),
+
+		// Internal API (Scraper → Server 통신용, API_SECRET_KEY 재사용)
+		InternalAPIKey: getEnvWithFallback("INTERNAL_API_KEY", "API_SECRET_KEY", ""),
 	}
 }
 

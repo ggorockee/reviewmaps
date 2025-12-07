@@ -220,3 +220,116 @@ func (s *KeywordMatchService) sendPushNotifications(ctx context.Context, alerts 
 	}
 	s.db.Model(&models.KeywordAlert{}).Where("id IN ?", alertIDs).Update("is_sent", true)
 }
+
+// ProcessCampaignKeywordMatchingByID processes keyword matching for a campaign by its ID
+// Returns the number of alerts created
+func (s *KeywordMatchService) ProcessCampaignKeywordMatchingByID(ctx context.Context, campaignID uint) int {
+	log.Printf("[KeywordMatch] Processing campaign by ID: %d", campaignID)
+
+	// Get campaign from DB
+	var campaign models.Campaign
+	if err := s.db.First(&campaign, campaignID).Error; err != nil {
+		log.Printf("[KeywordMatch] Failed to get campaign ID %d: %v", campaignID, err)
+		return 0
+	}
+
+	// Get all active keywords
+	var activeKeywords []models.Keyword
+	if err := s.db.Where("is_active = ?", true).Find(&activeKeywords).Error; err != nil {
+		log.Printf("[KeywordMatch] Failed to get active keywords: %v", err)
+		return 0
+	}
+
+	if len(activeKeywords) == 0 {
+		log.Printf("[KeywordMatch] No active keywords found")
+		return 0
+	}
+
+	log.Printf("[KeywordMatch] Active keywords count: %d", len(activeKeywords))
+
+	// Normalize campaign text (title + offer)
+	var titleNormalized string
+	if campaign.Title != nil {
+		titleNormalized = normalizeText(*campaign.Title)
+	}
+	offerNormalized := normalizeText(campaign.Offer)
+
+	// Get existing alerts to avoid duplicates
+	keywordIDs := make([]uint, len(activeKeywords))
+	for i, kw := range activeKeywords {
+		keywordIDs[i] = kw.ID
+	}
+
+	var existingAlerts []models.KeywordAlert
+	s.db.Where("keyword_id IN ? AND campaign_id = ?", keywordIDs, campaign.ID).Find(&existingAlerts)
+
+	existingMap := make(map[uint]bool)
+	for _, alert := range existingAlerts {
+		existingMap[alert.KeywordID] = true
+	}
+
+	// Match keywords in parallel
+	var alertsToCreate []models.KeywordAlert
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+
+	for _, keyword := range activeKeywords {
+		if existingMap[keyword.ID] {
+			continue
+		}
+
+		// 키워드 등록 시점보다 나중에 생성된 캠페인만 매칭
+		if campaign.CreatedAt.Before(keyword.CreatedAt) {
+			continue
+		}
+
+		wg.Add(1)
+		go func(kw models.Keyword) {
+			defer wg.Done()
+
+			keywordNormalized := normalizeText(kw.Keyword)
+			if keywordNormalized == "" {
+				return
+			}
+
+			var matchedField string
+
+			// Match against title and offer only (as per user requirement)
+			if titleNormalized != "" && strings.Contains(titleNormalized, keywordNormalized) {
+				matchedField = "title"
+			} else if strings.Contains(offerNormalized, keywordNormalized) {
+				matchedField = "offer"
+			}
+
+			if matchedField != "" {
+				mu.Lock()
+				alertsToCreate = append(alertsToCreate, models.KeywordAlert{
+					KeywordID:  kw.ID,
+					CampaignID: campaign.ID,
+					IsRead:     false,
+					IsSent:     false,
+				})
+				mu.Unlock()
+				log.Printf("[KeywordMatch] Matched - keyword: '%s' → %s", kw.Keyword, matchedField)
+			}
+		}(keyword)
+	}
+
+	wg.Wait()
+
+	// Bulk create alerts
+	if len(alertsToCreate) > 0 {
+		if err := s.db.Create(&alertsToCreate).Error; err != nil {
+			log.Printf("[KeywordMatch] Failed to create alerts: %v", err)
+			return 0
+		}
+		log.Printf("[KeywordMatch] Created %d alerts for campaign ID: %d", len(alertsToCreate), campaign.ID)
+
+		// Send push notifications
+		go s.sendPushNotifications(ctx, alertsToCreate, &campaign)
+		return len(alertsToCreate)
+	}
+
+	log.Printf("[KeywordMatch] No keywords matched for campaign ID: %d", campaign.ID)
+	return 0
+}

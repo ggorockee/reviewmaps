@@ -172,10 +172,14 @@ func (s *Scraper) enrichVisitCampaigns(ctx context.Context, campaigns []models.C
 	return campaigns, stats
 }
 
-// enrichWorker 개별 Worker
+// enrichWorker 개별 Worker (각 Worker별 전용 API 키 할당)
 func (s *Scraper) enrichWorker(ctx context.Context, id int, jobs <-chan EnrichJob, results chan<- EnrichResult, wg *sync.WaitGroup, config *EnrichConfig, stats *EnrichStats) {
 	defer wg.Done()
 	log := logger.GetLogger("scraper.inflexer.enrich")
+
+	// Worker별 전용 Enricher 생성 (각 Worker는 자신만의 API 키 사용)
+	workerEnricher := enricher.NewForWorker(s.Config, id)
+	log.Infof("[Worker-%d] 시작 (전용 API 키 할당)", id)
 
 	for job := range jobs {
 		select {
@@ -185,18 +189,23 @@ func (s *Scraper) enrichWorker(ctx context.Context, id int, jobs <-chan EnrichJo
 		default:
 		}
 
-		result := s.enrichSingleCampaign(ctx, job, stats)
+		result := s.enrichSingleCampaignWithEnricher(ctx, job, stats, workerEnricher)
 		results <- result
 
 		// Rate limiting: API 호출 간 딜레이
 		time.Sleep(config.APIDelay)
 	}
 
-	log.Debugf("Worker %d 종료", id)
+	log.Infof("[Worker-%d] 종료", id)
 }
 
-// enrichSingleCampaign 단일 캠페인 보강
+// enrichSingleCampaign 단일 캠페인 보강 (BaseScraper의 공유 Enricher 사용)
 func (s *Scraper) enrichSingleCampaign(ctx context.Context, job EnrichJob, stats *EnrichStats) EnrichResult {
+	return s.enrichSingleCampaignWithEnricher(ctx, job, stats, s.Enricher)
+}
+
+// enrichSingleCampaignWithEnricher 단일 캠페인 보강 (지정된 Enricher 사용)
+func (s *Scraper) enrichSingleCampaignWithEnricher(ctx context.Context, job EnrichJob, stats *EnrichStats, workerEnricher *enricher.Enricher) EnrichResult {
 	log := logger.GetLogger("scraper.inflexer.enrich")
 	campaign := job.Campaign
 
@@ -212,11 +221,14 @@ func (s *Scraper) enrichSingleCampaign(ctx context.Context, job EnrichJob, stats
 		result.Lat = cacheEntry.Lat
 		result.Lng = cacheEntry.Lng
 
-		// 카테고리 매핑
-		if cacheEntry.Category != nil {
-			mappedID, err := s.DB.FindMappedCategoryID(ctx, *cacheEntry.Category)
-			if err == nil && mappedID != nil {
-				result.CategoryID = mappedID
+		// 카테고리 매핑 (캐시에 저장된 원본 텍스트 → raw_categories → category_mappings)
+		if cacheEntry.CategoryText != nil && *cacheEntry.CategoryText != "" {
+			rawID, err := s.DB.GetOrCreateRawCategory(ctx, *cacheEntry.CategoryText)
+			if err == nil && rawID != nil {
+				mappedID, err := s.DB.FindMappedCategoryID(ctx, *rawID)
+				if err == nil && mappedID != nil {
+					result.CategoryID = mappedID
+				}
 			}
 		}
 
@@ -227,7 +239,7 @@ func (s *Scraper) enrichSingleCampaign(ctx context.Context, job EnrichJob, stats
 	atomic.AddInt32(&stats.APICalled, 1)
 	log.Debugf("[Cache MISS] %s → API 호출", campaign.Title)
 
-	place, err := s.Enricher.NaverLocalSearch(ctx, campaign.Title)
+	place, err := workerEnricher.NaverLocalSearch(ctx, campaign.Title)
 	if err != nil {
 		log.Warnf("Local Search 실패 (%s): %v", campaign.Title, err)
 		return result
@@ -257,7 +269,9 @@ func (s *Scraper) enrichSingleCampaign(ctx context.Context, job EnrichJob, stats
 	}
 
 	// 5. 카테고리 처리
+	var categoryTextForCache *string
 	if place.Category != "" {
+		categoryTextForCache = &place.Category
 		rawID, err := s.DB.GetOrCreateRawCategory(ctx, place.Category)
 		if err == nil && rawID != nil {
 			mappedID, err := s.DB.FindMappedCategoryID(ctx, *rawID)
@@ -276,7 +290,7 @@ func (s *Scraper) enrichSingleCampaign(ctx context.Context, job EnrichJob, stats
 			result.Lng = &lng
 		} else {
 			// Geocode API 호출
-			lat, lng, ok := s.Enricher.NaverGeocode(ctx, *result.Address)
+			lat, lng, ok := workerEnricher.NaverGeocode(ctx, *result.Address)
 			if ok {
 				result.Lat = &lat
 				result.Lng = &lng
@@ -296,7 +310,7 @@ func (s *Scraper) enrichSingleCampaign(ctx context.Context, job EnrichJob, stats
 				log.Warnf("[Drift] %s: %.0fm 드리프트 감지, Geocode로 재보정", campaign.Title, dist)
 
 				// Geocode로 재보정
-				lat, lng, ok := s.Enricher.NaverGeocode(ctx, *result.Address)
+				lat, lng, ok := workerEnricher.NaverGeocode(ctx, *result.Address)
 				if ok {
 					result.Lat = &lat
 					result.Lng = &lng
@@ -310,13 +324,9 @@ func (s *Scraper) enrichSingleCampaign(ctx context.Context, job EnrichJob, stats
 		}
 	}
 
-	// 8. Local Cache 저장
+	// 8. Local Cache 저장 (원본 카테고리 텍스트 저장)
 	if result.Address != nil && result.Lat != nil && result.Lng != nil {
-		var categoryForCache *int64
-		if result.CategoryID != nil {
-			categoryForCache = result.CategoryID
-		}
-		_ = s.DB.PutLocalCache(ctx, campaign.Title, *result.Address, *result.Lat, *result.Lng, categoryForCache)
+		_ = s.DB.PutLocalCache(ctx, campaign.Title, *result.Address, *result.Lat, *result.Lng, categoryTextForCache)
 	}
 
 	return result

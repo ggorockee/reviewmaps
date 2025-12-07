@@ -35,16 +35,40 @@ type Enricher struct {
 	cfg        *config.Config
 	httpClient *http.Client
 	apiKeys    []config.APIKeyPair
+	workerID   int // Worker별 전용 키 인덱스 (-1이면 공유 풀 사용)
 }
 
-// New 새로운 Enricher 생성
+// New 새로운 Enricher 생성 (공유 풀 모드)
 func New(cfg *config.Config) *Enricher {
 	return &Enricher{
 		cfg: cfg,
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
-		apiKeys: cfg.NaverAPI.GetSearchAPIKeys(),
+		apiKeys:  cfg.NaverAPI.GetSearchAPIKeys(),
+		workerID: -1, // 공유 풀 모드
+	}
+}
+
+// NewForWorker Worker 전용 Enricher 생성 (단일 키 모드)
+// workerID: 0, 1, 2, ... (API 키 인덱스와 매핑)
+func NewForWorker(cfg *config.Config, workerID int) *Enricher {
+	allKeys := cfg.NaverAPI.GetSearchAPIKeys()
+
+	// workerID가 키 개수를 초과하면 라운드로빈
+	var dedicatedKey []config.APIKeyPair
+	if len(allKeys) > 0 {
+		keyIndex := workerID % len(allKeys)
+		dedicatedKey = []config.APIKeyPair{allKeys[keyIndex]}
+	}
+
+	return &Enricher{
+		cfg: cfg,
+		httpClient: &http.Client{
+			Timeout: 10 * time.Second,
+		},
+		apiKeys:  dedicatedKey,
+		workerID: workerID,
 	}
 }
 
@@ -59,21 +83,29 @@ func (e *Enricher) NaverLocalSearch(ctx context.Context, query string) (*models.
 	cleanQuery = strings.ReplaceAll(cleanQuery, "/", " ")
 
 	if len(e.apiKeys) == 0 {
-		log.Error("Local API 키 없음")
+		if e.workerID >= 0 {
+			log.Errorf("[Worker-%d] Local API 키 없음", e.workerID)
+		} else {
+			log.Error("Local API 키 없음")
+		}
 		return nil, fmt.Errorf("no API keys available")
 	}
 
 	apiURL := "https://openapi.naver.com/v1/search/local.json"
 
-	// 키를 순차적으로 시도 (라운드로빈 아님)
+	// 키를 순차적으로 시도 (단일 키 모드에서는 1개만 있음)
 	for len(e.apiKeys) > 0 {
 		key := e.apiKeys[0]
 		strikes := 0
 		backoff := INITIAL_SLEEP
 
 		for {
-			log.Infof("Naver Local API 호출 (현재 키: ...%s, 잔여키수: %d, Query(raw)='%s', Query(clean)='%s')",
-				key.ClientID[len(key.ClientID)-4:], len(e.apiKeys), query, cleanQuery)
+			workerPrefix := ""
+			if e.workerID >= 0 {
+				workerPrefix = fmt.Sprintf("[Worker-%d] ", e.workerID)
+			}
+			log.Infof("%sNaver Local API 호출 (키: ...%s, 잔여키수: %d, Query='%s')",
+				workerPrefix, key.ClientID[len(key.ClientID)-4:], len(e.apiKeys), cleanQuery)
 
 			req, err := http.NewRequestWithContext(ctx, "GET", apiURL, nil)
 			if err != nil {

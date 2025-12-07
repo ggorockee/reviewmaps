@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	platformName = "reviewnote"
+	platformName = "리뷰노트"
 	baseURL      = "https://www.reviewnote.co.kr/api/v2/campaigns"
 	imageBaseURL = "https://reviewnote.s3.ap-northeast-2.amazonaws.com/"
 	pageLimit    = 100

@@ -62,8 +62,8 @@ func TestScrapeAndParse(t *testing.T) {
 
 	// 첫 번째 캠페인 검증
 	c1 := campaigns[0]
-	if c1.Platform != "reviewnote" {
-		t.Errorf("Expected platform 'reviewnote', got '%s'", c1.Platform)
+	if c1.Platform != "리뷰노트" {
+		t.Errorf("Expected platform '리뷰노트', got '%s'", c1.Platform)
 	}
 	if c1.Title != "필립스 전자동 에스프레소 커피머신" {
 		t.Errorf("Unexpected title: %s", c1.Title)

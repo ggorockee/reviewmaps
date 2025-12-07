@@ -188,6 +188,30 @@ class AlertInfo {
     if (d > 0) return 'D-$d';
     return '마감';
   }
+
+  /// 읽음 상태만 변경한 복사본 생성
+  AlertInfo copyWithRead(bool read) {
+    return AlertInfo(
+      id: id,
+      keyword: keyword,
+      campaignId: campaignId,
+      campaignTitle: campaignTitle,
+      campaignCompany: campaignCompany,
+      campaignOffer: campaignOffer,
+      campaignAddress: campaignAddress,
+      campaignLat: campaignLat,
+      campaignLng: campaignLng,
+      campaignImgUrl: campaignImgUrl,
+      campaignPlatform: campaignPlatform,
+      campaignApplyDeadline: campaignApplyDeadline,
+      campaignContentLink: campaignContentLink,
+      campaignChannel: campaignChannel,
+      matchedField: matchedField,
+      isRead: read,
+      createdAt: createdAt,
+      distance: distance,
+    );
+  }
 }
 
 /// 알람 목록 응답 데이터

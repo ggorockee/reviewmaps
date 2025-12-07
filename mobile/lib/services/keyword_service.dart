@@ -35,9 +35,7 @@ class KeywordService {
     if (!AppConfig.isDebugMode) return;
     debugPrint('[$method] $url');
     debugPrint('Status: ${response.statusCode}');
-    if (response.statusCode != 200 && response.statusCode != 201) {
-      debugPrint('Response: ${utf8.decode(response.bodyBytes)}');
-    }
+    debugPrint('Response: ${utf8.decode(response.bodyBytes)}');
   }
 
   /// 인증 헤더 생성

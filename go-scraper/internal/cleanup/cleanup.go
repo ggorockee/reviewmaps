@@ -71,7 +71,24 @@ func (c *Cleaner) Run(ctx context.Context) error {
 
 	log.Infof("삭제 대상: %d개 캠페인 (apply_deadline < %s)", count, today.Format("2006-01-02"))
 
-	// 배치 삭제 실행
+	// 1. 관련 알림의 campaign_id를 NULL로 설정 (FK constraint 해결)
+	nullifyQuery := `
+		UPDATE keyword_alerts_alerts
+		SET campaign_id = NULL
+		WHERE campaign_id IN (
+			SELECT id FROM campaign
+			WHERE apply_deadline IS NOT NULL
+			  AND apply_deadline < $1
+		)
+	`
+	nullifyResult, err := c.database.Pool.Exec(ctx, nullifyQuery, today)
+	if err != nil {
+		log.Warnf("알림 campaign_id NULL 설정 실패: %v", err)
+	} else if nullifyResult.RowsAffected() > 0 {
+		log.Infof("관련 알림 %d건의 campaign_id를 NULL로 설정", nullifyResult.RowsAffected())
+	}
+
+	// 2. 배치 삭제 실행
 	deleteQuery := `
 		DELETE FROM campaign
 		WHERE apply_deadline IS NOT NULL

@@ -61,6 +61,31 @@ func (c *Cleaner) DeduplicateCampaigns(ctx context.Context) error {
 	// 3. 중복 삭제 (가장 최신 updated_at 레코드만 유지)
 	// CTE를 사용하여 각 그룹에서 가장 최신 레코드의 ID를 찾고
 	// 그 외의 레코드를 삭제
+
+	// 먼저 관련 알림의 campaign_id를 NULL로 설정 (FK constraint 해결)
+	nullifyQuery := `
+		WITH ranked AS (
+			SELECT id,
+				   ROW_NUMBER() OVER (
+					   PARTITION BY platform, title, offer, campaign_channel
+					   ORDER BY updated_at DESC NULLS LAST, id DESC
+				   ) as rn
+			FROM campaign
+		),
+		to_delete AS (
+			SELECT id FROM ranked WHERE rn > 1
+		)
+		UPDATE keyword_alerts_alerts
+		SET campaign_id = NULL
+		WHERE campaign_id IN (SELECT id FROM to_delete)
+	`
+	nullifyResult, err := c.database.Pool.Exec(ctx, nullifyQuery)
+	if err != nil {
+		log.Warnf("알림 campaign_id NULL 설정 실패: %v", err)
+	} else if nullifyResult.RowsAffected() > 0 {
+		log.Infof("관련 알림 %d건의 campaign_id를 NULL로 설정", nullifyResult.RowsAffected())
+	}
+
 	deleteQuery := `
 		WITH ranked AS (
 			SELECT id,

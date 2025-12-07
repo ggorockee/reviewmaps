@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 )
@@ -45,7 +46,9 @@ func VerifyGoogleToken(ctx context.Context, accessToken string) (*GoogleUserInfo
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("google API returned status %d", resp.StatusCode)
+		// Read response body for debugging
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("google API returned status %d: %s", resp.StatusCode, string(body))
 	}
 
 	var googleResp GoogleAPIResponse

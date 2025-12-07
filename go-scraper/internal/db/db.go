@@ -101,7 +101,9 @@ func (db *DB) LoadExistingCampaigns(ctx context.Context) (map[string]*models.Cam
 	return result, nil
 }
 
-// UpsertCampaigns 캠페인 데이터 upsert
+// UpsertCampaigns 캠페인 데이터 저장 (DELETE + INSERT 방식)
+// 기존 레코드를 삭제하고 새로 INSERT하여 created_at도 갱신
+// Firebase 푸시 알림이 새 캠페인으로 인식하도록 함
 func (db *DB) UpsertCampaigns(ctx context.Context, campaigns []models.Campaign) error {
 	log := logger.GetLogger("db")
 
@@ -112,8 +114,42 @@ func (db *DB) UpsertCampaigns(ctx context.Context, campaigns []models.Campaign) 
 
 	log.Infof("정제된 최종 데이터 %d건을 DB에 저장 시작...", len(campaigns))
 
-	batch := &pgx.Batch{}
-	query := `
+	// 트랜잭션 시작
+	tx, err := db.Pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("트랜잭션 시작 실패: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// 1. 기존 레코드 삭제 (DELETE)
+	deleteQuery := `
+		DELETE FROM campaign
+		WHERE (platform, title, offer, campaign_channel) = ($1, $2, $3, $4)
+	`
+
+	deleteBatch := &pgx.Batch{}
+	for _, c := range campaigns {
+		deleteBatch.Queue(deleteQuery, c.Platform, c.Title, c.Offer, c.CampaignChannel)
+	}
+
+	deleteBr := tx.SendBatch(ctx, deleteBatch)
+	deletedCount := int64(0)
+	for i := 0; i < len(campaigns); i++ {
+		result, err := deleteBr.Exec()
+		if err != nil {
+			log.Warnf("기존 캠페인 삭제 실패 (index %d): %v", i, err)
+		} else {
+			deletedCount += result.RowsAffected()
+		}
+	}
+	deleteBr.Close()
+
+	if deletedCount > 0 {
+		log.Infof("기존 캠페인 %d건 삭제 완료", deletedCount)
+	}
+
+	// 2. 새로 INSERT
+	insertQuery := `
 		INSERT INTO campaign (
 			platform, title, offer, campaign_channel, company, content_link,
 			company_link, source, campaign_type, region, apply_deadline,
@@ -121,35 +157,36 @@ func (db *DB) UpsertCampaigns(ctx context.Context, campaigns []models.Campaign) 
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
 		)
-		ON CONFLICT (platform, title, offer, campaign_channel) DO UPDATE SET
-			company = EXCLUDED.company, source = EXCLUDED.source,
-			content_link = EXCLUDED.content_link, company_link = EXCLUDED.company_link,
-			campaign_type = EXCLUDED.campaign_type, region = EXCLUDED.region,
-			apply_deadline = EXCLUDED.apply_deadline, review_deadline = EXCLUDED.review_deadline,
-			address = EXCLUDED.address, lat = EXCLUDED.lat, lng = EXCLUDED.lng,
-			category_id = EXCLUDED.category_id, img_url = EXCLUDED.img_url,
-			updated_at = NOW()
 	`
 
+	insertBatch := &pgx.Batch{}
 	for _, c := range campaigns {
-		batch.Queue(query,
+		insertBatch.Queue(insertQuery,
 			c.Platform, c.Title, c.Offer, c.CampaignChannel, c.Company, c.ContentLink,
 			c.CompanyLink, c.Source, c.CampaignType, c.Region, c.ApplyDeadline,
 			c.ReviewDeadline, c.Address, c.Lat, c.Lng, c.CategoryID, c.ImgURL,
 		)
 	}
 
-	br := db.Pool.SendBatch(ctx, batch)
-	defer br.Close()
-
+	insertBr := tx.SendBatch(ctx, insertBatch)
+	insertedCount := 0
 	for i := 0; i < len(campaigns); i++ {
-		_, err := br.Exec()
+		_, err := insertBr.Exec()
 		if err != nil {
-			log.Errorf("Failed to upsert campaign %d: %v", i, err)
+			log.Errorf("캠페인 INSERT 실패 (index %d): %v", i, err)
+		} else {
+			insertedCount++
 		}
 	}
+	insertBr.Close()
 
-	log.Infof("DB 저장 완료. 총 %d건의 데이터가 성공적으로 처리되었습니다.", len(campaigns))
+	// 트랜잭션 커밋
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("트랜잭션 커밋 실패: %w", err)
+	}
+
+	log.Infof("DB 저장 완료. 총 %d건의 데이터가 성공적으로 처리되었습니다. (삭제: %d, 신규: %d)",
+		insertedCount, deletedCount, int64(insertedCount)-deletedCount)
 	return nil
 }
 

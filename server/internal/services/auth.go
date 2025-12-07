@@ -433,13 +433,16 @@ func (s *AuthService) handleSNSLogin(provider, providerUserID, email, name, prof
 			user = &socialAccount.User
 
 			// Update social account info (Django: social_account.save())
-			socialAccount.Email = email
-			socialAccount.Name = name
-			socialAccount.ProfileImage = profileImage
-			if accessToken != "" {
-				socialAccount.AccessToken = accessToken
+			// Use Updates instead of Save to avoid updating the preloaded User
+			socialAccountUpdates := map[string]interface{}{
+				"email":         email,
+				"name":          name,
+				"profile_image": profileImage,
 			}
-			if err := tx.Save(&socialAccount).Error; err != nil {
+			if accessToken != "" {
+				socialAccountUpdates["access_token"] = accessToken
+			}
+			if err := tx.Model(&socialAccount).Updates(socialAccountUpdates).Error; err != nil {
 				return fmt.Errorf("failed to update social account: %w", err)
 			}
 

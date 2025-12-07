@@ -115,10 +115,10 @@ func (s *KeywordMatchService) ProcessCampaignKeywordMatching(ctx context.Context
 			if matchedField != "" {
 				mu.Lock()
 				alertsToCreate = append(alertsToCreate, models.KeywordAlert{
-					KeywordID:  kw.ID,
-					CampaignID: campaign.ID,
-					IsRead:     false,
-					IsSent:     false,
+					KeywordID:    kw.ID,
+					CampaignID:   campaign.ID,
+					MatchedField: matchedField,
+					IsRead:       false,
 				})
 				mu.Unlock()
 				log.Printf("[KeywordMatch] Matched - keyword: '%s' → %s", kw.Keyword, matchedField)
@@ -251,12 +251,6 @@ func (s *KeywordMatchService) sendPushNotifications(ctx context.Context, alerts 
 		log.Printf("[KeywordMatch] Deactivated %d invalid tokens", len(allFailedTokens))
 	}
 
-	// Mark alerts as sent
-	alertIDs := make([]uint, len(alerts))
-	for i, alert := range alerts {
-		alertIDs[i] = alert.ID
-	}
-	s.db.Model(&models.KeywordAlert{}).Where("id IN ?", alertIDs).Update("is_sent", true)
 }
 
 // ProcessCampaignKeywordMatchingByID processes keyword matching for a campaign by its ID
@@ -342,10 +336,10 @@ func (s *KeywordMatchService) ProcessCampaignKeywordMatchingByID(ctx context.Con
 			if matchedField != "" {
 				mu.Lock()
 				alertsToCreate = append(alertsToCreate, models.KeywordAlert{
-					KeywordID:  kw.ID,
-					CampaignID: campaign.ID,
-					IsRead:     false,
-					IsSent:     false,
+					KeywordID:    kw.ID,
+					CampaignID:   campaign.ID,
+					MatchedField: matchedField,
+					IsRead:       false,
 				})
 				mu.Unlock()
 				log.Printf("[KeywordMatch] Matched - keyword: '%s' → %s", kw.Keyword, matchedField)

@@ -42,12 +42,13 @@ func (Keyword) TableName() string {
 
 // KeywordAlert represents keyword match alerts
 type KeywordAlert struct {
-	ID         uint      `gorm:"primaryKey" json:"id"`
-	KeywordID  uint      `gorm:"not null;uniqueIndex:idx_alert_kw_cpg" json:"keyword_id"`
-	CampaignID uint      `gorm:"not null;uniqueIndex:idx_alert_kw_cpg;index:idx_alert_campaign" json:"campaign_id"`
-	IsRead     bool      `gorm:"default:false;index:idx_alert_read" json:"is_read"`
-	IsSent     bool      `gorm:"default:false;index:idx_alert_sent" json:"is_sent"`
-	CreatedAt  time.Time `gorm:"autoCreateTime" json:"created_at"`
+	ID           uint      `gorm:"primaryKey" json:"id"`
+	KeywordID    uint      `gorm:"not null;uniqueIndex:idx_alert_kw_cpg" json:"keyword_id"`
+	CampaignID   uint      `gorm:"not null;uniqueIndex:idx_alert_kw_cpg;index:idx_alert_campaign" json:"campaign_id"`
+	MatchedField string    `gorm:"size:50;default:'title'" json:"matched_field"`
+	IsRead       bool      `gorm:"default:false;index:idx_alert_read" json:"is_read"`
+	CreatedAt    time.Time `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt    time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 
 	// Relations
 	Keyword  Keyword  `gorm:"foreignKey:KeywordID" json:"keyword,omitempty"`

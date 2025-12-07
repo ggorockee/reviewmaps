@@ -6,16 +6,17 @@ import (
 
 // FCMDevice represents FCM device tokens
 type FCMDevice struct {
-	ID        uint      `gorm:"primaryKey" json:"id"`
-	UserID    uint      `gorm:"index;not null" json:"user_id"`
-	Token     string    `gorm:"size:500;not null;uniqueIndex" json:"token"`
-	Platform  string    `gorm:"size:20;not null" json:"platform"`
-	IsActive  bool      `gorm:"default:true" json:"is_active"`
-	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt time.Time `gorm:"autoUpdateTime" json:"updated_at"`
+	ID                 uint      `gorm:"primaryKey" json:"id"`
+	UserID             *uint     `gorm:"index" json:"user_id"`
+	AnonymousSessionID *string   `gorm:"column:anonymous_session_id;size:255" json:"anonymous_session_id"`
+	FCMToken           string    `gorm:"column:fcm_token;size:500;not null;uniqueIndex" json:"fcm_token"`
+	DeviceType         string    `gorm:"column:device_type;size:20;not null" json:"device_type"`
+	IsActive           bool      `gorm:"default:true" json:"is_active"`
+	CreatedAt          time.Time `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt          time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 
 	// Relations
-	User User `gorm:"foreignKey:UserID" json:"user,omitempty"`
+	User *User `gorm:"foreignKey:UserID" json:"user,omitempty"`
 }
 
 func (FCMDevice) TableName() string {

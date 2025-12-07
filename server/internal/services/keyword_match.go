@@ -202,7 +202,9 @@ func (s *KeywordMatchService) sendPushNotifications(ctx context.Context, alerts 
 	// Group devices by user
 	userDevices := make(map[uint][]string)
 	for _, device := range devices {
-		userDevices[device.UserID] = append(userDevices[device.UserID], device.Token)
+		if device.UserID != nil {
+			userDevices[*device.UserID] = append(userDevices[*device.UserID], device.FCMToken)
+		}
 	}
 
 	// Campaign name for push body
@@ -247,7 +249,7 @@ func (s *KeywordMatchService) sendPushNotifications(ctx context.Context, alerts 
 
 	// Deactivate failed tokens
 	if len(allFailedTokens) > 0 {
-		s.db.Model(&models.FCMDevice{}).Where("token IN ?", allFailedTokens).Update("is_active", false)
+		s.db.Model(&models.FCMDevice{}).Where("fcm_token IN ?", allFailedTokens).Update("is_active", false)
 		log.Printf("[KeywordMatch] Deactivated %d invalid tokens", len(allFailedTokens))
 	}
 

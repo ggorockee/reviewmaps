@@ -86,5 +86,8 @@ class KeywordAlert(models.Model):
         ordering = ["-created_at"]
 
     def __str__(self):
-        campaign_title = self.campaign.title[:30] if self.campaign and self.campaign.title else "(삭제된 캠페인)"
+        try:
+            campaign_title = self.campaign.title[:30] if self.campaign_id and self.campaign.title else "(삭제된 캠페인)"
+        except Exception:
+            campaign_title = "(삭제된 캠페인)"
         return f"{self.keyword.keyword} → {campaign_title}"

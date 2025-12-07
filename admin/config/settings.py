@@ -126,6 +126,9 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 # Default primary key field type
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# Data upload settings - Allow bulk operations in admin
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 3000  # Default is 1000
+
 # Logging Configuration - Always log errors, debug in development
 LOGGING = {
     "version": 1,

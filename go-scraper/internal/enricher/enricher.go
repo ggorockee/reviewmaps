@@ -50,16 +50,22 @@ func New(cfg *config.Config) *Enricher {
 	}
 }
 
-// NewForWorker Worker 전용 Enricher 생성 (단일 키 모드)
-// workerID: 0, 1, 2, ... (API 키 인덱스와 매핑)
+// NewForWorker Worker 전용 Enricher 생성
+// workerID: 0, 1, 2, ... (시작 키 인덱스 결정에 사용)
+// 모든 키를 공유하되, 시작 인덱스만 다르게 하여 부하 분산
 func NewForWorker(cfg *config.Config, workerID int) *Enricher {
 	allKeys := cfg.NaverAPI.GetSearchAPIKeys()
 
-	// workerID가 키 개수를 초과하면 라운드로빈
-	var dedicatedKey []config.APIKeyPair
+	// Worker별로 시작 키를 다르게 하여 부하 분산
+	// 모든 키를 순환하며 사용 (키 소진 시 다음 키로 이동)
+	var rotatedKeys []config.APIKeyPair
 	if len(allKeys) > 0 {
-		keyIndex := workerID % len(allKeys)
-		dedicatedKey = []config.APIKeyPair{allKeys[keyIndex]}
+		startIndex := workerID % len(allKeys)
+		// 시작 인덱스부터 순환하여 모든 키 포함
+		for i := 0; i < len(allKeys); i++ {
+			idx := (startIndex + i) % len(allKeys)
+			rotatedKeys = append(rotatedKeys, allKeys[idx])
+		}
 	}
 
 	return &Enricher{
@@ -67,7 +73,7 @@ func NewForWorker(cfg *config.Config, workerID int) *Enricher {
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
-		apiKeys:  dedicatedKey,
+		apiKeys:  rotatedKeys,
 		workerID: workerID,
 	}
 }

@@ -167,23 +167,23 @@ func (s *KeywordAlertService) DeleteAlert(userID, alertID uint) error {
 func (s *KeywordAlertService) RegisterFCM(userID uint, req *FCMRegisterRequest) (*models.FCMDevice, error) {
 	// Upsert: update if exists, create if not
 	var device models.FCMDevice
-	err := s.db.Where("token = ?", req.Token).First(&device).Error
+	err := s.db.Where("fcm_token = ?", req.Token).First(&device).Error
 
 	if err != nil {
 		// Create new
 		device = models.FCMDevice{
-			UserID:   userID,
-			Token:    req.Token,
-			Platform: req.Platform,
-			IsActive: true,
+			UserID:     &userID,
+			FCMToken:   req.Token,
+			DeviceType: req.Platform,
+			IsActive:   true,
 		}
 		if err := s.db.Create(&device).Error; err != nil {
 			return nil, err
 		}
 	} else {
 		// Update existing
-		device.UserID = userID
-		device.Platform = req.Platform
+		device.UserID = &userID
+		device.DeviceType = req.Platform
 		device.IsActive = true
 		if err := s.db.Save(&device).Error; err != nil {
 			return nil, err
@@ -195,7 +195,7 @@ func (s *KeywordAlertService) RegisterFCM(userID uint, req *FCMRegisterRequest) 
 
 // UnregisterFCM unregisters an FCM token
 func (s *KeywordAlertService) UnregisterFCM(userID uint, token string) error {
-	result := s.db.Where("user_id = ? AND token = ?", userID, token).Delete(&models.FCMDevice{})
+	result := s.db.Where("user_id = ? AND fcm_token = ?", userID, token).Delete(&models.FCMDevice{})
 	if result.RowsAffected == 0 {
 		return errors.New("device not found")
 	}

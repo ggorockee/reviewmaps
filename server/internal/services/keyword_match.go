@@ -2,8 +2,10 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -149,7 +151,7 @@ func (s *KeywordMatchService) sendPushNotifications(ctx context.Context, alerts 
 		return
 	}
 
-	// Get unique user IDs from alerts
+	// Get keywords for alerts
 	keywordIDs := make([]uint, len(alerts))
 	for i, alert := range alerts {
 		keywordIDs[i] = alert.KeywordID
@@ -161,17 +163,31 @@ func (s *KeywordMatchService) sendPushNotifications(ctx context.Context, alerts 
 		return
 	}
 
-	userIDs := make([]uint, 0)
+	// Build keyword map for quick lookup
+	keywordMap := make(map[uint]models.Keyword)
 	for _, kw := range keywords {
-		userIDs = append(userIDs, kw.UserID)
+		keywordMap[kw.ID] = kw
 	}
 
-	if len(userIDs) == 0 {
-		log.Println("[KeywordMatch] No user IDs found for push")
+	// Build user to keywords mapping (user may have multiple matched keywords)
+	userKeywords := make(map[uint][]string)
+	for _, alert := range alerts {
+		if kw, ok := keywordMap[alert.KeywordID]; ok {
+			userKeywords[kw.UserID] = append(userKeywords[kw.UserID], kw.Keyword)
+		}
+	}
+
+	if len(userKeywords) == 0 {
+		log.Println("[KeywordMatch] No user keywords found for push")
 		return
 	}
 
-	// Get active FCM tokens
+	// Get active FCM tokens grouped by user
+	userIDs := make([]uint, 0, len(userKeywords))
+	for userID := range userKeywords {
+		userIDs = append(userIDs, userID)
+	}
+
 	var devices []models.FCMDevice
 	if err := s.db.Where("user_id IN ? AND is_active = ?", userIDs, true).Find(&devices).Error; err != nil {
 		log.Printf("[KeywordMatch] Failed to get FCM devices: %v", err)
@@ -183,34 +199,56 @@ func (s *KeywordMatchService) sendPushNotifications(ctx context.Context, alerts 
 		return
 	}
 
-	// Collect unique tokens
-	tokenSet := make(map[string]bool)
+	// Group devices by user
+	userDevices := make(map[uint][]string)
 	for _, device := range devices {
-		tokenSet[device.Token] = true
+		userDevices[device.UserID] = append(userDevices[device.UserID], device.Token)
 	}
 
-	tokens := make([]string, 0, len(tokenSet))
-	for token := range tokenSet {
-		tokens = append(tokens, token)
+	// Campaign name for push body
+	campaignName := campaign.Company
+	if campaign.Title != nil && *campaign.Title != "" {
+		campaignName = *campaign.Title
 	}
 
-	log.Printf("[KeywordMatch] Sending push to %d devices", len(tokens))
+	// Common data payload
+	campaignIDStr := strconv.FormatUint(uint64(campaign.ID), 10)
 
-	// Send push notifications
-	title := "새로운 체험단 알림"
-	body := "관심 키워드와 매칭되는 캠페인이 등록되었습니다. 앱에서 확인해보세요."
-	data := map[string]string{
-		"type":        "keyword_alert",
-		"campaign_id": string(rune(campaign.ID)),
+	// Send personalized push per user
+	var totalSuccess, totalFailure int
+	var allFailedTokens []string
+
+	for userID, tokens := range userDevices {
+		keywords := userKeywords[userID]
+		if len(keywords) == 0 || len(tokens) == 0 {
+			continue
+		}
+
+		// Use first matched keyword for title (user may have multiple)
+		firstKeyword := keywords[0]
+		title := fmt.Sprintf("키워드 \"%s\" 매칭", firstKeyword)
+		body := fmt.Sprintf("%s 체험단이 등록되었습니다", campaignName)
+
+		data := map[string]string{
+			"type":        "keyword_alert",
+			"campaign_id": campaignIDStr,
+		}
+
+		result := fcm.SendPushMultiple(ctx, tokens, title, body, data)
+		totalSuccess += result.SuccessCount
+		totalFailure += result.FailureCount
+		allFailedTokens = append(allFailedTokens, result.FailedTokens...)
+
+		log.Printf("[KeywordMatch] Push sent to user %d - keyword: '%s', success: %d, failure: %d",
+			userID, firstKeyword, result.SuccessCount, result.FailureCount)
 	}
 
-	result := fcm.SendPushMultiple(ctx, tokens, title, body, data)
-	log.Printf("[KeywordMatch] Push result - success: %d, failure: %d", result.SuccessCount, result.FailureCount)
+	log.Printf("[KeywordMatch] Push total - success: %d, failure: %d", totalSuccess, totalFailure)
 
 	// Deactivate failed tokens
-	if len(result.FailedTokens) > 0 {
-		s.db.Model(&models.FCMDevice{}).Where("token IN ?", result.FailedTokens).Update("is_active", false)
-		log.Printf("[KeywordMatch] Deactivated %d invalid tokens", len(result.FailedTokens))
+	if len(allFailedTokens) > 0 {
+		s.db.Model(&models.FCMDevice{}).Where("token IN ?", allFailedTokens).Update("is_active", false)
+		log.Printf("[KeywordMatch] Deactivated %d invalid tokens", len(allFailedTokens))
 	}
 
 	// Mark alerts as sent

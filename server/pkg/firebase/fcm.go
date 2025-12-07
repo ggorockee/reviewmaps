@@ -155,6 +155,31 @@ func (s *FCMService) SendPushMultiple(ctx context.Context, tokens []string, titl
 		},
 		Data:   data,
 		Tokens: tokens,
+		Android: &messaging.AndroidConfig{
+			Priority: "high",
+			Notification: &messaging.AndroidNotification{
+				Title:       title,
+				Body:        body,
+				ClickAction: "FLUTTER_NOTIFICATION_CLICK",
+				ChannelID:   "keyword_alerts",
+			},
+		},
+		APNS: &messaging.APNSConfig{
+			Headers: map[string]string{
+				"apns-priority": "10",
+			},
+			Payload: &messaging.APNSPayload{
+				Aps: &messaging.Aps{
+					Alert: &messaging.ApsAlert{
+						Title: title,
+						Body:  body,
+					},
+					Sound:            "default",
+					ContentAvailable: true,
+					MutableContent:   true,
+				},
+			},
+		},
 	}
 
 	response, err := s.client.SendEachForMulticast(ctx, message)

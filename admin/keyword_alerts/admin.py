@@ -5,9 +5,9 @@ from .models import FCMDevice, Keyword, KeywordAlert
 
 @admin.register(FCMDevice)
 class FCMDeviceAdmin(ModelAdmin):
-    list_display = ("user", "platform", "is_active", "created_at")
-    list_filter = ("platform", "is_active")
-    search_fields = ("user__email", "token")
+    list_display = ("user", "device_type", "is_active", "created_at")
+    list_filter = ("device_type", "is_active")
+    search_fields = ("user__email", "fcm_token")
     ordering = ("-created_at",)
     readonly_fields = ("created_at", "updated_at")
 

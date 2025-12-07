@@ -18,11 +18,14 @@ class FCMDevice(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
+        null=True,
+        blank=True,
         related_name="fcm_devices",
         verbose_name="사용자",
     )
-    token = models.CharField(max_length=500, unique=True, verbose_name="FCM 토큰")
-    platform = models.CharField(max_length=20, choices=DEVICE_TYPE_CHOICES, default="android", verbose_name="플랫폼")
+    anonymous_session_id = models.CharField(max_length=255, null=True, blank=True, verbose_name="익명 세션 ID")
+    fcm_token = models.CharField(max_length=500, unique=True, db_column="fcm_token", verbose_name="FCM 토큰")
+    device_type = models.CharField(max_length=20, choices=DEVICE_TYPE_CHOICES, default="android", db_column="device_type", verbose_name="디바이스 타입")
     is_active = models.BooleanField(default=True, verbose_name="활성 상태")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="생성일시")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="수정일시")
@@ -34,8 +37,8 @@ class FCMDevice(models.Model):
         verbose_name_plural = "FCM 디바이스"
 
     def __str__(self):
-        owner = self.user.email if self.user else "알 수 없음"
-        return f"{self.platform} - {owner}"
+        owner = self.user.email if self.user else "익명"
+        return f"{self.device_type} - {owner}"
 
 
 class Keyword(models.Model):
@@ -44,9 +47,12 @@ class Keyword(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
+        null=True,
+        blank=True,
         related_name="keywords",
         verbose_name="사용자",
     )
+    anonymous_session_id = models.CharField(max_length=255, null=True, blank=True, verbose_name="익명 세션 ID")
     keyword = models.CharField(max_length=100, verbose_name="키워드")
     is_active = models.BooleanField(default=True, verbose_name="활성 상태")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="생성일시")
@@ -59,7 +65,7 @@ class Keyword(models.Model):
         verbose_name_plural = "관심 키워드"
 
     def __str__(self):
-        owner = self.user.email if self.user else "알 수 없음"
+        owner = self.user.email if self.user else "익명"
         return f"{self.keyword} - {owner}"
 
 
@@ -69,7 +75,9 @@ class KeywordAlert(models.Model):
     keyword = models.ForeignKey(Keyword, on_delete=models.CASCADE, related_name="alerts", verbose_name="키워드")
     campaign = models.ForeignKey(
         "campaigns.Campaign",
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="keyword_alerts",
         verbose_name="캠페인",
     )

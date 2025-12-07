@@ -212,22 +212,31 @@ class KeywordService {
     final uri = Uri.parse('$baseUrl/alerts').replace(queryParameters: queryParams);
     final headers = await _getAuthHeaders();
 
+    debugPrint('[getMyAlerts] 요청 시작: $uri');
     return _withRetry(() async {
       try {
+        debugPrint('[getMyAlerts] HTTP GET 요청 중...');
         final response = await _client
             .get(uri, headers: headers)
             .timeout(const Duration(seconds: 10));
 
+        debugPrint('[getMyAlerts] 응답 수신: status=${response.statusCode}');
         _debugPrintResponse('GET', uri.toString(), response);
 
         if (response.statusCode != 200) {
+          debugPrint('[getMyAlerts] HTTP 에러: ${response.statusCode}');
           _handleHttpError(response, '알람 목록을 불러올 수 없습니다.');
         }
 
-        return AlertListResponse.fromJson(
-          jsonDecode(utf8.decode(response.bodyBytes)),
-        );
-      } catch (e) {
+        debugPrint('[getMyAlerts] JSON 파싱 시작...');
+        final jsonBody = jsonDecode(utf8.decode(response.bodyBytes));
+        debugPrint('[getMyAlerts] JSON 파싱 완료, AlertListResponse 변환 중...');
+        final result = AlertListResponse.fromJson(jsonBody);
+        debugPrint('[getMyAlerts] 성공: ${result.items.length}개 알림');
+        return result;
+      } catch (e, stackTrace) {
+        debugPrint('[getMyAlerts] 에러 발생: $e');
+        debugPrint('[getMyAlerts] 스택트레이스: $stackTrace');
         if (e is Exception && e.toString().contains('Exception:')) {
           rethrow;
         }

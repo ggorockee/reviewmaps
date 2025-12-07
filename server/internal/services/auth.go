@@ -423,44 +423,48 @@ func (s *AuthService) handleSNSLogin(provider, providerUserID, email, name, prof
 	txErr := s.db.Transaction(func(tx *gorm.DB) error {
 		// 1. Try to find existing SocialAccount by provider + provider_user_id
 		// Django: SocialAccount.objects.select_related('user').get(provider='xxx', provider_user_id=xxx)
+		// Note: Do NOT use Preload("User") to avoid association issues with legacy NULL username data
 		var socialAccount models.SocialAccount
 		findErr := tx.Where("provider = ? AND provider_user_id = ?", provider, providerUserID).
-			Preload("User").
 			First(&socialAccount).Error
 
 		if findErr == nil {
-			// Existing social account found - update it
-			user = &socialAccount.User
+			// Existing social account found - fetch user separately
+			var existingUser models.User
+			if err := tx.First(&existingUser, socialAccount.UserID).Error; err != nil {
+				return fmt.Errorf("failed to find user: %w", err)
+			}
+			user = &existingUser
 
 			// Update social account info (Django: social_account.save())
-			// Use Updates instead of Save to avoid updating the preloaded User
-			socialAccountUpdates := map[string]interface{}{
-				"email":         email,
-				"name":          name,
-				"profile_image": profileImage,
-			}
-			if accessToken != "" {
-				socialAccountUpdates["access_token"] = accessToken
-			}
-			if err := tx.Model(&socialAccount).Updates(socialAccountUpdates).Error; err != nil {
+			// Use raw SQL update to completely avoid GORM association handling
+			if err := tx.Model(&models.SocialAccount{}).
+				Where("id = ?", socialAccount.ID).
+				Updates(map[string]interface{}{
+					"email":         email,
+					"name":          name,
+					"profile_image": profileImage,
+					"access_token":  accessToken,
+				}).Error; err != nil {
 				return fmt.Errorf("failed to update social account: %w", err)
 			}
 
 			// Update User model profile info (Django: user.save(update_fields=['name', 'profile_image']))
-			updateFields := make(map[string]interface{})
+			// Use raw SQL update to avoid touching username field
+			updateFields := map[string]interface{}{
+				"last_login": time.Now(),
+			}
 			if name != "" {
 				updateFields["name"] = name
 			}
 			if profileImage != "" {
 				updateFields["profile_image"] = profileImage
 			}
-			now := time.Now()
-			updateFields["last_login"] = now
 
-			if len(updateFields) > 0 {
-				if err := tx.Model(user).Updates(updateFields).Error; err != nil {
-					return fmt.Errorf("failed to update user: %w", err)
-				}
+			if err := tx.Model(&models.User{}).
+				Where("id = ?", user.ID).
+				Updates(updateFields).Error; err != nil {
+				return fmt.Errorf("failed to update user: %w", err)
 			}
 
 			return nil

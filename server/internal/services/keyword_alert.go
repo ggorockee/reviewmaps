@@ -112,10 +112,21 @@ func (s *KeywordAlertService) ListAlerts(userID uint, page, limit int) (*AlertLi
 	var keywordIDs []uint
 	s.db.Model(&models.Keyword{}).Where("user_id = ?", userID).Pluck("id", &keywordIDs)
 
+	// Return empty if no keywords
+	if len(keywordIDs) == 0 {
+		return &AlertListResponse{
+			Items:      []models.KeywordAlert{},
+			Total:      0,
+			Page:       page,
+			Limit:      limit,
+			TotalPages: 0,
+		}, nil
+	}
+
 	query := s.db.Model(&models.KeywordAlert{}).
 		Preload("Keyword").
-		Preload("Campaign").
-		Preload("Campaign.Category").
+		Preload("Campaign", "id IS NOT NULL").
+		Preload("Campaign.Category", "id IS NOT NULL").
 		Where("keyword_id IN ?", keywordIDs)
 
 	query.Count(&total)

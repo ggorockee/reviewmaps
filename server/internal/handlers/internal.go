@@ -77,17 +77,23 @@ func (h *InternalHandler) ProcessCampaignAlerts(c *fiber.Ctx) error {
 
 	log.Printf("[Internal] Processing %d campaigns for keyword alerts", len(req.CampaignIDs))
 
-	// 캠페인별 키워드 매칭
+	// 캠페인별 키워드 매칭 - 모든 alert ID 수집
 	ctx := c.Context()
-	alertsCreated := 0
+	var allAlertIDs []uint
 	var errors []string
 
 	for _, campaignID := range req.CampaignIDs {
-		count := h.keywordMatch.ProcessCampaignKeywordMatchingByID(ctx, campaignID)
-		alertsCreated += count
+		alertIDs := h.keywordMatch.ProcessCampaignKeywordMatchingByID(ctx, campaignID)
+		allAlertIDs = append(allAlertIDs, alertIDs...)
 	}
 
+	alertsCreated := len(allAlertIDs)
 	log.Printf("[Internal] Processed %d campaigns, created %d alerts", len(req.CampaignIDs), alertsCreated)
+
+	// 푸시 알림 한 번에 발송 (사용자별 통합)
+	if alertsCreated > 0 {
+		go h.keywordMatch.SendPushForRecentAlerts(ctx, allAlertIDs)
+	}
 
 	return c.JSON(ProcessCampaignAlertsResponse{
 		ProcessedCount: len(req.CampaignIDs),

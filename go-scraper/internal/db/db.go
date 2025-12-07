@@ -104,12 +104,13 @@ func (db *DB) LoadExistingCampaigns(ctx context.Context) (map[string]*models.Cam
 // UpsertCampaigns 캠페인 데이터 저장 (DELETE + INSERT 방식)
 // 기존 레코드를 삭제하고 새로 INSERT하여 created_at도 갱신
 // Firebase 푸시 알림이 새 캠페인으로 인식하도록 함
-func (db *DB) UpsertCampaigns(ctx context.Context, campaigns []models.Campaign) error {
+// 반환값: 저장된 캠페인 ID 목록
+func (db *DB) UpsertCampaigns(ctx context.Context, campaigns []models.Campaign) ([]uint, error) {
 	log := logger.GetLogger("db")
 
 	if len(campaigns) == 0 {
 		log.Warn("저장할 최종 데이터가 없습니다.")
-		return nil
+		return nil, nil
 	}
 
 	log.Infof("정제된 최종 데이터 %d건을 DB에 저장 시작...", len(campaigns))
@@ -117,7 +118,7 @@ func (db *DB) UpsertCampaigns(ctx context.Context, campaigns []models.Campaign) 
 	// 트랜잭션 시작
 	tx, err := db.Pool.Begin(ctx)
 	if err != nil {
-		return fmt.Errorf("트랜잭션 시작 실패: %w", err)
+		return nil, fmt.Errorf("트랜잭션 시작 실패: %w", err)
 	}
 	defer tx.Rollback(ctx)
 
@@ -148,7 +149,7 @@ func (db *DB) UpsertCampaigns(ctx context.Context, campaigns []models.Campaign) 
 		log.Infof("기존 캠페인 %d건 삭제 완료", deletedCount)
 	}
 
-	// 2. 새로 INSERT
+	// 2. 새로 INSERT (RETURNING id로 저장된 ID 수집)
 	insertQuery := `
 		INSERT INTO campaign (
 			platform, title, offer, campaign_channel, company, content_link,
@@ -156,38 +157,32 @@ func (db *DB) UpsertCampaigns(ctx context.Context, campaigns []models.Campaign) 
 			review_deadline, address, lat, lng, category_id, img_url
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
-		)
+		) RETURNING id
 	`
 
-	insertBatch := &pgx.Batch{}
+	var insertedIDs []uint
 	for _, c := range campaigns {
-		insertBatch.Queue(insertQuery,
+		var id uint
+		err := tx.QueryRow(ctx, insertQuery,
 			c.Platform, c.Title, c.Offer, c.CampaignChannel, c.Company, c.ContentLink,
 			c.CompanyLink, c.Source, c.CampaignType, c.Region, c.ApplyDeadline,
 			c.ReviewDeadline, c.Address, c.Lat, c.Lng, c.CategoryID, c.ImgURL,
-		)
-	}
-
-	insertBr := tx.SendBatch(ctx, insertBatch)
-	insertedCount := 0
-	for i := 0; i < len(campaigns); i++ {
-		_, err := insertBr.Exec()
+		).Scan(&id)
 		if err != nil {
-			log.Errorf("캠페인 INSERT 실패 (index %d): %v", i, err)
-		} else {
-			insertedCount++
+			log.Errorf("캠페인 INSERT 실패: %v", err)
+			continue
 		}
+		insertedIDs = append(insertedIDs, id)
 	}
-	insertBr.Close()
 
 	// 트랜잭션 커밋
 	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("트랜잭션 커밋 실패: %w", err)
+		return nil, fmt.Errorf("트랜잭션 커밋 실패: %w", err)
 	}
 
 	log.Infof("DB 저장 완료. 총 %d건의 데이터가 성공적으로 처리되었습니다. (삭제: %d, 신규: %d)",
-		insertedCount, deletedCount, int64(insertedCount)-deletedCount)
-	return nil
+		len(insertedIDs), deletedCount, int64(len(insertedIDs))-deletedCount)
+	return insertedIDs, nil
 }
 
 // GetGeocodeCache geocode 캐시 조회
@@ -264,7 +259,7 @@ func (db *DB) GetLocalCache(ctx context.Context, title string) (*models.LocalCac
 		&entry.Address,
 		&entry.Lat,
 		&entry.Lng,
-		&entry.Category,
+		&entry.CategoryText, // DB의 category는 text 타입
 		&entry.UpdatedAt,
 	)
 	if err != nil {
@@ -281,7 +276,8 @@ func (db *DB) GetLocalCache(ctx context.Context, title string) (*models.LocalCac
 }
 
 // PutLocalCache local search 캐시 저장
-func (db *DB) PutLocalCache(ctx context.Context, title, address string, lat, lng float64, category *int64) error {
+// categoryText: 네이버 API에서 받은 원본 카테고리 문자열 (DB에 text로 저장)
+func (db *DB) PutLocalCache(ctx context.Context, title, address string, lat, lng float64, categoryText *string) error {
 	log := logger.GetLogger("db")
 
 	if title == "" {
@@ -300,7 +296,7 @@ func (db *DB) PutLocalCache(ctx context.Context, title, address string, lat, lng
 			updated_at = NOW()
 	`
 
-	_, err := db.Pool.Exec(ctx, query, hash, title, address, lat, lng, category)
+	_, err := db.Pool.Exec(ctx, query, hash, title, address, lat, lng, categoryText)
 	if err != nil {
 		return fmt.Errorf("failed to put local cache: %w", err)
 	}

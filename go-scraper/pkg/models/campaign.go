@@ -46,12 +46,14 @@ func (c *CampaignKey) Key() string {
 }
 
 // LocalCacheEntry local_search_cache 테이블 엔트리
+// Note: category는 DB에서 text 타입이지만, 내부적으로는 raw_category_id로 변환하여 사용
 type LocalCacheEntry struct {
-	Address   *string
-	Lat       *float64
-	Lng       *float64
-	Category  *int64
-	UpdatedAt time.Time
+	Address      *string
+	Lat          *float64
+	Lng          *float64
+	CategoryText *string // DB의 category 컬럼 (text 타입)
+	Category     *int64  // 변환된 raw_category_id (코드 내부용)
+	UpdatedAt    time.Time
 }
 
 // NaverLocalSearchResult 네이버 Local API 검색 결과

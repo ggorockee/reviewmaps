@@ -87,6 +87,13 @@ type ScrapeConfig struct {
 	MaxItems int // 최대 수집 개수 (0 = 무제한)
 }
 
+// ServerAPIConfig Server API 연동 설정
+type ServerAPIConfig struct {
+	BaseURL    string // Server API Base URL (예: http://localhost:3000)
+	APIKey     string // Internal API Key
+	Enabled    bool   // API 호출 활성화 여부
+}
+
 // Config 애플리케이션의 모든 설정을 통합 관리하는 메인 구조체
 type Config struct {
 	BaseURL   string
@@ -96,6 +103,7 @@ type Config struct {
 	NaverAPI  NaverAPIConfig
 	Batch     BatchConfig
 	Scrape    ScrapeConfig
+	ServerAPI ServerAPIConfig
 }
 
 // Load 환경변수에서 설정을 로드
@@ -135,6 +143,11 @@ func Load() (*Config, error) {
 		Scrape: ScrapeConfig{
 			MaxItems: getEnvInt("SCRAPE_MAX_ITEMS", 100),
 		},
+		ServerAPI: ServerAPIConfig{
+			BaseURL: getEnv("SERVER_API_BASE_URL", ""),
+			APIKey:  getEnvWithFallback("SERVER_API_KEY", "API_SECRET_KEY", ""),
+			Enabled: getEnvBool("SERVER_API_ENABLED", false),
+		},
 	}
 
 	return cfg, nil
@@ -168,4 +181,15 @@ func getEnvInt(key string, defaultValue int) int {
 		return defaultValue
 	}
 	return intVal
+}
+
+// getEnvWithFallback 주 키가 없으면 대체 키 사용
+func getEnvWithFallback(primary, fallback, defaultValue string) string {
+	if value := os.Getenv(primary); value != "" {
+		return value
+	}
+	if value := os.Getenv(fallback); value != "" {
+		return value
+	}
+	return defaultValue
 }

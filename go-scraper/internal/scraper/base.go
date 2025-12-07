@@ -7,6 +7,7 @@ import (
 	"github.com/ggorockee/reviewmaps/go-scraper/internal/db"
 	"github.com/ggorockee/reviewmaps/go-scraper/internal/enricher"
 	"github.com/ggorockee/reviewmaps/go-scraper/internal/logger"
+	"github.com/ggorockee/reviewmaps/go-scraper/internal/server"
 	"github.com/ggorockee/reviewmaps/go-scraper/pkg/models"
 )
 
@@ -28,17 +29,19 @@ type Scraper interface {
 
 // BaseScraper 기본 스크레이퍼 구현
 type BaseScraper struct {
-	Config   *config.Config
-	DB       *db.DB
-	Enricher *enricher.Enricher
+	Config       *config.Config
+	DB           *db.DB
+	Enricher     *enricher.Enricher
+	ServerClient *server.Client
 }
 
 // NewBaseScraper 새로운 BaseScraper 생성
 func NewBaseScraper(cfg *config.Config, database *db.DB) *BaseScraper {
 	return &BaseScraper{
-		Config:   cfg,
-		DB:       database,
-		Enricher: enricher.New(cfg),
+		Config:       cfg,
+		DB:           database,
+		Enricher:     enricher.New(cfg),
+		ServerClient: server.NewClient(cfg),
 	}
 }
 
@@ -49,9 +52,28 @@ func (b *BaseScraper) Enrich(ctx context.Context, parsedData []models.Campaign) 
 	return parsedData, nil
 }
 
-// Save 데이터 저장
+// Save 데이터 저장 및 키워드 알림 처리 요청
 func (b *BaseScraper) Save(ctx context.Context, data []models.Campaign) error {
-	return b.DB.UpsertCampaigns(ctx, data)
+	log := logger.GetLogger("scraper.base")
+
+	// 1. DB에 저장하고 저장된 캠페인 ID 목록 받기
+	campaignIDs, err := b.DB.UpsertCampaigns(ctx, data)
+	if err != nil {
+		return err
+	}
+
+	// 2. Server API로 키워드 알림 처리 요청
+	if len(campaignIDs) > 0 && b.ServerClient != nil {
+		result, err := b.ServerClient.ProcessCampaignAlerts(ctx, campaignIDs)
+		if err != nil {
+			log.Warnf("Server API 호출 실패 (알림 처리 계속 진행): %v", err)
+		} else if result != nil {
+			log.Infof("키워드 알림 처리 완료: %d개 캠페인, %d개 알림 생성",
+				result.ProcessedCount, result.AlertsCreated)
+		}
+	}
+
+	return nil
 }
 
 // GetAPIKeys API 키 목록 반환

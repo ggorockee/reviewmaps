@@ -25,7 +25,13 @@ class FCMDevice(models.Model):
     )
     anonymous_session_id = models.CharField(max_length=255, null=True, blank=True, verbose_name="익명 세션 ID")
     fcm_token = models.CharField(max_length=500, unique=True, db_column="fcm_token", verbose_name="FCM 토큰")
-    device_type = models.CharField(max_length=20, choices=DEVICE_TYPE_CHOICES, default="android", db_column="device_type", verbose_name="디바이스 타입")
+    device_type = models.CharField(
+        max_length=20,
+        choices=DEVICE_TYPE_CHOICES,
+        default="android",
+        db_column="device_type",
+        verbose_name="디바이스 타입",
+    )
     is_active = models.BooleanField(default=True, verbose_name="활성 상태")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="생성일시")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="수정일시")

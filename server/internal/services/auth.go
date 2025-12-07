@@ -140,12 +140,17 @@ func (s *AuthService) Signup(req *SignupRequest) (*AuthResponse, error) {
 
 	// Create user with username as email_loginmethod (Django pattern)
 	username := fmt.Sprintf("%s_email", req.Email)
+	name := ""
+	if req.Name != nil {
+		name = *req.Name
+	}
 	user := models.User{
-		Username:    username,
-		Email:       req.Email,
-		Password:    hashedPassword,
-		LoginMethod: "email",
-		Name:        req.Name,
+		Username:     username,
+		Email:        req.Email,
+		Password:     hashedPassword,
+		LoginMethod:  "email",
+		Name:         name,
+		ProfileImage: "",
 	}
 
 	if err := s.db.Create(&user).Error; err != nil {
@@ -480,10 +485,10 @@ func (s *AuthService) handleSNSLogin(provider, providerUserID, email, name, prof
 			user = &existingUser
 
 			updateFields := make(map[string]interface{})
-			if name != "" && (user.Name == nil || *user.Name == "") {
+			if name != "" && user.Name == "" {
 				updateFields["name"] = name
 			}
-			if profileImage != "" && (user.ProfileImage == nil || *user.ProfileImage == "") {
+			if profileImage != "" && user.ProfileImage == "" {
 				updateFields["profile_image"] = profileImage
 			}
 			now := time.Now()
@@ -496,15 +501,6 @@ func (s *AuthService) handleSNSLogin(provider, providerUserID, email, name, prof
 			}
 		} else {
 			// Create new user (Django: User.objects.get_or_create with defaults)
-			var namePtr *string
-			if name != "" {
-				namePtr = &name
-			}
-			var profileImagePtr *string
-			if profileImage != "" {
-				profileImagePtr = &profileImage
-			}
-
 			// Generate username as email_provider (Django: f"{email}_{login_method}")
 			username := fmt.Sprintf("%s_%s", email, provider)
 
@@ -512,8 +508,8 @@ func (s *AuthService) handleSNSLogin(provider, providerUserID, email, name, prof
 				Username:     username,
 				Email:        email,
 				LoginMethod:  provider,
-				Name:         namePtr,
-				ProfileImage: profileImagePtr,
+				Name:         name,
+				ProfileImage: profileImage,
 			}
 
 			if err := tx.Create(user).Error; err != nil {
@@ -522,14 +518,28 @@ func (s *AuthService) handleSNSLogin(provider, providerUserID, email, name, prof
 		}
 
 		// 3. Create SocialAccount (Django: SocialAccount.objects.create(...))
+		// SocialAccount fields are nullable (*string)
+		var emailPtr, namePtr, profileImagePtr, accessTokenPtr *string
+		if email != "" {
+			emailPtr = &email
+		}
+		if name != "" {
+			namePtr = &name
+		}
+		if profileImage != "" {
+			profileImagePtr = &profileImage
+		}
+		if accessToken != "" {
+			accessTokenPtr = &accessToken
+		}
 		socialAccount = models.SocialAccount{
 			UserID:         user.ID,
 			Provider:       provider,
 			ProviderUserID: providerUserID,
-			Email:          email,
-			Name:           name,
-			ProfileImage:   profileImage,
-			AccessToken:    accessToken,
+			Email:          emailPtr,
+			Name:           namePtr,
+			ProfileImage:   profileImagePtr,
+			AccessToken:    accessTokenPtr,
 		}
 
 		if err := tx.Create(&socialAccount).Error; err != nil {

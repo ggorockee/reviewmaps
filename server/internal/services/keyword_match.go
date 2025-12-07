@@ -113,10 +113,11 @@ func (s *KeywordMatchService) ProcessCampaignKeywordMatching(ctx context.Context
 			}
 
 			if matchedField != "" {
+				campaignID := campaign.ID
 				mu.Lock()
 				alertsToCreate = append(alertsToCreate, models.KeywordAlert{
 					KeywordID:    kw.ID,
-					CampaignID:   campaign.ID,
+					CampaignID:   &campaignID,
 					MatchedField: matchedField,
 					IsRead:       false,
 				})
@@ -173,7 +174,9 @@ func (s *KeywordMatchService) sendPushNotifications(ctx context.Context, alerts 
 	userKeywords := make(map[uint][]string)
 	for _, alert := range alerts {
 		if kw, ok := keywordMap[alert.KeywordID]; ok {
-			userKeywords[kw.UserID] = append(userKeywords[kw.UserID], kw.Keyword)
+			if kw.UserID != nil {
+				userKeywords[*kw.UserID] = append(userKeywords[*kw.UserID], kw.Keyword)
+			}
 		}
 	}
 
@@ -336,10 +339,11 @@ func (s *KeywordMatchService) ProcessCampaignKeywordMatchingByID(ctx context.Con
 			}
 
 			if matchedField != "" {
+				campaignID := campaign.ID
 				mu.Lock()
 				alertsToCreate = append(alertsToCreate, models.KeywordAlert{
 					KeywordID:    kw.ID,
-					CampaignID:   campaign.ID,
+					CampaignID:   &campaignID,
 					MatchedField: matchedField,
 					IsRead:       false,
 				})

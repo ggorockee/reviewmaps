@@ -60,8 +60,9 @@ func (s *KeywordAlertService) CreateKeyword(userID uint, req *CreateKeywordReque
 	}
 
 	keyword := models.Keyword{
-		UserID:  userID,
-		Keyword: req.Keyword,
+		UserID:   &userID,
+		Keyword:  req.Keyword,
+		IsActive: true,
 	}
 
 	if err := s.db.Create(&keyword).Error; err != nil {

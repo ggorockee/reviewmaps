@@ -177,7 +177,12 @@ func (s *KeywordAlertService) DeleteAlert(userID, alertID uint) error {
 
 // RegisterFCM registers an FCM token
 func (s *KeywordAlertService) RegisterFCM(userID uint, req *FCMRegisterRequest) (*models.FCMDevice, error) {
-	// Upsert: update if exists, create if not
+	// 1. 같은 user_id + device_type의 기존 토큰 비활성화
+	s.db.Model(&models.FCMDevice{}).
+		Where("user_id = ? AND device_type = ? AND fcm_token != ?", userID, req.Platform, req.Token).
+		Update("is_active", false)
+
+	// 2. 토큰으로 기존 디바이스 조회
 	var device models.FCMDevice
 	err := s.db.Where("fcm_token = ?", req.Token).First(&device).Error
 
@@ -193,7 +198,7 @@ func (s *KeywordAlertService) RegisterFCM(userID uint, req *FCMRegisterRequest) 
 			return nil, err
 		}
 	} else {
-		// Update existing
+		// Update existing - 다른 유저가 사용하던 토큰이면 현재 유저로 변경
 		device.UserID = &userID
 		device.DeviceType = req.Platform
 		device.IsActive = true

@@ -7,130 +7,174 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ReviewMaps는 캠페인/리뷰어 정보 제공 서비스로, 모노레포 구조의 풀스택 프로젝트입니다.
 
 **서비스 구성:**
-- 백엔드 API (Django + Django Ninja)
+- 백엔드 API (Go Fiber + GORM)
+- 어드민 패널 (Django Admin + Unfold)
 - 모바일 앱 (Flutter - iOS/Android)
 - 웹 프론트엔드 (Next.js)
-- 데이터 수집 (Python Scraper)
+- 데이터 수집 (Go Scraper)
 
 ## Repository Structure
 
-| Directory | Tech Stack | Description | CLAUDE.md |
-|-----------|------------|-------------|-----------|
-| `server/` | Django 5.2 + Django Ninja | 비동기 REST API 서버 | ✅ `server/.claude/CLAUDE.md` |
-| `mobile/` | Flutter | iOS/Android 모바일 앱 | ✅ `mobile/.claude/CLAUDE.md` |
-| `web/` | Next.js 15 + React 19 | 웹 프론트엔드 | - |
-| `scrape/` | Python + SQLAlchemy | 캠페인 데이터 수집기 | - |
-
-**Note:** 각 서브 프로젝트의 상세 개발 가이드는 해당 디렉토리의 CLAUDE.md 참조
+| Directory | Tech Stack | Description |
+|-----------|------------|-------------|
+| `server/` | Go 1.23 + Fiber + GORM | REST API 서버 (Production) |
+| `admin/` | Django 5.2 + Unfold | 어드민 패널 (managed=False) |
+| `go-scraper/` | Go + Colly | 캠페인 데이터 수집기 |
+| `mobile/` | Flutter | iOS/Android 모바일 앱 |
+| `web/` | Next.js 15 + React 19 | 웹 프론트엔드 |
+| `scrape/` | Python (비활성화) | 레거시 스크레이퍼 (사용 안 함) |
 
 ## Development Commands
 
-### Server (Django)
-```bash
-cd server
-python manage.py runserver 0.0.0.0:8000   # 개발 서버
-python manage.py test                      # 전체 테스트
-pytest -v                                  # pytest 사용
-```
+### Server (Go Fiber)
+
+| 명령어 | 설명 |
+|--------|------|
+| `cd server && make run` | 개발 서버 실행 |
+| `cd server && make dev` | Hot reload (air) |
+| `cd server && make test` | 테스트 실행 |
+| `cd server && make swagger` | Swagger 문서 생성 |
+| `cd server && make build` | 바이너리 빌드 |
+
+### Admin (Django)
+
+| 명령어 | 설명 |
+|--------|------|
+| `cd admin && uv run python manage.py runserver` | 개발 서버 |
+| `cd admin && uv run ruff format --check .` | 포맷 검사 |
+
+### Go Scraper
+
+| 명령어 | 설명 |
+|--------|------|
+| `cd go-scraper && go run cmd/scraper/main.go reviewnote` | 스크레이퍼 실행 |
+| `cd go-scraper && go run cmd/scraper/main.go inflexer --keyword "키워드"` | 키워드 지정 |
+| `cd go-scraper && go run cmd/scraper/main.go cleanup` | 만료 캠페인 정리 |
+| `cd go-scraper && go run cmd/scraper/main.go dedupe` | 중복 캠페인 정리 |
 
 ### Mobile (Flutter)
-```bash
-cd mobile
-flutter pub get          # 의존성 설치
-flutter run              # 디버그 실행
-flutter analyze          # 정적 분석
-flutter test             # 테스트 실행
-```
+
+| 명령어 | 설명 |
+|--------|------|
+| `cd mobile && flutter pub get` | 의존성 설치 |
+| `cd mobile && flutter run` | 디버그 실행 |
+| `cd mobile && flutter analyze` | 정적 분석 |
+| `cd mobile && flutter test` | 테스트 실행 |
 
 ### Web (Next.js)
-```bash
-cd web
-npm install              # 의존성 설치
-npm run dev              # 개발 서버 (Turbopack)
-npm run build            # 프로덕션 빌드
-npm run lint             # ESLint 실행
-```
 
-### Scraper
-```bash
-cd scrape
-pip install -r requirements.txt           # 의존성 설치
-python main.py <scraper_name>             # 스크레이퍼 실행
-python main.py <scraper_name> --keyword "검색어"  # 키워드 지정
-```
+| 명령어 | 설명 |
+|--------|------|
+| `cd web && npm install` | 의존성 설치 |
+| `cd web && npm run dev` | 개발 서버 (Turbopack) |
+| `cd web && npm run build` | 프로덕션 빌드 |
 
 ## Architecture Overview
 
 ### Data Flow
-```
-[Scraper] → PostgreSQL ← [Server API] ← [Mobile App / Web]
-                              ↓
-                         Firebase (FCM 푸시)
-```
+
+| 단계 | 흐름 |
+|------|------|
+| 1 | Go Scraper → PostgreSQL (캠페인 수집) |
+| 2 | Go Fiber API ← PostgreSQL (데이터 조회) |
+| 3 | Mobile/Web → Go Fiber API (API 호출) |
+| 4 | Go Fiber API → Firebase FCM (푸시 알림) |
+| 5 | Django Admin → PostgreSQL (데이터 관리) |
 
 ### Server API Endpoints
-- `/v1/auth/*` - 인증 (회원가입, 로그인, SNS 로그인)
-- `/v1/users/me/*` - 사용자 정보
-- `/v1/campaigns/*` - 캠페인 목록/상세
-- `/v1/categories/*` - 카테고리
-- `/v1/keyword-alerts/*` - 키워드 알람
-- `/v1/app-config/*` - 앱 설정, 버전 체크
+
+| 경로 | 설명 |
+|------|------|
+| `/v1/auth/*` | 인증 (회원가입, 로그인, SNS 로그인) |
+| `/v1/users/me/*` | 사용자 정보 |
+| `/v1/campaigns/*` | 캠페인 목록/상세 |
+| `/v1/categories/*` | 카테고리 |
+| `/v1/keyword-alerts/*` | 키워드 알람 |
+| `/v1/app-config/*` | 앱 설정, 버전 체크 |
+| `/v1/internal/*` | 내부 API (Scraper 전용) |
+| `/v1/docs/*` | Swagger UI |
+| `/v1/healthz` | 헬스체크 |
 
 ### Key Integrations
-- **Firebase**: 푸시 알림(FCM), Analytics, Crashlytics, Remote Config
-- **Naver Map SDK**: 지도 표시 (Mobile)
-- **AdMob**: 광고 (Mobile)
-- **SNS Login**: Kakao, Google, Apple
+
+| 서비스 | 용도 |
+|--------|------|
+| Firebase | 푸시 알림(FCM) |
+| SigNoz | 분산 추적, 메트릭, 로그 (OpenTelemetry) |
+| Naver Map SDK | 지도 표시 (Mobile) |
+| AdMob | 광고 (Mobile) |
+| SNS Login | Kakao, Google, Apple |
 
 ## Core Development Principles
 
-### Server (Django)
-- **비동기 우선**: 인증 제외 모든 API는 async 처리
-- **TDD**: 테스트 코드 먼저 작성
-- **사용자 모델**: email + login_method 조합으로 unique
+### Server (Go Fiber)
+- **GORM AutoMigration**: 스키마 관리 주체
+- **Swagger 필수**: 모든 API에 swaggo 문서화
+- **관계 데이터 Preload**: API 응답 시 연관 데이터 포함
+- **Go routine 활용**: 병렬 처리 가능한 작업에 goroutine 사용
+- **OpenTelemetry**: SigNoz 연동 분산 추적
+
+### Admin (Django)
+- **managed=False**: GORM이 생성한 테이블 직접 참조
+- **Unfold 테마**: 모던 UI 어드민 패널
+- **Migration 없음**: Django migration 비활성화
+
+### Go Scraper
+- **플러그인 구조**: `internal/scraper/` 폴더에 스크레이퍼 추가
+- **Server API 호출**: 키워드 매칭 알림은 Server API 통해 처리
+- **Telemetry 통합**: OpenTelemetry 메트릭 수집
 
 ### Mobile (Flutter)
 - **상태 관리**: Riverpod 사용
 - **반응형 UI**: ScreenUtil (375x812 기준)
 - **Firebase 초기화 실패 허용**: 앱 실행 계속
 
-### Scraper
-- **플러그인 구조**: `scrapers/` 폴더에 BaseScraper 상속 클래스 추가
-- **DB 직접 연결**: SQLAlchemy로 PostgreSQL 접근
-
 ## Environment Setup
 
-### Required Environment Variables
+### Server (server/.env)
 
-**Server** (server/.env):
-- `POSTGRES_*`: DB 연결 정보
-- `SECRET_KEY`, `JWT_SECRET_KEY`: 보안 키
-- `KAKAO_REST_API_KEY`, `GOOGLE_CLIENT_ID_*`, `APPLE_*`: SNS 로그인
-- `FIREBASE_CREDENTIALS_PATH`: FCM 서비스 계정
+| 변수 | 설명 |
+|------|------|
+| `DATABASE_URL` | PostgreSQL 연결 문자열 |
+| `JWT_SECRET_KEY` | JWT 서명 키 |
+| `FIREBASE_CREDENTIALS_PATH` | FCM 서비스 계정 경로 |
+| `KAKAO_REST_API_KEY` | Kakao REST API 키 |
+| `GOOGLE_CLIENT_ID_*` | Google 클라이언트 ID (iOS/Android/Web) |
+| `APPLE_*` | Apple 로그인 설정 |
+| `SIGNOZ_ENDPOINT` | SigNoz OTLP 엔드포인트 |
 
-**Mobile** (mobile/.env):
-- `REVIEWMAPS_BASE_URL`, `REVIEWMAPS_X_API_KEY`: API 연결
-- `NAVER_*`: 네이버 지도/검색 API 키
-- `ADMOB_*`: 광고 단위 ID
+### Admin (admin/.env)
 
-**Scraper** (scrape/.env):
-- DB 연결 정보
+| 변수 | 설명 |
+|------|------|
+| `DATABASE_URL` | PostgreSQL 연결 문자열 (동일 DB) |
+| `SECRET_KEY` | Django 시크릿 키 |
+| `DEBUG` | 디버그 모드 |
+
+### Go Scraper (go-scraper/.env)
+
+| 변수 | 설명 |
+|------|------|
+| `DB_*` | PostgreSQL 연결 정보 |
+| `SERVER_API_URL` | Server API 엔드포인트 |
+| `SERVER_API_KEY` | Server API 인증 키 |
+
+### Mobile (mobile/.env)
+
+| 변수 | 설명 |
+|------|------|
+| `REVIEWMAPS_BASE_URL` | API 엔드포인트 |
+| `REVIEWMAPS_X_API_KEY` | API 인증 키 |
+| `NAVER_*` | 네이버 지도/검색 API 키 |
+| `ADMOB_*` | 광고 단위 ID |
 
 ## Testing
 
-```bash
-# Server - 전체 테스트
-cd server && python manage.py test
-
-# Server - 특정 앱 테스트
-python manage.py test campaigns
-
-# Server - pytest
-pytest keyword_alerts/tests/ -v
-
-# Mobile - 테스트
-cd mobile && flutter test
-```
+| 대상 | 명령어 |
+|------|--------|
+| Server | `cd server && make test` |
+| Server (커버리지) | `cd server && make test-cover` |
+| Mobile | `cd mobile && flutter test` |
 
 ## Task Tracking Rules (작업 추적 규칙)
 

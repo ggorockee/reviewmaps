@@ -440,7 +440,7 @@ func (s *KeywordMatchService) SendPushForRecentAlerts(ctx context.Context, alert
 		}
 	}
 
-	// Send personalized push per user (only once per user)
+	// Send push per user per keyword
 	var totalSuccess, totalFailure int
 	var allFailedTokens []string
 
@@ -450,38 +450,31 @@ func (s *KeywordMatchService) SendPushForRecentAlerts(ctx context.Context, alert
 			continue
 		}
 
-		// Count unique keywords
-		keywordSet := make(map[string]bool)
+		// Group alerts by keyword
+		keywordAlerts := make(map[string]int)
 		for _, alert := range alerts {
-			keywordSet[alert.Keyword.Keyword] = true
+			keywordAlerts[alert.Keyword.Keyword]++
 		}
 
-		// Build push message
-		var title, body string
-		if len(keywordSet) == 1 {
-			// Single keyword
-			for kw := range keywordSet {
-				title = fmt.Sprintf("키워드 \"%s\" 매칭", kw)
+		// Send one push per keyword
+		for keyword, count := range keywordAlerts {
+			title := fmt.Sprintf("\"%s\" 체험단 등록", keyword)
+			body := fmt.Sprintf("%d건의 새로운 체험단이 등록되었습니다. 리뷰맵에서 확인해보세요!", count)
+
+			data := map[string]string{
+				"type":        "keyword_alert",
+				"keyword":     keyword,
+				"alert_count": strconv.Itoa(count),
 			}
-			body = fmt.Sprintf("%d개의 새로운 체험단이 등록되었습니다", len(alerts))
-		} else {
-			// Multiple keywords
-			title = fmt.Sprintf("%d개 키워드 매칭", len(keywordSet))
-			body = fmt.Sprintf("%d개의 새로운 체험단이 등록되었습니다", len(alerts))
+
+			result := fcm.SendPushMultiple(ctx, tokens, title, body, data)
+			totalSuccess += result.SuccessCount
+			totalFailure += result.FailureCount
+			allFailedTokens = append(allFailedTokens, result.FailedTokens...)
+
+			log.Printf("[KeywordMatch] Push sent to user %d - keyword: '%s', count: %d, success: %d, failure: %d",
+				userID, keyword, count, result.SuccessCount, result.FailureCount)
 		}
-
-		data := map[string]string{
-			"type":         "keyword_alert",
-			"alert_count":  strconv.Itoa(len(alerts)),
-		}
-
-		result := fcm.SendPushMultiple(ctx, tokens, title, body, data)
-		totalSuccess += result.SuccessCount
-		totalFailure += result.FailureCount
-		allFailedTokens = append(allFailedTokens, result.FailedTokens...)
-
-		log.Printf("[KeywordMatch] Push sent to user %d - keywords: %d, alerts: %d, success: %d, failure: %d",
-			userID, len(keywordSet), len(alerts), result.SuccessCount, result.FailureCount)
 	}
 
 	log.Printf("[KeywordMatch] Push total - success: %d, failure: %d", totalSuccess, totalFailure)

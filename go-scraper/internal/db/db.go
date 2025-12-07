@@ -122,7 +122,37 @@ func (db *DB) UpsertCampaigns(ctx context.Context, campaigns []models.Campaign) 
 	}
 	defer tx.Rollback(ctx)
 
-	// 1. 기존 레코드 삭제 (DELETE)
+	// 1. 삭제 대상 캠페인 ID 조회
+	findQuery := `
+		SELECT id FROM campaign
+		WHERE (platform, title, offer, campaign_channel) = ($1, $2, $3, $4)
+	`
+
+	var campaignIDsToDelete []uint
+	for _, c := range campaigns {
+		var id uint
+		err := tx.QueryRow(ctx, findQuery, c.Platform, c.Title, c.Offer, c.CampaignChannel).Scan(&id)
+		if err == nil {
+			campaignIDsToDelete = append(campaignIDsToDelete, id)
+		}
+	}
+
+	// 2. 관련 알림의 campaign_id를 NULL로 설정 (FK constraint 해결)
+	if len(campaignIDsToDelete) > 0 {
+		nullifyQuery := `
+			UPDATE keyword_alerts_alerts
+			SET campaign_id = NULL
+			WHERE campaign_id = ANY($1)
+		`
+		result, err := tx.Exec(ctx, nullifyQuery, campaignIDsToDelete)
+		if err != nil {
+			log.Warnf("알림 campaign_id NULL 설정 실패: %v", err)
+		} else if result.RowsAffected() > 0 {
+			log.Infof("관련 알림 %d건의 campaign_id를 NULL로 설정", result.RowsAffected())
+		}
+	}
+
+	// 3. 기존 레코드 삭제 (DELETE)
 	deleteQuery := `
 		DELETE FROM campaign
 		WHERE (platform, title, offer, campaign_channel) = ($1, $2, $3, $4)

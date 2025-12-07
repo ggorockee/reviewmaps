@@ -175,7 +175,8 @@ class KeywordService {
 
         _debugPrintResponse('DELETE', uri.toString(), response);
 
-        if (response.statusCode != 200) {
+        // 200 OK 또는 204 No Content 모두 성공
+        if (response.statusCode != 200 && response.statusCode != 204) {
           _handleHttpError(response, '키워드를 삭제할 수 없습니다.');
         }
       } catch (e) {
@@ -251,7 +252,8 @@ class KeywordService {
 
         _debugPrintResponse('DELETE', uri.toString(), response);
 
-        if (response.statusCode != 200) {
+        // 200 OK 또는 204 No Content 모두 성공
+        if (response.statusCode != 200 && response.statusCode != 204) {
           _handleHttpError(response, '알람을 삭제할 수 없습니다.');
         }
       } catch (e) {
@@ -373,7 +375,8 @@ class KeywordService {
 
         _debugPrintResponse('DELETE', uri.toString(), response);
 
-        if (response.statusCode != 200) {
+        // 200 OK 또는 204 No Content 모두 성공
+        if (response.statusCode != 200 && response.statusCode != 204) {
           _handleHttpError(response, 'FCM 토큰 해제에 실패했습니다.');
         }
 

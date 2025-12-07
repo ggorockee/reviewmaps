@@ -73,9 +73,10 @@ class KeywordAlert(models.Model):
         related_name="keyword_alerts",
         verbose_name="캠페인",
     )
+    matched_field = models.CharField(max_length=50, default="title", verbose_name="매칭 필드")
     is_read = models.BooleanField(default=False, verbose_name="읽음 여부")
-    is_sent = models.BooleanField(default=False, verbose_name="발송 여부")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="생성일시")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="수정일시")
 
     class Meta:
         db_table = "keyword_alerts_alerts"

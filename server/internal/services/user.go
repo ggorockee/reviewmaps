@@ -36,10 +36,10 @@ func (s *UserService) Update(id uint, req *UpdateUserRequest) (*models.User, err
 	}
 
 	if req.Name != nil {
-		user.Name = req.Name
+		user.Name = *req.Name
 	}
 	if req.ProfileImage != nil {
-		user.ProfileImage = req.ProfileImage
+		user.ProfileImage = *req.ProfileImage
 	}
 
 	if err := s.db.Save(&user).Error; err != nil {

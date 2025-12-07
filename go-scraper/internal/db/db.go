@@ -103,8 +103,7 @@ func (db *DB) LoadExistingCampaigns(ctx context.Context) (map[string]*models.Cam
 
 // UpsertCampaigns 캠페인 데이터 저장 (DELETE + INSERT 방식)
 // 기존 레코드를 삭제하고 새로 INSERT하여 created_at도 갱신
-// Firebase 푸시 알림이 새 캠페인으로 인식하도록 함
-// 반환값: 저장된 캠페인 ID 목록
+// 반환값: 신규 캠페인 ID 목록만 (기존에 있던 캠페인은 제외)
 func (db *DB) UpsertCampaigns(ctx context.Context, campaigns []models.Campaign) ([]uint, error) {
 	log := logger.GetLogger("db")
 
@@ -122,18 +121,22 @@ func (db *DB) UpsertCampaigns(ctx context.Context, campaigns []models.Campaign) 
 	}
 	defer tx.Rollback(ctx)
 
-	// 1. 삭제 대상 캠페인 ID 조회
+	// 1. 기존 캠페인 조회 (이미 존재하는지 체크용)
 	findQuery := `
 		SELECT id FROM campaign
 		WHERE (platform, title, offer, campaign_channel) = ($1, $2, $3, $4)
 	`
 
+	// 기존에 있던 캠페인 키 추적 (신규 여부 판단용)
+	existingKeys := make(map[string]bool)
 	var campaignIDsToDelete []uint
 	for _, c := range campaigns {
+		key := fmt.Sprintf("%s|%s|%s|%s", c.Platform, c.Title, c.Offer, c.CampaignChannel)
 		var id uint
 		err := tx.QueryRow(ctx, findQuery, c.Platform, c.Title, c.Offer, c.CampaignChannel).Scan(&id)
 		if err == nil {
 			campaignIDsToDelete = append(campaignIDsToDelete, id)
+			existingKeys[key] = true // 기존에 있던 캠페인
 		}
 	}
 
@@ -179,7 +182,7 @@ func (db *DB) UpsertCampaigns(ctx context.Context, campaigns []models.Campaign) 
 		log.Infof("기존 캠페인 %d건 삭제 완료", deletedCount)
 	}
 
-	// 2. 새로 INSERT (RETURNING id로 저장된 ID 수집)
+	// 4. 새로 INSERT (RETURNING id로 저장된 ID 수집)
 	insertQuery := `
 		INSERT INTO campaign (
 			platform, title, offer, campaign_channel, company, content_link,
@@ -190,7 +193,8 @@ func (db *DB) UpsertCampaigns(ctx context.Context, campaigns []models.Campaign) 
 		) RETURNING id
 	`
 
-	var insertedIDs []uint
+	var newCampaignIDs []uint // 신규 캠페인 ID만
+	var allInsertedCount int
 	for _, c := range campaigns {
 		var id uint
 		err := tx.QueryRow(ctx, insertQuery,
@@ -202,7 +206,13 @@ func (db *DB) UpsertCampaigns(ctx context.Context, campaigns []models.Campaign) 
 			log.Errorf("캠페인 INSERT 실패: %v", err)
 			continue
 		}
-		insertedIDs = append(insertedIDs, id)
+		allInsertedCount++
+
+		// 기존에 없던 신규 캠페인만 알림 대상에 추가
+		key := fmt.Sprintf("%s|%s|%s|%s", c.Platform, c.Title, c.Offer, c.CampaignChannel)
+		if !existingKeys[key] {
+			newCampaignIDs = append(newCampaignIDs, id)
+		}
 	}
 
 	// 트랜잭션 커밋
@@ -210,9 +220,9 @@ func (db *DB) UpsertCampaigns(ctx context.Context, campaigns []models.Campaign) 
 		return nil, fmt.Errorf("트랜잭션 커밋 실패: %w", err)
 	}
 
-	log.Infof("DB 저장 완료. 총 %d건의 데이터가 성공적으로 처리되었습니다. (삭제: %d, 신규: %d)",
-		len(insertedIDs), deletedCount, int64(len(insertedIDs))-deletedCount)
-	return insertedIDs, nil
+	log.Infof("DB 저장 완료. 총 %d건 처리 (기존 갱신: %d, 신규: %d)",
+		allInsertedCount, deletedCount, len(newCampaignIDs))
+	return newCampaignIDs, nil
 }
 
 // GetGeocodeCache geocode 캐시 조회

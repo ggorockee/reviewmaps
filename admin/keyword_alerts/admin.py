@@ -23,9 +23,9 @@ class KeywordAdmin(ModelAdmin):
 
 @admin.register(KeywordAlert)
 class KeywordAlertAdmin(ModelAdmin):
-    list_display = ("keyword", "campaign", "is_read", "is_sent", "created_at")
-    list_filter = ("is_read", "is_sent", "created_at")
+    list_display = ("keyword", "campaign", "matched_field", "is_read", "created_at")
+    list_filter = ("is_read", "matched_field", "created_at")
     search_fields = ("keyword__keyword", "campaign__company", "campaign__title")
     ordering = ("-created_at",)
     date_hierarchy = "created_at"
-    readonly_fields = ("created_at",)
+    readonly_fields = ("created_at", "updated_at")

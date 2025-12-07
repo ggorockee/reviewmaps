@@ -108,30 +108,34 @@ class AlertInfo {
   });
 
   factory AlertInfo.fromJson(Map<String, dynamic> json) {
+    // 서버 응답: 중첩된 keyword/campaign 객체 구조
+    final keywordObj = json['keyword'] as Map<String, dynamic>?;
+    final campaignObj = json['campaign'] as Map<String, dynamic>?;
+
     return AlertInfo(
       id: json['id'] as int,
-      keyword: json['keyword'] as String,
-      campaignId: json['campaign_id'] as int,
-      campaignTitle: json['campaign_title'] as String,
-      campaignCompany: json['campaign_company'] as String?,
-      campaignOffer: json['campaign_offer'] as String?,
-      campaignAddress: json['campaign_address'] as String?,
-      campaignLat: json['campaign_lat'] != null
-          ? (json['campaign_lat'] as num).toDouble()
+      keyword: keywordObj?['keyword'] as String? ?? '',
+      campaignId: json['campaign_id'] as int? ?? campaignObj?['id'] as int? ?? 0,
+      campaignTitle: campaignObj?['title'] as String? ?? '',
+      campaignCompany: campaignObj?['company'] as String?,
+      campaignOffer: campaignObj?['offer'] as String?,
+      campaignAddress: campaignObj?['address'] as String?,
+      campaignLat: campaignObj?['lat'] != null
+          ? (campaignObj!['lat'] as num).toDouble()
           : null,
-      campaignLng: json['campaign_lng'] != null
-          ? (json['campaign_lng'] as num).toDouble()
+      campaignLng: campaignObj?['lng'] != null
+          ? (campaignObj!['lng'] as num).toDouble()
           : null,
-      campaignImgUrl: json['campaign_img_url'] as String?,
-      campaignPlatform: json['campaign_platform'] as String?,
-      campaignApplyDeadline: json['campaign_apply_deadline'] != null
-          ? DateTime.parse(json['campaign_apply_deadline'] as String)
+      campaignImgUrl: campaignObj?['img_url'] as String?,
+      campaignPlatform: campaignObj?['platform'] as String?,
+      campaignApplyDeadline: campaignObj?['apply_deadline'] != null
+          ? DateTime.tryParse(campaignObj!['apply_deadline'] as String)
           : null,
-      campaignContentLink: json['campaign_content_link'] as String?,
-      campaignChannel: json['campaign_channel'] as String?,
-      matchedField: json['matched_field'] as String,
-      isRead: json['is_read'] as bool,
-      createdAt: json['created_at'] as String,
+      campaignContentLink: campaignObj?['content_link'] as String?,
+      campaignChannel: campaignObj?['campaign_channel'] as String?,
+      matchedField: json['matched_field'] as String? ?? '',
+      isRead: json['is_read'] as bool? ?? false,
+      createdAt: json['created_at'] as String? ?? '',
       distance: json['distance'] != null
           ? (json['distance'] as num).toDouble()
           : null,
@@ -188,23 +192,36 @@ class AlertInfo {
 
 /// 알람 목록 응답 데이터
 class AlertListResponse {
-  final List<AlertInfo> alerts;
-  final int unreadCount;
+  final List<AlertInfo> items;
+  final int total;
+  final int page;
+  final int limit;
+  final int totalPages;
 
   AlertListResponse({
-    required this.alerts,
-    required this.unreadCount,
+    required this.items,
+    required this.total,
+    required this.page,
+    required this.limit,
+    required this.totalPages,
   });
 
   factory AlertListResponse.fromJson(Map<String, dynamic> json) {
-    final alertsList = json['alerts'] as List<dynamic>;
+    final itemsList = json['items'] as List<dynamic>? ?? [];
     return AlertListResponse(
-      alerts: alertsList
+      items: itemsList
           .map((item) => AlertInfo.fromJson(item as Map<String, dynamic>))
           .toList(),
-      unreadCount: json['unread_count'] as int,
+      total: json['total'] as int? ?? 0,
+      page: json['page'] as int? ?? 1,
+      limit: json['limit'] as int? ?? 20,
+      totalPages: json['total_pages'] as int? ?? 0,
     );
   }
+
+  /// 하위 호환성을 위한 getter
+  List<AlertInfo> get alerts => items;
+  int get unreadCount => items.where((a) => !a.isRead).length;
 }
 
 /// 알람 읽음 처리 요청 데이터

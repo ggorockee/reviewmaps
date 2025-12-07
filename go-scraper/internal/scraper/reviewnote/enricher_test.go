@@ -258,8 +258,8 @@ func TestScraperWithMockDB(t *testing.T) {
 		},
 	}
 
-	if s.PlatformName() != "reviewnote" {
-		t.Errorf("Expected platform 'reviewnote', got '%s'", s.PlatformName())
+	if s.PlatformName() != "리뷰노트" {
+		t.Errorf("Expected platform '리뷰노트', got '%s'", s.PlatformName())
 	}
 
 	if s.BaseURL() != "https://www.reviewnote.co.kr/api/v2/campaigns" {

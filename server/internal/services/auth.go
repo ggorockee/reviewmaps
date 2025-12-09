@@ -92,10 +92,11 @@ func (s *AuthService) SendEmailCode(email string) error {
 	s.db.Where("email = ?", email).Delete(&models.EmailVerification{})
 
 	// Create new verification record
+	expiresAt := time.Now().Add(10 * time.Minute)
 	verification := models.EmailVerification{
 		Email:     email,
 		Code:      code,
-		ExpiresAt: time.Now().Add(10 * time.Minute),
+		ExpiresAt: expiresAt,
 	}
 
 	if err := s.db.Create(&verification).Error; err != nil {
@@ -103,19 +104,48 @@ func (s *AuthService) SendEmailCode(email string) error {
 	}
 
 	// TODO: Send email with code (implement email service)
-	fmt.Printf("Verification code for %s: %s\n", email, code)
+	// For now, print to console for testing
+	fmt.Printf("\n========================================\n")
+	fmt.Printf("📧 EMAIL VERIFICATION CODE\n")
+	fmt.Printf("========================================\n")
+	fmt.Printf("Email: %s\n", email)
+	fmt.Printf("Code: %s\n", code)
+	fmt.Printf("Expires at: %s (in 10 minutes)\n", expiresAt.Format("2006-01-02 15:04:05"))
+	fmt.Printf("========================================\n\n")
 
 	return nil
 }
 
 // VerifyEmailCode verifies the email code
 func (s *AuthService) VerifyEmailCode(email, code string) (bool, error) {
+	fmt.Printf("[VerifyEmailCode] Attempting to verify - Email: %s, Code: %s\n", email, code)
+
 	var verification models.EmailVerification
-	err := s.db.Where("email = ? AND code = ? AND expires_at > ?", email, code, time.Now()).First(&verification).Error
+	now := time.Now()
+	err := s.db.Where("email = ? AND code = ? AND expires_at > ?", email, code, now).First(&verification).Error
+
 	if err != nil {
+		// Check if code exists but expired
+		var expiredCheck models.EmailVerification
+		if err2 := s.db.Where("email = ? AND code = ?", email, code).First(&expiredCheck).Error; err2 == nil {
+			fmt.Printf("[VerifyEmailCode] Code found but expired - Expires at: %s, Current time: %s\n",
+				expiredCheck.ExpiresAt.Format("2006-01-02 15:04:05"),
+				now.Format("2006-01-02 15:04:05"))
+			return false, errors.New("verification code has expired")
+		}
+
+		// Check if email exists with different code
+		var emailCheck models.EmailVerification
+		if err2 := s.db.Where("email = ?", email).Order("created_at DESC").First(&emailCheck).Error; err2 == nil {
+			fmt.Printf("[VerifyEmailCode] Email found with different code - Expected: %s, Got: %s\n", emailCheck.Code, code)
+			return false, errors.New("invalid verification code")
+		}
+
+		fmt.Printf("[VerifyEmailCode] No verification record found for email: %s\n", email)
 		return false, errors.New("invalid or expired code")
 	}
 
+	fmt.Printf("[VerifyEmailCode] Code verified successfully for: %s\n", email)
 	verification.IsVerified = true
 	s.db.Save(&verification)
 

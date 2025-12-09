@@ -41,6 +41,14 @@ type Config struct {
 
 	// Internal API
 	InternalAPIKey string
+
+	// Email (SMTP)
+	EmailHost         string
+	EmailPort         int
+	EmailHostUser     string
+	EmailHostPassword string
+	EmailUseTLS       bool
+	DefaultFromEmail  string
 }
 
 func Load() *Config {
@@ -79,6 +87,14 @@ func Load() *Config {
 
 		// Internal API (Scraper → Server 통신용, API_SECRET_KEY 재사용)
 		InternalAPIKey: getEnvWithFallback("INTERNAL_API_KEY", "API_SECRET_KEY", ""),
+
+		// Email (SMTP)
+		EmailHost:         getEnv("EMAIL_HOST", "smtp.gmail.com"),
+		EmailPort:         getEnvAsInt("EMAIL_PORT", 587),
+		EmailHostUser:     getEnv("EMAIL_HOST_USER", ""),
+		EmailHostPassword: getEnv("EMAIL_HOST_PASSWORD", ""),
+		EmailUseTLS:       getEnvAsBool("EMAIL_USE_TLS", true),
+		DefaultFromEmail:  getEnv("DEFAULT_FROM_EMAIL", ""),
 	}
 }
 
@@ -104,6 +120,15 @@ func getEnvAsInt(key string, defaultValue int) int {
 	if value, exists := os.LookupEnv(key); exists {
 		if intValue, err := strconv.Atoi(value); err == nil {
 			return intValue
+		}
+	}
+	return defaultValue
+}
+
+func getEnvAsBool(key string, defaultValue bool) bool {
+	if value, exists := os.LookupEnv(key); exists {
+		if boolValue, err := strconv.ParseBool(value); err == nil {
+			return boolValue
 		}
 	}
 	return defaultValue

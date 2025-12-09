@@ -52,21 +52,26 @@ func (s *EmailService) SendVerificationCode(toEmail, code string) error {
 
 // sendEmail sends an email using SMTP
 func (s *EmailService) sendEmail(to, subject, body string) error {
-	from := s.cfg.DefaultFromEmail
-	if from == "" {
-		from = s.cfg.EmailHostUser
+	// Gmail requires sender to match authenticated user
+	from := s.cfg.EmailHostUser
+
+	// Display name for From header (optional)
+	displayFrom := from
+	if s.cfg.DefaultFromEmail != "" {
+		displayFrom = fmt.Sprintf("ReviewMaps <%s>", from)
 	}
 
 	// Set up authentication
 	auth := smtp.PlainAuth("", s.cfg.EmailHostUser, s.cfg.EmailHostPassword, s.cfg.EmailHost)
 
-	// Build message
+	// Build message with proper RFC 5321 format
 	headers := make(map[string]string)
-	headers["From"] = from
+	headers["From"] = displayFrom
 	headers["To"] = to
 	headers["Subject"] = subject
 	headers["MIME-Version"] = "1.0"
 	headers["Content-Type"] = "text/html; charset=UTF-8"
+	headers["Content-Transfer-Encoding"] = "quoted-printable"
 
 	message := ""
 	for k, v := range headers {
@@ -77,7 +82,7 @@ func (s *EmailService) sendEmail(to, subject, body string) error {
 	// Server address
 	addr := fmt.Sprintf("%s:%d", s.cfg.EmailHost, s.cfg.EmailPort)
 
-	// Send email
+	// Send email - use authenticated user as sender
 	if s.cfg.EmailUseTLS {
 		return s.sendMailTLS(addr, auth, from, []string{to}, []byte(message))
 	}

@@ -178,14 +178,21 @@ func (h *AuthHandler) AnonymousSession(c *fiber.Ctx) error {
 func (h *AuthHandler) KakaoLogin(c *fiber.Ctx) error {
 	var req services.SNSLoginRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request body",
+			"detail": err.Error(),
+		})
 	}
 
 	response, err := h.service.KakaoLogin(req.AccessToken)
 	if err != nil {
-		// Log the error for debugging
-		c.Context().Logger().Printf("[KakaoLogin] Error: %v", err)
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": err.Error()})
+		// Log detailed error to console
+		c.Context().Logger().Printf("[KakaoLogin] Error: %v, Token (first 20 chars): %s", err, truncateString(req.AccessToken, 20))
+
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Kakao login failed",
+			"detail": err.Error(),
+		})
 	}
 
 	return c.JSON(response)
@@ -202,17 +209,32 @@ func (h *AuthHandler) KakaoLogin(c *fiber.Ctx) error {
 func (h *AuthHandler) GoogleLogin(c *fiber.Ctx) error {
 	var req services.SNSLoginRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request body",
+			"detail": err.Error(),
+		})
 	}
 
 	response, err := h.service.GoogleLogin(req.AccessToken)
 	if err != nil {
-		// Log the error for debugging
-		c.Context().Logger().Printf("[GoogleLogin] Error: %v", err)
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": err.Error()})
+		// Log detailed error to console
+		c.Context().Logger().Printf("[GoogleLogin] Error: %v, Token (first 20 chars): %s", err, truncateString(req.AccessToken, 20))
+
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Google login failed",
+			"detail": err.Error(),
+		})
 	}
 
 	return c.JSON(response)
+}
+
+// truncateString safely truncates a string to maxLen characters
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
 }
 
 // AppleLogin godoc
@@ -226,12 +248,21 @@ func (h *AuthHandler) GoogleLogin(c *fiber.Ctx) error {
 func (h *AuthHandler) AppleLogin(c *fiber.Ctx) error {
 	var req services.SNSLoginRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request body",
+			"detail": err.Error(),
+		})
 	}
 
 	response, err := h.service.AppleLogin(req.AccessToken)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": err.Error()})
+		// Log detailed error to console
+		c.Context().Logger().Printf("[AppleLogin] Error: %v, Token (first 20 chars): %s", err, truncateString(req.AccessToken, 20))
+
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Apple login failed",
+			"detail": err.Error(),
+		})
 	}
 
 	return c.JSON(response)

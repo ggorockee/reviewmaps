@@ -56,6 +56,11 @@ type SNSLoginRequest struct {
 	AccessToken string `json:"access_token"`
 }
 
+type EmailCodeSentResponse struct {
+	Message   string `json:"message"`
+	ExpiresIn int    `json:"expires_in"` // seconds
+}
+
 // AppleLoginRequest for Apple Sign In (identity_token + optional authorization_code)
 type AppleLoginRequest struct {
 	IdentityToken     string `json:"identity_token"`

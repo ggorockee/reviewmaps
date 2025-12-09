@@ -13,18 +13,24 @@ import (
 	"github.com/ggorockee/reviewmaps/server/internal/database"
 	"github.com/ggorockee/reviewmaps/server/internal/models"
 	"github.com/ggorockee/reviewmaps/server/pkg/auth"
+	"github.com/ggorockee/reviewmaps/server/pkg/email"
 	"github.com/ggorockee/reviewmaps/server/pkg/sns"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
 type AuthService struct {
-	db  *database.DB
-	cfg *config.Config
+	db           *database.DB
+	cfg          *config.Config
+	emailService *email.EmailService
 }
 
 func NewAuthService(db *database.DB, cfg *config.Config) *AuthService {
-	return &AuthService{db: db, cfg: cfg}
+	return &AuthService{
+		db:           db,
+		cfg:          cfg,
+		emailService: email.NewEmailService(cfg),
+	}
 }
 
 // Request/Response types
@@ -108,8 +114,7 @@ func (s *AuthService) SendEmailCode(email string) error {
 		return err
 	}
 
-	// TODO: Send email with code (implement email service)
-	// For now, print to console for testing
+	// Send email with code
 	fmt.Printf("\n========================================\n")
 	fmt.Printf("📧 EMAIL VERIFICATION CODE\n")
 	fmt.Printf("========================================\n")
@@ -117,6 +122,15 @@ func (s *AuthService) SendEmailCode(email string) error {
 	fmt.Printf("Code: %s\n", code)
 	fmt.Printf("Expires at: %s (in 10 minutes)\n", expiresAt.Format("2006-01-02 15:04:05"))
 	fmt.Printf("========================================\n\n")
+
+	// Send email asynchronously
+	go func() {
+		if err := s.emailService.SendVerificationCode(email, code); err != nil {
+			fmt.Printf("[SendEmailCode] Failed to send email to %s: %v\n", email, err)
+		} else {
+			fmt.Printf("[SendEmailCode] Email sent successfully to %s\n", email)
+		}
+	}()
 
 	return nil
 }

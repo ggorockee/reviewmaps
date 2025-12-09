@@ -48,7 +48,7 @@ func SetupAuthRoutes(router fiber.Router, db *database.DB, cfg *config.Config) {
 // @Accept json
 // @Produce json
 // @Param request body services.SendEmailCodeRequest true "Email"
-// @Success 200 {object} map[string]string
+// @Success 200 {object} services.EmailCodeSentResponse
 // @Router /auth/email/send-code [post]
 func (h *AuthHandler) SendEmailCode(c *fiber.Ctx) error {
 	var req services.SendEmailCodeRequest
@@ -60,7 +60,10 @@ func (h *AuthHandler) SendEmailCode(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 
-	return c.JSON(fiber.Map{"message": "Verification code sent"})
+	return c.JSON(services.EmailCodeSentResponse{
+		Message:   "Verification code sent",
+		ExpiresIn: 600, // 10 minutes in seconds
+	})
 }
 
 // VerifyEmailCode godoc

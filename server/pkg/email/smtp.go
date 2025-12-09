@@ -3,6 +3,7 @@ package email
 import (
 	"crypto/tls"
 	"fmt"
+	"net"
 	"net/smtp"
 	"strings"
 
@@ -84,23 +85,30 @@ func (s *EmailService) sendEmail(to, subject, body string) error {
 	return smtp.SendMail(addr, auth, from, []string{to}, []byte(message))
 }
 
-// sendMailTLS sends email with TLS
+// sendMailTLS sends email with STARTTLS
 func (s *EmailService) sendMailTLS(addr string, auth smtp.Auth, from string, to []string, msg []byte) error {
-	// Connect to server
+	// Connect to server with plain TCP first
 	host := strings.Split(addr, ":")[0]
-	conn, err := tls.Dial("tcp", addr, &tls.Config{
-		ServerName: host,
-	})
+	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		return fmt.Errorf("failed to dial: %w", err)
 	}
 	defer conn.Close()
 
+	// Create SMTP client
 	client, err := smtp.NewClient(conn, host)
 	if err != nil {
 		return fmt.Errorf("failed to create client: %w", err)
 	}
 	defer client.Close()
+
+	// Start TLS (STARTTLS command)
+	tlsConfig := &tls.Config{
+		ServerName: host,
+	}
+	if err = client.StartTLS(tlsConfig); err != nil {
+		return fmt.Errorf("failed to start TLS: %w", err)
+	}
 
 	// Auth
 	if auth != nil {

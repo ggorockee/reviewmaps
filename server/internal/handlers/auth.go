@@ -72,7 +72,7 @@ func (h *AuthHandler) SendEmailCode(c *fiber.Ctx) error {
 // @Accept json
 // @Produce json
 // @Param request body services.VerifyEmailCodeRequest true "Email and code"
-// @Success 200 {object} map[string]bool
+// @Success 200 {object} services.EmailVerifyCodeResponse
 // @Router /auth/email/verify-code [post]
 func (h *AuthHandler) VerifyEmailCode(c *fiber.Ctx) error {
 	var req services.VerifyEmailCodeRequest
@@ -80,12 +80,15 @@ func (h *AuthHandler) VerifyEmailCode(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
 
-	valid, err := h.service.VerifyEmailCode(req.Email, req.Code)
+	verificationToken, err := h.service.VerifyEmailCode(req.Email, req.Code)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
-	return c.JSON(fiber.Map{"verified": valid})
+	return c.JSON(services.EmailVerifyCodeResponse{
+		Verified:          true,
+		VerificationToken: verificationToken,
+	})
 }
 
 // Signup godoc

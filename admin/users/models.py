@@ -50,7 +50,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         ("anonymous", "익명"),
     ]
 
-    username = models.CharField(max_length=255, unique=True, editable=False, default="", verbose_name="사용자명")
+    username = models.CharField(max_length=255, editable=False, default="", verbose_name="사용자명")
     email = models.EmailField(verbose_name="이메일")
     login_method = models.CharField(
         max_length=20, choices=LOGIN_METHOD_CHOICES, default="email", verbose_name="로그인 방식"

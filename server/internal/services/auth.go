@@ -61,6 +61,11 @@ type EmailCodeSentResponse struct {
 	ExpiresIn int    `json:"expires_in"` // seconds
 }
 
+type EmailVerifyCodeResponse struct {
+	Verified          bool   `json:"verified"`
+	VerificationToken string `json:"verification_token"`
+}
+
 // AppleLoginRequest for Apple Sign In (identity_token + optional authorization_code)
 type AppleLoginRequest struct {
 	IdentityToken     string `json:"identity_token"`
@@ -116,8 +121,8 @@ func (s *AuthService) SendEmailCode(email string) error {
 	return nil
 }
 
-// VerifyEmailCode verifies the email code
-func (s *AuthService) VerifyEmailCode(email, code string) (bool, error) {
+// VerifyEmailCode verifies the email code and returns verification token
+func (s *AuthService) VerifyEmailCode(email, code string) (string, error) {
 	fmt.Printf("[VerifyEmailCode] Attempting to verify - Email: %s, Code: %s\n", email, code)
 
 	var verification models.EmailVerification
@@ -131,25 +136,29 @@ func (s *AuthService) VerifyEmailCode(email, code string) (bool, error) {
 			fmt.Printf("[VerifyEmailCode] Code found but expired - Expires at: %s, Current time: %s\n",
 				expiredCheck.ExpiresAt.Format("2006-01-02 15:04:05"),
 				now.Format("2006-01-02 15:04:05"))
-			return false, errors.New("verification code has expired")
+			return "", errors.New("verification code has expired")
 		}
 
 		// Check if email exists with different code
 		var emailCheck models.EmailVerification
 		if err2 := s.db.Where("email = ?", email).Order("created_at DESC").First(&emailCheck).Error; err2 == nil {
 			fmt.Printf("[VerifyEmailCode] Email found with different code - Expected: %s, Got: %s\n", emailCheck.Code, code)
-			return false, errors.New("invalid verification code")
+			return "", errors.New("invalid verification code")
 		}
 
 		fmt.Printf("[VerifyEmailCode] No verification record found for email: %s\n", email)
-		return false, errors.New("invalid or expired code")
+		return "", errors.New("invalid or expired code")
 	}
 
-	fmt.Printf("[VerifyEmailCode] Code verified successfully for: %s\n", email)
+	// Generate verification token
+	verificationToken := uuid.New().String()
+
+	fmt.Printf("[VerifyEmailCode] Code verified successfully for: %s, Token: %s\n", email, verificationToken)
 	verification.IsVerified = true
+	verification.VerificationToken = &verificationToken
 	s.db.Save(&verification)
 
-	return true, nil
+	return verificationToken, nil
 }
 
 // Signup creates a new user

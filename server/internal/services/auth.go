@@ -187,7 +187,7 @@ func (s *AuthService) Signup(req *SignupRequest) (*AuthResponse, error) {
 	// Check if user already exists
 	var existingUser models.User
 	if err := s.db.Where("email = ? AND login_method = ?", req.Email, "email").First(&existingUser).Error; err == nil {
-		return nil, errors.New("user already exists")
+		return nil, errors.New("이미 가입된 이메일입니다")
 	}
 
 	// Hash password
@@ -202,6 +202,7 @@ func (s *AuthService) Signup(req *SignupRequest) (*AuthResponse, error) {
 	if req.Name != nil {
 		name = *req.Name
 	}
+	now := time.Now()
 	user := models.User{
 		Username:     username,
 		Email:        req.Email,
@@ -209,6 +210,8 @@ func (s *AuthService) Signup(req *SignupRequest) (*AuthResponse, error) {
 		LoginMethod:  "email",
 		Name:         name,
 		ProfileImage: "",
+		IsActive:     true,
+		DateJoined:   now,
 	}
 
 	if err := s.db.Create(&user).Error; err != nil {
@@ -321,10 +324,13 @@ func (s *AuthService) RefreshToken(refreshToken string) (*AuthResponse, error) {
 // CreateAnonymousSession creates an anonymous user session
 func (s *AuthService) CreateAnonymousSession() (*AuthResponse, error) {
 	anonymousID := uuid.New().String()
+	now := time.Now()
 	user := models.User{
 		Username:    anonymousID,
 		Email:       fmt.Sprintf("anonymous_%s@reviewmaps.local", anonymousID),
 		LoginMethod: "anonymous",
+		IsActive:    true,
+		DateJoined:  now,
 	}
 
 	if err := s.db.Create(&user).Error; err != nil {
@@ -561,6 +567,7 @@ func (s *AuthService) handleSNSLogin(provider, providerUserID, email, name, prof
 			// Create new user (Django: User.objects.get_or_create with defaults)
 			// Generate username as email_provider (Django: f"{email}_{login_method}")
 			username := fmt.Sprintf("%s_%s", email, provider)
+			now := time.Now()
 
 			user = &models.User{
 				Username:     username,
@@ -568,6 +575,8 @@ func (s *AuthService) handleSNSLogin(provider, providerUserID, email, name, prof
 				LoginMethod:  provider,
 				Name:         name,
 				ProfileImage: profileImage,
+				IsActive:     true,
+				DateJoined:   now,
 			}
 
 			if err := tx.Create(user).Error; err != nil {

@@ -1,0 +1,134 @@
+name: Web CI/CD
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "web/**"
+      - ".github/workflows/ci-web.yml"
+
+# infra repo 동시 업데이트 방지
+concurrency:
+  group: reviewmaps-infra-update
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: "20"
+  DOCKER_IMAGE: ggorockee/reviewmaps-web
+  INFRA_REPO: ggorockee/infra
+  VALUES_FILE_PATH: charts/helm/prod/reviewmaps/values.yaml
+
+jobs:
+  # 린트 및 빌드 테스트
+  lint-and-build:
+    name: Lint & Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./web
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run lint
+        run: npm run lint
+
+      - name: Build application
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+
+  # Docker 빌드 및 푸시 (main 브랜치 푸시 시에만)
+  build-and-push:
+    name: Build & Push Docker
+    runs-on: ubuntu-latest
+    needs: lint-and-build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tag }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Generate image tag
+        id: meta
+        run: |
+          TAG=$(date +%Y%m%d)-$(git rev-parse --short HEAD)
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./web
+          push: true
+          tags: |
+            ${{ env.DOCKER_IMAGE }}:${{ steps.meta.outputs.tag }}
+            ${{ env.DOCKER_IMAGE }}:latest
+
+  # 매니페스트 업데이트 (ArgoCD GitOps)
+  update-manifest:
+    name: Update Kubernetes Manifest
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout App Repo for script
+        uses: actions/checkout@v4
+
+      - name: Checkout Infra Repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.INFRA_REPO }}
+          token: ${{ secrets.INFRA_GITHUB_TOKEN }}
+          ref: main
+          path: "infra"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install ruamel.yaml
+
+      - name: Update values.yaml
+        run: |
+          python .github/workflows/scripts/update_values.py \
+            infra/${{ env.VALUES_FILE_PATH }} \
+            web \
+            "${{ needs.build-and-push.outputs.image_tag }}"
+
+      - name: Commit and push changes
+        working-directory: ./infra
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add ${{ env.VALUES_FILE_PATH }}
+
+          if git diff --staged --quiet; then
+            echo "No changes to commit in values.yaml."
+            exit 0
+          fi
+
+          git commit -m "ci: Update reviewmaps-web image tag to ${{ needs.build-and-push.outputs.image_tag }}"
+          git push

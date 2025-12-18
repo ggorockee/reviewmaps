@@ -216,8 +216,21 @@ func (s *KeywordMatchService) sendPushNotifications(ctx context.Context, alerts 
 		campaignName = *campaign.Title
 	}
 
-	// Common data payload
+	// Common data payload with full campaign information
 	campaignIDStr := strconv.FormatUint(uint64(campaign.ID), 10)
+
+	// Prepare campaign data for FCM payload
+	campaignTitle := campaign.Company
+	if campaign.Title != nil {
+		campaignTitle = *campaign.Title
+	}
+
+	campaignPlatform := campaign.Platform
+
+	campaignChannel := ""
+	if campaign.CampaignChannel != nil {
+		campaignChannel = *campaign.CampaignChannel
+	}
 
 	// Send personalized push per user
 	var totalSuccess, totalFailure int
@@ -231,12 +244,30 @@ func (s *KeywordMatchService) sendPushNotifications(ctx context.Context, alerts 
 
 		// Use first matched keyword for title (user may have multiple)
 		firstKeyword := keywords[0]
+
+		// Find matched field for this keyword
+		matchedField := "title"
+		for _, alert := range alerts {
+			if kw, ok := keywordMap[alert.KeywordID]; ok && kw.Keyword == firstKeyword {
+				matchedField = alert.MatchedField
+				break
+			}
+		}
+
 		title := fmt.Sprintf("키워드 \"%s\" 매칭", firstKeyword)
 		body := fmt.Sprintf("%s 체험단이 등록되었습니다", campaignName)
 
+		// Include all campaign details in data payload for rich notification display
 		data := map[string]string{
-			"type":        "keyword_alert",
-			"campaign_id": campaignIDStr,
+			"type":             "keyword_alert",
+			"campaign_id":      campaignIDStr,
+			"campaign_title":   campaignTitle,
+			"campaign_company": campaign.Company,
+			"campaign_offer":   campaign.Offer,
+			"campaign_platform": campaignPlatform,
+			"campaign_channel":  campaignChannel,
+			"keyword":          firstKeyword,
+			"matched_field":    matchedField,
 		}
 
 		result := fcm.SendPushMultiple(ctx, tokens, title, body, data)

@@ -127,7 +127,8 @@ func (s *KeywordAlertService) ListAlerts(userID uint, page, limit int) (*AlertLi
 		Preload("Keyword").
 		Preload("Campaign", "id IS NOT NULL").
 		Preload("Campaign.Category", "id IS NOT NULL").
-		Where("keyword_id IN ?", keywordIDs)
+		Where("keyword_id IN ?", keywordIDs).
+		Where("created_at >= NOW() - INTERVAL '3 days'")
 
 	query.Count(&total)
 

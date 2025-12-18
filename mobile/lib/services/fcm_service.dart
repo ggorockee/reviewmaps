@@ -32,6 +32,9 @@ class FcmService {
   /// 알림 수신 시 호출될 콜백 리스트
   final List<OnNotificationReceived> _notificationListeners = [];
 
+  /// 알림 고유 ID 생성을 위한 카운터
+  static int _notificationIdCounter = 0;
+
   /// Android 알림 채널 ID
   static const String _androidChannelId = 'keyword_alerts';
   static const String _androidChannelName = '키워드 알림';
@@ -101,6 +104,18 @@ class FcmService {
 
       // 7. 백그라운드에서 앱 열림 시 메시지 핸들러
       FirebaseMessaging.onMessageOpenedApp.listen(_handleMessageOpenedApp);
+
+      // 8. 앱이 종료된 상태에서 알림으로 실행된 경우 처리
+      final initialMessage = await _messaging.getInitialMessage();
+      if (initialMessage != null) {
+        debugPrint('📱 종료 상태에서 알림으로 앱 실행됨');
+        debugPrint('  - 제목: ${initialMessage.notification?.title}');
+        debugPrint('  - 데이터: ${initialMessage.data}');
+        // 초기화 완료 후 약간의 지연을 두고 네비게이션 실행
+        Future.delayed(const Duration(milliseconds: 500), () {
+          _navigateToNotificationScreen();
+        });
+      }
 
       _isInitialized = true;
       debugPrint('✅ FCM 서비스 초기화 완료');
@@ -266,8 +281,11 @@ class FcmService {
     // 캠페인 ID를 payload로 전달
     final payload = message.data['campaign_id'];
 
+    // 고유 ID 생성 (hashCode 대신 카운터 + 타임스탬프 사용)
+    final notificationId = _generateUniqueNotificationId();
+
     await _localNotifications.show(
-      message.hashCode, // 고유 ID
+      notificationId, // 고유 ID
       notification.title,
       notification.body,
       details,
@@ -338,6 +356,19 @@ class FcmService {
         debugPrint('❌ 알림 리스너 호출 오류: $e');
       }
     }
+  }
+
+  /// 고유 알림 ID 생성
+  /// hashCode 대신 카운터 + 타임스탬프를 사용하여 충돌 방지
+  int _generateUniqueNotificationId() {
+    _notificationIdCounter++;
+    // 카운터가 오버플로우되면 초기화 (매우 드물지만 안전성 확보)
+    if (_notificationIdCounter > 999999) {
+      _notificationIdCounter = 1;
+    }
+    // 타임스탬프(밀리초)의 하위 6자리 + 카운터 3자리 = 9자리 int (최대 2,147,483,647)
+    final timestamp = DateTime.now().millisecondsSinceEpoch % 1000000;
+    return (timestamp * 1000) + _notificationIdCounter;
   }
 }
 

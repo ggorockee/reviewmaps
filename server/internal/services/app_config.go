@@ -103,6 +103,44 @@ func (s *AppConfigService) GetKeywordLimit() (int, error) {
 	return limit, nil
 }
 
+// GetAlertRetentionDays retrieves the alert retention days setting
+func (s *AppConfigService) GetAlertRetentionDays() (int, error) {
+	setting, err := s.GetSetting("alert_retention_days")
+	if err != nil {
+		return 3, nil // Default 3 days
+	}
+
+	var days int
+	if err := json.Unmarshal(setting.Value, &days); err != nil {
+		return 3, nil
+	}
+	return days, nil
+}
+
+// SetAlertRetentionDays sets the alert retention days setting
+func (s *AppConfigService) SetAlertRetentionDays(days int) error {
+	var setting models.AppSetting
+	err := s.db.Where("key = ?", "alert_retention_days").First(&setting).Error
+
+	valueJSON, _ := json.Marshal(days)
+	description := "알림 보관 일수 (일)"
+
+	if err != nil {
+		// Create new
+		setting = models.AppSetting{
+			Key:         "alert_retention_days",
+			Value:       valueJSON,
+			Description: &description,
+			IsActive:    true,
+		}
+		return s.db.Create(&setting).Error
+	}
+
+	// Update existing
+	setting.Value = valueJSON
+	return s.db.Save(&setting).Error
+}
+
 // SetKeywordLimit sets the keyword limit setting
 func (s *AppConfigService) SetKeywordLimit(limit int) error {
 	var setting models.AppSetting

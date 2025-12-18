@@ -25,6 +25,8 @@ func SetupAppConfigRoutes(router fiber.Router, db *database.DB) {
 	router.Get("/settings/:key", h.GetSetting)
 	router.Get("/settings/keyword-limit", h.GetKeywordLimit)
 	router.Put("/settings/keyword-limit", h.SetKeywordLimit)
+	router.Get("/settings/alert-retention-days", h.GetAlertRetentionDays)
+	router.Put("/settings/alert-retention-days", h.SetAlertRetentionDays)
 }
 
 // GetAdConfigs godoc
@@ -141,4 +143,43 @@ func (h *AppConfigHandler) SetKeywordLimit(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{"limit": req.Limit})
+}
+
+// GetAlertRetentionDays godoc
+// @Summary Get alert retention days setting
+// @Tags app-config
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]int
+// @Router /app-config/settings/alert-retention-days [get]
+func (h *AppConfigHandler) GetAlertRetentionDays(c *fiber.Ctx) error {
+	days, err := h.service.GetAlertRetentionDays()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{"days": days})
+}
+
+// SetAlertRetentionDays godoc
+// @Summary Set alert retention days setting
+// @Tags app-config
+// @Accept json
+// @Produce json
+// @Param request body map[string]int true "Days value"
+// @Success 200 {object} map[string]int
+// @Router /app-config/settings/alert-retention-days [put]
+func (h *AppConfigHandler) SetAlertRetentionDays(c *fiber.Ctx) error {
+	var req struct {
+		Days int `json:"days"`
+	}
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	if err := h.service.SetAlertRetentionDays(req.Days); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{"days": req.Days})
 }

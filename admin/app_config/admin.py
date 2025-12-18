@@ -22,11 +22,21 @@ class AppVersionAdmin(ModelAdmin):
 
 @admin.register(AppSetting)
 class AppSettingAdmin(ModelAdmin):
-    list_display = ("key", "value", "is_active", "updated_at")
+    list_display = ("key", "get_value_display", "is_active", "updated_at")
     list_filter = ("is_active",)
     search_fields = ("key", "description")
     ordering = ("key",)
     readonly_fields = ("created_at", "updated_at")
+
+    def get_value_display(self, obj):
+        """사람이 읽기 쉬운 형태로 value 표시"""
+        if obj.key == "keyword_limit":
+            return f"{obj.value} 개"
+        elif obj.key == "alert_retention_days":
+            return f"{obj.value} 일"
+        return str(obj.value)
+
+    get_value_display.short_description = "설정 값"
 
 
 @admin.register(RateLimitConfig)

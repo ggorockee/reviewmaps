@@ -10,6 +10,9 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # appstore.reviewer@review-maps.com
 # ReviewMaps2025
 
+# 계정 삭제 안내:
+# https://review-maps.com/privacy#account-deletion
+
 
 # The following defines the version and build number for your application.
 # A version number is three numbers separated by dots, like 1.2.43
@@ -25,10 +28,10 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # of the product and file versions while build-number is used as the build suffix.
 
 # ios
-# version: 2.0.4+1
+# version: 2.0.5+1
 
 # # android
-version: 2.0.4+76
+version: 2.0.5+78
 
 # minversion: 2.0.2
 

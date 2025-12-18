@@ -87,6 +87,15 @@ class _NotificationScreenState extends State<NotificationScreen>
   }
 
   void _onTabChanged() {
+    // 탭 변경 시 AppBar 버튼 업데이트를 위해 setState 호출
+    setState(() {
+      // 선택 모드 해제
+      if (_isSelectionMode) {
+        _isSelectionMode = false;
+        _selectedAlertIds.clear();
+      }
+    });
+
     if (_tabController.index == 1 && _alerts.isEmpty && !_isAlertsLoading) {
       _loadAlerts();
     }

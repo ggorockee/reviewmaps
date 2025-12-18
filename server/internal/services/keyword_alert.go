@@ -123,12 +123,16 @@ func (s *KeywordAlertService) ListAlerts(userID uint, page, limit int) (*AlertLi
 		}, nil
 	}
 
+	// Get alert retention days from app settings (default 3 days)
+	appConfigService := NewAppConfigService(s.db)
+	retentionDays, _ := appConfigService.GetAlertRetentionDays()
+
 	query := s.db.Model(&models.KeywordAlert{}).
 		Preload("Keyword").
 		Preload("Campaign", "id IS NOT NULL").
 		Preload("Campaign.Category", "id IS NOT NULL").
 		Where("keyword_id IN ?", keywordIDs).
-		Where("created_at >= NOW() - INTERVAL '3 days'")
+		Where("created_at >= NOW() - INTERVAL '? days'", retentionDays)
 
 	query.Count(&total)
 

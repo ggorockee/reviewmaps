@@ -139,7 +139,7 @@ func (h *KeywordAlertHandler) ToggleKeyword(c *fiber.Ctx) error {
 func (h *KeywordAlertHandler) ListAlerts(c *fiber.Ctx) error {
 	userID := c.Locals("userID").(uint)
 	page, _ := strconv.Atoi(c.Query("page", "1"))
-	limit, _ := strconv.Atoi(c.Query("limit", "20"))
+	limit, _ := strconv.Atoi(c.Query("limit", "1000"))
 
 	response, err := h.service.ListAlerts(userID, page, limit)
 	if err != nil {

@@ -46,6 +46,10 @@ class _NotificationScreenState extends State<NotificationScreen>
   double? _userLng;
   String _sortType = 'distance'; // 기본 정렬: 거리순
 
+  // 선택 모드 관련
+  bool _isSelectionMode = false;
+  Set<int> _selectedAlertIds = {};
+
   @override
   void initState() {
     super.initState();
@@ -377,10 +381,45 @@ class _NotificationScreenState extends State<NotificationScreen>
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('체험단 알림'),
+        title: _isSelectionMode && _tabController.index == 1
+            ? Text('${_selectedAlertIds.length}개 선택')
+            : const Text('체험단 알림'),
         backgroundColor: Colors.white,
         elevation: 0,
+        leading: _isSelectionMode && _tabController.index == 1
+            ? IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: _toggleSelectionMode,
+                tooltip: '선택 취소',
+              )
+            : null,
         actions: [
+          // 알림 기록 탭에서만 보이는 버튼들
+          if (_tabController.index == 1 && _alerts.isNotEmpty) ...[
+            if (_isSelectionMode) ...[
+              // 선택 모드일 때: 선택 삭제 버튼
+              if (_selectedAlertIds.isNotEmpty)
+                IconButton(
+                  icon: const Icon(Icons.delete),
+                  onPressed: _deleteSelectedAlerts,
+                  tooltip: '선택 삭제',
+                  color: Colors.red,
+                ),
+            ] else ...[
+              // 일반 모드일 때: 선택 모드 진입, 전체 삭제 버튼
+              IconButton(
+                icon: const Icon(Icons.checklist),
+                onPressed: _toggleSelectionMode,
+                tooltip: '선택',
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete_sweep),
+                onPressed: _deleteAllAlerts,
+                tooltip: '전체 삭제',
+                color: Colors.red,
+              ),
+            ],
+          ],
           // 새로고침 버튼
           IconButton(
             icon: _isRefreshing
@@ -751,7 +790,7 @@ class _NotificationScreenState extends State<NotificationScreen>
   Future<void> _deleteAlert(AlertInfo alert, int index) async {
     // 먼저 UI에서 삭제 (사용자 경험 우선)
     if (!mounted) return;
-    
+
     setState(() {
       _alerts.removeAt(index);
       // 읽지 않음 카운트 업데이트
@@ -769,6 +808,153 @@ class _NotificationScreenState extends State<NotificationScreen>
     } catch (e) {
       // 서버 삭제 실패해도 사용자에게는 알리지 않음 (이미 UI에서 삭제됨)
       debugPrint('알림 서버 삭제 실패 (로컬에서는 삭제됨): $e');
+    }
+  }
+
+  /// 선택 모드 토글
+  void _toggleSelectionMode() {
+    setState(() {
+      _isSelectionMode = !_isSelectionMode;
+      if (!_isSelectionMode) {
+        _selectedAlertIds.clear();
+      }
+    });
+  }
+
+  /// 알림 선택/해제
+  void _toggleAlertSelection(int alertId) {
+    setState(() {
+      if (_selectedAlertIds.contains(alertId)) {
+        _selectedAlertIds.remove(alertId);
+      } else {
+        _selectedAlertIds.add(alertId);
+      }
+    });
+  }
+
+  /// 선택된 알림 삭제
+  Future<void> _deleteSelectedAlerts() async {
+    if (_selectedAlertIds.isEmpty) return;
+
+    // 삭제 확인 다이얼로그
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        title: const Text('선택 삭제'),
+        content: Text('선택한 ${_selectedAlertIds.length}개의 알림을 삭제하시겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text(
+              '취소',
+              style: TextStyle(color: Color(0xFF6C7278)),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text(
+              '삭제',
+              style: TextStyle(
+                color: Colors.red,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    // UI에서 선택된 알림 삭제
+    final selectedIds = List<int>.from(_selectedAlertIds);
+    final deleteCount = selectedIds.length;
+
+    setState(() {
+      _alerts.removeWhere((alert) => selectedIds.contains(alert.id));
+      // 읽지 않음 카운트 업데이트
+      for (final id in selectedIds) {
+        final alert = _alerts.firstWhere(
+          (a) => a.id == id,
+          orElse: () => _alerts.first,
+        );
+        if (!alert.isRead && _unreadCount > 0) {
+          _unreadCount--;
+        }
+      }
+      _selectedAlertIds.clear();
+      _isSelectionMode = false;
+    });
+
+    _showSnackBar('$deleteCount개의 알림이 삭제되었습니다');
+
+    // 백그라운드에서 서버 삭제 시도
+    for (final alertId in selectedIds) {
+      try {
+        await _keywordService.deleteAlert(alertId);
+      } catch (e) {
+        debugPrint('알림 서버 삭제 실패 (ID: $alertId): $e');
+      }
+    }
+  }
+
+  /// 모든 알림 삭제
+  Future<void> _deleteAllAlerts() async {
+    if (_alerts.isEmpty) return;
+
+    // 삭제 확인 다이얼로그
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        title: const Text('전체 삭제'),
+        content: Text('모든 알림(${_alerts.length}개)을 삭제하시겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text(
+              '취소',
+              style: TextStyle(color: Color(0xFF6C7278)),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text(
+              '전체 삭제',
+              style: TextStyle(
+                color: Colors.red,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    // 삭제할 알림 ID 목록 저장
+    final allAlertIds = _alerts.map((alert) => alert.id).toList();
+    final deleteCount = allAlertIds.length;
+
+    // UI에서 모든 알림 삭제
+    setState(() {
+      _alerts.clear();
+      _unreadCount = 0;
+      _selectedAlertIds.clear();
+      _isSelectionMode = false;
+    });
+
+    _showSnackBar('$deleteCount개의 알림이 삭제되었습니다');
+
+    // 백그라운드에서 서버 삭제 시도
+    for (final alertId in allAlertIds) {
+      try {
+        await _keywordService.deleteAlert(alertId);
+      } catch (e) {
+        debugPrint('알림 서버 삭제 실패 (ID: $alertId): $e');
+      }
     }
   }
 
@@ -849,7 +1035,35 @@ class _NotificationScreenState extends State<NotificationScreen>
             ),
             itemBuilder: (context, index) {
               final alert = _alerts[index];
+              final isSelected = _selectedAlertIds.contains(alert.id);
 
+              // 선택 모드일 때는 Dismissible 없이 표시
+              if (_isSelectionMode) {
+                return InkWell(
+                  onTap: () => _toggleAlertSelection(alert.id),
+                  child: Container(
+                    color: isSelected ? const Color(0xFFEBF5FF) : Colors.white,
+                    padding: EdgeInsets.symmetric(horizontal: 16.w),
+                    child: Row(
+                      children: [
+                        // 체크박스
+                        Checkbox(
+                          value: isSelected,
+                          onChanged: (_) => _toggleAlertSelection(alert.id),
+                          activeColor: Theme.of(context).primaryColor,
+                        ),
+                        SizedBox(width: 8.w),
+                        // 알림 카드 내용
+                        Expanded(
+                          child: _buildAlertCard(alert),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+
+              // 일반 모드일 때는 Dismissible + 휴지통 아이콘
               return Dismissible(
                 key: Key('alert_${alert.id}'),
                 direction: DismissDirection.endToStart,
@@ -867,16 +1081,16 @@ class _NotificationScreenState extends State<NotificationScreen>
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.of(context).pop(false),
-                          child: Text(
+                          child: const Text(
                             '취소',
                             style: TextStyle(
-                              color: const Color(0xFF6C7278),
+                              color: Color(0xFF6C7278),
                             ),
                           ),
                         ),
                         TextButton(
                           onPressed: () => Navigator.of(context).pop(true),
-                          child: Text(
+                          child: const Text(
                             '삭제',
                             style: TextStyle(
                               color: Colors.red,
@@ -900,7 +1114,59 @@ class _NotificationScreenState extends State<NotificationScreen>
                 ),
                 child: Container(
                   color: Colors.white,
-                  child: _buildAlertCard(alert),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _buildAlertCard(alert),
+                      ),
+                      // 휴지통 아이콘 버튼
+                      IconButton(
+                        icon: Icon(
+                          Icons.delete_outline,
+                          color: Colors.red.withValues(alpha: 0.7),
+                          size: 20.sp,
+                        ),
+                        onPressed: () async {
+                          final confirmed = await showDialog<bool>(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              backgroundColor: Colors.white,
+                              title: const Text('알림 삭제'),
+                              content: Text(
+                                "'${alert.keyword}' 알림을 삭제하시겠습니까?",
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.of(context).pop(false),
+                                  child: const Text(
+                                    '취소',
+                                    style: TextStyle(
+                                      color: Color(0xFF6C7278),
+                                    ),
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: () => Navigator.of(context).pop(true),
+                                  child: const Text(
+                                    '삭제',
+                                    style: TextStyle(
+                                      color: Colors.red,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+
+                          if (confirmed == true) {
+                            _deleteAlert(alert, index);
+                          }
+                        },
+                        tooltip: '삭제',
+                      ),
+                    ],
+                  ),
                 ),
               );
             },

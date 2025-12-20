@@ -28,6 +28,22 @@ func Connect(cfg *config.Config) (*DB, error) {
 		return nil, err
 	}
 
+	// Register metrics plugin for Prometheus
+	if err := db.Use(&MetricsPlugin{}); err != nil {
+		log.Printf("Failed to register metrics plugin: %v", err)
+	} else {
+		log.Println("Database metrics plugin registered")
+	}
+
+	// Configure connection pool
+	sqlDB, err := db.DB()
+	if err == nil {
+		sqlDB.SetMaxOpenConns(25)
+		sqlDB.SetMaxIdleConns(5)
+		sqlDB.SetConnMaxLifetime(300)
+		log.Println("Database connection pool configured")
+	}
+
 	return &DB{db}, nil
 }
 

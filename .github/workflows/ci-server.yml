@@ -163,5 +163,5 @@ jobs:
 
           echo "Created PR: $PR_URL"
 
-          # Enable auto-merge (squash) using PR URL
-          gh pr merge --auto --squash "$PR_URL"
+          # Enable auto-merge (squash) and delete branch after merge
+          gh pr merge --auto --squash --delete-branch "$PR_URL"

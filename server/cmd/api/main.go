@@ -81,6 +81,8 @@ func main() {
 
 	// Middleware
 	app.Use(recover.New())
+	// Prometheus 메트릭 수집 미들웨어
+	app.Use(middleware.PrometheusMiddleware())
 	// JSON 구조화 로깅 (원본 Django AccessLogMiddleware와 동일 형식)
 	app.Use(logger.New(logger.Config{
 		Format:     `{"time":"${time}","status":${status},"latency":"${latency}","ip":"${ip}","method":"${method}","path":"${path}","user_agent":"${ua}","error":"${error}"}` + "\n",
@@ -132,6 +134,9 @@ func main() {
 func setupRoutes(app *fiber.App, db *database.DB, cfg *config.Config) {
 	// Swagger UI
 	app.Get("/v1/docs/*", swagger.HandlerDefault)
+
+	// Prometheus metrics endpoint
+	app.Get("/metrics", middleware.PrometheusHandler())
 
 	// Health check endpoints for k8s probes
 	app.Get("/healthz", handlers.HealthCheck)

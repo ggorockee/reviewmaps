@@ -195,6 +195,7 @@ func (db *DB) UpsertCampaigns(ctx context.Context, campaigns []models.Campaign) 
 
 	var newCampaignIDs []uint // 신규 캠페인 ID만
 	var allInsertedCount int
+	campaignIDMap := make(map[string]uint) // key -> new campaign_id 매핑
 	for _, c := range campaigns {
 		var id uint
 		err := tx.QueryRow(ctx, insertQuery,
@@ -208,10 +209,43 @@ func (db *DB) UpsertCampaigns(ctx context.Context, campaigns []models.Campaign) 
 		}
 		allInsertedCount++
 
-		// 기존에 없던 신규 캠페인만 알림 대상에 추가
 		key := fmt.Sprintf("%s|%s|%s|%s", c.Platform, c.Title, c.Offer, c.CampaignChannel)
+		campaignIDMap[key] = id
+
+		// 기존에 없던 신규 캠페인만 알림 대상에 추가
 		if !existingKeys[key] {
 			newCampaignIDs = append(newCampaignIDs, id)
+		}
+	}
+
+	// 5. NULL로 설정했던 alert의 campaign_id를 새 ID로 복원
+	if len(campaignIDMap) > 0 {
+		updateQuery := `
+			UPDATE keyword_alerts_alerts
+			SET campaign_id = $1
+			WHERE campaign_id IS NULL
+			AND EXISTS (
+				SELECT 1 FROM campaign c
+				WHERE c.id = $1
+				AND (c.platform, c.title, c.offer, c.campaign_channel) = ($2, $3, $4, $5)
+			)
+		`
+		restoredCount := int64(0)
+		for _, c := range campaigns {
+			key := fmt.Sprintf("%s|%s|%s|%s", c.Platform, c.Title, c.Offer, c.CampaignChannel)
+			newID, ok := campaignIDMap[key]
+			if !ok {
+				continue
+			}
+			result, err := tx.Exec(ctx, updateQuery, newID, c.Platform, c.Title, c.Offer, c.CampaignChannel)
+			if err != nil {
+				log.Warnf("alert campaign_id 복원 실패: %v", err)
+			} else {
+				restoredCount += result.RowsAffected()
+			}
+		}
+		if restoredCount > 0 {
+			log.Infof("NULL 처리된 알림 %d건의 campaign_id를 새 ID로 복원", restoredCount)
 		}
 	}
 

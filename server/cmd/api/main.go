@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	_ "github.com/ggorockee/reviewmaps/server/docs"
 	"github.com/ggorockee/reviewmaps/server/internal/config"
@@ -72,6 +73,9 @@ func main() {
 	if err := database.Migrate(db); err != nil {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
+
+	// Start connection pool metrics collector (background goroutine)
+	go database.StartConnectionPoolMetricsCollector(ctx, db.DB, 30*time.Second)
 
 	// Initialize Fiber app
 	app := fiber.New(fiber.Config{

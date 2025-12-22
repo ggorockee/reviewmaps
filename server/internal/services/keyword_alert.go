@@ -142,8 +142,8 @@ func (s *KeywordAlertService) ListAlerts(userID uint, page, limit int, lat, lng 
 
 	query := s.db.Model(&models.KeywordAlert{}).
 		Preload("Keyword").
-		Preload("Campaign", "id IS NOT NULL").
-		Preload("Campaign.Category", "id IS NOT NULL").
+		Preload("Campaign").
+		Preload("Campaign.Category").
 		Where("keyword_id IN ?", keywordIDs).
 		Where("created_at >= ?", retentionCutoff)
 

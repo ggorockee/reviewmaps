@@ -9,6 +9,7 @@ import (
 	"github.com/ggorockee/reviewmaps/server/internal/config"
 	"github.com/ggorockee/reviewmaps/server/internal/database"
 	"github.com/ggorockee/reviewmaps/server/internal/models"
+	"gorm.io/gorm"
 )
 
 type KeywordAlertService struct {
@@ -142,7 +143,9 @@ func (s *KeywordAlertService) ListAlerts(userID uint, page, limit int, lat, lng 
 
 	query := s.db.Model(&models.KeywordAlert{}).
 		Preload("Keyword").
-		Preload("Campaign").
+		Preload("Campaign", func(db *gorm.DB) *gorm.DB {
+			return db.Unscoped() // 삭제된 캠페인도 포함 (히스토리 보존)
+		}).
 		Preload("Campaign.Category").
 		Where("keyword_id IN ?", keywordIDs).
 		Where("created_at >= ?", retentionCutoff)

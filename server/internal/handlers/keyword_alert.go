@@ -134,6 +134,9 @@ func (h *KeywordAlertHandler) ToggleKeyword(c *fiber.Ctx) error {
 // @Security BearerAuth
 // @Param page query int false "Page number"
 // @Param limit query int false "Items per page"
+// @Param lat query number false "User latitude for distance calculation"
+// @Param lng query number false "User longitude for distance calculation"
+// @Param sort query string false "Sort order: 'created_at' or 'distance'" Enums(created_at, distance)
 // @Success 200 {object} services.AlertListResponse
 // @Router /keyword-alerts/alerts [get]
 func (h *KeywordAlertHandler) ListAlerts(c *fiber.Ctx) error {
@@ -141,7 +144,26 @@ func (h *KeywordAlertHandler) ListAlerts(c *fiber.Ctx) error {
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	limit, _ := strconv.Atoi(c.Query("limit", "1000"))
 
-	response, err := h.service.ListAlerts(userID, page, limit)
+	// Parse optional lat/lng parameters
+	var lat, lng *float64
+	if latStr := c.Query("lat"); latStr != "" {
+		if latVal, err := strconv.ParseFloat(latStr, 64); err == nil {
+			lat = &latVal
+		}
+	}
+	if lngStr := c.Query("lng"); lngStr != "" {
+		if lngVal, err := strconv.ParseFloat(lngStr, 64); err == nil {
+			lng = &lngVal
+		}
+	}
+
+	// Parse sort parameter (default: created_at)
+	sortBy := c.Query("sort", "created_at")
+	if sortBy != "created_at" && sortBy != "distance" {
+		sortBy = "created_at"
+	}
+
+	response, err := h.service.ListAlerts(userID, page, limit, lat, lng, sortBy)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}

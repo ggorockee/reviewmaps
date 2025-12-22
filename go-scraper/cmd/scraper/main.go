@@ -160,9 +160,13 @@ func runScraper(ctx context.Context, name string, cfg *config.Config, database *
 		// UNIQUE 제약조건 추가 (dedupe 실행 후 사용)
 		cleaner := cleanup.New(cfg, database, tel)
 		return cleaner.AddUniqueConstraint(ctx)
+	case "dedupe-alerts":
+		// 중복 키워드 알람 정리 (가장 최신 레코드만 유지)
+		cleaner := cleanup.New(cfg, database, tel)
+		return cleaner.DeduplicateKeywordAlerts(ctx)
 	default:
 		log.Errorf("'%s' 스크레이퍼를 찾을 수 없습니다.", name)
-		log.Info("사용 가능한 명령어: reviewnote, inflexer, cleanup, dedupe, add-unique")
+		log.Info("사용 가능한 명령어: reviewnote, inflexer, cleanup, dedupe, add-unique, dedupe-alerts")
 		return nil
 	}
 }

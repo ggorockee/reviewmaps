@@ -137,9 +137,7 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
         );
       } catch (e) {
         if (mounted) {
-          // "Exception: " 접두어 제거하여 사용자 친화적 메시지 표시
-          final errorMessage = e.toString().replaceFirst('Exception: ', '');
-          _showErrorDialog(errorMessage);
+          _showErrorDialog(e.toString());
         }
       }
     }
@@ -242,7 +240,7 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('읽음 처리 실패: ${e.toString().replaceFirst('Exception: ', '')}'),
+            content: Text('읽음 처리 실패: ${e.toString()}'),
             backgroundColor: Colors.red,
           ),
         );
@@ -584,7 +582,7 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('삭제 실패: ${e.toString().replaceFirst('Exception: ', '')}'),
+            content: Text('삭제 실패: ${e.toString()}'),
             backgroundColor: Colors.red,
           ),
         );

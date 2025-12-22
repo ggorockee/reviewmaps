@@ -114,13 +114,14 @@ func (s *KeywordAlertService) ToggleKeyword(userID, keywordID uint) (*models.Key
 }
 
 // ListAlerts retrieves alerts for a user with optional distance calculation and sorting
+// Only shows alerts from active keywords
 func (s *KeywordAlertService) ListAlerts(userID uint, page, limit int, lat, lng *float64, sortBy string) (*AlertListResponse, error) {
 	var alerts []models.KeywordAlert
 	var total int64
 
-	// Get user's keyword IDs
+	// Get user's active keyword IDs only
 	var keywordIDs []uint
-	s.db.Model(&models.Keyword{}).Where("user_id = ?", userID).Pluck("id", &keywordIDs)
+	s.db.Model(&models.Keyword{}).Where("user_id = ? AND is_active = ?", userID, true).Pluck("id", &keywordIDs)
 
 	// Return empty if no keywords
 	if len(keywordIDs) == 0 {

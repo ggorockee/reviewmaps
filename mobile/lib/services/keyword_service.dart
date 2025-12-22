@@ -8,6 +8,7 @@ import 'package:mobile/config/config.dart';
 import 'package:mobile/models/keyword_models.dart';
 import 'package:mobile/services/token_storage_service.dart';
 import 'package:mobile/utils/network_error_handler.dart';
+import 'package:mobile/utils/exceptions.dart';
 
 /// 키워드 알람 서비스
 /// - 키워드 등록, 조회, 삭제
@@ -44,7 +45,7 @@ class KeywordService {
                   await _tokenStorage.getSessionToken();
 
     if (token == null) {
-      throw Exception('로그인이 필요합니다.');
+      throw UserFriendlyException('로그인이 필요합니다.');
     }
 
     return {
@@ -73,7 +74,7 @@ class KeywordService {
         debugPrint('[KeywordService] 재시도 $attempt/$retries (${delay.inMilliseconds}ms 후)');
       }
     }
-    throw lastErr ?? Exception('알 수 없는 오류가 발생했습니다.');
+    throw lastErr ?? UserFriendlyException('알 수 없는 오류가 발생했습니다.');
   }
 
   /// HTTP 응답 에러 처리
@@ -81,15 +82,15 @@ class KeywordService {
     try {
       final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
       final serverMessage = errorBody['detail'] as String?;
-      throw Exception(
+      throw UserFriendlyException(
         NetworkErrorHandler.getHttpErrorMessage(
           response.statusCode,
           serverMessage: serverMessage,
         ),
       );
     } catch (e) {
-      if (e is Exception) rethrow;
-      throw Exception(
+      if (e is UserFriendlyException) rethrow;
+      throw UserFriendlyException(
         NetworkErrorHandler.getHttpErrorMessage(response.statusCode)
       );
     }
@@ -120,10 +121,10 @@ class KeywordService {
 
         return KeywordInfo.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
       } catch (e) {
-        if (e is Exception && e.toString().contains('Exception:')) {
+        if (e is UserFriendlyException) {
           rethrow;
         }
-        throw Exception(NetworkErrorHandler.getErrorMessage(e));
+        throw UserFriendlyException(NetworkErrorHandler.getErrorMessage(e));
       }
     });
   }
@@ -151,16 +152,17 @@ class KeywordService {
         );
         return keywordList.keywords;
       } catch (e) {
-        if (e is Exception && e.toString().contains('Exception:')) {
+        if (e is UserFriendlyException) {
           rethrow;
         }
-        throw Exception(NetworkErrorHandler.getErrorMessage(e));
+        throw UserFriendlyException(NetworkErrorHandler.getErrorMessage(e));
       }
     });
   }
 
-  /// 키워드 삭제
+  /// 키워드 삭제 (멱등성 보장)
   /// DELETE /v1/keyword-alerts/keywords/{keyword_id}
+  /// - 404는 이미 삭제된 상태로 간주하여 성공 처리 (idempotent)
   Future<void> deleteKeyword(int keywordId) async {
     final uri = Uri.parse('$baseUrl/keywords/$keywordId');
     final headers = await _getAuthHeaders();
@@ -173,15 +175,18 @@ class KeywordService {
 
         _debugPrintResponse('DELETE', uri.toString(), response);
 
-        // 200 OK 또는 204 No Content 모두 성공
-        if (response.statusCode != 200 && response.statusCode != 204) {
+        // 200 OK, 204 No Content, 404 Not Found 모두 성공
+        // 404는 이미 삭제된 경우이므로 멱등성 보장을 위해 성공으로 처리
+        if (response.statusCode != 200 &&
+            response.statusCode != 204 &&
+            response.statusCode != 404) {
           _handleHttpError(response, '키워드를 삭제할 수 없습니다.');
         }
       } catch (e) {
-        if (e is Exception && e.toString().contains('Exception:')) {
+        if (e is UserFriendlyException) {
           rethrow;
         }
-        throw Exception(NetworkErrorHandler.getErrorMessage(e));
+        throw UserFriendlyException(NetworkErrorHandler.getErrorMessage(e));
       }
     });
   }
@@ -245,8 +250,9 @@ class KeywordService {
     });
   }
 
-  /// 알람 삭제
+  /// 알람 삭제 (멱등성 보장)
   /// DELETE /v1/keyword-alerts/alerts/{alert_id}
+  /// - 404는 이미 삭제된 상태로 간주하여 성공 처리 (idempotent)
   Future<void> deleteAlert(int alertId) async {
     final uri = Uri.parse('$baseUrl/alerts/$alertId');
     final headers = await _getAuthHeaders();
@@ -259,15 +265,18 @@ class KeywordService {
 
         _debugPrintResponse('DELETE', uri.toString(), response);
 
-        // 200 OK 또는 204 No Content 모두 성공
-        if (response.statusCode != 200 && response.statusCode != 204) {
+        // 200 OK, 204 No Content, 404 Not Found 모두 성공
+        // 404는 이미 삭제된 경우이므로 멱등성 보장을 위해 성공으로 처리
+        if (response.statusCode != 200 &&
+            response.statusCode != 204 &&
+            response.statusCode != 404) {
           _handleHttpError(response, '알람을 삭제할 수 없습니다.');
         }
       } catch (e) {
-        if (e is Exception && e.toString().contains('Exception:')) {
+        if (e is UserFriendlyException) {
           rethrow;
         }
-        throw Exception(NetworkErrorHandler.getErrorMessage(e));
+        throw UserFriendlyException(NetworkErrorHandler.getErrorMessage(e));
       }
     });
   }
@@ -295,10 +304,10 @@ class KeywordService {
           _handleHttpError(response, '알람을 읽음 처리할 수 없습니다.');
         }
       } catch (e) {
-        if (e is Exception && e.toString().contains('Exception:')) {
+        if (e is UserFriendlyException) {
           rethrow;
         }
-        throw Exception(NetworkErrorHandler.getErrorMessage(e));
+        throw UserFriendlyException(NetworkErrorHandler.getErrorMessage(e));
       }
     });
   }
@@ -323,10 +332,10 @@ class KeywordService {
 
         return KeywordInfo.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
       } catch (e) {
-        if (e is Exception && e.toString().contains('Exception:')) {
+        if (e is UserFriendlyException) {
           rethrow;
         }
-        throw Exception(NetworkErrorHandler.getErrorMessage(e));
+        throw UserFriendlyException(NetworkErrorHandler.getErrorMessage(e));
       }
     });
   }
@@ -358,10 +367,10 @@ class KeywordService {
 
         debugPrint('FCM 토큰 등록 성공');
       } catch (e) {
-        if (e is Exception && e.toString().contains('Exception:')) {
+        if (e is UserFriendlyException) {
           rethrow;
         }
-        throw Exception(NetworkErrorHandler.getErrorMessage(e));
+        throw UserFriendlyException(NetworkErrorHandler.getErrorMessage(e));
       }
     });
   }
@@ -389,10 +398,10 @@ class KeywordService {
 
         debugPrint('FCM 토큰 해제 성공');
       } catch (e) {
-        if (e is Exception && e.toString().contains('Exception:')) {
+        if (e is UserFriendlyException) {
           rethrow;
         }
-        throw Exception(NetworkErrorHandler.getErrorMessage(e));
+        throw UserFriendlyException(NetworkErrorHandler.getErrorMessage(e));
       }
     });
   }

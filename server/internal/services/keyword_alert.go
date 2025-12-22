@@ -4,6 +4,7 @@ import (
 	"errors"
 	"math"
 	"sort"
+	"time"
 
 	"github.com/ggorockee/reviewmaps/server/internal/config"
 	"github.com/ggorockee/reviewmaps/server/internal/database"
@@ -136,12 +137,15 @@ func (s *KeywordAlertService) ListAlerts(userID uint, page, limit int, lat, lng 
 	appConfigService := NewAppConfigService(s.db)
 	retentionDays, _ := appConfigService.GetAlertRetentionDays()
 
+	// Calculate retention cutoff time
+	retentionCutoff := time.Now().AddDate(0, 0, -retentionDays)
+
 	query := s.db.Model(&models.KeywordAlert{}).
 		Preload("Keyword").
 		Preload("Campaign", "id IS NOT NULL").
 		Preload("Campaign.Category", "id IS NOT NULL").
 		Where("keyword_id IN ?", keywordIDs).
-		Where("created_at >= NOW() - INTERVAL '? days'", retentionDays)
+		Where("created_at >= ?", retentionCutoff)
 
 	query.Count(&total)
 
@@ -150,7 +154,7 @@ func (s *KeywordAlertService) ListAlerts(userID uint, page, limit int, lat, lng 
 	s.db.Model(&models.KeywordAlert{}).
 		Where("keyword_id IN ?", keywordIDs).
 		Where("is_read = ?", false).
-		Where("created_at >= NOW() - INTERVAL '? days'", retentionDays).
+		Where("created_at >= ?", retentionCutoff).
 		Count(&unreadCount)
 
 	// Apply sorting (distance sorting will be done in memory after calculation)

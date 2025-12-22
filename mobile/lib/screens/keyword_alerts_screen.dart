@@ -78,6 +78,12 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
       _showErrorDialog('데이터를 불러올 수 없습니다.\n잠시 후 다시 시도해 주세요.');
     } finally {
       _isLoadingInProgress = false;
+      // mounted 상태일 때만 _isLoading을 확실하게 false로 설정
+      if (mounted && _isLoading) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 

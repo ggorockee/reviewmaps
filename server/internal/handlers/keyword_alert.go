@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"encoding/json"
+	"log"
 	"strconv"
 
 	"github.com/ggorockee/reviewmaps/server/internal/config"
@@ -166,6 +168,14 @@ func (h *KeywordAlertHandler) ListAlerts(c *fiber.Ctx) error {
 	response, err := h.service.ListAlerts(userID, page, limit, lat, lng, sortBy)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	// DEBUG: Log first 2 alerts to check campaign data
+	if len(response.Items) > 0 {
+		for i := 0; i < 2 && i < len(response.Items); i++ {
+			alertJSON, _ := json.MarshalIndent(response.Items[i], "", "  ")
+			log.Printf("[DEBUG] Alert #%d: %s\n", i+1, string(alertJSON))
+		}
 	}
 
 	return c.JSON(response)

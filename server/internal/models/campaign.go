@@ -2,6 +2,8 @@ package models
 
 import (
 	"time"
+
+	"gorm.io/gorm"
 )
 
 // Category represents campaign categories
@@ -43,9 +45,10 @@ type Campaign struct {
 	CampaignType    *string    `gorm:"column:campaign_type;size:50;index:idx_cpg_type" json:"campaign_type,omitempty"`
 	Region          *string    `gorm:"column:region;size:100;index:idx_cpg_region" json:"region,omitempty"`
 	CampaignChannel *string    `gorm:"column:campaign_channel;size:255" json:"campaign_channel,omitempty"`
-	PromotionLevel  int        `gorm:"column:promotion_level;not null;default:0" json:"promotion_level"`
-	CreatedAt       time.Time  `gorm:"column:created_at;not null;index:idx_cpg_created,sort:desc" json:"created_at"`
-	UpdatedAt       time.Time  `gorm:"column:updated_at;not null" json:"updated_at"`
+	PromotionLevel  int            `gorm:"column:promotion_level;not null;default:0" json:"promotion_level"`
+	CreatedAt       time.Time      `gorm:"column:created_at;not null;index:idx_cpg_created,sort:desc" json:"created_at"`
+	UpdatedAt       time.Time      `gorm:"column:updated_at;not null" json:"updated_at"`
+	DeletedAt       gorm.DeletedAt `gorm:"column:deleted_at;index:idx_cpg_deleted" json:"deleted_at,omitempty"`
 
 	// Relations
 	Category *Category `gorm:"foreignKey:CategoryID" json:"category,omitempty"`

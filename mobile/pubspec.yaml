@@ -27,11 +27,11 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # In Windows, build-name is used as the major, minor, and patch parts˜
 # of the product and file versions while build-number is used as the build suffix.
 
-# ios
-version: 2.0.7+2
+# # ios
+# version: 2.0.8+2
 
-# # android
-# version: 2.0.7+82
+# android
+version: 2.0.8+84
 
 # minversion: 2.0.2
 

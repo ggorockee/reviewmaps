@@ -115,6 +115,7 @@ flutter:
     - asset/image/banner/
     - asset/image/logo/application/
     - asset/image/login/
+    - asset/image/ads/dangmi/
     - .env
 
 

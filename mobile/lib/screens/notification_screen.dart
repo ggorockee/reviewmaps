@@ -62,6 +62,11 @@ class _NotificationScreenState extends State<NotificationScreen>
     _loadKeywords();
     _getUserLocation();
 
+    // 초기 탭이 알림 기록 탭이면 즉시 로드
+    if (widget.initialTabIndex == 1) {
+      _loadAlerts();
+    }
+
     // FCM 알림 수신 리스너 등록 (푸시 수신 시 알림 기록 실시간 업데이트)
     FcmService.instance.addNotificationListener(_onFcmNotificationReceived);
   }
@@ -266,6 +271,7 @@ class _NotificationScreenState extends State<NotificationScreen>
     });
 
     try {
+      debugPrint('[NotificationScreen] 키워드 삭제 시도: id=${keywordInfo.id}, keyword=$keyword');
       await _keywordService.deleteKeyword(keywordInfo.id);
       if (!mounted) return;
 
@@ -274,6 +280,7 @@ class _NotificationScreenState extends State<NotificationScreen>
         _isLoading = false;
       });
 
+      debugPrint('[NotificationScreen] 키워드 삭제 성공: $keyword');
       _showSnackBar("'$keyword' 키워드가 삭제되었습니다");
     } catch (e) {
       if (!mounted) return;
@@ -282,6 +289,7 @@ class _NotificationScreenState extends State<NotificationScreen>
         _isLoading = false;
       });
 
+      debugPrint('[NotificationScreen] 키워드 삭제 실패: $e');
       _showSnackBar('키워드 삭제 실패: $e', isError: true);
     }
   }

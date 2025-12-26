@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/auth_service.dart';
 import '../services/fcm_service.dart';
@@ -43,6 +44,9 @@ class AuthState {
 class AuthNotifier extends Notifier<AuthState> {
   late final AuthService _authService;
 
+  // Phase 6: 토큰 갱신 중 플래그 (경쟁 조건 방지)
+  bool _isRefreshing = false;
+
   @override
   AuthState build() {
     // authServiceProvider를 통해 AuthService 인스턴스 가져오기
@@ -56,6 +60,7 @@ class AuthNotifier extends Notifier<AuthState> {
   /// 인증 상태 확인 및 업데이트
   /// - 앱 시작 시 또는 필요 시 호출하여 로그인 상태 복원
   /// - iOS: 토큰 만료 시 자동 갱신 시도
+  /// - Phase 6: 토큰 갱신 경쟁 조건 방지
   Future<void> checkAuthStatus() async {
     try {
       final isLoggedIn = await _authService.isLoggedIn();
@@ -74,6 +79,13 @@ class AuthNotifier extends Notifier<AuthState> {
         } catch (e) {
           // 401 에러인 경우 토큰 갱신 한 번 더 시도
           if (e.toString().contains('만료') || e.toString().contains('401')) {
+            // Phase 6: 이미 토큰 갱신 중이면 대기
+            if (_isRefreshing) {
+              debugPrint('[AuthProvider] 토큰 갱신 이미 진행 중 - 대기');
+              return;
+            }
+
+            _isRefreshing = true;
             try {
               await _authService.refreshToken();
               final userInfo = await _authService.getUserInfo();
@@ -86,6 +98,8 @@ class AuthNotifier extends Notifier<AuthState> {
             } catch (refreshError) {
               // 갱신도 실패하면 로그아웃
               await logout();
+            } finally {
+              _isRefreshing = false;
             }
           } else {
             // 다른 에러도 로그아웃 처리
@@ -124,7 +138,12 @@ class AuthNotifier extends Notifier<AuthState> {
     );
 
     // FCM 토큰 서버에 재등록 (로그인 후 푸시 알림 수신을 위해 필수)
-    await FcmService.instance.refreshToken();
+    // Phase 6: FCM 토큰 갱신 실패 시에도 로그인 상태는 유지 (순환 참조 방지)
+    try {
+      await ref.read(fcmServiceProvider).refreshToken();
+    } catch (e) {
+      debugPrint('[AuthProvider] FCM 토큰 재등록 실패 (로그인 상태는 유지): $e');
+    }
   }
 
   /// 익명 로그인 성공 후 상태 업데이트
@@ -137,9 +156,21 @@ class AuthNotifier extends Notifier<AuthState> {
   }
 
   /// 로그아웃
+  /// Phase 6: 토큰 갱신 중에는 로그아웃 방지 (경쟁 조건)
   Future<void> logout() async {
+    // Phase 6: 토큰 갱신 중이면 로그아웃 스킵 (갱신 완료 대기)
+    if (_isRefreshing) {
+      debugPrint('[AuthProvider] 토큰 갱신 중 - 로그아웃 대기');
+      return;
+    }
+
     // FCM 토큰 서버에서 해제 (푸시 알림 중지)
-    await FcmService.instance.unregisterToken();
+    try {
+      await ref.read(fcmServiceProvider).unregisterToken();
+    } catch (e) {
+      debugPrint('[AuthProvider] FCM 토큰 해제 실패 (로그아웃은 진행): $e');
+    }
+
     await _authService.logout();
     state = const AuthState();
   }
@@ -147,7 +178,7 @@ class AuthNotifier extends Notifier<AuthState> {
   /// 회원 탈퇴
   Future<void> deleteAccount({String? reason}) async {
     // FCM 토큰 서버에서 해제 (푸시 알림 중지)
-    await FcmService.instance.unregisterToken();
+    await ref.read(fcmServiceProvider).unregisterToken();
     await _authService.deleteAccount(reason: reason);
     state = const AuthState();
   }

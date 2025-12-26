@@ -17,7 +17,6 @@ class MyPageScreen extends ConsumerStatefulWidget {
 }
 
 class _MyPageScreenState extends ConsumerState<MyPageScreen> {
-  final AuthService _authService = AuthService();
   bool _isLoading = true;
   bool _isLoggedIn = false;
   bool _isAnonymous = false;
@@ -39,8 +38,9 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
     });
 
     try {
-      final isLoggedIn = await _authService.isLoggedIn();
-      final isAnonymous = await _authService.isAnonymous();
+      final authService = ref.read(authServiceProvider);
+      final isLoggedIn = await authService.isLoggedIn();
+      final isAnonymous = await authService.isAnonymous();
 
       setState(() {
         _isLoggedIn = isLoggedIn;
@@ -51,7 +51,7 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
         if (isAnonymous) {
           // 익명 사용자 정보 로드
           try {
-            final anonymousInfo = await _authService.getAnonymousUserInfo();
+            final anonymousInfo = await authService.getAnonymousUserInfo();
             setState(() {
               _anonymousUserInfo = anonymousInfo;
             });
@@ -61,7 +61,7 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
         } else {
           // 일반 사용자 정보 로드
           try {
-            final userInfo = await _authService.getUserInfo();
+            final userInfo = await authService.getUserInfo();
             setState(() {
               _userInfo = userInfo;
             });
@@ -126,7 +126,7 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
       });
 
       try {
-        await _authService.logout();
+        await ref.read(authServiceProvider).logout();
 
         if (!mounted) return;
 
@@ -539,7 +539,6 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
 
   @override
   void dispose() {
-    _authService.dispose();
     super.dispose();
   }
 }

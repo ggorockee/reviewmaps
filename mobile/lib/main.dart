@@ -162,6 +162,11 @@ class MyApp extends ConsumerWidget {
         // 현재 컨텍스트가 유효한지 확인
         final currentContext = navigatorKey.currentContext;
         if (currentContext != null && currentContext.mounted) {
+          // 현재 경로 추출 (named route가 있는 경우)
+          final currentRoute = ModalRoute.of(currentContext)?.settings.name;
+
+          debugPrint('[MyApp] 현재 경로: $currentRoute');
+
           // 스낵바 표시: "로그인이 만료되었습니다"
           ScaffoldMessenger.of(currentContext).showSnackBar(
             const SnackBar(
@@ -172,9 +177,12 @@ class MyApp extends ConsumerWidget {
           );
 
           // 로그인 화면으로 이동 (모든 스택 제거)
+          // returnRoute를 전달하여 로그인 성공 후 복귀 가능하도록 함
           Navigator.of(currentContext).pushAndRemoveUntil(
             MaterialPageRoute(
-              builder: (context) => const LoginScreen(),
+              builder: (context) => LoginScreen(
+                returnRoute: currentRoute,
+              ),
             ),
             (route) => false,
           );

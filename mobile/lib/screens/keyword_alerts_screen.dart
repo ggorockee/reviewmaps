@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:mobile/services/keyword_service.dart';
@@ -7,16 +8,15 @@ import 'package:mobile/models/keyword_models.dart';
 import 'package:mobile/screens/home_screen.dart'; // buildChannelIcons
 
 /// 키워드 알람 관리 화면
-class KeywordAlertsScreen extends StatefulWidget {
+class KeywordAlertsScreen extends ConsumerStatefulWidget {
   const KeywordAlertsScreen({super.key});
 
   @override
-  State<KeywordAlertsScreen> createState() => _KeywordAlertsScreenState();
+  ConsumerState<KeywordAlertsScreen> createState() => _KeywordAlertsScreenState();
 }
 
-class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
+class _KeywordAlertsScreenState extends ConsumerState<KeywordAlertsScreen>
     with SingleTickerProviderStateMixin {
-  final KeywordService _keywordService = KeywordService();
   late TabController _tabController;
 
   bool _isLoading = true;
@@ -55,9 +55,10 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
 
     try {
       // 병렬로 API 호출
+      final keywordService = ref.read(keywordServiceProvider);
       final results = await Future.wait([
-        _keywordService.getMyKeywords(),
-        _keywordService.getMyAlerts(),
+        keywordService.getMyKeywords(),
+        keywordService.getMyAlerts(),
       ]);
 
       if (!mounted) return;
@@ -124,7 +125,7 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
 
     if (result == true && controller.text.trim().isNotEmpty) {
       try {
-        final newKeyword = await _keywordService.registerKeyword(controller.text.trim());
+        final newKeyword = await ref.read(keywordServiceProvider).registerKeyword(controller.text.trim());
         if (!mounted) return;
 
         // UI 즉시 업데이트 (전체 리로드 없이)
@@ -169,7 +170,7 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
 
     if (confirmed == true) {
       try {
-        await _keywordService.deleteKeyword(keyword.id);
+        await ref.read(keywordServiceProvider).deleteKeyword(keyword.id);
         if (!mounted) return;
 
         // UI 즉시 업데이트 (전체 리로드 없이)
@@ -193,7 +194,7 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
   /// 알람 읽음 처리
   Future<void> _markAlertsAsRead(List<int> alertIds) async {
     try {
-      await _keywordService.markAlertsAsRead(alertIds);
+      await ref.read(keywordServiceProvider).markAlertsAsRead(alertIds);
       if (!mounted) return;
 
       // UI 즉시 업데이트 (전체 리로드 없이)
@@ -217,7 +218,7 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
     final alertIds = unreadAlerts.map((a) => a.id).toList();
 
     try {
-      await _keywordService.markAlertsAsRead(alertIds);
+      await ref.read(keywordServiceProvider).markAlertsAsRead(alertIds);
       if (!mounted) return;
 
       // UI 즉시 업데이트
@@ -564,7 +565,7 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
     });
 
     try {
-      await _keywordService.deleteAlert(alertId);
+      await ref.read(keywordServiceProvider).deleteAlert(alertId);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -902,7 +903,7 @@ class _KeywordAlertsScreenState extends State<KeywordAlertsScreen>
   void dispose() {
     _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
-    _keywordService.dispose();
+    // Provider를 사용하므로 수동 dispose 불필요
     super.dispose();
   }
 }

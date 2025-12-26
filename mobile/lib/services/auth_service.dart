@@ -8,6 +8,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/auth_models.dart';
 import '../config/config.dart';
 import '../providers/auth_provider.dart';
+import '../utils/network_error_handler.dart';
+import '../utils/exceptions.dart';
 import 'token_storage_service.dart';
 
 // JWT 디코딩은 token_storage_service.dart의 decodeJwtPayload 함수 사용
@@ -84,17 +86,20 @@ class AuthService {
       }
     }
 
-    // 서버의 실제 에러 메시지 파싱 시도
     try {
       final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
       final serverMessage = errorBody['detail'] as String?;
-      throw Exception(serverMessage ?? defaultMessage);
-    } catch (parseError) {
-      if (parseError is Exception && parseError.toString().contains('detail')) {
-        rethrow;
-      }
-      // JSON 파싱 실패 시 기본 메시지
-      throw Exception(defaultMessage);
+      throw UserFriendlyException(
+        NetworkErrorHandler.getHttpErrorMessage(
+          response.statusCode,
+          serverMessage: serverMessage,
+        ),
+      );
+    } catch (e) {
+      if (e is UserFriendlyException) rethrow;
+      throw UserFriendlyException(
+        NetworkErrorHandler.getHttpErrorMessage(response.statusCode)
+      );
     }
   }
 

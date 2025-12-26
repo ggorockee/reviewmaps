@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/services/auth_service.dart';
 import 'package:mobile/services/keyword_service.dart';
 import 'package:mobile/const/colors.dart';
@@ -8,16 +9,15 @@ import 'package:mobile/screens/keyword_alerts_screen.dart';
 import 'package:mobile/models/auth_models.dart';
 
 /// 내정보 화면
-class MyPageScreen extends StatefulWidget {
+class MyPageScreen extends ConsumerStatefulWidget {
   const MyPageScreen({super.key});
 
   @override
-  State<MyPageScreen> createState() => _MyPageScreenState();
+  ConsumerState<MyPageScreen> createState() => _MyPageScreenState();
 }
 
-class _MyPageScreenState extends State<MyPageScreen> {
+class _MyPageScreenState extends ConsumerState<MyPageScreen> {
   final AuthService _authService = AuthService();
-  final KeywordService _keywordService = KeywordService();
   bool _isLoading = true;
   bool _isLoggedIn = false;
   bool _isAnonymous = false;
@@ -85,8 +85,8 @@ class _MyPageScreenState extends State<MyPageScreen> {
   /// 키워드 및 알람 정보 로드
   Future<void> _loadKeywordInfo() async {
     try {
-      final keywords = await _keywordService.getMyKeywords();
-      final alerts = await _keywordService.getMyAlerts(isRead: false);
+      final keywords = await ref.read(keywordServiceProvider).getMyKeywords();
+      final alerts = await ref.read(keywordServiceProvider).getMyAlerts(isRead: false);
       setState(() {
         _keywordCount = keywords.length;
         _unreadAlertCount = alerts.unreadCount;
@@ -540,7 +540,6 @@ class _MyPageScreenState extends State<MyPageScreen> {
   @override
   void dispose() {
     _authService.dispose();
-    _keywordService.dispose();
     super.dispose();
   }
 }

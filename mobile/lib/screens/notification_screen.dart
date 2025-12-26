@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -13,7 +14,7 @@ import 'home_screen.dart'; // buildChannelIcons, platformBadgeColor
 /// - 2개 탭: 키워드 관리, 알림 기록
 /// - 키워드 추가/삭제, 알림 활성화/비활성화 기능
 /// - 위치 기반 거리순 정렬 지원
-class NotificationScreen extends StatefulWidget {
+class NotificationScreen extends ConsumerStatefulWidget {
   /// 초기 탭 인덱스 (0: 키워드 관리, 1: 알림 기록)
   /// 푸시 알림에서 진입 시 알림 기록 탭으로 바로 이동
   final int initialTabIndex;
@@ -24,14 +25,13 @@ class NotificationScreen extends StatefulWidget {
   });
 
   @override
-  State<NotificationScreen> createState() => _NotificationScreenState();
+  ConsumerState<NotificationScreen> createState() => _NotificationScreenState();
 }
 
-class _NotificationScreenState extends State<NotificationScreen>
+class _NotificationScreenState extends ConsumerState<NotificationScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _keywordController = TextEditingController();
-  final KeywordService _keywordService = KeywordService();
 
   List<KeywordInfo> _keywords = [];
   List<AlertInfo> _alerts = [];
@@ -48,7 +48,7 @@ class _NotificationScreenState extends State<NotificationScreen>
 
   // 선택 모드 관련
   bool _isSelectionMode = false;
-  Set<int> _selectedAlertIds = {};
+  final Set<int> _selectedAlertIds = {};
 
   @override
   void initState() {
@@ -79,7 +79,7 @@ class _NotificationScreenState extends State<NotificationScreen>
     _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     _keywordController.dispose();
-    _keywordService.dispose();
+    // Provider를 사용하므로 수동 dispose 불필요
     super.dispose();
   }
 
@@ -150,7 +150,7 @@ class _NotificationScreenState extends State<NotificationScreen>
     });
 
     try {
-      final keywords = await _keywordService.getMyKeywords();
+      final keywords = await ref.read(keywordServiceProvider).getMyKeywords();
       if (!mounted) return;
 
       setState(() {
@@ -177,7 +177,7 @@ class _NotificationScreenState extends State<NotificationScreen>
     });
 
     try {
-      final response = await _keywordService.getMyAlerts(
+      final response = await ref.read(keywordServiceProvider).getMyAlerts(
         lat: _userLat,
         lng: _userLng,
         sort: _sortType,
@@ -239,7 +239,7 @@ class _NotificationScreenState extends State<NotificationScreen>
     });
 
     try {
-      final newKeyword = await _keywordService.registerKeyword(keyword);
+      final newKeyword = await ref.read(keywordServiceProvider).registerKeyword(keyword);
       if (!mounted) return;
 
       setState(() {
@@ -272,7 +272,7 @@ class _NotificationScreenState extends State<NotificationScreen>
 
     try {
       debugPrint('[NotificationScreen] 키워드 삭제 시도: id=${keywordInfo.id}, keyword=$keyword');
-      await _keywordService.deleteKeyword(keywordInfo.id);
+      await ref.read(keywordServiceProvider).deleteKeyword(keywordInfo.id);
       if (!mounted) return;
 
       setState(() {
@@ -309,7 +309,7 @@ class _NotificationScreenState extends State<NotificationScreen>
     });
 
     try {
-      final updated = await _keywordService.toggleKeyword(old.id);
+      final updated = await ref.read(keywordServiceProvider).toggleKeyword(old.id);
       if (!mounted) return;
 
       setState(() {
@@ -334,7 +334,7 @@ class _NotificationScreenState extends State<NotificationScreen>
     if (alert.isRead) return;
 
     try {
-      await _keywordService.markAlertsAsRead([alert.id]);
+      await ref.read(keywordServiceProvider).markAlertsAsRead([alert.id]);
       if (!mounted) return;
 
       setState(() {
@@ -820,7 +820,7 @@ class _NotificationScreenState extends State<NotificationScreen>
 
     // 백그라운드에서 서버 삭제 시도 (실패해도 UI는 유지)
     try {
-      await _keywordService.deleteAlert(alert.id);
+      await ref.read(keywordServiceProvider).deleteAlert(alert.id);
       debugPrint('알림 서버 삭제 성공: ${alert.id}');
     } catch (e) {
       // 서버 삭제 실패해도 사용자에게는 알리지 않음 (이미 UI에서 삭제됨)
@@ -909,7 +909,7 @@ class _NotificationScreenState extends State<NotificationScreen>
     // 백그라운드에서 서버 삭제 시도
     for (final alertId in selectedIds) {
       try {
-        await _keywordService.deleteAlert(alertId);
+        await ref.read(keywordServiceProvider).deleteAlert(alertId);
       } catch (e) {
         debugPrint('알림 서버 삭제 실패 (ID: $alertId): $e');
       }
@@ -968,7 +968,7 @@ class _NotificationScreenState extends State<NotificationScreen>
     // 백그라운드에서 서버 삭제 시도
     for (final alertId in allAlertIds) {
       try {
-        await _keywordService.deleteAlert(alertId);
+        await ref.read(keywordServiceProvider).deleteAlert(alertId);
       } catch (e) {
         debugPrint('알림 서버 삭제 실패 (ID: $alertId): $e');
       }

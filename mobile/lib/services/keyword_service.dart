@@ -2,19 +2,30 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 import 'package:mobile/config/config.dart';
 import 'package:mobile/models/keyword_models.dart';
+import 'package:mobile/providers/auth_provider.dart';
 import 'package:mobile/services/token_storage_service.dart';
 import 'package:mobile/utils/network_error_handler.dart';
 import 'package:mobile/utils/exceptions.dart';
+
+/// 키워드 알람 서비스 Provider
+/// - Riverpod Provider로 관리되어 authProvider 접근 가능
+/// - 401 에러 발생 시 authProvider.logout() 자동 호출
+final keywordServiceProvider = Provider<KeywordService>((ref) {
+  return KeywordService(ref);
+});
 
 /// 키워드 알람 서비스
 /// - 키워드 등록, 조회, 삭제
 /// - 알람 조회 및 읽음 처리
 /// - 네트워크 재시도 로직 포함
+/// - 401 에러 발생 시 authProvider 상태 자동 업데이트
 class KeywordService {
+  final Ref? _ref;
   final String baseUrl = '${AppConfig.reviewMapBaseUrl}/keyword-alerts';
   late final http.Client _client;
   final TokenStorageService _tokenStorage = TokenStorageService();
@@ -24,7 +35,7 @@ class KeywordService {
     'X-API-KEY': AppConfig.reviewMapApiKey,
   };
 
-  KeywordService() {
+  KeywordService([this._ref]) {
     final io = HttpClient()
       ..connectionTimeout = const Duration(seconds: 10)
       ..idleTimeout = const Duration(seconds: 10);
@@ -78,7 +89,20 @@ class KeywordService {
   }
 
   /// HTTP 응답 에러 처리
+  /// 401 에러 발생 시 authProvider.logout() 자동 호출
   void _handleHttpError(http.Response response, String defaultMessage) {
+    // 401 Unauthorized 에러 처리: authProvider 상태 즉시 업데이트
+    if (response.statusCode == 401) {
+      debugPrint('[KeywordService] 401 에러 감지 - authProvider.logout() 호출');
+      // authProvider 상태를 비인증으로 변경
+      final ref = _ref;
+      if (ref != null) {
+        ref.read(authProvider.notifier).logout();
+      } else {
+        debugPrint('[KeywordService] ⚠️ Ref가 없어서 authProvider.logout() 호출 불가 (fcm_service 등 레거시 사용처)');
+      }
+    }
+
     try {
       final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
       final serverMessage = errorBody['detail'] as String?;

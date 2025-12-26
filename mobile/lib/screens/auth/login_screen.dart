@@ -9,6 +9,7 @@ import 'package:mobile/services/sns/kakao_login_service.dart';
 import 'package:mobile/services/sns/google_login_service.dart';
 import 'package:mobile/services/sns/apple_login_service.dart';
 import 'package:mobile/providers/auth_provider.dart';
+import 'package:mobile/services/auth_service.dart' show authServiceProvider;
 import 'package:mobile/const/colors.dart';
 import 'dart:io';
 
@@ -36,13 +37,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _isLoading = false;
-  final AuthService _authService = AuthService();
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
-    _authService.dispose();
     super.dispose();
   }
 
@@ -86,13 +85,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     try {
-      // 1. AuthService로 로그인 수행 (토큰 저장)
-      await _authService.login(email: email, password: password);
+      // 1. AuthService (Provider 방식) 로그인 수행 (토큰 저장)
+      final authService = ref.read(authServiceProvider);
+      await authService.login(email: email, password: password);
 
       if (!mounted) return;
 
       // 2. 사용자 정보 가져오기
-      final userInfo = await _authService.getUserInfo();
+      final userInfo = await authService.getUserInfo();
 
       if (!mounted) return;
 
@@ -148,12 +148,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       final kakaoAccessToken = await KakaoLoginService.login();
       if (!mounted) return;
 
-      // 2. 서버 로그인
-      await _authService.kakaoLogin(kakaoAccessToken);
+      // 2. AuthService (Provider 방식) 서버 로그인
+      final authService = ref.read(authServiceProvider);
+      await authService.kakaoLogin(kakaoAccessToken);
       if (!mounted) return;
 
       // 3. 토큰 저장 확인
-      final storedAccessToken = await _authService.getStoredAccessToken();
+      final storedAccessToken = await authService.getStoredAccessToken();
       if (storedAccessToken == null) {
         throw Exception('토큰 저장에 실패했습니다.\n다시 시도해 주세요.');
       }
@@ -161,7 +162,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (!mounted) return;
 
       // 4. 사용자 정보 가져오기
-      final userInfo = await _authService.getUserInfo();
+      final userInfo = await authService.getUserInfo();
       if (!mounted) return;
 
       // 5. authProvider 상태 업데이트
@@ -218,12 +219,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       final googleAccessToken = await GoogleLoginService.login();
       if (!mounted) return;
 
-      // 2. 서버 로그인
-      await _authService.googleLogin(googleAccessToken);
+      // 2. AuthService (Provider 방식) 서버 로그인
+      final authService = ref.read(authServiceProvider);
+      await authService.googleLogin(googleAccessToken);
       if (!mounted) return;
 
       // 3. 사용자 정보 가져오기
-      final userInfo = await _authService.getUserInfo();
+      final userInfo = await authService.getUserInfo();
       if (!mounted) return;
 
       // 4. authProvider 상태 업데이트
@@ -287,15 +289,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       final appleCredentials = await AppleLoginService.login();
       if (!mounted) return;
 
-      // 2. 서버 로그인
-      await _authService.appleLogin(
+      // 2. AuthService (Provider 방식) 서버 로그인
+      final authService = ref.read(authServiceProvider);
+      await authService.appleLogin(
         appleCredentials['identity_token']!,
         appleCredentials['authorization_code'],
       );
       if (!mounted) return;
 
       // 3. 사용자 정보 가져오기
-      final userInfo = await _authService.getUserInfo();
+      final userInfo = await authService.getUserInfo();
       if (!mounted) return;
 
       // 4. authProvider 상태 업데이트

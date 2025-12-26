@@ -31,6 +31,7 @@ import 'package:mobile/services/interstitial_ad_manager.dart'; // 전면광고 �
 import 'package:mobile/services/firebase_service.dart'; // Firebase 통합 서비스
 import 'package:mobile/services/remote_config_service.dart'; // Firebase Remote Config 서비스
 import 'package:mobile/services/fcm_service.dart'; // FCM 푸시 알림 서비스
+import 'package:mobile/providers/auth_provider.dart'; // AuthProvider
 
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -144,11 +145,43 @@ Future<void> main() async {
   );
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // authProvider 상태 변화 감지: 로그인 만료 시 자동 로그인 화면 이동
+    ref.listen<AuthState>(authProvider, (previous, next) {
+      // 로그인 상태에서 비로그인 상태로 변경된 경우 (401 에러 발생)
+      if (previous != null &&
+          previous.isAuthenticated &&
+          !next.isAuthenticated) {
+
+        debugPrint('[MyApp] 로그인 만료 감지 - 로그인 화면으로 이동');
+
+        // 현재 컨텍스트가 유효한지 확인
+        final currentContext = navigatorKey.currentContext;
+        if (currentContext != null && currentContext.mounted) {
+          // 스낵바 표시: "로그인이 만료되었습니다"
+          ScaffoldMessenger.of(currentContext).showSnackBar(
+            const SnackBar(
+              content: Text('로그인이 만료되었습니다. 다시 로그인해 주세요.'),
+              duration: Duration(seconds: 3),
+              backgroundColor: Colors.red,
+            ),
+          );
+
+          // 로그인 화면으로 이동 (모든 스택 제거)
+          Navigator.of(currentContext).pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (context) => const LoginScreen(),
+            ),
+            (route) => false,
+          );
+        }
+      }
+    });
+
     // ScreenUtilInit:
     //  - 디자인 시안 기준 해상도 지정(여기서는 375x812, iPhone X 계열 기준)
     //  - .w/.h/.sp 단위를 통해 다양한 해상도/비율에서 일관된 UI 제공
@@ -161,7 +194,7 @@ class MyApp extends StatelessWidget {
         return MaterialApp(
           // 글로벌 네비게이터 키 설정
           navigatorKey: navigatorKey,
-          
+
           // 릴리즈에서 디버그 배너 제거
           debugShowCheckedModeBanner: false,
           title: 'Review Schedule',

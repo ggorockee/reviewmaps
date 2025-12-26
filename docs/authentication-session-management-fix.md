@@ -524,27 +524,52 @@ isAuthenticated?
 - 화면에서 캐시된 사용자 정보가 즉시 사라짐
 - ProfileScreen이 자동으로 비회원 UI로 전환
 
-### Phase 3: 자동 네비게이션 구현 (1일)
+### Phase 3: 자동 네비게이션 구현 (1일) ✅
 
 **목표:** authProvider 상태 변경 시 자동으로 로그인 화면으로 이동
 
-**옵션 A: GoRouter 사용 (추천)**
-- [ ] GoRouter 패키지 추가 (없는 경우)
-- [ ] GoRouter 설정에 redirect 함수 추가
-- [ ] redirect 함수에서 authProvider.watch
-- [ ] 비회원이 인증 필요 화면 접근 시 `/login?returnTo=경로` 이동
-- [ ] LoginScreen에서 returnTo 쿼리 파라미터 처리
+**선택한 방식: ref.listen 사용 (main.dart)**
+- [x] 최상위 위젯 (main.dart)에서 ref.listen(authProvider) 설정
+- [x] previous.isAuthenticated && !next.isAuthenticated 감지
+- [x] 현재 경로 추출 (ModalRoute.of(context)?.settings.name)
+- [x] 로그인 화면으로 Navigator.pushAndRemoveUntil (returnRoute 전달)
+- [x] 스낵바 표시: "로그인이 만료되었습니다"
+- [x] 디버그 로그 추가 (로그인 만료 감지, 현재 경로)
 
-**옵션 B: ref.listen 사용 (GoRouter 없는 경우)**
-- [ ] 최상위 위젯 (main.dart 또는 app.dart)에서 ref.listen(authProvider) 설정
-- [ ] previous.isAuthenticated && !next.isAuthenticated 감지
-- [ ] 로그인 화면으로 Navigator.push (returnRoute를 arguments로 전달)
-- [ ] 스낵바 표시: "로그인이 만료되었습니다"
+**구현 상세:**
+```dart
+// main.dart의 MyApp 위젯에서
+ref.listen<AuthState>(authProvider, (previous, next) {
+  if (previous != null &&
+      previous.isAuthenticated &&
+      !next.isAuthenticated) {
+
+    // 현재 경로 추출
+    final currentRoute = ModalRoute.of(currentContext)?.settings.name;
+
+    // 스낵바 표시
+    ScaffoldMessenger.of(currentContext).showSnackBar(
+      const SnackBar(
+        content: Text('로그인이 만료되었습니다. 다시 로그인해 주세요.'),
+      ),
+    );
+
+    // LoginScreen에 returnRoute 전달
+    Navigator.of(currentContext).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (context) => LoginScreen(returnRoute: currentRoute),
+      ),
+      (route) => false,
+    );
+  }
+});
+```
 
 **완료 기준:**
-- 401 에러 발생 시 자동으로 로그인 화면으로 이동
-- 스낵바로 "로그인이 만료되었습니다" 안내 표시
-- 사용자가 수동으로 화면 찾지 않아도 됨
+- ✅ 401 에러 발생 시 자동으로 로그인 화면으로 이동
+- ✅ 스낵바로 "로그인이 만료되었습니다" 안내 표시
+- ✅ returnRoute 전달하여 로그인 성공 후 복귀 가능
+- ✅ Flutter analyze 통과
 
 ### Phase 4: 작업 속행 기능 구현 (0.5일) ✅
 

@@ -14,8 +14,18 @@ import 'dart:io';
 
 /// Login Version 1 화면
 /// Figma 디자인을 기반으로 한 로그인 화면
+///
+/// [returnRoute] 로그인 후 복귀할 경로 (선택)
+/// [returnArguments] 복귀 시 전달할 arguments (선택)
 class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({super.key});
+  final String? returnRoute;
+  final Map<String, dynamic>? returnArguments;
+
+  const LoginScreen({
+    super.key,
+    this.returnRoute,
+    this.returnArguments,
+  });
 
   @override
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
@@ -34,6 +44,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     _passwordController.dispose();
     _authService.dispose();
     super.dispose();
+  }
+
+  /// 로그인 성공 후 네비게이션 처리
+  /// returnRoute가 있으면 해당 경로로, 없으면 MainScreen으로 이동
+  void _navigateAfterLogin() {
+    if (widget.returnRoute != null) {
+      // returnRoute가 있으면 해당 경로로 복귀
+      Navigator.of(context).pushReplacementNamed(
+        widget.returnRoute!,
+        arguments: widget.returnArguments,
+      );
+    } else {
+      // returnRoute가 없으면 MainScreen으로 이동
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => const MainScreen(),
+        ),
+      );
+    }
   }
 
   /// 로그인 처리
@@ -72,12 +101,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
       if (!mounted) return;
 
-      // 4. 로그인 성공 - MainScreen으로 이동
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) => const MainScreen(),
-        ),
-      );
+      // 4. 로그인 성공 - returnRoute 또는 MainScreen으로 이동
+      _navigateAfterLogin();
     } catch (e) {
       if (!mounted) return;
 
@@ -143,12 +168,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       await ref.read(authProvider.notifier).updateAfterLogin(userInfo);
       if (!mounted) return;
 
-      // 6. MainScreen으로 이동
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) => const MainScreen(),
-        ),
-      );
+      // 6. returnRoute 또는 MainScreen으로 이동
+      _navigateAfterLogin();
     } catch (e) {
       if (!mounted) return;
 
@@ -209,12 +230,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       await ref.read(authProvider.notifier).updateAfterLogin(userInfo);
       if (!mounted) return;
 
-      // 5. MainScreen으로 이동
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) => const MainScreen(),
-        ),
-      );
+      // 5. returnRoute 또는 MainScreen으로 이동
+      _navigateAfterLogin();
     } catch (e) {
       if (!mounted) return;
 
@@ -285,12 +302,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       await ref.read(authProvider.notifier).updateAfterLogin(userInfo);
       if (!mounted) return;
 
-      // 5. MainScreen으로 이동
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) => const MainScreen(),
-        ),
-      );
+      // 5. returnRoute 또는 MainScreen으로 이동
+      _navigateAfterLogin();
     } catch (e) {
       if (!mounted) return;
 

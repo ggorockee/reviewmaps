@@ -105,6 +105,7 @@ export default function Home() {
               <a href="#how-to-use" className="text-gray-600 hover:text-green-600 transition-colors">사용법</a>
               <a href="#screenshots" className="text-gray-600 hover:text-green-600 transition-colors">앱 화면</a>
               <Link href="/privacy" className="text-gray-600 hover:text-green-600 transition-colors">개인정보처리방침</Link>
+              <Link href="/support" className="text-gray-600 hover:text-green-600 transition-colors">고객지원</Link>
             </nav>
           </div>
         </div>
@@ -413,6 +414,7 @@ export default function Home() {
               <h4 className="text-lg font-semibold mb-4">링크</h4>
               <ul className="space-y-2">
                 <li><Link href="/privacy" className="text-gray-400 hover:text-green-400 transition-colors">개인정보처리방침</Link></li>
+                <li><Link href="/support" className="text-gray-400 hover:text-green-400 transition-colors">고객지원</Link></li>
                 <li><a href="#features" className="text-gray-400 hover:text-green-400 transition-colors">주요 기능</a></li>
                 <li><a href="#how-to-use" className="text-gray-400 hover:text-green-400 transition-colors">사용법</a></li>
               </ul>

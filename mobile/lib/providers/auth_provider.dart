@@ -41,10 +41,14 @@ class AuthState {
 
 /// 인증 상태 관리 노티파이어
 class AuthNotifier extends Notifier<AuthState> {
-  final AuthService _authService = AuthService();
+  late final AuthService _authService;
 
   @override
   AuthState build() {
+    // authServiceProvider를 통해 AuthService 인스턴스 가져오기
+    // 이를 통해 401 에러 발생 시 authProvider.logout() 호출 가능
+    _authService = ref.read(authServiceProvider);
+
     // 초기 상태는 비인증
     return const AuthState();
   }
@@ -149,8 +153,14 @@ class AuthNotifier extends Notifier<AuthState> {
   }
 
   /// 리소스 정리
+  ///
+  /// 참고: _authService는 authServiceProvider가 관리하므로
+  /// Riverpod이 자동으로 dispose 처리함.
+  /// 명시적 dispose 호출은 불필요하지만 호환성을 위해 유지.
   void dispose() {
-    _authService.dispose();
+    // authServiceProvider가 관리하는 인스턴스이므로
+    // 실제로는 Riverpod이 자동 정리함
+    // _authService.dispose();
   }
 }
 

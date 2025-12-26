@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/services/app_open_ad_service.dart';
 import 'package:mobile/services/ad_service.dart';
 import 'package:mobile/services/campaign_cache_manager.dart';
+import 'package:mobile/services/fcm_service.dart';
 import 'package:mobile/config/app_version.dart';
 import 'package:mobile/const/colors.dart';
 import 'package:mobile/screens/main_screen.dart';
@@ -14,14 +16,14 @@ import 'package:mobile/widgets/friendly.dart';
 /// - 브랜드 로고 및 로딩 애니메이션
 /// - 전면광고 준비되면 표시 후 메인 화면으로 이동
 /// - 광고 로딩 실패 시에도 자연스럽게 메인 화면으로 이동
-class SplashScreen extends StatefulWidget {
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen>
+class _SplashScreenState extends ConsumerState<SplashScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -73,6 +75,14 @@ class _SplashScreenState extends State<SplashScreen>
   /// 광고 로딩 중 백그라운드에서 데이터 프리페치하여 홈 화면 즉시 표시
   Future<void> _startSplashSequence() async {
     final stopwatch = Stopwatch()..start();
+
+    // Phase 5: FCM 서비스 초기화 (Provider 방식)
+    try {
+      await ref.read(fcmServiceProvider).initialize();
+      debugPrint('[SplashScreen] FCM 서비스 초기화 완료');
+    } catch (e) {
+      debugPrint('[SplashScreen] FCM 서비스 초기화 실패: $e');
+    }
 
     // 1. 병렬 실행: 최소 대기 + 데이터 프리로드 + 세션 로깅
     // 광고가 표시되는 동안 백그라운드에서 추천 + 가까운 캠페인을 모두 미리 로드

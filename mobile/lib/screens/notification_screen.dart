@@ -68,13 +68,13 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen>
     }
 
     // FCM 알림 수신 리스너 등록 (푸시 수신 시 알림 기록 실시간 업데이트)
-    FcmService.instance.addNotificationListener(_onFcmNotificationReceived);
+    ref.read(fcmServiceProvider).addNotificationListener(_onFcmNotificationReceived);
   }
 
   @override
   void dispose() {
     // FCM 알림 수신 리스너 해제
-    FcmService.instance.removeNotificationListener(_onFcmNotificationReceived);
+    ref.read(fcmServiceProvider).removeNotificationListener(_onFcmNotificationReceived);
 
     _tabController.removeListener(_onTabChanged);
     _tabController.dispose();

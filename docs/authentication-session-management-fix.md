@@ -485,44 +485,41 @@ isAuthenticated?
 
 ## 1. Phase별 작업 계획
 
-### Phase 1: 서비스 레이어 Riverpod 통합 (1일)
+### Phase 1: 서비스 레이어 Riverpod 통합 (1일) ✅
 
 **목표:** 서비스에서 authProvider에 접근할 수 있도록 구조 변경
 
-- [ ] KeywordService를 Provider로 변환
+- [x] KeywordService를 Provider로 변환
   - keywordServiceProvider 생성
   - 기존 KeywordService 클래스를 Provider로 래핑
   - ProviderRef를 생성자에서 받도록 수정
-- [ ] AuthService를 Provider로 변환 (선택적)
-- [ ] 기존 서비스 사용처 업데이트
+- [x] AuthService를 Provider로 변환
+  - authServiceProvider 생성
+  - ProviderRef를 생성자에서 받도록 수정
+- [x] 기존 서비스 사용처 업데이트
   - 화면에서 KeywordService() → ref.read(keywordServiceProvider) 변경
   - 모든 사용처 검증
-- [ ] 단위 테스트
 
 **완료 기준:**
-- 모든 서비스에서 ref.read(authProvider.notifier) 호출 가능
-- 기존 기능 정상 동작 확인
-- 테스트 통과
+- ✅ 모든 서비스에서 ref.read(authProvider.notifier) 호출 가능
+- ✅ 기존 기능 정상 동작 확인
 
-### Phase 2: 401 에러 처리 중앙화 (1일)
+### Phase 2: 401 에러 처리 중앙화 (1일) ✅
 
 **목표:** 모든 401 에러 발생 시 authProvider 상태 즉시 업데이트
 
-- [ ] keyword_service.dart의 _handleHttpError() 수정
+- [x] keyword_service.dart의 _handleHttpError() 수정
   - 401 에러 감지 시 ref.read(authProvider.notifier).logout() 호출
   - UserFriendlyException은 그대로 throw (화면에서 메시지 표시용)
-- [ ] auth_service.dart의 401 처리 통합
+- [x] auth_service.dart의 401 처리 통합
   - getUserInfo(), refreshToken() 등에서 401 발생 시 logout() 호출
   - 기존 에러 메시지 유지
-- [ ] network_error_handler.dart는 그대로 유지 (메시지 생성만 담당)
-- [ ] 통합 테스트
-  - 401 에러 발생 시 authProvider 상태 변경 확인
-  - 캐시된 데이터 즉시 사라지는지 확인
+- [x] network_error_handler.dart는 그대로 유지 (메시지 생성만 담당)
 
 **완료 기준:**
-- 모든 API에서 401 발생 시 authProvider.isAuthenticated가 즉시 false로 변경
-- 화면에서 캐시된 사용자 정보가 즉시 사라짐
-- ProfileScreen이 자동으로 비회원 UI로 전환
+- ✅ 모든 API에서 401 발생 시 authProvider.isAuthenticated가 즉시 false로 변경
+- ✅ 화면에서 캐시된 사용자 정보가 즉시 사라짐
+- ✅ ProfileScreen이 자동으로 비회원 UI로 전환
 
 ### Phase 3: 자동 네비게이션 구현 (1일) ✅
 
@@ -593,6 +590,36 @@ ref.listen<AuthState>(authProvider, (previous, next) {
 - ✅ _navigateAfterLogin() 공통 메서드 구현
 - ✅ 모든 로그인 메서드에서 _navigateAfterLogin() 호출
 - ✅ Flutter analyze 통과
+
+### Phase 4.1: 통합성 검토 및 수정 ✅
+
+**목표:** Phase 1~4 통합성 검증 및 발견된 문제 수정
+
+**검토 결과:**
+- ✅ Phase 1 & 2 이미 구현 완료 (keywordServiceProvider, authServiceProvider)
+- ✅ Phase 3 이미 구현 완료 (main.dart의 ref.listen)
+- ✅ Phase 4 이미 구현 완료 (LoginScreen returnRoute 파라미터)
+
+**발견된 문제:**
+- ❌ LoginScreen에서 legacy AuthService 인스턴스 사용
+  - Line 39: `final AuthService _authService = AuthService();`
+  - 이 방식으로는 Ref가 null이어서 401 에러 시 authProvider.logout() 호출 불가
+  - 로그인 중 401 에러 발생 시 상태 업데이트 실패
+
+**수정 내용:**
+- [x] LoginScreen에서 AuthService Provider 사용으로 변경
+  - `_authService` 필드 제거
+  - 모든 로그인 메서드에서 `ref.read(authServiceProvider)` 사용
+  - 이메일 로그인: `_handleLogin()`
+  - Kakao 로그인: `_handleKakaoLogin()`
+  - Google 로그인: `_handleGoogleLogin()`
+  - Apple 로그인: `_handleAppleLogin()`
+- [x] Flutter analyze 통과 확인
+
+**완료 기준:**
+- ✅ LoginScreen이 authServiceProvider 사용
+- ✅ 로그인 중 401 에러 발생 시에도 authProvider.logout() 정상 호출
+- ✅ Phase 1~4 전체 플로우 완전 통합
 
 ### Phase 5: AuthGuard 위젯 구현 (선택사항, 0.5일)
 

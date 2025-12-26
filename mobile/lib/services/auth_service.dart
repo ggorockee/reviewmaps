@@ -3,29 +3,38 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/auth_models.dart';
 import '../config/config.dart';
+import '../providers/auth_provider.dart';
 import 'token_storage_service.dart';
 
 // JWT 디코딩은 token_storage_service.dart의 decodeJwtPayload 함수 사용
+
+/// 인증 서비스 Provider
+/// - Riverpod Provider로 관리되어 authProvider 접근 가능
+/// - 401 에러 발생 시 authProvider.logout() 자동 호출
+final authServiceProvider = Provider<AuthService>((ref) {
+  return AuthService(ref);
+});
 
 /// AuthService
 /// ------------------------------------------------------------
 /// - 인증 관련 API 호출 전용 서비스
 /// - 회원가입, 로그인, 토큰 갱신, 익명 로그인 등 지원
 /// - 토큰 저장소와 연동하여 자동 토큰 관리
+/// - 401 에러 발생 시 authProvider 상태 자동 업데이트
 class AuthService {
+  final Ref? _ref;
   final String baseUrl;
   final String apiKey;
   late final http.Client _client;
   final TokenStorageService _tokenStorage = TokenStorageService();
 
-  AuthService({
-    String? baseUrl,
-    String? apiKey,
-  })  : baseUrl = baseUrl ?? AppConfig.reviewMapBaseUrl,
-        apiKey = apiKey ?? AppConfig.reviewMapApiKey {
+  AuthService([this._ref])
+      : baseUrl = AppConfig.reviewMapBaseUrl,
+        apiKey = AppConfig.reviewMapApiKey {
     final io = HttpClient()
       ..connectionTimeout = const Duration(seconds: 10)
       ..idleTimeout = const Duration(seconds: 10);
@@ -58,6 +67,35 @@ class AuthService {
     debugPrint('Status Code: ${response.statusCode}');
     debugPrint('Response Body: ${response.body}');
     debugPrint('======================');
+  }
+
+  /// HTTP 응답 에러 처리
+  /// 401 에러 발생 시 authProvider.logout() 자동 호출
+  void _handleHttpError(http.Response response, String defaultMessage) {
+    // 401 Unauthorized 에러 처리: authProvider 상태 즉시 업데이트
+    if (response.statusCode == 401) {
+      debugPrint('[AuthService] 401 에러 감지 - authProvider.logout() 호출');
+      // authProvider 상태를 비인증으로 변경
+      final ref = _ref;
+      if (ref != null) {
+        ref.read(authProvider.notifier).logout();
+      } else {
+        debugPrint('[AuthService] ⚠️ Ref가 없어서 authProvider.logout() 호출 불가 (레거시 사용처)');
+      }
+    }
+
+    // 서버의 실제 에러 메시지 파싱 시도
+    try {
+      final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
+      final serverMessage = errorBody['detail'] as String?;
+      throw Exception(serverMessage ?? defaultMessage);
+    } catch (parseError) {
+      if (parseError is Exception && parseError.toString().contains('detail')) {
+        rethrow;
+      }
+      // JSON 파싱 실패 시 기본 메시지
+      throw Exception(defaultMessage);
+    }
   }
 
   /// 리소스 정리
@@ -434,12 +472,8 @@ class AuthService {
 
       _debugPrintResponse('POST', uri.toString(), response);
 
-      if (response.statusCode == 401) {
-        // 인증 만료 - 사용자 친화적 메시지
-        throw Exception('로그인이 만료되었습니다.\n다시 로그인해 주세요.');
-      } else if (response.statusCode != 200) {
-        final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
-        throw Exception(errorBody['detail'] ?? '로그인 정보를 갱신할 수 없습니다.\n다시 로그인해 주세요.');
+      if (response.statusCode != 200) {
+        _handleHttpError(response, '로그인 정보를 갱신할 수 없습니다.\n다시 로그인해 주세요.');
       }
 
       final authResponse =
@@ -572,21 +606,8 @@ class AuthService {
 
       _debugPrintResponse('GET', uri.toString(), response);
 
-      if (response.statusCode == 401) {
-        // 서버의 실제 에러 메시지 파싱 시도
-        try {
-          final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
-          final serverMessage = errorBody['detail'] ?? '로그인이 만료되었습니다.\n다시 로그인해 주세요.';
-          debugPrint('[AuthService] 서버 에러 메시지: $serverMessage');
-          throw Exception(serverMessage);
-        } catch (parseError) {
-          // JSON 파싱 실패 시 기본 메시지
-          debugPrint('[AuthService] 401 에러 - JSON 파싱 실패: $parseError');
-          throw Exception('로그인이 만료되었습니다.\n다시 로그인해 주세요.');
-        }
-      } else if (response.statusCode != 200) {
-        final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
-        throw Exception(errorBody['detail'] ?? '사용자 정보를 불러올 수 없습니다.\n잠시 후 다시 시도해 주세요.');
+      if (response.statusCode != 200) {
+        _handleHttpError(response, '사용자 정보를 불러올 수 없습니다.\n잠시 후 다시 시도해 주세요.');
       }
 
       return UserInfo.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
@@ -622,12 +643,8 @@ class AuthService {
 
       _debugPrintResponse('GET', uri.toString(), response);
 
-      if (response.statusCode == 401) {
-        // 세션 만료 - 사용자 친화적 메시지
-        throw Exception('이용 시간이 만료되었습니다.\n다시 시작해 주세요.');
-      } else if (response.statusCode != 200) {
-        final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
-        throw Exception(errorBody['detail'] ?? '사용자 정보를 불러올 수 없습니다.\n잠시 후 다시 시도해 주세요.');
+      if (response.statusCode != 200) {
+        _handleHttpError(response, '사용자 정보를 불러올 수 없습니다.\n잠시 후 다시 시도해 주세요.');
       }
 
       return AnonymousUserInfo.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
@@ -661,11 +678,8 @@ class AuthService {
 
       _debugPrintResponse('DELETE', uri.toString(), response);
 
-      if (response.statusCode == 401) {
-        throw Exception('로그인이 만료되었습니다.\n다시 로그인해 주세요.');
-      } else if (response.statusCode != 200) {
-        final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
-        throw Exception(errorBody['detail'] ?? '회원 탈퇴 처리 중 오류가 발생했습니다.');
+      if (response.statusCode != 200) {
+        _handleHttpError(response, '회원 탈퇴 처리 중 오류가 발생했습니다.');
       }
 
       // 탈퇴 성공 - 로컬 토큰 삭제

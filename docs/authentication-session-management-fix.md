@@ -621,7 +621,120 @@ ref.listen<AuthState>(authProvider, (previous, next) {
 - ✅ 로그인 중 401 에러 발생 시에도 authProvider.logout() 정상 호출
 - ✅ Phase 1~4 전체 플로우 완전 통합
 
-### Phase 5: AuthGuard 위젯 구현 (선택사항, 0.5일)
+### Phase 5: FCM 딥링크 인증 상태 체크 구현 (1일) ✅
+
+**목표:** 푸시 알림 딥링크 처리 시 인증 상태 체크 및 자동 네비게이션
+
+**구현 내용:**
+- [x] FcmService를 Provider로 변환
+  - `fcmServiceProvider` 생성
+  - `Ref _ref` 필드 추가하여 authProvider 접근 가능
+  - `_registerTokenToServer()`, `unregisterToken()`에서 keywordServiceProvider 사용
+- [x] 딥링크 처리 시 authProvider 상태 체크 로직 추가
+  - `_navigateToNotificationScreen()` 메서드 수정
+  - 로그인 상태: MainScreen (알림 탭, 알림 기록)으로 이동
+  - 비로그인 상태: LoginScreen (returnRoute=/notifications)으로 이동
+- [x] LoginScreen에서 /notifications returnRoute 처리
+  - `_navigateAfterLogin()` 메서드에 `/notifications` 분기 추가
+  - 로그인 성공 후 MainScreen (알림 탭, 알림 기록)으로 복귀
+- [x] SplashScreen에서 FcmService 초기화를 Provider 방식으로 변경
+  - ConsumerStatefulWidget으로 변환
+  - `ref.read(fcmServiceProvider).initialize()` 호출
+- [x] NotificationScreen에서 Provider 방식 사용
+  - `FcmService.instance` → `ref.read(fcmServiceProvider)` 변경
+- [x] AuthProvider에서 Provider 방식 사용
+  - `FcmService.instance` → `ref.read(fcmServiceProvider)` 변경
+  - `refreshToken()`, `unregisterToken()` 호출 부분 수정
+- [x] Flutter analyze 통과 확인
+
+**플로우:**
+```
+[푸시 알림 탭]
+  ↓
+[FcmService._navigateToNotificationScreen()]
+  ↓
+[authProvider 상태 체크]
+  ↓
+  ├─ 로그인됨 → MainScreen (알림 탭, 알림 기록)
+  └─ 비로그인 → LoginScreen (returnRoute=/notifications)
+       ↓
+     [로그인 성공]
+       ↓
+     [MainScreen (알림 탭, 알림 기록)으로 복귀]
+```
+
+**완료 기준:**
+- ✅ FcmService를 Provider로 변환 완료
+- ✅ 딥링크 인증 체크 로직 구현 완료
+- ✅ LoginScreen returnRoute 처리 완료
+- ✅ Flutter analyze 통과
+- ✅ Phase 1~4와 일관된 Provider 패턴 사용
+
+### Phase 6: 안정성 개선 - 경쟁 조건 및 중복 방지 (1일) ✅
+
+**목표:** Phase 1~5 통합 후 발견된 Critical/Medium 이슈 수정
+
+**안정성 분석 결과:**
+- 🔴 Critical Issue 1: Provider 순환 참조 위험
+- 🔴 Critical Issue 2: 토큰 갱신 경쟁 조건
+- 🟡 Medium Issue 1: 401 에러 네비게이션 중복
+- 🟡 Medium Issue 2: Context 유효성 체크 부재
+
+**구현 내용:**
+- [x] **Critical Issue 1 수정: Provider 순환 참조 방지**
+  - `auth_provider.dart`: `updateAfterLogin()` 메서드에 try-catch 추가
+  - FCM 토큰 갱신 실패 시에도 로그인 상태 유지
+  - 순환 참조로 인한 무한 루프 방지
+
+- [x] **Critical Issue 2 수정: 토큰 갱신 경쟁 조건 방지**
+  - `auth_provider.dart`: `_isRefreshing` 플래그 추가
+  - `checkAuthStatus()`: 토큰 갱신 중 중복 시도 방지
+  - `logout()`: 토큰 갱신 중 로그아웃 대기
+  - 동시 401 에러 발생 시 경쟁 조건 해결
+
+- [x] **Medium Issue 1 수정: 401 에러 네비게이션 중복 방지**
+  - `main.dart`: MyApp을 ConsumerStatefulWidget으로 변경
+  - `_isNavigatingToLogin` 플래그 추가
+  - ref.listen에서 중복 네비게이션 방지
+  - 동시 다발적 401 에러 시 로그인 화면 중복 이동 방지
+
+- [x] **Medium Issue 2 수정: Context 유효성 체크 추가**
+  - `fcm_service.dart`: `_navigateToNotificationScreen()`에 mounted 체크 및 addPostFrameCallback 추가
+  - `login_screen.dart`: `_navigateAfterLogin()`에 mounted 체크 및 addPostFrameCallback 추가
+  - 비동기 네비게이션 안전성 확보
+
+- [x] Flutter analyze 통과 확인
+
+**플로우 개선:**
+```
+[동시 401 에러 발생 (3개 API 호출)]
+  ↓
+[첫 번째 401] → authProvider.logout() 호출
+  ├─ _isRefreshing = true 설정
+  └─ 상태 변경 (isAuthenticated: false)
+       ↓
+    [ref.listen 감지]
+       ├─ _isNavigatingToLogin = true 설정
+       └─ 로그인 화면으로 이동 (1번만)
+
+[두 번째 401] → authProvider.logout() 호출 시도
+  └─ _isRefreshing == true → 대기 (중복 실행 방지)
+
+[세 번째 401] → authProvider.logout() 호출 시도
+  └─ _isRefreshing == true → 대기 (중복 실행 방지)
+
+[ref.listen 중복 호출]
+  └─ _isNavigatingToLogin == true → 중복 네비게이션 방지
+```
+
+**완료 기준:**
+- ✅ Critical Issue 1, 2 수정 완료
+- ✅ Medium Issue 1, 2 수정 완료
+- ✅ Flutter analyze 통과
+- ✅ 동시 다발적 401 에러 안전 처리
+- ✅ 비동기 네비게이션 안전성 확보
+
+### Phase 6.1: AuthGuard 위젯 구현 (선택사항, 0.5일)
 
 **목표:** 인증 필요 화면에 재사용 가능한 Guard 위젯 적용
 
@@ -641,33 +754,35 @@ ref.listen<AuthState>(authProvider, (previous, next) {
 - 코드 가독성 향상
 - 새 인증 화면 추가 시 AuthGuard만 감싸면 됨
 
-### Phase 6: 전체 플로우 검증 및 정리 (0.5일) ✅
+### Phase 7: 전체 플로우 검증 및 정리 (0.5일) ✅
 
 **목표:** 전체 시나리오 테스트 및 코드 정리
 
 **완료 내용:**
-- [x] Phase 1~4.1 코드 정적 분석 및 검증
+- [x] Phase 1~5 코드 정적 분석 및 검증
   - Flutter analyze 통과 확인
   - 401 에러 처리 플로우 검증
   - Provider 변환 완료 확인
+  - FCM 딥링크 인증 체크 로직 검증
 - [x] 레거시 코드 발견 및 문서화
   - password_change_screen.dart (레거시 AuthService 사용)
   - password_reset_screen.dart (레거시 AuthService 사용)
   - sign_up_screen.dart (레거시 AuthService 사용)
-  - Phase 6.1로 별도 수정 권장
+  - Phase 7.1로 별도 수정 권장
 - [x] 검증 리포트 작성
   - [phase6-verification-report.md](../claudedocs/phase6-verification-report.md) 생성
   - 전체 플로우 검증 결과 문서화
   - 레거시 코드 수정 권장사항 포함
 - [x] 문서 업데이트
-  - Phase 1~4.1 완료 표시
-  - Phase 6 검증 결과 추가
+  - Phase 1~5 완료 표시
+  - Phase 7 검증 결과 추가
 
 **시뮬레이터 필요 작업 (보류):**
 - [ ] E2E 테스트 시나리오 실행
-  - 시나리오 1~5 실제 동작 확인
+  - 시나리오 1~6 실제 동작 확인
   - 시뮬레이터에서 401 에러 플로우 테스트
-- [ ] Phase 6.1: 레거시 AuthService 마이그레이션
+  - **시나리오 6: 푸시 알림 딥링크 플로우 테스트** (NEW)
+- [ ] Phase 7.1: 레거시 AuthService 마이그레이션
   - 3개 화면 Provider 방식으로 변환
   - 각 화면 동작 테스트
 
@@ -676,7 +791,7 @@ ref.listen<AuthState>(authProvider, (previous, next) {
 - ✅ Flutter analyze 통과
 - ✅ 문서 업데이트 완료
 - ⏳ E2E 테스트 (시뮬레이터 필요)
-- ⏳ 레거시 코드 정리 (Phase 6.1)
+- ⏳ 레거시 코드 정리 (Phase 7.1)
 
 ## 2. 테스트 시나리오
 
@@ -737,6 +852,21 @@ ref.listen<AuthState>(authProvider, (previous, next) {
 | **Then 2** | API도 401 에러 발생 |
 | **Then 3** | authProvider.logout() 호출 |
 | **Then 4** | 상태 변경 → 로그인 화면으로 자동 이동 |
+
+### 시나리오 6: 푸시 알림 딥링크 (Phase 5, Phase 6 안정성 개선)
+
+| 단계 | 기대 동작 |
+|------|-----------|
+| **Given** | 앱이 백그라운드 또는 종료 상태 |
+| **When** | 키워드 알림 푸시 수신 → 푸시 알림 탭 |
+| **Then 1** | FcmService._navigateToNotificationScreen() 호출 |
+| **Then 2** | (Phase 6) Context 유효성 체크 (mounted) |
+| **Then 3** | authProvider 상태 체크 |
+| **Then 4-A (로그인됨)** | MainScreen (알림 탭, 알림 기록)으로 이동 |
+| **Then 4-B (비로그인)** | LoginScreen (returnRoute=/notifications)으로 이동 |
+| **Then 5 (4-B 경우)** | (Phase 6) 로그인 화면 네비게이션 중복 방지 플래그 설정 |
+| **Then 6 (4-B 경우)** | 로그인 성공 → MainScreen (알림 탭, 알림 기록)으로 복귀 |
+| **Then 7** | 알림 기록에서 해당 캠페인 확인 가능 |
 
 ## 3. 예상 효과
 

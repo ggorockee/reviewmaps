@@ -47,21 +47,45 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   /// 로그인 성공 후 네비게이션 처리
   /// returnRoute가 있으면 해당 경로로, 없으면 MainScreen으로 이동
+  /// Phase 6: Context 유효성 체크 추가
   void _navigateAfterLogin() {
-    if (widget.returnRoute != null) {
-      // returnRoute가 있으면 해당 경로로 복귀
-      Navigator.of(context).pushReplacementNamed(
-        widget.returnRoute!,
-        arguments: widget.returnArguments,
-      );
-    } else {
-      // returnRoute가 없으면 MainScreen으로 이동
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) => const MainScreen(),
-        ),
-      );
+    // Phase 6: Context 유효성 체크
+    if (!mounted) {
+      debugPrint('[LoginScreen] Context가 더 이상 유효하지 않음 - 네비게이션 중단');
+      return;
     }
+
+    // Phase 6: 안전한 네비게이션을 위해 addPostFrameCallback 사용
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      if (widget.returnRoute != null) {
+        // Phase 5: /notifications → MainScreen (알림 탭)으로 이동
+        if (widget.returnRoute == '/notifications') {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => const MainScreen(
+                initialTabIndex: 2,      // 하단 탭: 알림 (index 2)
+                openAlertHistoryTab: true, // 내부 탭: 알림 기록 (index 1)
+              ),
+            ),
+          );
+        } else {
+          // 다른 named route로 복귀
+          Navigator.of(context).pushReplacementNamed(
+            widget.returnRoute!,
+            arguments: widget.returnArguments,
+          );
+        }
+      } else {
+        // returnRoute가 없으면 MainScreen으로 이동
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => const MainScreen(),
+          ),
+        );
+      }
+    });
   }
 
   /// 로그인 처리

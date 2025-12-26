@@ -130,11 +130,7 @@ Future<void> main() async {
   }
 
   // 10) FCM 푸시 알림 서비스 초기화
-  try {
-    await FcmService.instance.initialize();
-  } catch (e) {
-    debugPrint('FCM 서비스 초기화 실패: $e');
-  }
+  // Provider 방식으로 변경하기 위해 runApp 이후로 이동
 
   // 11) Flutter 앱 실행
   runApp(
@@ -145,11 +141,19 @@ Future<void> main() async {
   );
 }
 
-class MyApp extends ConsumerWidget {
+class MyApp extends ConsumerStatefulWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends ConsumerState<MyApp> {
+  // Phase 6: 로그인 화면 이동 중복 방지 플래그
+  bool _isNavigatingToLogin = false;
+
+  @override
+  Widget build(BuildContext context) {
     // authProvider 상태 변화 감지: 로그인 만료 시 자동 로그인 화면 이동
     ref.listen<AuthState>(authProvider, (previous, next) {
       // 로그인 상태에서 비로그인 상태로 변경된 경우 (401 에러 발생)
@@ -159,6 +163,12 @@ class MyApp extends ConsumerWidget {
 
         debugPrint('[MyApp] 로그인 만료 감지 - 로그인 화면으로 이동');
 
+        // Phase 6: 이미 로그인 화면 이동 중이면 중복 실행 방지
+        if (_isNavigatingToLogin) {
+          debugPrint('[MyApp] 로그인 화면 이동 이미 진행 중 - 중복 방지');
+          return;
+        }
+
         // 현재 컨텍스트가 유효한지 확인
         final currentContext = navigatorKey.currentContext;
         if (currentContext != null && currentContext.mounted) {
@@ -166,6 +176,9 @@ class MyApp extends ConsumerWidget {
           final currentRoute = ModalRoute.of(currentContext)?.settings.name;
 
           debugPrint('[MyApp] 현재 경로: $currentRoute');
+
+          // Phase 6: 네비게이션 중복 방지 플래그 설정
+          _isNavigatingToLogin = true;
 
           // 스낵바 표시: "로그인이 만료되었습니다"
           ScaffoldMessenger.of(currentContext).showSnackBar(
@@ -185,7 +198,10 @@ class MyApp extends ConsumerWidget {
               ),
             ),
             (route) => false,
-          );
+          ).then((_) {
+            // Phase 6: 네비게이션 완료 후 플래그 초기화
+            _isNavigatingToLogin = false;
+          });
         }
       }
     });

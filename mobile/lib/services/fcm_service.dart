@@ -2,12 +2,20 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/services/keyword_service.dart';
+import 'package:mobile/providers/auth_provider.dart';
 import 'package:mobile/main.dart' as main_app;
 import 'package:mobile/screens/main_screen.dart';
+import 'package:mobile/screens/auth/login_screen.dart';
 
 /// FCM 알림 수신 콜백 타입
 typedef OnNotificationReceived = void Function();
+
+/// FCM 푸시 알림 서비스 Provider
+final fcmServiceProvider = Provider<FcmService>((ref) {
+  return FcmService(ref);
+});
 
 /// FCM 푸시 알림 서비스
 /// - FCM 토큰 관리
@@ -16,13 +24,11 @@ typedef OnNotificationReceived = void Function();
 /// - 포그라운드 알림 표시 (flutter_local_notifications)
 /// - 알림 수신 시 콜백 지원 (실시간 UI 업데이트용)
 class FcmService {
-  static FcmService? _instance;
-  static FcmService get instance => _instance ??= FcmService._internal();
+  final Ref _ref;
 
-  FcmService._internal();
+  FcmService(this._ref);
 
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
-  final KeywordService _keywordService = KeywordService();
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
 
@@ -190,7 +196,10 @@ class FcmService {
   }
 
   /// 알림 기록 페이지로 이동
-  /// 푸시 알림 탭 시 MainScreen의 알림 탭 → 알림 기록 탭으로 이동
+  /// 푸시 알림 탭 시 인증 상태 체크 후:
+  /// - 로그인됨: MainScreen의 알림 탭 → 알림 기록 탭으로 이동
+  /// - 비로그인: LoginScreen으로 이동 (returnRoute 전달)
+  /// Phase 6: Context 유효성 체크 추가
   Future<void> _navigateToNotificationScreen() async {
     final navigator = main_app.navigatorKey.currentState;
     if (navigator == null) {
@@ -198,19 +207,50 @@ class FcmService {
       return;
     }
 
-    // 기존 스택을 모두 제거하고 MainScreen의 알림 탭으로 이동
-    // initialTabIndex: 2 (알림 탭), openAlertHistoryTab: true (알림 기록 탭)
-    navigator.pushAndRemoveUntil(
-      MaterialPageRoute(
-        builder: (context) => const MainScreen(
-          initialTabIndex: 2,      // 하단 탭: 알림 (index 2)
-          openAlertHistoryTab: true, // 내부 탭: 알림 기록 (index 1)
-        ),
-      ),
-      (route) => false,
-    );
+    // Phase 6: Context 유효성 체크
+    final context = main_app.navigatorKey.currentContext;
+    if (context == null || !context.mounted) {
+      debugPrint('⚠️ Context가 유효하지 않습니다.');
+      return;
+    }
 
-    debugPrint('✅ 알림 기록 페이지로 이동 완료');
+    // Phase 5: 인증 상태 체크
+    final authState = _ref.read(authProvider);
+    final isAuthenticated = authState.isAuthenticated;
+
+    debugPrint('[FCM] 푸시 알림 딥링크 처리 - 인증 상태: $isAuthenticated');
+
+    // Phase 6: 안전한 네비게이션을 위해 addPostFrameCallback 사용
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!context.mounted) return;
+
+      if (isAuthenticated) {
+        // 로그인되어 있음 → 알림 기록 페이지로 이동
+        navigator.pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (context) => const MainScreen(
+              initialTabIndex: 2,      // 하단 탭: 알림 (index 2)
+              openAlertHistoryTab: true, // 내부 탭: 알림 기록 (index 1)
+            ),
+          ),
+          (route) => false,
+        );
+
+        debugPrint('✅ [FCM] 로그인 상태 → 알림 기록 페이지로 이동');
+      } else {
+        // 비로그인 → 로그인 화면으로 이동 (returnRoute 전달)
+        navigator.pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (context) => const LoginScreen(
+              returnRoute: '/notifications', // 로그인 후 알림 기록으로 복귀
+            ),
+          ),
+          (route) => false,
+        );
+
+        debugPrint('✅ [FCM] 비로그인 상태 → 로그인 화면으로 이동 (returnRoute=/notifications)');
+      }
+    });
   }
 
   /// 푸시 알림 권한 요청
@@ -230,7 +270,7 @@ class FcmService {
   Future<void> _registerTokenToServer(String token) async {
     try {
       final deviceType = Platform.isIOS ? 'ios' : 'android';
-      await _keywordService.registerFcmToken(token, deviceType);
+      await _ref.read(keywordServiceProvider).registerFcmToken(token, deviceType);
       debugPrint('✅ FCM 토큰 서버 등록 완료');
     } catch (e) {
       debugPrint('⚠️ FCM 토큰 서버 등록 실패: $e');
@@ -320,7 +360,7 @@ class FcmService {
   Future<void> unregisterToken() async {
     if (_currentToken != null) {
       try {
-        await _keywordService.unregisterFcmToken(_currentToken!);
+        await _ref.read(keywordServiceProvider).unregisterFcmToken(_currentToken!);
         debugPrint('✅ FCM 토큰 해제 완료');
       } catch (e) {
         debugPrint('⚠️ FCM 토큰 해제 실패: $e');

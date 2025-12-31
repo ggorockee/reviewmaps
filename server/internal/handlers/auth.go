@@ -248,11 +248,11 @@ func truncateString(s string, maxLen int) string {
 // @Tags auth
 // @Accept json
 // @Produce json
-// @Param request body services.SNSLoginRequest true "Apple ID token"
+// @Param request body services.AppleLoginRequest true "Apple ID token"
 // @Success 200 {object} services.AuthResponse
 // @Router /auth/apple [post]
 func (h *AuthHandler) AppleLogin(c *fiber.Ctx) error {
-	var req services.SNSLoginRequest
+	var req services.AppleLoginRequest
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid request body",
@@ -260,10 +260,10 @@ func (h *AuthHandler) AppleLogin(c *fiber.Ctx) error {
 		})
 	}
 
-	response, err := h.service.AppleLogin(req.AccessToken)
+	response, err := h.service.AppleLogin(req.IdentityToken)
 	if err != nil {
 		// Log detailed error to console
-		c.Context().Logger().Printf("[AppleLogin] Error: %v, Token (first 20 chars): %s", err, truncateString(req.AccessToken, 20))
+		c.Context().Logger().Printf("[AppleLogin] Error: %v, Token (first 20 chars): %s", err, truncateString(req.IdentityToken, 20))
 
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": "Apple login failed",

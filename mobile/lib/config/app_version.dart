@@ -14,7 +14,7 @@ class AppVersion {
   ///
   /// 새 버전 배포 시 이 값을 업데이트합니다.
   /// Semantic Versioning (major.minor.patch) 형식을 따릅니다.
-  static const String current = '2.0.7';
+  static const String current = '2.0.9';
 
   /// 버전 문자열을 파싱하여 비교 가능한 형태로 변환
   ///

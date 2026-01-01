@@ -50,9 +50,16 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen>
   bool _isSelectionMode = false;
   final Set<int> _selectedAlertIds = {};
 
+  // FCM 서비스를 initState에서 저장 (dispose에서 안전하게 사용하기 위해)
+  late final FcmService _fcmService;
+
   @override
   void initState() {
     super.initState();
+
+    // FCM 서비스를 필드에 저장
+    _fcmService = ref.read(fcmServiceProvider);
+
     _tabController = TabController(
       length: 2,
       vsync: this,
@@ -68,13 +75,13 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen>
     }
 
     // FCM 알림 수신 리스너 등록 (푸시 수신 시 알림 기록 실시간 업데이트)
-    ref.read(fcmServiceProvider).addNotificationListener(_onFcmNotificationReceived);
+    _fcmService.addNotificationListener(_onFcmNotificationReceived);
   }
 
   @override
   void dispose() {
-    // FCM 알림 수신 리스너 해제
-    ref.read(fcmServiceProvider).removeNotificationListener(_onFcmNotificationReceived);
+    // FCM 알림 수신 리스너 해제 (저장된 필드 사용)
+    _fcmService.removeNotificationListener(_onFcmNotificationReceived);
 
     _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
@@ -87,8 +94,10 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen>
   /// 알림 기록 탭을 자동으로 새로고침
   void _onFcmNotificationReceived() {
     debugPrint('🔔 [NotificationScreen] FCM 알림 수신 - 알림 기록 새로고침');
-    // 서버에서 최신 알림 목록 다시 로드
-    _loadAlerts();
+    // Widget이 mounted 상태일 때만 새로고침
+    if (mounted) {
+      _loadAlerts();
+    }
   }
 
   void _onTabChanged() {
@@ -374,8 +383,10 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen>
     _loadAlerts();
   }
 
-  /// 스낵바 표시
+  /// 스낵바 표시 (mounted 체크 포함)
   void _showSnackBar(String message, {bool isError = false, bool isSuccess = false}) {
+    if (!mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
@@ -386,7 +397,9 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen>
           label: '닫기',
           textColor: Colors.white70,
           onPressed: () {
-            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            if (mounted) {
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            }
           },
         ),
       ),
@@ -808,6 +821,9 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen>
     // 먼저 UI에서 삭제 (사용자 경험 우선)
     if (!mounted) return;
 
+    // 안전한 인덱스 검증
+    if (index < 0 || index >= _alerts.length) return;
+
     setState(() {
       _alerts.removeAt(index);
       // 읽지 않음 카운트 업데이트
@@ -852,6 +868,7 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen>
   /// 선택된 알림 삭제
   Future<void> _deleteSelectedAlerts() async {
     if (_selectedAlertIds.isEmpty) return;
+    if (!mounted) return;
 
     // 삭제 확인 다이얼로그
     final confirmed = await showDialog<bool>(
@@ -882,7 +899,7 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen>
       ),
     );
 
-    if (confirmed != true) return;
+    if (confirmed != true || !mounted) return;
 
     // UI에서 선택된 알림 삭제
     final selectedIds = List<int>.from(_selectedAlertIds);
@@ -919,6 +936,7 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen>
   /// 모든 알림 삭제
   Future<void> _deleteAllAlerts() async {
     if (_alerts.isEmpty) return;
+    if (!mounted) return;
 
     // 삭제 확인 다이얼로그
     final confirmed = await showDialog<bool>(
@@ -949,7 +967,7 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen>
       ),
     );
 
-    if (confirmed != true) return;
+    if (confirmed != true || !mounted) return;
 
     // 삭제할 알림 ID 목록 저장
     final allAlertIds = _alerts.map((alert) => alert.id).toList();
@@ -1086,8 +1104,10 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen>
                 direction: DismissDirection.endToStart,
                 onDismissed: (_) => _deleteAlert(alert, index),
                 confirmDismiss: (direction) async {
+                  if (!mounted) return false;
+
                   // 삭제 확인 다이얼로그
-                  return await showDialog<bool>(
+                  final result = await showDialog<bool>(
                     context: context,
                     builder: (context) => AlertDialog(
                       backgroundColor: Colors.white,
@@ -1117,7 +1137,10 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen>
                         ),
                       ],
                     ),
-                  ) ?? false;
+                  );
+
+                  if (!mounted) return false;
+                  return result ?? false;
                 },
                 background: Container(
                   alignment: Alignment.centerRight,
@@ -1144,6 +1167,8 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen>
                           size: 20.sp,
                         ),
                         onPressed: () async {
+                          if (!mounted) return;
+
                           final confirmed = await showDialog<bool>(
                             context: context,
                             builder: (context) => AlertDialog(
@@ -1176,7 +1201,7 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen>
                             ),
                           );
 
-                          if (confirmed == true) {
+                          if (mounted && confirmed == true) {
                             _deleteAlert(alert, index);
                           }
                         },
@@ -1229,6 +1254,8 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen>
 
     return InkWell(
       onTap: () async {
+        if (!mounted) return;
+
         if (isCampaignDeleted) {
           // 삭제된 캠페인인 경우 팝업 표시
           await showDialog(

@@ -1,0 +1,141 @@
+{
+  "dashboard": {
+    "title": "ReviewMaps - Production Monitoring",
+    "tags": ["reviewmaps", "production", "opentelemetry"],
+    "timezone": "Asia/Seoul",
+    "refresh": "30s",
+    "time": {
+      "from": "now-6h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Total Request Rate (QPS)",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "sum(rate(reviewmaps_http_requests_total[5m]))",
+            "legendFormat": "Total Requests/sec"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Error Rate (%)",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+        "targets": [
+          {
+            "expr": "sum(rate(reviewmaps_http_requests_total{status_code=~\"4..\"}[5m])) / sum(rate(reviewmaps_http_requests_total[5m])) * 100",
+            "legendFormat": "4xx Error Rate"
+          },
+          {
+            "expr": "sum(rate(reviewmaps_http_requests_total{status_code=~\"5..\"}[5m])) / sum(rate(reviewmaps_http_requests_total[5m])) * 100",
+            "legendFormat": "5xx Error Rate"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Response Time (P95/P99)",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(reviewmaps_http_request_duration_seconds_bucket[5m])) by (le))",
+            "legendFormat": "P95"
+          },
+          {
+            "expr": "histogram_quantile(0.99, sum(rate(reviewmaps_http_request_duration_seconds_bucket[5m])) by (le))",
+            "legendFormat": "P99"
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Request Rate by Endpoint",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+        "targets": [
+          {
+            "expr": "sum(rate(reviewmaps_http_requests_total[5m])) by (path)",
+            "legendFormat": "{{path}}"
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Top 10 Slowest Endpoints",
+        "type": "table",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 16},
+        "targets": [
+          {
+            "expr": "topk(10, rate(reviewmaps_http_request_duration_seconds_sum[5m]) / rate(reviewmaps_http_request_duration_seconds_count[5m]))",
+            "format": "table",
+            "instant": true
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Scraper Success Rate",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 6, "x": 0, "y": 24},
+        "targets": [
+          {
+            "expr": "sum(rate(scraper_executions_total{status=\"success\"}[1h])) / sum(rate(scraper_executions_total[1h])) * 100"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Campaigns Collected (hourly)",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 18, "x": 6, "y": 24},
+        "targets": [
+          {
+            "expr": "sum(increase(scraper_campaigns_collected_total[1h])) by (platform)",
+            "legendFormat": "{{platform}}"
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Pod Status",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 8, "x": 0, "y": 32},
+        "targets": [
+          {
+            "expr": "count(up{job=~\"reviewmaps-.*\"} == 1)"
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "CPU Usage",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 36},
+        "targets": [
+          {
+            "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"reviewmaps\"}[5m])) by (pod)",
+            "legendFormat": "{{pod}}"
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "title": "Memory Usage",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 36},
+        "targets": [
+          {
+            "expr": "sum(container_memory_usage_bytes{namespace=\"reviewmaps\"}) by (pod)",
+            "legendFormat": "{{pod}}"
+          }
+        ]
+      }
+    ]
+  }
+}

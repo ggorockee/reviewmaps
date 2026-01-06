@@ -45,6 +45,7 @@ type Campaign struct {
 	CampaignType    *string    `gorm:"column:campaign_type;size:50;index:idx_cpg_type" json:"campaign_type,omitempty"`
 	Region          *string    `gorm:"column:region;size:100;index:idx_cpg_region" json:"region,omitempty"`
 	CampaignChannel *string    `gorm:"column:campaign_channel;size:255" json:"campaign_channel,omitempty"`
+	Status          *string    `gorm:"column:status;size:20;index:idx_campaign_status" json:"status,omitempty"`
 	PromotionLevel  int            `gorm:"column:promotion_level;not null;default:0" json:"promotion_level"`
 	CreatedAt       time.Time      `gorm:"column:created_at;not null;index:idx_cpg_created,sort:desc" json:"created_at"`
 	UpdatedAt       time.Time      `gorm:"column:updated_at;not null" json:"updated_at"`

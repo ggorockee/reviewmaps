@@ -93,7 +93,87 @@ func TestScrapeAndParse(t *testing.T) {
 	t.Logf("Parse test passed! Parsed %d campaigns", len(campaigns))
 	for i, c := range campaigns {
 		t.Logf("Campaign %d: %s (%s) - %s", i+1, c.Title, c.CampaignChannel, *c.CampaignType)
+
+		// Status 필드 검증
+		if c.Status == nil {
+			t.Errorf("Campaign %d: Status should not be nil", i+1)
+		} else if *c.Status != "SELECT" {
+			t.Errorf("Campaign %d: Expected status 'SELECT', got '%s'", i+1, *c.Status)
+		}
 	}
+}
+
+// TestParse_StatusFiltering status 필터링 테스트
+func TestParse_StatusFiltering(t *testing.T) {
+	s := &Scraper{}
+
+	// 샘플 raw data (다양한 status 값 포함)
+	rawData := []map[string]interface{}{
+		{
+			"id":      1,
+			"title":   "Active Campaign",
+			"status":  "SELECT",
+			"sort":    "DELIVERY",
+			"channel": "BLOG",
+			"offer":   "Test Offer 1",
+			"city":    "서울",
+		},
+		{
+			"id":      2,
+			"title":   "Closed Campaign",
+			"status":  "CLOSED",
+			"sort":    "DELIVERY",
+			"channel": "BLOG",
+			"offer":   "Test Offer 2",
+			"city":    "서울",
+		},
+		{
+			"id":      3,
+			"title":   "Ended Campaign",
+			"status":  "ENDED",
+			"sort":    "DELIVERY",
+			"channel": "BLOG",
+			"offer":   "Test Offer 3",
+			"city":    "서울",
+		},
+		{
+			"id":      4,
+			"title":   "Another Active Campaign",
+			"status":  "SELECT",
+			"sort":    "VISIT",
+			"channel": "INSTAGRAM",
+			"offer":   "Test Offer 4",
+			"city":    "부산",
+		},
+	}
+
+	ctx := context.Background()
+	campaigns, err := s.Parse(ctx, rawData)
+	if err != nil {
+		t.Fatalf("Parse failed: %v", err)
+	}
+
+	// CLOSED, ENDED 캠페인은 제외되어야 함 (SELECT 2개만 남음)
+	if len(campaigns) != 2 {
+		t.Errorf("Expected 2 campaigns (only SELECT status), got %d", len(campaigns))
+	}
+
+	// 모든 파싱된 캠페인은 SELECT 상태여야 함
+	for i, c := range campaigns {
+		if c.Status == nil {
+			t.Errorf("Campaign %d: Status should not be nil", i)
+			continue
+		}
+		if *c.Status != "SELECT" {
+			t.Errorf("Campaign %d: Expected status 'SELECT', got '%s'", i, *c.Status)
+		}
+		if c.Title != "Active Campaign" && c.Title != "Another Active Campaign" {
+			t.Errorf("Campaign %d: Unexpected title '%s' (should be filtered out)", i, c.Title)
+		}
+	}
+
+	t.Logf("Status filtering test passed! %d SELECT campaigns parsed, %d filtered out",
+		len(campaigns), len(rawData)-len(campaigns))
 }
 
 // TestLiveAPI 실제 API 호출 테스트 (네트워크 필요)

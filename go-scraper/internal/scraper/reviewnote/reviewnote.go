@@ -287,9 +287,23 @@ func (s *Scraper) Parse(ctx context.Context, rawData []map[string]interface{}) (
 	seen := make(map[string]bool)
 
 	for _, raw := range rawData {
+		// Status 필터링: SELECT 상태 캠페인만 수집
+		if status, ok := raw["status"].(string); ok {
+			if status != "SELECT" {
+				log.Debugf("Skip non-active campaign: %s (status: %s)",
+					raw["title"], status)
+				continue
+			}
+		}
+
 		campaign := models.Campaign{
 			Platform: platformName,
 			Source:   platformName,
+		}
+
+		// Status 저장
+		if status, ok := raw["status"].(string); ok && status != "" {
+			campaign.Status = &status
 		}
 
 		// Title

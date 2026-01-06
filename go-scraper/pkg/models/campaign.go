@@ -26,6 +26,7 @@ type Campaign struct {
 	ContentLink     *string    `json:"content_link"`
 	CampaignType    *string    `json:"campaign_type"`
 	Region          *string    `json:"region"`
+	Status          *string    `json:"status"`
 }
 
 // CampaignKey 캠페인 고유 키 (중복 체크용)
@@ -112,6 +113,7 @@ var BaseDataTypes = map[string]string{
 	"img_url":          "string",
 	"apply_from":       "datetime",
 	"search_text":      "string",
+	"status":           "string",
 }
 
 // ResultTableColumns 최종 DB 스키마 컬럼 (Python과 동일)
@@ -135,4 +137,5 @@ var ResultTableColumns = []string{
 	"content_link",
 	"campaign_type",
 	"region",
+	"status",
 }

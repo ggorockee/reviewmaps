@@ -187,9 +187,9 @@ func (db *DB) UpsertCampaigns(ctx context.Context, campaigns []models.Campaign) 
 		INSERT INTO campaign (
 			platform, title, offer, campaign_channel, company, content_link,
 			company_link, source, campaign_type, region, apply_deadline,
-			review_deadline, address, lat, lng, category_id, img_url
+			review_deadline, address, lat, lng, category_id, img_url, status
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18
 		) RETURNING id
 	`
 
@@ -201,7 +201,7 @@ func (db *DB) UpsertCampaigns(ctx context.Context, campaigns []models.Campaign) 
 		err := tx.QueryRow(ctx, insertQuery,
 			c.Platform, c.Title, c.Offer, c.CampaignChannel, c.Company, c.ContentLink,
 			c.CompanyLink, c.Source, c.CampaignType, c.Region, c.ApplyDeadline,
-			c.ReviewDeadline, c.Address, c.Lat, c.Lng, c.CategoryID, c.ImgURL,
+			c.ReviewDeadline, c.Address, c.Lat, c.Lng, c.CategoryID, c.ImgURL, c.Status,
 		).Scan(&id)
 		if err != nil {
 			log.Errorf("캠페인 INSERT 실패: %v", err)

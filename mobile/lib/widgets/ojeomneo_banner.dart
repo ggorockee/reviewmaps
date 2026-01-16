@@ -43,16 +43,9 @@ class OjeomneoBanner extends StatelessWidget {
         child: GestureDetector(
           onTap: () => _openStore(context),
           child: Container(
-            height: isTab ? 70.h : 60.h,
+            height: isTab ? 80.h : 70.h,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [
-                  Color(0xFFFF8C42), // 오렌지
-                  Color(0xFFFFB65E), // 밝은 오렌지
-                ],
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-              ),
+              color: Colors.white,
               borderRadius: BorderRadius.circular(12.r),
               boxShadow: [
                 BoxShadow(
@@ -62,77 +55,100 @@ class OjeomneoBanner extends StatelessWidget {
                 ),
               ],
             ),
-            child: Row(
-              children: [
-                // 로고 이미지 영역
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16.w),
-                  child: Container(
-                    width: isTab ? 40.w : 36.w,
-                    height: isTab ? 40.h : 36.h,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8.r),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(8.r),
-                      child: Image.asset(
-                        'asset/image/ads/ojeomneo/logo_rectangle.png',
-                        width: isTab ? 40.w : 36.w,
-                        height: isTab ? 40.h : 36.h,
-                        fit: BoxFit.cover,
-                        cacheWidth: 80,
-                        cacheHeight: 80,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Icon(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12.r),
+              child: Row(
+                children: [
+                  // 로고 이미지 영역 (2:1 비율 유지)
+                  // 높이 70h → 가로 140w (2:1 비율)
+                  SizedBox(
+                    width: isTab ? 160.w : 140.w,
+                    height: double.infinity,
+                    child: Image.asset(
+                      'asset/image/ads/ojeomneo/logo_rectangle.png',
+                      fit: BoxFit.cover,
+                      cacheWidth: 512,
+                      cacheHeight: 250,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color: const Color(0xFFFF8C42).withValues(alpha: 0.1),
+                          child: Icon(
                             Icons.restaurant,
                             color: const Color(0xFFFF8C42),
-                            size: isTab ? 24.sp : 20.sp,
-                          );
-                        },
+                            size: isTab ? 32.sp : 28.sp,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+
+                  // 텍스트 영역
+                  Expanded(
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isTab ? 16.w : 12.w,
+                        vertical: 8.h,
+                      ),
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Color(0xFFFF8C42), // 오렌지
+                            Color(0xFFFFB65E), // 밝은 오렌지
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '점심 메뉴 고민 끝!',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: isTab ? 16.sp : 14.sp,
+                              fontWeight: FontWeight.bold,
+                              height: 1.2,
+                            ),
+                          ),
+                          SizedBox(height: 4.h),
+                          Text(
+                            '스케치로 찾는\n오늘의 메뉴',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.95),
+                              fontSize: isTab ? 12.sp : 10.sp,
+                              height: 1.3,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                ),
 
-                // 텍스트 영역
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '점심 메뉴 고민 끝!',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: isTab ? 15.sp : 14.sp,
-                          fontWeight: FontWeight.bold,
-                          height: 1.2,
-                        ),
+                  // 화살표 아이콘
+                  Container(
+                    width: isTab ? 50.w : 40.w,
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          Color(0xFFFF8C42),
+                          Color(0xFFFFB65E),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                      SizedBox(height: 2.h),
-                      Text(
-                        '스케치로 찾는 오늘의 메뉴 - 오점너',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.9),
-                          fontSize: isTab ? 11.sp : 10.sp,
-                          height: 1.2,
-                        ),
+                    ),
+                    child: Center(
+                      child: Icon(
+                        Icons.arrow_forward_ios,
+                        color: Colors.white,
+                        size: isTab ? 20.sp : 18.sp,
                       ),
-                    ],
+                    ),
                   ),
-                ),
-
-                // 화살표 아이콘
-                Padding(
-                  padding: EdgeInsets.only(right: 16.w),
-                  child: Icon(
-                    Icons.arrow_forward_ios,
-                    color: Colors.white,
-                    size: isTab ? 18.sp : 16.sp,
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

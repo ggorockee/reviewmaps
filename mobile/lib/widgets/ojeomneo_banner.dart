@@ -58,10 +58,10 @@ class OjeomneoBanner extends StatelessWidget {
               borderRadius: BorderRadius.circular(12.r),
               child: Column(
                 children: [
-                  // 로고 이미지 영역 (고정 높이, 2:1 비율 느낌)
+                  // 로고 이미지 영역 (전체 높이의 70%)
                   SizedBox(
                     width: double.infinity,
-                    height: isTab ? 100.h : 90.h,
+                    height: isTab ? 70.h : 63.h,
                     child: Image.asset(
                       'asset/image/ads/ojeomneo/logo_rectangle.png',
                       fit: BoxFit.cover,
@@ -74,7 +74,7 @@ class OjeomneoBanner extends StatelessWidget {
                             child: Icon(
                               Icons.restaurant,
                               color: const Color(0xFFFF8C42),
-                              size: isTab ? 40.sp : 32.sp,
+                              size: isTab ? 28.sp : 24.sp,
                             ),
                           ),
                         );
@@ -82,12 +82,12 @@ class OjeomneoBanner extends StatelessWidget {
                     ),
                   ),
 
-                  // 텍스트 영역 (전체 가로 차지)
+                  // 텍스트 영역 (더 작게)
                   Container(
                     width: double.infinity,
                     padding: EdgeInsets.symmetric(
-                      horizontal: isTab ? 20.w : 16.w,
-                      vertical: isTab ? 14.h : 12.h,
+                      horizontal: isTab ? 16.w : 12.w,
+                      vertical: isTab ? 8.h : 7.h,
                     ),
                     decoration: const BoxDecoration(
                       gradient: LinearGradient(
@@ -107,16 +107,16 @@ class OjeomneoBanner extends StatelessWidget {
                             '점심 메뉴 고민 끝! 스케치로 찾는 오늘의 메뉴',
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: isTab ? 14.sp : 13.sp,
+                              fontSize: isTab ? 12.sp : 11.sp,
                               fontWeight: FontWeight.w600,
-                              height: 1.3,
+                              height: 1.2,
                             ),
                           ),
                         ),
                         Icon(
                           Icons.arrow_forward_ios,
                           color: Colors.white,
-                          size: isTab ? 18.sp : 16.sp,
+                          size: isTab ? 14.sp : 12.sp,
                         ),
                       ],
                     ),

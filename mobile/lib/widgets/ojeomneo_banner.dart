@@ -59,12 +59,13 @@ class OjeomneoBanner extends StatelessWidget {
               child: Column(
                 children: [
                   // 로고 이미지 영역 (전체 높이의 70%)
-                  SizedBox(
+                  Container(
                     width: double.infinity,
                     height: isTab ? 70.h : 63.h,
+                    color: Colors.white,
                     child: Image.asset(
                       'asset/image/ads/ojeomneo/logo_rectangle.png',
-                      fit: BoxFit.cover,
+                      fit: BoxFit.contain,
                       cacheWidth: 1024,
                       cacheHeight: 500,
                       errorBuilder: (context, error, stackTrace) {

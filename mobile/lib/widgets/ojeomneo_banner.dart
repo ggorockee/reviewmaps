@@ -36,7 +36,6 @@ class OjeomneoBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool isTab = _isTablet(context);
-    final screenWidth = MediaQuery.of(context).size.width - 32.w; // 좌우 패딩 제외
 
     return RepaintBoundary(
       child: Padding(
@@ -59,10 +58,10 @@ class OjeomneoBanner extends StatelessWidget {
               borderRadius: BorderRadius.circular(12.r),
               child: Column(
                 children: [
-                  // 로고 이미지 영역 (전체 가로 차지, 2:1 비율 유지)
+                  // 로고 이미지 영역 (고정 높이, 2:1 비율 느낌)
                   SizedBox(
                     width: double.infinity,
-                    height: screenWidth / 2, // 2:1 비율 유지
+                    height: isTab ? 100.h : 90.h,
                     child: Image.asset(
                       'asset/image/ads/ojeomneo/logo_rectangle.png',
                       fit: BoxFit.cover,
@@ -75,7 +74,7 @@ class OjeomneoBanner extends StatelessWidget {
                             child: Icon(
                               Icons.restaurant,
                               color: const Color(0xFFFF8C42),
-                              size: isTab ? 48.sp : 40.sp,
+                              size: isTab ? 40.sp : 32.sp,
                             ),
                           ),
                         );

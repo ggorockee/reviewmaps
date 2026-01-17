@@ -13,20 +13,37 @@ import 'package:url_launcher/url_launcher.dart';
 class OjeomneoBanner extends StatelessWidget {
   const OjeomneoBanner({super.key});
 
-  static const String _iosUrl = 'https://apps.apple.com/app/id6756233238';
-  static const String _androidUrl = 'https://play.google.com/store/apps/details?id=com.woohalabs.ojeomneo';
+  static const String _iosAppStoreUrl = 'https://apps.apple.com/app/id6756233238';
+  static const String _androidPlayStoreUrl = 'https://play.google.com/store/apps/details?id=com.woohalabs.ojeomneo';
+  static const String _iosAppScheme = 'ojeomneo://';
+  static const String _androidPackageName = 'com.woohalabs.ojeomneo';
 
-  Future<void> _openStore(BuildContext context) async {
+  Future<void> _openApp(BuildContext context) async {
     try {
-      final String storeUrl = Platform.isIOS ? _iosUrl : _androidUrl;
-      final uri = Uri.parse(storeUrl);
+      if (Platform.isAndroid) {
+        // Android: intent URL 사용 (앱이 있으면 실행, 없으면 Play Store로 자동 이동)
+        final intentUrl = 'intent://#Intent;scheme=ojeomneo;package=$_androidPackageName;S.browser_fallback_url=$_androidPlayStoreUrl;end';
+        final uri = Uri.parse(intentUrl);
 
-      if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-        await launchUrl(uri);
+        if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+          // intent URL 실패 시 직접 Play Store로
+          await launchUrl(Uri.parse(_androidPlayStoreUrl), mode: LaunchMode.externalApplication);
+        }
+      } else if (Platform.isIOS) {
+        // iOS: 앱 URL scheme 시도
+        final appUri = Uri.parse(_iosAppScheme);
+
+        if (await canLaunchUrl(appUri)) {
+          // 앱이 설치되어 있으면 실행
+          await launchUrl(appUri, mode: LaunchMode.externalApplication);
+        } else {
+          // 앱이 없으면 App Store로
+          await launchUrl(Uri.parse(_iosAppStoreUrl), mode: LaunchMode.externalApplication);
+        }
       }
     } catch (e) {
       // 에러 발생 시 무시 (조용히 실패)
-      debugPrint('오점너 스토어 링크 열기 실패: $e');
+      debugPrint('오점너 앱 열기 실패: $e');
     }
   }
 
@@ -41,7 +58,7 @@ class OjeomneoBanner extends StatelessWidget {
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: 16.w),
         child: GestureDetector(
-          onTap: () => _openStore(context),
+          onTap: () => _openApp(context),
           child: Container(
             height: isTab ? 70.h : 60.h,
             decoration: BoxDecoration(

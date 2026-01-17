@@ -43,8 +43,16 @@ class OjeomneoBanner extends StatelessWidget {
         child: GestureDetector(
           onTap: () => _openStore(context),
           child: Container(
+            height: isTab ? 70.h : 60.h,
             decoration: BoxDecoration(
-              color: Colors.white,
+              gradient: const LinearGradient(
+                colors: [
+                  Color(0xFFFF8C42), // 오렌지
+                  Color(0xFFFFB65E), // 밝은 오렌지
+                ],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              ),
               borderRadius: BorderRadius.circular(12.r),
               boxShadow: [
                 BoxShadow(
@@ -54,76 +62,77 @@ class OjeomneoBanner extends StatelessWidget {
                 ),
               ],
             ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12.r),
-              child: Column(
-                children: [
-                  // 로고 이미지 영역 (전체 높이의 70%)
-                  Container(
-                    width: double.infinity,
-                    height: isTab ? 70.h : 63.h,
-                    color: Colors.white,
-                    child: Image.asset(
-                      'asset/image/ads/ojeomneo/logo_rectangle.png',
-                      fit: BoxFit.contain,
-                      cacheWidth: 1024,
-                      cacheHeight: 500,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          color: const Color(0xFFFF8C42).withValues(alpha: 0.1),
-                          child: Center(
-                            child: Icon(
-                              Icons.restaurant,
-                              color: const Color(0xFFFF8C42),
-                              size: isTab ? 28.sp : 24.sp,
-                            ),
-                          ),
-                        );
-                      },
+            child: Row(
+              children: [
+                // 로고 이미지 영역 (정사각형)
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16.w),
+                  child: Container(
+                    width: isTab ? 40.w : 36.w,
+                    height: isTab ? 40.h : 36.h,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8.r),
                     ),
-                  ),
-
-                  // 텍스트 영역 (더 작게)
-                  Container(
-                    width: double.infinity,
-                    padding: EdgeInsets.symmetric(
-                      horizontal: isTab ? 16.w : 12.w,
-                      vertical: isTab ? 8.h : 7.h,
-                    ),
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Color(0xFFFF8C42), // 오렌지
-                          Color(0xFFFFB65E), // 밝은 오렌지
-                        ],
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8.r),
+                      child: Image.asset(
+                        'asset/image/ads/ojeomneo/logo.png',
+                        width: isTab ? 40.w : 36.w,
+                        height: isTab ? 40.h : 36.h,
+                        fit: BoxFit.cover,
+                        cacheWidth: 128,
+                        cacheHeight: 128,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Icon(
+                            Icons.restaurant,
+                            color: const Color(0xFFFF8C42),
+                            size: isTab ? 24.sp : 20.sp,
+                          );
+                        },
                       ),
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            '점심 메뉴 고민 끝! 스케치로 찾는 오늘의 메뉴',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: isTab ? 12.sp : 11.sp,
-                              fontWeight: FontWeight.w600,
-                              height: 1.2,
-                            ),
-                          ),
-                        ),
-                        Icon(
-                          Icons.arrow_forward_ios,
-                          color: Colors.white,
-                          size: isTab ? 14.sp : 12.sp,
-                        ),
-                      ],
-                    ),
                   ),
-                ],
-              ),
+                ),
+
+                // 텍스트 영역
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '점심 메뉴 고민 끝!',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: isTab ? 15.sp : 14.sp,
+                          fontWeight: FontWeight.bold,
+                          height: 1.2,
+                        ),
+                      ),
+                      SizedBox(height: 2.h),
+                      Text(
+                        '스케치로 찾는 오늘의 메뉴',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.9),
+                          fontSize: isTab ? 11.sp : 10.sp,
+                          height: 1.2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // 화살표 아이콘
+                Padding(
+                  padding: EdgeInsets.only(right: 16.w),
+                  child: Icon(
+                    Icons.arrow_forward_ios,
+                    color: Colors.white,
+                    size: isTab ? 18.sp : 16.sp,
+                  ),
+                ),
+              ],
             ),
           ),
         ),

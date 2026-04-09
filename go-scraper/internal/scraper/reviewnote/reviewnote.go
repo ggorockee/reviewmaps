@@ -193,8 +193,9 @@ func (s *Scraper) Scrape(ctx context.Context, keyword *string) ([]map[string]int
 			return nil, fmt.Errorf("failed to create request: %w", err)
 		}
 
-		req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36")
+		req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 		req.Header.Set("Accept", "application/json")
+		req.Header.Set("Referer", "https://www.reviewnote.co.kr/")
 
 		resp, err := s.httpClient.Do(req)
 		if err != nil {
@@ -406,8 +407,9 @@ func (s *Scraper) scrapePage(ctx context.Context, page, limit int) ([]map[string
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Referer", "https://www.reviewnote.co.kr/")
 
 	resp, err := s.httpClient.Do(req)
 	if err != nil {

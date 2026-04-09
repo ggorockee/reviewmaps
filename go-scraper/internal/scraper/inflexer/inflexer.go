@@ -75,9 +75,9 @@ type CampaignRawData struct {
 
 // MapData 맵 API 데이터
 type MapData struct {
-	Title     string   `json:"title"`
-	Latitude  *float64 `json:"latitude"`
-	Longitude *float64 `json:"longitude"`
+	Title     string  `json:"title"`
+	Latitude  float64 `json:"latitude,string"`
+	Longitude float64 `json:"longitude,string"`
 }
 
 // Scraper inflexer 스크래퍼
@@ -240,11 +240,11 @@ func (s *Scraper) Scrape(ctx context.Context, keyword *string) ([]map[string]int
 
 		// Map 데이터 병합
 		if mapData, ok := mapByTitle[raw.Title]; ok {
-			if mapData.Latitude != nil {
-				rawMap["lat"] = *mapData.Latitude
+			if mapData.Latitude != 0 {
+				rawMap["lat"] = mapData.Latitude
 			}
-			if mapData.Longitude != nil {
-				rawMap["lng"] = *mapData.Longitude
+			if mapData.Longitude != 0 {
+				rawMap["lng"] = mapData.Longitude
 			}
 		}
 

@@ -87,9 +87,19 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     // 1. 병렬 실행: 최소 대기 + 데이터 프리로드 + 세션 로깅
     // 광고가 표시되는 동안 백그라운드에서 추천 + 가까운 캠페인을 모두 미리 로드
     await Future.wait([
-      Future.delayed(const Duration(milliseconds: 1500)), // 1.5초로 단축
-      CampaignCacheManager.instance.preloadAll(recommendedLimit: 20, nearestLimit: 10), // 추천 + 가까운 캠페인 병렬 프리로드
-      _adService.logSessionStart(),
+      Future.delayed(const Duration(milliseconds: 800)), // 1.5초 → 800ms로 단축
+      CampaignCacheManager.instance.preloadAll(recommendedLimit: 20, nearestLimit: 10).timeout(
+        const Duration(seconds: 3), // 3초 타임아웃 추가
+        onTimeout: () {
+          debugPrint('[SplashScreen] 프리로드 타임아웃 - 캐시 없이 진행');
+        },
+      ),
+      _adService.logSessionStart().timeout(
+        const Duration(seconds: 2), // 2초 타임아웃
+        onTimeout: () {
+          debugPrint('[SplashScreen] 세션 로깅 타임아웃');
+        },
+      ),
     ]);
 
     if (!mounted) return;
@@ -97,7 +107,17 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     debugPrint('[SplashScreen] 프리로드 완료: ${stopwatch.elapsedMilliseconds}ms');
 
     // 2. App Open Ad 표시 시도 (광고 표시 중에도 데이터는 이미 캐시됨)
-    await _appOpenAdService.showAdIfAvailable();
+    // 광고 로딩도 타임아웃 추가
+    try {
+      await _appOpenAdService.showAdIfAvailable().timeout(
+        const Duration(seconds: 5), // 5초 타임아웃
+        onTimeout: () {
+          debugPrint('[SplashScreen] App Open Ad 타임아웃 - 광고 없이 진행');
+        },
+      );
+    } catch (e) {
+      debugPrint('[SplashScreen] App Open Ad 오류: $e');
+    }
     debugPrint('[SplashScreen] App Open Ad 표시 시도 완료');
 
     // 3. 공지사항 팝업 표시 후 메인 화면으로 이동

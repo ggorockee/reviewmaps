@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:mobile/screens/home_screen.dart';
 import 'package:mobile/screens/map_screen.dart';
 import 'package:mobile/screens/notification_screen.dart';
@@ -160,7 +161,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         if (didPop) return;
         final shouldPop = await _onWillPop();
         if (shouldPop && context.mounted) {
-          Navigator.of(context).pop();
+          // 앱 종료 (시스템 뒤로가기)
+          SystemNavigator.pop();
         }
       },
       child: Scaffold(

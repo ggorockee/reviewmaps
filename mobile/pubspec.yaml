@@ -116,6 +116,7 @@ flutter:
     - asset/image/logo/application/
     - asset/image/login/
     - asset/image/ads/dangmi/
+    - asset/image/ads/ojeomneo/
     - .env
 
 

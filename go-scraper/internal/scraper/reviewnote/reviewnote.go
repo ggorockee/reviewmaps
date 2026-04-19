@@ -171,9 +171,13 @@ func (s *Scraper) Scrape(ctx context.Context, keyword *string) ([]map[string]int
 	var allData []map[string]interface{}
 	page := 0
 	maxItems := s.Config.Scrape.MaxItems
+	maxPages := s.Config.Scrape.MaxPages
 
 	if maxItems > 0 {
 		log.Infof("MaxItems 제한 설정: %d개", maxItems)
+	}
+	if maxPages > 0 {
+		log.Infof("MaxPages 안전장치 설정: %d페이지", maxPages)
 	}
 
 	for {
@@ -265,8 +269,9 @@ func (s *Scraper) Scrape(ctx context.Context, keyword *string) ([]map[string]int
 			break
 		}
 
-		// 받은 데이터가 limit보다 적으면 마지막 페이지
-		if len(apiResp.Objects) < pageLimit {
+		// MaxPages 안전장치: API가 빈 페이지를 반환하지 않는 경우 무한루프 방지
+		if maxPages > 0 && page >= maxPages-1 {
+			log.Warnf("MaxPages 안전장치(%d페이지)에 도달, 수집 중단 (total: %d)", maxPages, len(allData))
 			break
 		}
 

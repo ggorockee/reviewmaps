@@ -85,6 +85,7 @@ func (b *BatchConfig) Location() *time.Location {
 // ScrapeConfig 스크래핑 관련 설정
 type ScrapeConfig struct {
 	MaxItems int // 최대 수집 개수 (0 = 무제한)
+	MaxPages int // 최대 페이지 수 (0 = 무제한, 기본 500 - 무한루프 방지)
 }
 
 // ServerAPIConfig Server API 연동 설정
@@ -141,7 +142,8 @@ func Load() (*Config, error) {
 			WaitTimeout:     time.Duration(getEnvInt("WAIT_TIMEOUT", 15)) * time.Second,
 		},
 		Scrape: ScrapeConfig{
-			MaxItems: getEnvInt("SCRAPE_MAX_ITEMS", 100),
+			MaxItems: getEnvInt("SCRAPE_MAX_ITEMS", 0),
+			MaxPages: getEnvInt("SCRAPE_MAX_PAGES", 500),
 		},
 		ServerAPI: ServerAPIConfig{
 			BaseURL: getEnv("SERVER_API_BASE_URL", ""),

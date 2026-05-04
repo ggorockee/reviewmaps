@@ -99,7 +99,10 @@ func (h *KeywordAlertHandler) DeleteKeyword(c *fiber.Ctx) error {
 	id, _ := strconv.Atoi(c.Params("id"))
 
 	if err := h.service.DeleteKeyword(userID, uint(id)); err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": err.Error()})
+		if err.Error() == "keyword not found" {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 
 	return c.SendStatus(fiber.StatusNoContent)

@@ -105,7 +105,8 @@ class KeywordService {
 
     try {
       final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
-      final serverMessage = errorBody['detail'] as String?;
+      // Go 서버는 'error' 키, Django는 'detail' 키 사용 → 둘 다 확인
+      final serverMessage = errorBody['detail'] as String? ?? errorBody['error'] as String?;
       throw UserFriendlyException(
         NetworkErrorHandler.getHttpErrorMessage(
           response.statusCode,

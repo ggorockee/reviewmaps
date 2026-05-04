@@ -129,11 +129,21 @@ class NetworkErrorHandler {
   /// 서버 메시지를 사용자 친화적 메시지로 변환
   static String _transformServerMessage(String message) {
     // 서버 메시지 → 사용자 친화적 메시지 매핑
+    // Go 서버 영문 메시지 + Django 한글 메시지 모두 포함
     const messageMap = {
+      // 키워드 관련
       '이미 등록된 키워드입니다.': '이 키워드는 이미 등록되어 있어요.',
       '이미 등록된 키워드입니다': '이 키워드는 이미 등록되어 있어요.',
+      'keyword already registered': '이 키워드는 이미 등록되어 있어요.',
+      'keyword limit reached': '키워드는 최대 10개까지 등록 가능해요.',
+      'keyword not found': '해당 키워드를 찾을 수 없어요.',
       '키워드를 찾을 수 없습니다.': '해당 키워드를 찾을 수 없어요.',
       '키워드를 찾을 수 없습니다': '해당 키워드를 찾을 수 없어요.',
+      // 알림 관련
+      'alert not found': '이미 삭제된 알림이에요.',
+      // 인증 관련
+      'Invalid or expired token': '로그인이 만료되었어요.\n다시 로그인해 주세요.',
+      'Authorization header required': '로그인이 필요해요.',
     };
 
     // 매핑된 메시지가 있으면 변환

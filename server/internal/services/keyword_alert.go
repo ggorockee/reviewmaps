@@ -93,13 +93,19 @@ func (s *KeywordAlertService) ListKeywords(userID uint) ([]models.Keyword, error
 	return keywords, err
 }
 
-// DeleteKeyword deletes a keyword
+// DeleteKeyword deletes a keyword and its associated alerts
 func (s *KeywordAlertService) DeleteKeyword(userID, keywordID uint) error {
-	result := s.db.Where("id = ? AND user_id = ?", keywordID, userID).Delete(&models.Keyword{})
-	if result.RowsAffected == 0 {
+	var keyword models.Keyword
+	if err := s.db.Where("id = ? AND user_id = ?", keywordID, userID).First(&keyword).Error; err != nil {
 		return errors.New("keyword not found")
 	}
-	return result.Error
+
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("keyword_id = ?", keywordID).Delete(&models.KeywordAlert{}).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&keyword).Error
+	})
 }
 
 // ToggleKeyword toggles keyword active status

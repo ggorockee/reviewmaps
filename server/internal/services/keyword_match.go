@@ -69,13 +69,14 @@ func (s *KeywordMatchService) ProcessCampaignKeywordMatching(ctx context.Context
 	offerNormalized := normalizeText(campaign.Offer)
 
 	// Get existing alerts to avoid duplicates
+	// Unscoped()로 soft-deleted 포함 조회 → 유저가 삭제한 알림도 재생성 방지
 	keywordIDs := make([]uint, len(activeKeywords))
 	for i, kw := range activeKeywords {
 		keywordIDs[i] = kw.ID
 	}
 
 	var existingAlerts []models.KeywordAlert
-	s.db.Where("keyword_id IN ? AND campaign_id = ?", keywordIDs, campaign.ID).Find(&existingAlerts)
+	s.db.Unscoped().Where("keyword_id IN ? AND campaign_id = ?", keywordIDs, campaign.ID).Find(&existingAlerts)
 
 	existingMap := make(map[uint]bool)
 	for _, alert := range existingAlerts {
@@ -323,13 +324,14 @@ func (s *KeywordMatchService) ProcessCampaignKeywordMatchingByID(ctx context.Con
 	offerNormalized := normalizeText(campaign.Offer)
 
 	// Get existing alerts to avoid duplicates
+	// Unscoped()로 soft-deleted 포함 조회 → 유저가 삭제한 알림도 재생성 방지
 	keywordIDs := make([]uint, len(activeKeywords))
 	for i, kw := range activeKeywords {
 		keywordIDs[i] = kw.ID
 	}
 
 	var existingAlerts []models.KeywordAlert
-	s.db.Where("keyword_id IN ? AND campaign_id = ?", keywordIDs, campaign.ID).Find(&existingAlerts)
+	s.db.Unscoped().Where("keyword_id IN ? AND campaign_id = ?", keywordIDs, campaign.ID).Find(&existingAlerts)
 
 	existingMap := make(map[uint]bool)
 	for _, alert := range existingAlerts {

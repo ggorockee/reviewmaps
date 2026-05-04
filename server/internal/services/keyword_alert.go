@@ -101,7 +101,7 @@ func (s *KeywordAlertService) DeleteKeyword(userID, keywordID uint) error {
 	}
 
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("keyword_id = ?", keywordID).Delete(&models.KeywordAlert{}).Error; err != nil {
+		if err := tx.Unscoped().Where("keyword_id = ?", keywordID).Delete(&models.KeywordAlert{}).Error; err != nil {
 			return err
 		}
 		return tx.Delete(&keyword).Error

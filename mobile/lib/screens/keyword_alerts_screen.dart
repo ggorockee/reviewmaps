@@ -54,20 +54,43 @@ class _KeywordAlertsScreenState extends ConsumerState<KeywordAlertsScreen>
     }
 
     try {
-      // 병렬로 API 호출
+      // 병렬로 API 호출 - 각각 독립적으로 실패 처리 (한쪽 실패가 다른 쪽에 영향 없음)
       final keywordService = ref.read(keywordServiceProvider);
-      final results = await Future.wait([
-        keywordService.getMyKeywords(),
-        keywordService.getMyAlerts(),
+
+      List<KeywordInfo> keywords = _keywords;
+      List<AlertInfo> alerts = _allAlerts;
+      Object? keywordsError;
+      Object? alertsError;
+
+      final futures = await Future.wait([
+        keywordService.getMyKeywords().then<Object>((v) => v).catchError((e) {
+          keywordsError = e;
+          return <KeywordInfo>[];
+        }),
+        keywordService.getMyAlerts().then<Object>((v) => v).catchError((e) {
+          alertsError = e;
+          return AlertListResponse(items: const [], total: 0, page: 1, limit: 20, totalPages: 0);
+        }),
       ]);
 
       if (!mounted) return;
 
+      keywords = futures[0] as List<KeywordInfo>;
+      alerts = (futures[1] as AlertListResponse).alerts;
+
       setState(() {
-        _keywords = results[0] as List<KeywordInfo>;
-        _allAlerts = (results[1] as AlertListResponse).alerts;
+        _keywords = keywords;
+        _allAlerts = alerts;
         _isLoading = false;
       });
+
+      // 오류 발생 시 알림 (각각 독립적으로 표시)
+      if (keywordsError != null) {
+        debugPrint('[KeywordAlertsScreen] 키워드 로드 실패: $keywordsError');
+      }
+      if (alertsError != null) {
+        debugPrint('[KeywordAlertsScreen] 알람 로드 실패: $alertsError');
+      }
     } catch (e) {
       debugPrint('[KeywordAlertsScreen] 데이터 로드 실패: $e');
       if (!mounted) return;
@@ -321,7 +344,7 @@ class _KeywordAlertsScreenState extends ConsumerState<KeywordAlertsScreen>
                 _buildAlertsTab(),
               ],
             ),
-      floatingActionButton: _tabController.index == 0
+      floatingActionButton: !_tabController.indexIsChanging && _tabController.index == 0
           ? FloatingActionButton(
               onPressed: _addKeyword,
               backgroundColor: primaryColor,
@@ -558,10 +581,13 @@ class _KeywordAlertsScreenState extends ConsumerState<KeywordAlertsScreen>
 
   /// 알림 삭제
   Future<void> _deleteAlert(int alertId, int index) async {
-    // 먼저 UI에서 제거 (이미 Dismissible에서 제거됨)
-    final removedAlert = _allAlerts[index];
+    // ID로 실제 위치 조회 (캡처된 index는 동시 삭제 시 무효화될 수 있음)
+    final actualIndex = _allAlerts.indexWhere((a) => a.id == alertId);
+    if (actualIndex == -1) return; // 이미 제거됨
+
+    final removedAlert = _allAlerts[actualIndex];
     setState(() {
-      _allAlerts.removeAt(index);
+      _allAlerts.removeAt(actualIndex);
     });
 
     try {
@@ -576,14 +602,15 @@ class _KeywordAlertsScreenState extends ConsumerState<KeywordAlertsScreen>
       }
     } catch (e) {
       debugPrint('[KeywordAlertsScreen] 알림 삭제 실패: $e');
-      // 삭제 실패 시 복원
+      // 삭제 실패 시 원래 위치에 복원
+      final restoreIndex = actualIndex.clamp(0, _allAlerts.length);
       setState(() {
-        _allAlerts.insert(index, removedAlert);
+        _allAlerts.insert(restoreIndex, removedAlert);
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('삭제 실패: ${e.toString()}'),
+            content: Text(e.toString()),
             backgroundColor: Colors.red,
           ),
         );

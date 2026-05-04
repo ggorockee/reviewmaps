@@ -58,7 +58,7 @@ func (s *KeywordAlertService) CreateKeyword(userID uint, req *CreateKeywordReque
 	var existingCount int64
 	s.db.Model(&models.Keyword{}).Where("user_id = ? AND keyword = ?", userID, req.Keyword).Count(&existingCount)
 	if existingCount > 0 {
-		return nil, errors.New("이미 등록된 키워드입니다.")
+		return nil, errors.New("이미 등록된 키워드입니다")
 	}
 
 	// 현재 키워드 수 확인

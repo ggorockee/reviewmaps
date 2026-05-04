@@ -156,12 +156,12 @@ class AuthNotifier extends Notifier<AuthState> {
   }
 
   /// 로그아웃
-  /// Phase 6: 토큰 갱신 중에는 로그아웃 방지 (경쟁 조건)
   Future<void> logout() async {
-    // Phase 6: 토큰 갱신 중이면 로그아웃 스킵 (갱신 완료 대기)
+    // 진행 중인 토큰 갱신이 있으면 중단하고 로그아웃 진행
+    // (401 에러로 인한 강제 로그아웃은 갱신 완료를 기다리지 않음)
     if (_isRefreshing) {
-      debugPrint('[AuthProvider] 토큰 갱신 중 - 로그아웃 대기');
-      return;
+      debugPrint('[AuthProvider] 토큰 갱신 중단 후 로그아웃');
+      _isRefreshing = false;
     }
 
     // FCM 토큰 서버에서 해제 (푸시 알림 중지)

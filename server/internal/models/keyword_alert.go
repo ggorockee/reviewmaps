@@ -2,6 +2,8 @@ package models
 
 import (
 	"time"
+
+	"gorm.io/gorm"
 )
 
 // FCMDevice represents FCM device tokens
@@ -47,13 +49,14 @@ func (Keyword) TableName() string {
 // KeywordAlert represents keyword match alerts
 // DB: keyword_alerts_alerts
 type KeywordAlert struct {
-	ID           uint      `gorm:"primaryKey" json:"id"`
-	KeywordID    uint      `gorm:"column:keyword_id;not null;uniqueIndex:keyword_alerts_keyword_campaign_unique,priority:1;index:keyword_ale_keyword_3d44d6_idx" json:"keyword_id"`
-	CampaignID   *uint     `gorm:"column:campaign_id;uniqueIndex:keyword_alerts_keyword_campaign_unique,priority:2;index:keyword_ale_campaig_2f61a0_idx" json:"campaign_id"`
-	MatchedField string    `gorm:"column:matched_field;size:50;not null" json:"matched_field"`
-	IsRead       bool      `gorm:"not null" json:"is_read"`
-	CreatedAt    time.Time `gorm:"not null;index:keyword_ale_created_704aa6_idx,sort:desc" json:"created_at"`
-	UpdatedAt    time.Time `gorm:"not null" json:"updated_at"`
+	ID           uint           `gorm:"primaryKey" json:"id"`
+	KeywordID    uint           `gorm:"column:keyword_id;not null;uniqueIndex:keyword_alerts_keyword_campaign_unique,priority:1;index:keyword_ale_keyword_3d44d6_idx" json:"keyword_id"`
+	CampaignID   *uint          `gorm:"column:campaign_id;uniqueIndex:keyword_alerts_keyword_campaign_unique,priority:2;index:keyword_ale_campaig_2f61a0_idx" json:"campaign_id"`
+	MatchedField string         `gorm:"column:matched_field;size:50;not null" json:"matched_field"`
+	IsRead       bool           `gorm:"not null" json:"is_read"`
+	CreatedAt    time.Time      `gorm:"not null;index:keyword_ale_created_704aa6_idx,sort:desc" json:"created_at"`
+	UpdatedAt    time.Time      `gorm:"not null" json:"updated_at"`
+	DeletedAt    gorm.DeletedAt `gorm:"index" json:"-"` // soft delete: 삭제 후 스크래퍼 재생성 방지
 
 	// Relations
 	Keyword  Keyword   `gorm:"foreignKey:KeywordID" json:"keyword,omitempty"`

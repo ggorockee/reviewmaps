@@ -105,7 +105,8 @@ class KeywordService {
 
     try {
       final errorBody = jsonDecode(utf8.decode(response.bodyBytes));
-      final serverMessage = errorBody['detail'] as String?;
+      // Go 서버는 'error' 키, Django는 'detail' 키 사용 → 둘 다 확인
+      final serverMessage = errorBody['detail'] as String? ?? errorBody['error'] as String?;
       throw UserFriendlyException(
         NetworkErrorHandler.getHttpErrorMessage(
           response.statusCode,
@@ -263,13 +264,10 @@ class KeywordService {
         final result = AlertListResponse.fromJson(jsonBody);
         debugPrint('[getMyAlerts] 성공: ${result.items.length}개 알림');
         return result;
-      } catch (e, stackTrace) {
+      } catch (e) {
         debugPrint('[getMyAlerts] 에러 발생: $e');
-        debugPrint('[getMyAlerts] 스택트레이스: $stackTrace');
-        if (e is Exception && e.toString().contains('Exception:')) {
-          rethrow;
-        }
-        throw Exception(NetworkErrorHandler.getErrorMessage(e));
+        if (e is UserFriendlyException) rethrow;
+        throw UserFriendlyException(NetworkErrorHandler.getErrorMessage(e));
       }
     });
   }

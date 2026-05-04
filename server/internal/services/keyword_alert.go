@@ -54,16 +54,20 @@ type AlertListResponse struct {
 
 // CreateKeyword creates a new keyword for a user
 func (s *KeywordAlertService) CreateKeyword(userID uint, req *CreateKeywordRequest) (*models.Keyword, error) {
-	// Check keyword limit
+	// 중복 키워드 체크 (같은 유저가 동일 키워드 재등록 방지)
+	var existingCount int64
+	s.db.Model(&models.Keyword{}).Where("user_id = ? AND keyword = ?", userID, req.Keyword).Count(&existingCount)
+	if existingCount > 0 {
+		return nil, errors.New("이미 등록된 키워드입니다.")
+	}
+
+	// 현재 키워드 수 확인
 	var count int64
 	s.db.Model(&models.Keyword{}).Where("user_id = ?", userID).Count(&count)
 
-	// Get limit from settings (default 10)
-	limit := 10
-	var setting models.AppSetting
-	if err := s.db.Where("key = ?", "keyword_limit").First(&setting).Error; err == nil {
-		// Parse limit from setting
-	}
+	// AppConfigService를 통해 키워드 한도 조회 (DB 설정값 우선, 기본값 10)
+	appConfigService := NewAppConfigService(s.db)
+	limit, _ := appConfigService.GetKeywordLimit()
 
 	if int(count) >= limit {
 		return nil, errors.New("keyword limit reached")

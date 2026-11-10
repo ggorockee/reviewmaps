@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  NODE_VERSION: "20"
+  NODE_VERSION: "24"
   DOCKER_IMAGE: ggorockee/reviewmaps-web
   INFRA_REPO: ggorockee/infra
   VALUES_FILE_PATH: charts/helm/prod/reviewmaps/values.yaml

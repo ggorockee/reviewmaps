@@ -10,7 +10,6 @@ if (dotenvFile.exists()) {
 
 plugins {
     id("com.android.application")
-    id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
     id("com.google.gms.google-services")
@@ -24,18 +23,15 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.reviewmaps.mobile"
-    compileSdk = flutter.compileSdkVersion
+    // flutter_local_notifications 23, permission_handler 13 요구사항
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
         // flutter_local_notifications 패키지에 필요한 core library desugaring 활성화
         isCoreLibraryDesugaringEnabled = true
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
-    }
-
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     defaultConfig {
@@ -81,15 +77,21 @@ android {
     }
 }
 
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+    }
+}
+
 flutter {
     source = "../.."
 }
 
 dependencies {
     // Core library desugaring (flutter_local_notifications 필요)
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     // Unity Ads SDK
-    implementation("com.unity3d.ads:unity-ads:4.12.2")
+    implementation("com.unity3d.ads:unity-ads:4.21.0")
     // Unity Ads Mediation Adapter
-    implementation("com.google.ads.mediation:unity:4.12.2.0")
+    implementation("com.google.ads.mediation:unity:4.21.0.0")
 }

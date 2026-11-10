@@ -34,7 +34,7 @@ import 'package:mobile/services/fcm_service.dart'; // FCM 푸시 알림 서비�
 import 'package:mobile/providers/auth_provider.dart'; // AuthProvider
 
 import 'package:google_mobile_ads/google_mobile_ads.dart';
-import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_core/firebase_core.dart' hide FirebaseService;
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 

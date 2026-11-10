@@ -148,7 +148,7 @@ class FcmService {
     );
 
     await _localNotifications.initialize(
-      initSettings,
+      settings: initSettings,
       onDidReceiveNotificationResponse: _onNotificationTapped,
     );
 
@@ -325,10 +325,10 @@ class FcmService {
     final notificationId = _generateUniqueNotificationId();
 
     await _localNotifications.show(
-      notificationId, // 고유 ID
-      notification.title,
-      notification.body,
-      details,
+      id: notificationId, // 고유 ID
+      title: notification.title,
+      body: notification.body,
+      notificationDetails: details,
       payload: payload,
     );
 

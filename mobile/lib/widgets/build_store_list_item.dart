@@ -201,7 +201,7 @@ class StoreListItem extends StatelessWidget {
           width: 48.w,
           height: 48.h,
           fit: BoxFit.contain,
-          errorBuilder: (_, __, ___) => Container(
+          errorBuilder: (_, _, _) => Container(
             width: 48.w,
             height: 48.h,
             color: Colors.white,

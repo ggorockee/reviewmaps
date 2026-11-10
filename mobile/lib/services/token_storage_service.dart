@@ -33,10 +33,11 @@ class TokenStorageService {
   static const String _isAnonymousKey = 'is_anonymous';
 
   // FlutterSecureStorage 인스턴스 (Singleton)
+  // Android: v10은 기존 EncryptedSharedPreferences(v9) 데이터를 감지하면
+  // 커스텀 암호화 저장소(AES-GCM)로 자동 마이그레이션함 (migrateOnAlgorithmChange 기본 true)
+  // 주의: v11로 바로 올리면 v9 데이터를 읽지 못해 강제 로그아웃 발생 → v10 배포 후 단계적 상향
   static final _storage = FlutterSecureStorage(
-    aOptions: AndroidOptions(
-      encryptedSharedPreferences: true, // Android: EncryptedSharedPreferences 사용
-    ),
+    aOptions: AndroidOptions(),
     iOptions: IOSOptions(
       accessibility: KeychainAccessibility.first_unlock, // iOS: 첫 잠금 해제 후 접근 가능
     ),

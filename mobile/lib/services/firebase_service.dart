@@ -120,7 +120,7 @@ class FirebaseService {
     if (!_isInitialized) return;
     
     await _analytics.logSearch(searchTerm: searchTerm, parameters: {
-      if (category != null) 'category': category,
+      'category': ?category,
     });
     debugPrint('📊 Search: $searchTerm');
   }
@@ -133,7 +133,7 @@ class FirebaseService {
       contentType: contentType,
       itemId: itemId,
       parameters: {
-        if (itemName != null) 'item_name': itemName,
+        'item_name': ?itemName,
       },
     );
     debugPrint('📊 Select content: $contentType - $itemId');

@@ -429,7 +429,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<List<Store>> _fetchNearestCampaigns(Position position) async {
     try {
       // 캐시 매니저를 통해 가까운 캠페인 로드
-      return CampaignCacheManager.instance.getNearest(
+      return await CampaignCacheManager.instance.getNearest(
         lat: position.latitude,
         lng: position.longitude,
         limit: 10,

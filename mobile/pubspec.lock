@@ -781,30 +781,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.1"
-  location:
-    dependency: "direct main"
-    description:
-      name: location
-      sha256: "7f980909d343a82b5c55f51bf10eea81acfc88fec8970507fb3bf92f6064775c"
-      url: "https://pub.dev"
-    source: hosted
-    version: "10.1.0"
-  location_platform_interface:
-    dependency: transitive
-    description:
-      name: location_platform_interface
-      sha256: a47b6d790eeb7308147293aedec0efb3b62d9f1b10899679be04f91cff664821
-      url: "https://pub.dev"
-    source: hosted
-    version: "7.1.0"
-  location_web:
-    dependency: transitive
-    description:
-      name: location_web
-      sha256: da3812c65ca683c6180790838f551de10122a4887ffbd569360c9cb2d85859b7
-      url: "https://pub.dev"
-    source: hosted
-    version: "7.0.1"
   logging:
     dependency: transitive
     description:

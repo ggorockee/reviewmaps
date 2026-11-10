@@ -154,4 +154,5 @@ jobs:
           echo "Created PR: $PR_URL"
 
           # Enable auto-merge (squash) using PR URL
-          gh pr merge --auto --squash "$PR_URL"
+          # PR이 이미 머지 가능한 상태(clean)면 auto-merge 예약이 거부됨 → 즉시 squash 머지로 대체
+          gh pr merge --auto --squash "$PR_URL" || gh pr merge --squash "$PR_URL"

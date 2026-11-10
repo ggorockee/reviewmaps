@@ -140,9 +140,10 @@
 - [ ] `npm run build`, `npm run lint` 통과
 
 ### server
-- [ ] go.mod `go 1.26`, Dockerfile golang 1.26-alpine / alpine 최신, CI `GO_VERSION`
-- [ ] `go get -u` 직접 의존성 + `go mod tidy`
-- [ ] `make test`, staticcheck, `make swagger` 통과
+- [x] go.mod `go 1.26`, Dockerfile golang 1.26-alpine3.24 / alpine 3.24, CI `GO_VERSION`
+- [x] `go get -u` 직접 의존성 + `go mod tidy`
+- [x] build, vet, staticcheck 통과 (테스트 파일 없음, deprecated API 정리)
+- [ ] `make swagger`, Docker 이미지 빌드 확인 (CI에서 검증)
 - [ ] SNS 로그인(Kakao/Google/Apple), FCM 발송 스테이징 검증
 
 ### go-scraper

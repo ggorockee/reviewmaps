@@ -5,8 +5,9 @@ GORM이 관리하는 테이블에 대한 Admin CRUD 전용
 
 import os
 from pathlib import Path
-from dotenv import load_dotenv
+
 import dj_database_url
+from dotenv import load_dotenv
 
 load_dotenv()
 

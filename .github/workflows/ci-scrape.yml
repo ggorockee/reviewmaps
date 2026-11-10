@@ -24,13 +24,13 @@ jobs:
       scrape: ${{ steps.filter.outputs.scrape }}
       server: ${{ steps.filter.outputs.server }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0  # 히스토리 전체 필요
 
       - name: Paths filter
         id: filter
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@v4
         with:
           # 현재 커밋과 푸시 직전 커밋을 비교
           ref:  ${{ github.sha }}
@@ -52,10 +52,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Log in to Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -68,7 +68,7 @@ jobs:
           echo "tag=${TAG}" >> $GITHUB_OUTPUT
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: ./scrape
           push: true
@@ -86,10 +86,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Log in to Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -102,7 +102,7 @@ jobs:
           echo "tag=${TAG}" >> $GITHUB_OUTPUT
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: ./server
           push: true
@@ -117,11 +117,11 @@ jobs:
     steps:
       # 1. Python 스크립트가 있는 현재 앱 레포지토리를 체크아웃합니다.
       - name: Checkout App Repo for script
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # 2. 수정할 values.yaml이 있는 Infra 레포를 'infra' 폴더에 체크아웃합니다.
       - name: Checkout Infra Repo to update values
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: ${{ env.INFRA_REPO }}
           token: ${{ secrets.INFRA_GITHUB_TOKEN }} # PAT 시크릿을 직접 사용합니다.
@@ -129,9 +129,9 @@ jobs:
           path: "infra"
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
-          python-version: "3.10"
+          python-version: "3.12"
 
       - name: Install ruamel.yaml
         run: pip install ruamel.yaml

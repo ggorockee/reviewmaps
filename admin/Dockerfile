@@ -41,4 +41,5 @@ RUN python manage.py collectstatic --noinput
 EXPOSE 8000
 
 # Run with gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "2", "--threads", "4", "config.wsgi:application"]
+# gunicorn 27+: 미사용 control socket 비활성화 (읽기 전용 파일시스템 대응)
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "2", "--threads", "4", "--no-control-socket", "config.wsgi:application"]

@@ -1,4 +1,8 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- 백그라운드 위치 미사용: 플러그인이 병합하는 포그라운드 위치 권한/서비스 제거 (Play 포그라운드 서비스 신고 대상 제외) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" tools:node="remove" />
     <!-- 위치 권한: 앱 사용 중 현재 위치/거리 계산에 필요 -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
@@ -61,6 +65,10 @@
                 <data android:scheme="kakao${KAKAO_NATIVE_APP_KEY}" android:host="oauth" />
             </intent-filter>
         </activity>
+        <!-- geolocator 백그라운드 추적(foregroundNotificationConfig) 미사용 -->
+        <service
+            android:name="com.baseflow.geolocator.GeolocatorLocationService"
+            tools:node="remove" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

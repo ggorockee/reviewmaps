@@ -248,7 +248,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         radius: 32.r,
         backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.1),
         backgroundImage: NetworkImage(imageUrl),
-        onBackgroundImageError: (_, __) {
+        onBackgroundImageError: (_, _) {
           // 이미지 로드 실패 시 기본 아이콘 표시
         },
         child: null,

@@ -4,12 +4,12 @@ version = "1.0.0"
 description = "ReviewMaps Django Admin with Unfold Theme"
 requires-python = ">=3.12"
 dependencies = [
-    "django>=5.2",
-    "django-unfold>=0.40.0",
+    "django>=6.1",
+    "django-unfold>=0.110.0",
     "psycopg2-binary>=2.9.9",
     "python-dotenv>=1.0.0",
     "dj-database-url>=2.2.0",
-    "gunicorn>=21.0.0",
+    "gunicorn>=27.0.0",
     "whitenoise>=6.7.0",
 ]
 
@@ -17,9 +17,14 @@ dependencies = [
 dev = [
     "pytest>=8.0.0",
     "pytest-django>=4.8.0",
-    "ruff>=0.8.0",
+    "ruff>=0.17.0",
 ]
 
 [tool.ruff]
 line-length = 120
 target-version = "py312"
+
+[tool.ruff.lint]
+# ruff 0.17부터 기본 규칙 세트가 확장됨 → 기존 기본값(E4/E7/E9/F) + import 정렬(I)로 명시 고정
+# RUF012(Django Meta의 ordering 등 오탐), BLE001(의도적 fallback 예외 처리)은 제외
+select = ["E4", "E7", "E9", "F", "I"]

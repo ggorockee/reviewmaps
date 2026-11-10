@@ -1,6 +1,7 @@
 from django.contrib import admin
 from unfold.admin import ModelAdmin
-from .models import Category, Campaign, RawCategory, CategoryMapping
+
+from .models import Campaign, Category, CategoryMapping, RawCategory
 
 
 @admin.register(Category)

@@ -3,7 +3,7 @@ Users 모델 - GORM이 관리하는 테이블 (managed=False)
 Django Admin CRUD 전용
 """
 
-from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
 from django.utils import timezone
 

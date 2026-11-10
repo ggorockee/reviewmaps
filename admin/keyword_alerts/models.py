@@ -3,8 +3,8 @@ Keyword Alerts 모델 - GORM이 관리하는 테이블 (managed=False)
 Django Admin CRUD 전용
 """
 
-from django.db import models
 from django.conf import settings
+from django.db import models
 
 
 class FCMDevice(models.Model):

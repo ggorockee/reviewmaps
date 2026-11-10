@@ -14,9 +14,9 @@ on:
       - "admin/**"
       - ".github/workflows/ci-admin.yml"
 
-# infra repo 동시 업데이트 방지 (Server CI와 공유)
+# 배포는 워크플로별 그룹으로 순차 실행 (공유 그룹은 대기 중 실행이 취소되는 문제가 있어 분리)
 concurrency:
-  group: ${{ github.event_name == 'pull_request' && format('pr-{0}-{1}', github.workflow, github.ref) || 'reviewmaps-infra-update' }}
+  group: ${{ github.event_name == 'pull_request' && format('pr-{0}-{1}', github.workflow, github.ref) || format('deploy-{0}', github.workflow) }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
@@ -176,4 +176,5 @@ jobs:
           echo "Created PR: $PR_URL"
 
           # Enable auto-merge (squash) using PR URL
-          gh pr merge --auto --squash "$PR_URL"
+          # PR이 이미 머지 가능한 상태(clean)면 auto-merge 예약이 거부됨 → 즉시 squash 머지로 대체
+          gh pr merge --auto --squash "$PR_URL" || gh pr merge --squash "$PR_URL"

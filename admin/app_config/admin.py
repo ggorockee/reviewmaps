@@ -1,6 +1,7 @@
 from django.contrib import admin
 from unfold.admin import ModelAdmin
-from .models import AdConfig, AppVersion, AppSetting, RateLimitConfig
+
+from .models import AdConfig, AppSetting, AppVersion, RateLimitConfig
 
 
 @admin.register(AdConfig)

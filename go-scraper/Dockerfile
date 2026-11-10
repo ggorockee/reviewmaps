@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.23-alpine AS builder
+FROM golang:1.26-alpine3.24 AS builder
 
 WORKDIR /app
 
@@ -19,7 +19,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o /app/scraper ./cmd/scraper
 
 # Runtime stage
-FROM alpine:3.19
+FROM alpine:3.24
 
 WORKDIR /app
 

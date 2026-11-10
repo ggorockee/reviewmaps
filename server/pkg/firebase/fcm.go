@@ -48,7 +48,7 @@ func (s *FCMService) initialize() {
 			return
 		}
 
-		opt := option.WithCredentialsJSON([]byte(credJSON))
+		opt := option.WithAuthCredentialsJSON(option.ServiceAccount, []byte(credJSON))
 		app, err = firebase.NewApp(ctx, nil, opt)
 	} else {
 		// Try file path
@@ -62,7 +62,7 @@ func (s *FCMService) initialize() {
 			return
 		}
 
-		opt := option.WithCredentialsFile(credPath)
+		opt := option.WithAuthCredentialsFile(option.ServiceAccount, credPath)
 		app, err = firebase.NewApp(ctx, nil, opt)
 	}
 
@@ -110,7 +110,9 @@ func (s *FCMService) SendPush(ctx context.Context, token, title, body string, da
 			Title: title,
 			Body:  body,
 		},
-		Data:  data,
+		Data: data,
+		// 앱은 FCM 등록 토큰을 전송하므로 Fid(Firebase Installation ID)로 대체 불가
+		//lint:ignore SA1019 FCM registration token 사용 유지
 		Token: token,
 	}
 
@@ -162,7 +164,9 @@ func (s *FCMService) SendPushMultiple(ctx context.Context, tokens []string, titl
 			Title: title,
 			Body:  body,
 		},
-		Data:   data,
+		Data: data,
+		// 앱은 FCM 등록 토큰을 전송하므로 FIDs로 대체 불가
+		//lint:ignore SA1019 FCM registration token 사용 유지
 		Tokens: validTokens,
 		Android: &messaging.AndroidConfig{
 			Priority: "high",

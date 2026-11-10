@@ -131,45 +131,62 @@
 ### 준비
 - [x] 전체 컴포넌트 의존성 현황 조사
 - [x] 업데이트 계획 문서 작성
-- [ ] mobile 미커밋 변경(pubspec 버전, pbxproj) 처리 방침 결정
-- [ ] 로컬 Flutter SDK 3.47.9 업그레이드
+- [x] mobile 미커밋 변경 처리 (stash 보관, 버전은 iOS 2.1.2+1 / Android 2.1.2+90으로 신규 지정)
+- [x] 로컬 Flutter SDK 3.47.9 업그레이드
 
-### web
-- [ ] next / eslint-config-next 16.4.x, react / react-dom 19.3.x
-- [ ] Node LTS로 Dockerfile, CI `NODE_VERSION`, `@types/node` 상향
-- [ ] `npm run build`, `npm run lint` 통과
+### web (#263)
+- [x] next / eslint-config-next 16.4.6, react / react-dom 19.3.1
+- [x] Node 24 LTS로 Dockerfile, CI `NODE_VERSION`, `@types/node` 상향
+- [x] `npm run build`, `npm run lint` 통과 (eslint flat config 전환, middleware → proxy)
+- [x] 배포 후 `/app-ads.txt` 200 확인
 
-### server
+### server (#261)
 - [x] go.mod `go 1.26`, Dockerfile golang 1.26-alpine3.24 / alpine 3.24, CI `GO_VERSION`
 - [x] `go get -u` 직접 의존성 + `go mod tidy`
 - [x] build, vet, staticcheck 통과 (테스트 파일 없음, deprecated API 정리)
-- [ ] `make swagger`, Docker 이미지 빌드 확인 (CI에서 검증)
-- [ ] SNS 로그인(Kakao/Google/Apple), FCM 발송 스테이징 검증
+- [x] Docker 이미지 빌드 (PR CI) 및 배포, `/v1/healthz` healthy
+- [ ] SNS 로그인(Kakao/Google/Apple), FCM 발송 운영 확인
 
-### go-scraper
-- [ ] go.mod / Dockerfile Go 1.26, Alpine 상향
-- [ ] pgx, OTel(server와 동일), zap 업데이트
-- [ ] `go build ./...`, `go vet ./...`, reviewnote 스크레이퍼 1회 실행 검증
+### go-scraper (#262)
+- [x] go.mod / Dockerfile Go 1.26, Alpine 3.24 상향
+- [x] pgx 5.12, OTel 1.47(server와 동일), zap 1.28 업데이트, semconv v1.43 정합성 수정
+- [x] `go build`, `go vet`, 기존 테스트 통과, Docker 빌드 및 배포
+- [ ] reviewnote 스크레이퍼 1회 실행 및 SigNoz 수집 확인
 
-### admin
-- [ ] `uv lock --upgrade`, pyproject 하한 정리
-- [ ] Unfold 0.110 설정 변경 사항 반영
-- [ ] `uv run ruff format --check .`, 어드민 화면 수동 점검
+### admin (#265)
+- [x] `uv lock --upgrade`, pyproject 하한 정리 (Django 6.1.3, Unfold 0.110.1, gunicorn 27)
+- [x] Unfold 0.110 설정 호환 확인 (COLORS 형식 유지 가능)
+- [x] ruff 규칙 명시 고정, `ruff check` / `ruff format --check` 통과, 화면 렌더링 점검
+- [x] Docker 빌드 및 배포, `/health/` 200
+- [ ] 상세 편집·저장 화면 운영 확인
 
-### mobile
-- [ ] Flutter 3.47 + AGP/Kotlin/Gradle 상향, iOS Deployment Target 통일
-- [ ] Upgradable 패키지 + riverpod 3.5 정식 버전
-- [ ] Firebase 5종 일괄 메이저 업그레이드
-- [ ] google_sign_in 7 마이그레이션 (google_login_service.dart)
-- [ ] kakao 2.x, sign_in_with_apple 8.x 마이그레이션
-- [ ] flutter_local_notifications, google_mobile_ads, flutter_secure_storage 등 메이저
-- [ ] `flutter analyze`, `flutter test`, iOS/Android 실기기 빌드 검증
-- [ ] 앱 버전 상향 (2.2.0 등) 및 스토어 제출
+### mobile (#264)
+- [x] Flutter 3.47 + AGP 9.2.1 / Kotlin 2.4 / Gradle 9.4.1 상향, iOS Deployment Target 15.6 통일
+- [x] Upgradable 패키지 + riverpod 3.5.0 정식 버전
+- [x] Firebase 5종 일괄 메이저 업그레이드, iOS CocoaPods → SPM 전환
+- [x] google_sign_in 7 마이그레이션 (google_login_service.dart)
+- [x] kakao 2.x, sign_in_with_apple 8.x 업그레이드
+- [x] flutter_local_notifications 23, google_mobile_ads 9.2, flutter_secure_storage 10.3 (v11은 다음 배포)
+- [x] Crashlytics dSYM 업로드 빌드 단계 추가, targetSdk 36 (Google Play 요구사항)
+- [x] `flutter analyze` 에러 0건, Android debug APK 빌드
+- [ ] iOS 26.5 플랫폼 설치 후 `flutter build ipa` 검증
+- [ ] 실기기 로그인·푸시·광고·로그인 유지(secure storage 마이그레이션) 테스트
+- [x] 앱 버전 상향 (iOS 2.1.2+1 / Android 2.1.2+90)
+- [ ] 스토어 제출 (Android 빌드 시 versionCode 90 지정 필수)
+- [ ] 다음 배포: flutter_secure_storage 11 상향
 
-### CI
-- [ ] GitHub Actions 메이저 버전 상향
-- [ ] manifest 업데이트 스크립트 Python 3.12+
+### CI (#266, #267)
+- [x] GitHub Actions 메이저 버전 상향, PR 검증 트리거 추가
+- [x] manifest 업데이트 스크립트 Python 3.12
+- [x] head_commit.message 스크립트 인젝션 수정
+- [x] infra auto-merge 실패 대체 경로, 배포 concurrency 워크플로별 분리
 - [ ] ci-scrape.yml 정리 여부 결정
+
+### 보안 후속 조치 (사용자)
+- [x] git remote URL의 GitHub 토큰 제거 (gh 인증으로 전환)
+- [ ] 노출된 GitHub PAT 폐기
+- [ ] mobile/.env의 JWT_* 제거 (운영 키와 동일 시 서버 JWT 키 교체)
+- [ ] Naver 검색 API를 서버 프록시로 이전 (중기)
 
 ## 11. 리스크 및 주의사항
 

@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"errors"
 	"net"
 	"strconv"
 	"strings"
@@ -83,13 +84,24 @@ func PrometheusMiddleware() fiber.Handler {
 		err := c.Next()
 
 		// 메트릭 기록
+		// 주의: Fiber(fasthttp)의 c.Method(), c.Path(), c.Route().Path는 요청 버퍼를 재사용하는
+		// zero-copy 문자열이므로 라벨 값으로 쓰기 전에 반드시 복사한다.
+		// 복사하지 않으면 다음 요청에서 라벨이 덮어써져("GET" → "GETT") 중복 시리즈가 생기고
+		// /metrics 수집이 "was collected before with the same name and label values"로 500 에러가 난다.
 		duration := time.Since(start).Seconds()
-		status := strconv.Itoa(c.Response().StatusCode())
-		method := c.Method()
-		routePath := c.Route().Path
-		if routePath == "" {
-			routePath = path
+		statusCode := c.Response().StatusCode()
+		// 핸들러가 에러를 반환하면 상태 코드는 미들웨어 이후 ErrorHandler에서 설정되므로
+		// 에러에서 코드를 추출한다 (미처리 시 404/500이 200으로 기록됨)
+		if err != nil {
+			statusCode = fiber.StatusInternalServerError
+			var fe *fiber.Error
+			if errors.As(err, &fe) {
+				statusCode = fe.Code
+			}
 		}
+		status := strconv.Itoa(statusCode)
+		method := strings.Clone(c.Method())
+		routePath := metricRoutePath(c.Route().Path, path, statusCode)
 
 		// 응답 크기
 		respSize := float64(len(c.Response().Body()))
@@ -103,6 +115,19 @@ func PrometheusMiddleware() fiber.Handler {
 	}
 }
 
+// metricRoutePath 메트릭 라벨용 경로를 반환한다.
+// 라우트 패턴(/v1/campaigns/:id)을 우선 사용하고, 매칭된 라우트가 없는 404는
+// 원본 경로 대신 "unmatched"로 묶어 스캐너 요청으로 인한 라벨 폭증을 막는다.
+func metricRoutePath(routePath, rawPath string, statusCode int) string {
+	if statusCode == fiber.StatusNotFound && (routePath == "" || routePath == "/") && rawPath != "/" {
+		return "unmatched"
+	}
+	if routePath == "" {
+		return strings.Clone(rawPath)
+	}
+	return strings.Clone(routePath)
+}
+
 // PrometheusHandler Prometheus 메트릭 엔드포인트 핸들러
 // Prometheus가 이 엔드포인트를 scrape하여 메트릭 수집
 func PrometheusHandler() fiber.Handler {
@@ -114,12 +139,12 @@ func PrometheusHandler() fiber.Handler {
 func InternalOnly() fiber.Handler {
 	// 허용된 내부 IP 대역
 	allowedCIDRs := []string{
-		"127.0.0.0/8",     // localhost
-		"10.0.0.0/8",      // Private Class A
-		"172.16.0.0/12",   // Private Class B
-		"192.168.0.0/16",  // Private Class C
-		"::1/128",         // IPv6 localhost
-		"fc00::/7",        // IPv6 private
+		"127.0.0.0/8",    // localhost
+		"10.0.0.0/8",     // Private Class A
+		"172.16.0.0/12",  // Private Class B
+		"192.168.0.0/16", // Private Class C
+		"::1/128",        // IPv6 localhost
+		"fc00::/7",       // IPv6 private
 	}
 
 	var allowedNets []*net.IPNet

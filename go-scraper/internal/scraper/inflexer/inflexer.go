@@ -1,6 +1,7 @@
 package inflexer
 
 import (
+	"github.com/ggorockee/reviewmaps/go-scraper/internal/runstats"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -125,6 +126,7 @@ func (s *Scraper) Run(ctx context.Context, keyword *string) error {
 		log.Errorf("scrape 단계에서 에러 발생: %v", err)
 		return err
 	}
+	runstats.SetItems(runstats.StageScraped, len(rawData))
 	if len(rawData) == 0 {
 		log.Warn("scrape 단계에서 데이터를 가져오지 못했습니다.")
 		return nil
@@ -431,6 +433,8 @@ func (s *Scraper) Parse(ctx context.Context, rawData []map[string]interface{}) (
 	}
 
 	log.Infof("Parse 완료: %d개 중 %d개 캠페인 파싱 (중복 제거)", len(rawData), len(campaigns))
+
+	runstats.SetItems(runstats.StageParsed, len(campaigns))
 
 	// 메트릭 기록
 	if s.telemetry != nil {

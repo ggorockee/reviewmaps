@@ -2,6 +2,7 @@ package scraper
 
 import (
 	"context"
+	"github.com/ggorockee/reviewmaps/go-scraper/internal/runstats"
 
 	"github.com/ggorockee/reviewmaps/go-scraper/internal/config"
 	"github.com/ggorockee/reviewmaps/go-scraper/internal/db"
@@ -67,7 +68,9 @@ func (b *BaseScraper) Save(ctx context.Context, data []models.Campaign) error {
 		result, err := b.ServerClient.ProcessCampaignAlerts(ctx, campaignIDs)
 		if err != nil {
 			log.Warnf("Server API 호출 실패 (알림 처리 계속 진행): %v", err)
+			runstats.SetServerAPIError()
 		} else if result != nil {
+			runstats.SetAlertsCreated(int(result.AlertsCreated))
 			log.Infof("키워드 알림 처리 완료: %d개 캠페인, %d개 알림 생성",
 				result.ProcessedCount, result.AlertsCreated)
 		}

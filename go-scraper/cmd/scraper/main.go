@@ -13,6 +13,7 @@ import (
 	"github.com/ggorockee/reviewmaps/go-scraper/internal/config"
 	"github.com/ggorockee/reviewmaps/go-scraper/internal/db"
 	"github.com/ggorockee/reviewmaps/go-scraper/internal/logger"
+	"github.com/ggorockee/reviewmaps/go-scraper/internal/runstats"
 	"github.com/ggorockee/reviewmaps/go-scraper/internal/scraper/inflexer"
 	"github.com/ggorockee/reviewmaps/go-scraper/internal/scraper/reviewnote"
 	"github.com/ggorockee/reviewmaps/go-scraper/internal/telemetry"
@@ -118,6 +119,7 @@ func main() {
 
 	// 메트릭 기록 시작
 	startTime := time.Now()
+	runstats.Start(*scraperName, keywordVal)
 	if tel != nil {
 		tel.IncrementScrapeTotal(ctx, *scraperName)
 	}
@@ -127,6 +129,7 @@ func main() {
 		if tel != nil {
 			tel.IncrementScrapeErrors(ctx, *scraperName)
 		}
+		pushRunStats(false)
 		os.Exit(1)
 	}
 
@@ -135,7 +138,16 @@ func main() {
 		tel.RecordScrapeDuration(ctx, time.Since(startTime), *scraperName)
 	}
 
+	pushRunStats(true)
 	log.Infof("========== 작업 종료: %s (키워드: %s) ==========", *scraperName, keywordStr)
+}
+
+// pushRunStats 실행 결과를 Pushgateway로 전송 (실패해도 작업 결과에는 영향 없음)
+func pushRunStats(success bool) {
+	log := logger.GetLogger("main")
+	if err := runstats.Push(success); err != nil {
+		log.Warnf("실행 결과 push 실패 (작업 결과에는 영향 없음): %v", err)
+	}
 }
 
 // runScraper 스크레이퍼 실행

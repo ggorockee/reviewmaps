@@ -104,6 +104,7 @@ func Registry(success bool, now time.Time) *prometheus.Registry {
 	}
 
 	gauge("reviewmaps_scraper_last_run_timestamp_seconds", "마지막 실행 종료 시각 (unix 초)", float64(now.Unix()))
+	gauge("reviewmaps_scraper_running", "현재 실행 중 여부 (1=실행 중, 0=종료)", 0)
 	if success {
 		gauge("reviewmaps_scraper_last_success_timestamp_seconds", "마지막 성공 종료 시각 (unix 초)", float64(now.Unix()))
 	}
@@ -153,6 +154,27 @@ func Registry(success bool, now time.Time) *prometheus.Registry {
 // client_golang push 패키지는 공백을 "+"로 인코딩하는데 Pushgateway가 이를 공백으로 복원하지 않아
 // ("서울 강남" → "서울+강남"), grouping 값은 Pushgateway 공식 형식인 "@base64"로 직접 인코딩한다.
 func Push(success bool) error {
+	return post(Registry(success, time.Now()))
+}
+
+// PushStart 실행 시작을 알린다 (running=1, 시작 시각). 대시보드의 "지금 수집 중인 키워드"에 사용.
+// 종료 시 Push가 running=0으로 덮어쓴다. 프로세스가 강제 종료되면 1로 남을 수 있으므로
+// 대시보드/알림에서는 실행 중인 Job이 있을 때만 의미 있게 본다.
+func PushStart() error {
+	reg := prometheus.NewRegistry()
+	for name, v := range map[string]float64{
+		"reviewmaps_scraper_running":                       1,
+		"reviewmaps_scraper_run_started_timestamp_seconds": float64(time.Now().Unix()),
+	} {
+		g := prometheus.NewGauge(prometheus.GaugeOpts{Name: name, Help: "실행 시작 표시 (running) / 시작 시각"})
+		g.Set(v)
+		reg.MustRegister(g)
+	}
+	return post(reg)
+}
+
+// post 현재 (scraper, keyword) 그룹으로 레지스트리 내용을 POST한다. PUSHGATEWAY_URL이 없으면 nil.
+func post(reg *prometheus.Registry) error {
 	url := strings.TrimRight(os.Getenv("PUSHGATEWAY_URL"), "/")
 	if url == "" {
 		return nil
@@ -164,7 +186,7 @@ func Push(success bool) error {
 		keyword = "전체"
 	}
 
-	mfs, err := Registry(success, time.Now()).Gather()
+	mfs, err := reg.Gather()
 	if err != nil {
 		return fmt.Errorf("메트릭 수집 실패: %w", err)
 	}
@@ -176,14 +198,12 @@ func Push(success bool) error {
 		}
 	}
 
-	endpoint := url + GroupPath(scraper, keyword)
-	req, err := http.NewRequest(http.MethodPost, endpoint, &body)
+	req, err := http.NewRequest(http.MethodPost, url+GroupPath(scraper, keyword), &body)
 	if err != nil {
 		return err
 	}
 	req.Header.Set("Content-Type", string(expfmt.NewFormat(expfmt.TypeTextPlain)))
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := (&http.Client{Timeout: 10 * time.Second}).Do(req)
 	if err != nil {
 		return fmt.Errorf("pushgateway push 실패: %w", err)
 	}

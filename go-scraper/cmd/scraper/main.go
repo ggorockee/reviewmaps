@@ -120,6 +120,9 @@ func main() {
 	// 메트릭 기록 시작
 	startTime := time.Now()
 	runstats.Start(*scraperName, keywordVal)
+	if err := runstats.PushStart(); err != nil {
+		log.Warnf("실행 시작 push 실패 (작업 결과에는 영향 없음): %v", err)
+	}
 	if tel != nil {
 		tel.IncrementScrapeTotal(ctx, *scraperName)
 	}

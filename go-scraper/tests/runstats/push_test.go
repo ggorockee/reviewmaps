@@ -100,3 +100,33 @@ func TestPushSkippedWithoutURL(t *testing.T) {
 		t.Fatalf("URL 없을 때 에러 반환: %v", err)
 	}
 }
+
+// 시작 push: running=1과 시작 시각만 보내고, 종료 push는 running=0으로 덮어쓴다.
+func TestPushStartThenEnd(t *testing.T) {
+	srv, reqs := fakePushgateway(t)
+	t.Setenv("PUSHGATEWAY_URL", srv.URL)
+
+	runstats.Start("inflexer", "경북 포항")
+	if err := runstats.PushStart(); err != nil {
+		t.Fatalf("PushStart 에러: %v", err)
+	}
+	if err := runstats.Push(true); err != nil {
+		t.Fatalf("Push 에러: %v", err)
+	}
+	if len(*reqs) != 2 {
+		t.Fatalf("요청 수 = %d, want 2", len(*reqs))
+	}
+	start, end := (*reqs)[0], (*reqs)[1]
+	if start.path != runstats.GroupPath("inflexer", "경북 포항") || end.path != start.path {
+		t.Errorf("시작/종료가 같은 그룹이어야 함: %s / %s", start.path, end.path)
+	}
+	if !strings.Contains(start.body, "reviewmaps_scraper_running 1") || !strings.Contains(start.body, "reviewmaps_scraper_run_started_timestamp_seconds") {
+		t.Errorf("시작 push 내용 이상:\n%s", start.body)
+	}
+	if strings.Contains(start.body, "reviewmaps_scraper_last_run_success") {
+		t.Error("시작 push에 결과 메트릭이 포함되면 안 됨 (이전 결과 유지)")
+	}
+	if !strings.Contains(end.body, "reviewmaps_scraper_running 0") {
+		t.Errorf("종료 push에 running 0 없음")
+	}
+}

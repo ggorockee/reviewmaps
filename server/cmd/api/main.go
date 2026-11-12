@@ -69,9 +69,16 @@ func main() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	// Run migrations
-	if err := database.Migrate(db); err != nil {
-		log.Fatalf("Failed to run migrations: %v", err)
+	// Run migrations (DB_AUTO_MIGRATE=true 일 때만, 기본 비활성)
+	// 운영 DB에서 AutoMigrate는 Django 제약 이름 불일치로 실패하고, 실패를 해소하면
+	// go-scraper 소유 테이블(geocode_cache, local_search_cache) 등에 NOT NULL 컬럼 추가 같은 위험한 DDL을 실행한다.
+	// 스키마 변경은 server/migrations/*.sql 로 관리한다.
+	if cfg.DBAutoMigrate {
+		if err := database.Migrate(db); err != nil {
+			log.Fatalf("Failed to run migrations: %v", err)
+		}
+	} else {
+		log.Println("AutoMigrate skipped (DB_AUTO_MIGRATE != true); schema is managed by server/migrations/*.sql")
 	}
 
 	// Start connection pool metrics collector (background goroutine)

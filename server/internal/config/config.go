@@ -14,6 +14,10 @@ type Config struct {
 
 	// Database
 	DatabaseURL string
+	// DBAutoMigrate GORM AutoMigrate 실행 여부 (기본 false)
+	// 운영 스키마는 Django 시절 생성 + server/migrations/*.sql 수동 적용으로 관리되며,
+	// 모델과 실제 스키마(제약 이름, go-scraper 소유 캐시 테이블 등)가 달라 AutoMigrate가 위험한 DDL을 시도한다.
+	DBAutoMigrate bool
 
 	// JWT
 	JWTSecretKey              string
@@ -59,7 +63,8 @@ func Load() *Config {
 		ServerHost: getEnv("SERVER_HOST", "localhost:3000"),
 
 		// Database - DATABASE_URL 우선, 없으면 개별 환경변수로 구성
-		DatabaseURL: getDatabaseURL(),
+		DatabaseURL:   getDatabaseURL(),
+		DBAutoMigrate: getEnv("DB_AUTO_MIGRATE", "false") == "true",
 
 		// JWT
 		JWTSecretKey:              getEnv("JWT_SECRET_KEY", ""),

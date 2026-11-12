@@ -40,8 +40,8 @@ func (c *Cleaner) Run(ctx context.Context) error {
 		c.telemetry.IncrementCleanupTotal(ctx)
 	}
 
-	// 오늘 날짜 (자정 기준)
-	today := time.Now().In(c.config.Batch.Location()).Truncate(24 * time.Hour)
+	// 오늘 날짜 (설정 시간대 자정 기준)
+	today := StartOfDay(time.Now(), c.config.Batch.Location())
 
 	log.Infof("===== 만료 캠페인 정리 시작 (기준일: %s) =====", today.Format("2006-01-02"))
 
@@ -51,6 +51,7 @@ func (c *Cleaner) Run(ctx context.Context) error {
 		FROM campaign
 		WHERE apply_deadline IS NOT NULL
 		  AND apply_deadline < $1
+		  AND deleted_at IS NULL
 	`
 
 	var count int
@@ -103,4 +104,14 @@ func (c *Cleaner) Run(ctx context.Context) error {
 
 	log.Info("===== 만료 캠페인 정리 종료 =====")
 	return nil
+}
+
+// StartOfDay loc 시간대 기준 now가 속한 날의 0시를 반환한다.
+//
+// time.Truncate(24*time.Hour)는 시간대와 무관하게 UTC 자정 기준으로 잘라
+// Asia/Seoul에서는 "전날 09:00"이 되므로 사용하면 안 된다
+// (전날 09:00 이후 마감된 캠페인이 하루 더 노출되던 버그).
+func StartOfDay(now time.Time, loc *time.Location) time.Time {
+	t := now.In(loc)
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, loc)
 }

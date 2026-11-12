@@ -3,6 +3,7 @@ package cleanup
 import (
 	"context"
 	"fmt"
+	"github.com/ggorockee/reviewmaps/go-scraper/internal/runstats"
 	"time"
 
 	"github.com/ggorockee/reviewmaps/go-scraper/internal/config"
@@ -61,6 +62,7 @@ func (c *Cleaner) Run(ctx context.Context) error {
 	}
 
 	if count == 0 {
+		runstats.SetItems(runstats.StageDeleted, 0)
 		log.Info("삭제할 만료 캠페인이 없습니다.")
 		// 메트릭: duration 기록
 		if c.telemetry != nil {
@@ -90,6 +92,8 @@ func (c *Cleaner) Run(ctx context.Context) error {
 
 	rowsAffected := result.RowsAffected()
 	log.Infof("Soft delete 완료: %d개 캠페인 정리됨 (히스토리 보존)", rowsAffected)
+
+	runstats.SetItems(runstats.StageDeleted, int(rowsAffected))
 
 	// 메트릭: 삭제 개수 및 duration 기록
 	if c.telemetry != nil {

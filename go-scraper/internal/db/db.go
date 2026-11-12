@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha1"
 	"fmt"
+	"github.com/ggorockee/reviewmaps/go-scraper/internal/runstats"
 	"time"
 
 	"github.com/ggorockee/reviewmaps/go-scraper/internal/config"
@@ -256,6 +257,9 @@ func (db *DB) UpsertCampaigns(ctx context.Context, campaigns []models.Campaign) 
 
 	log.Infof("DB 저장 완료. 총 %d건 처리 (기존 갱신: %d, 신규: %d)",
 		allInsertedCount, deletedCount, len(newCampaignIDs))
+	runstats.SetItems(runstats.StageSaved, int(allInsertedCount))
+	runstats.SetItems(runstats.StageUpdated, int(deletedCount))
+	runstats.SetItems(runstats.StageNew, len(newCampaignIDs))
 	return newCampaignIDs, nil
 }
 

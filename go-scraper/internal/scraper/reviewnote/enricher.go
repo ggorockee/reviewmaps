@@ -1,6 +1,7 @@
 package reviewnote
 
 import (
+	"github.com/ggorockee/reviewmaps/go-scraper/internal/runstats"
 	"context"
 	"sync"
 	"sync/atomic"
@@ -153,6 +154,11 @@ func (s *Scraper) enrichVisitCampaigns(ctx context.Context, campaigns []models.C
 
 	log.Infof("[Enrich 통계] Total:%d, CacheHit:%d, APICalled:%d, Geocoded:%d, DriftFixed:%d, Skipped:%d, Errors:%d",
 		stats.Total, stats.CacheHit, stats.APICalled, stats.Geocoded, stats.DriftFixed, stats.Skipped, stats.Errors)
+
+	runstats.SetEnrich(runstats.EnrichStats{
+		Total: int64(stats.Total), CacheHit: int64(stats.CacheHit), APICalled: int64(stats.APICalled),
+		Geocoded: int64(stats.Geocoded), Skipped: int64(stats.Skipped), Errors: int64(stats.Errors),
+	})
 
 	// 메트릭 기록
 	if s.telemetry != nil {

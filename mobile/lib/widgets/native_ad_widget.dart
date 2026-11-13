@@ -3,42 +3,45 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../services/ad_service.dart';
 
-/// 네이티브 광고 위젯
+/// 네이티브 광고 위젯 (small 템플릿)
 /// ============================================================
-/// 리스트나 피드에 자연스럽게 삽입되는 네이티브 광고
+/// 리스트나 피드 사이에 얇은 띠 형태로 삽입되는 네이티브 광고
 ///
 /// ✅ 정책 준수:
-/// - "광고" 라벨 명확히 표시
-/// - 콘텐츠와 시각적으로 구분
-/// - 자연스러운 레이아웃
-/// - 사용자 흐름 방해 최소화
+/// - 템플릿 자체에 "광고" 표시(Ad attribution) 포함
+/// - small 템플릿 권장 크기(폭 320dp 이상, 높이 90~200dp) 안에서 표시해
+///   광고 이미지가 잘리거나 찌그러지지 않도록 함
+/// - 콘텐츠와 시각적으로 구분 (테두리 카드)
 ///
-/// ❌ 금지사항:
-/// - 광고 라벨 숨기기
-/// - 콘텐츠로 위장하기
-/// - 클릭 유도하는 UI
+/// ✅ 안정성:
+/// - 스크롤로 화면 밖에 나가도 광고를 유지 (재요청 방지, keep-alive)
+/// - 로딩 중에는 자리를 확보해 광고 등장 시 화면이 밀리지 않도록 함
+/// - 로드 실패 시 자리를 접어 빈 공간을 남기지 않음
+/// - 위젯 dispose 이후 setState 호출 방지 (mounted 확인)
 /// ============================================================
 class NativeAdWidget extends StatefulWidget {
-  final double? height;
   final EdgeInsetsGeometry? margin;
-  final EdgeInsetsGeometry? padding;
 
-  const NativeAdWidget({
-    super.key,
-    this.height,
-    this.margin,
-    this.padding,
-  });
+  const NativeAdWidget({super.key, this.margin});
+
+  /// small 템플릿 표시 높이 (dp) - 권장 범위 90~200dp 안의 값
+  static const double adHeight = 110;
 
   @override
   State<NativeAdWidget> createState() => _NativeAdWidgetState();
 }
 
-class _NativeAdWidgetState extends State<NativeAdWidget> {
+class _NativeAdWidgetState extends State<NativeAdWidget>
+    with AutomaticKeepAliveClientMixin {
+  final AdService _adService = AdService();
+
   NativeAd? _nativeAd;
   bool _isAdLoaded = false;
-  bool _isAdLoading = false;
-  final AdService _adService = AdService();
+  bool _isFailed = false;
+
+  /// 광고가 로드되었으면 스크롤로 화면 밖에 나가도 위젯을 유지해 재요청을 막음
+  @override
+  bool get wantKeepAlive => _isAdLoaded;
 
   @override
   void initState() {
@@ -47,98 +50,76 @@ class _NativeAdWidgetState extends State<NativeAdWidget> {
   }
 
   /// 네이티브 광고 로드
-  Future<void> _loadNativeAd() async {
-    if (_isAdLoading) return;
+  void _loadNativeAd() {
+    final String adUnitId = _adService.nativeAdId;
 
-    setState(() {
-      _isAdLoading = true;
-    });
-
-    try {
-      _nativeAd = NativeAd(
-        adUnitId: _adService.nativeAdId,
-        request: const AdRequest(),
-        listener: NativeAdListener(
-          onAdLoaded: (ad) {
-            setState(() {
-              _isAdLoaded = true;
-              _isAdLoading = false;
-            });
-
-            // 광고 로드 완료 이벤트 로깅
-            _adService.logUserAction('native_ad_loaded', {
-              'ad_unit_id': _adService.nativeAdId,
-            });
-
-            debugPrint('[NativeAdWidget] 네이티브 광고 로드 완료');
-          },
-          onAdFailedToLoad: (ad, error) {
-            setState(() {
-              _isAdLoaded = false;
-              _isAdLoading = false;
-            });
-
-            // 광고 로드 실패 이벤트 로깅
-            _adService.logUserAction('native_ad_load_failed', {
-              'error_code': error.code,
-              'error_message': error.message,
-            });
-
-            debugPrint('[NativeAdWidget] 네이티브 광고 로드 실패: ${error.message}');
-
-            // 광고 dispose
+    final ad = NativeAd(
+      adUnitId: adUnitId,
+      request: const AdRequest(),
+      listener: NativeAdListener(
+        onAdLoaded: (ad) {
+          if (!mounted) {
             ad.dispose();
-          },
-          onAdOpened: (ad) {
-            // 광고 클릭 이벤트 로깅
-            _adService.logNativeAdClick();
-            debugPrint('[NativeAdWidget] 네이티브 광고 클릭됨');
-          },
-          onAdClosed: (ad) {
-            debugPrint('[NativeAdWidget] 네이티브 광고 닫힘');
-          },
-        ),
-        nativeTemplateStyle: NativeTemplateStyle(
-          // 템플릿 스타일 (medium 템플릿 사용)
-          templateType: TemplateType.medium,
-          mainBackgroundColor: Colors.white,
-          cornerRadius: 12.0,
-          callToActionTextStyle: NativeTemplateTextStyle(
-            textColor: Colors.white,
-            backgroundColor: Colors.blue,
-            style: NativeTemplateFontStyle.bold,
-            size: 14.0,
-          ),
-          primaryTextStyle: NativeTemplateTextStyle(
-            textColor: Colors.black87,
-            backgroundColor: Colors.transparent,
-            style: NativeTemplateFontStyle.bold,
-            size: 16.0,
-          ),
-          secondaryTextStyle: NativeTemplateTextStyle(
-            textColor: Colors.grey,
-            backgroundColor: Colors.transparent,
-            style: NativeTemplateFontStyle.normal,
-            size: 14.0,
-          ),
-          tertiaryTextStyle: NativeTemplateTextStyle(
-            textColor: Colors.grey,
-            backgroundColor: Colors.transparent,
-            style: NativeTemplateFontStyle.normal,
-            size: 12.0,
-          ),
-        ),
-      );
+            return;
+          }
+          setState(() => _isAdLoaded = true);
+          updateKeepAlive();
 
-      await _nativeAd!.load();
-    } catch (e) {
-      setState(() {
-        _isAdLoaded = false;
-        _isAdLoading = false;
-      });
+          _adService.logUserAction('native_ad_loaded', {
+            'ad_unit_id': adUnitId,
+            'template': 'small',
+          });
+        },
+        onAdFailedToLoad: (ad, error) {
+          ad.dispose();
+          _nativeAd = null;
 
-      debugPrint('[NativeAdWidget] 네이티브 광고 로드 중 오류: $e');
-    }
+          _adService.logUserAction('native_ad_load_failed', {
+            'error_code': error.code,
+            'error_message': error.message,
+          });
+          debugPrint('[NativeAdWidget] 네이티브 광고 로드 실패: ${error.message}');
+
+          if (mounted) setState(() => _isFailed = true);
+        },
+        onAdOpened: (ad) {
+          _adService.logNativeAdClick();
+        },
+      ),
+      nativeTemplateStyle: NativeTemplateStyle(
+        templateType: TemplateType.small,
+        mainBackgroundColor: Colors.white,
+        cornerRadius: 12.0,
+        callToActionTextStyle: NativeTemplateTextStyle(
+          textColor: Colors.white,
+          backgroundColor: Colors.blue,
+          style: NativeTemplateFontStyle.bold,
+          size: 13.0,
+        ),
+        primaryTextStyle: NativeTemplateTextStyle(
+          textColor: Colors.black87,
+          backgroundColor: Colors.transparent,
+          style: NativeTemplateFontStyle.bold,
+          size: 14.0,
+        ),
+        secondaryTextStyle: NativeTemplateTextStyle(
+          textColor: Colors.grey,
+          backgroundColor: Colors.transparent,
+          style: NativeTemplateFontStyle.normal,
+          size: 12.0,
+        ),
+        tertiaryTextStyle: NativeTemplateTextStyle(
+          textColor: Colors.grey,
+          backgroundColor: Colors.transparent,
+          style: NativeTemplateFontStyle.normal,
+          size: 12.0,
+        ),
+      ),
+    );
+
+    // 로드 중 위젯이 dispose되어도 해제될 수 있도록 즉시 참조 보관
+    _nativeAd = ad;
+    ad.load();
   }
 
   @override
@@ -149,91 +130,43 @@ class _NativeAdWidgetState extends State<NativeAdWidget> {
 
   @override
   Widget build(BuildContext context) {
-    // 광고가 로드되지 않았거나 로딩 중일 때는 빈 공간 반환
-    if (!_isAdLoaded || _nativeAd == null) {
+    super.build(context); // AutomaticKeepAliveClientMixin 필수 호출
+
+    // 로드 실패 시 자리를 접음
+    final NativeAd? ad = _nativeAd;
+    if (_isFailed || ad == null) {
       return const SizedBox.shrink();
     }
 
     return Container(
       width: double.infinity,
-      height: widget.height ?? 300.h,
-      margin: widget.margin ?? EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-      padding: widget.padding,
+      height: NativeAdWidget.adHeight,
+      margin: widget.margin ?? EdgeInsets.symmetric(horizontal: 16.w),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(
-          color: Colors.grey[200]!,
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200, width: 1),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ✅ 정책 준수: 광고 라벨 명확히 표시
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(12.r),
-                topRight: Radius.circular(12.r),
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.info_outline,
-                  size: 14.sp,
-                  color: Colors.grey[600],
-                ),
-                SizedBox(width: 4.w),
-                Text(
-                  '광고',
-                  style: TextStyle(
-                    fontSize: 12.sp,
-                    color: Colors.grey[600],
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // 네이티브 광고 콘텐츠
-          Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.only(
-                bottomLeft: Radius.circular(12.r),
-                bottomRight: Radius.circular(12.r),
-              ),
-              child: AdWidget(ad: _nativeAd!),
-            ),
-          ),
-        ],
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        // 로딩 중에는 빈 카드로 자리만 확보 (등장 시 레이아웃 밀림 방지)
+        child: _isAdLoaded ? AdWidget(ad: ad) : const SizedBox.expand(),
       ),
     );
   }
 }
 
 /// 리스트 아이템 형태의 네이티브 광고
-/// 추천 체험단 리스트에 자연스럽게 삽입되는 네이티브 광고
+/// 홈/캠페인 목록/검색 결과 리스트 사이에 삽입되는 small 네이티브 광고
 class NativeAdListItem extends StatelessWidget {
-  const NativeAdListItem({super.key});
+  /// 부모가 이미 좌우 패딩을 가진 경우(예: ListView padding) EdgeInsets.zero 전달
+  /// (small 템플릿 최소 폭 320dp 확보 목적)
+  final EdgeInsetsGeometry? margin;
+
+  const NativeAdListItem({super.key, this.margin});
 
   @override
   Widget build(BuildContext context) {
-    return NativeAdWidget(
-      height: 280.h,
-      margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-      padding: EdgeInsets.zero,
-    );
+    return NativeAdWidget(margin: margin);
   }
 }

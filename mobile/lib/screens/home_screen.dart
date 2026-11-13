@@ -535,7 +535,7 @@ class _HomeScreenState extends State<HomeScreen> {
         body: Column(
           children: [
             // 최상단 배너 광고: 스크롤 영역 밖에 두어 스크롤해도 상단에 고정
-            MyBannerAdWidget(),
+            const MyBannerAdWidget(),
             Expanded(
               child: RefreshIndicator(
                 onRefresh: _handleRefresh,
@@ -550,6 +550,15 @@ class _HomeScreenState extends State<HomeScreen> {
                     // 가까운 체험단
                     SliverToBoxAdapter(child: _buildNearestCampaignsSection()),
                     SliverToBoxAdapter(child: SizedBox(height: 24.h)),
+
+                    // 중단 네이티브 광고 (small 템플릿, 가까운 체험단과 추천 체험단 사이)
+                    // 상단 배너와 형식이 달라 동일 광고 반복 노출을 피함
+                    // 하단 여백을 margin에 포함해 로드 실패 시 여백까지 함께 접힘
+                    SliverToBoxAdapter(
+                      child: NativeAdListItem(
+                        margin: EdgeInsets.only(left: 16.w, right: 16.w, bottom: 24.h),
+                      ),
+                    ),
 
                     // 추천 헤더
                     SliverToBoxAdapter(

@@ -62,7 +62,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     _animationController.forward();
     
     // 스플래시 시퀀스 시작
-    _startSplashSequence();
+    // 첫 프레임 이후에 시작해야 iOS 시스템 팝업(알림/ATT)이 정상 표시됨
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _startSplashSequence();
+    });
   }
 
   @override
@@ -82,6 +85,14 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       debugPrint('[SplashScreen] FCM 서비스 초기화 완료');
     } catch (e) {
       debugPrint('[SplashScreen] FCM 서비스 초기화 실패: $e');
+    }
+
+    // 추적 권한 요청 (iOS ATT만 해당, Android는 시스템 팝업 없음)
+    // 권한 팝업을 모두 마친 뒤 앱 오프닝 광고를 띄워 팝업과 광고가 겹치지 않도록 함
+    try {
+      await _adService.requestTrackingAuthorizationIfNeeded();
+    } catch (e) {
+      debugPrint('[SplashScreen] 추적 권한 요청 실패: $e');
     }
 
     // 1. 병렬 실행: 최소 대기 + 데이터 프리로드 + 세션 로깅

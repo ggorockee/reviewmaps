@@ -532,65 +532,59 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
-        body: Column(
-          children: [
-            // 최상단 배너 광고: 스크롤 영역 밖에 두어 스크롤해도 상단에 고정
-            const MyBannerAdWidget(),
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: _handleRefresh,
-                child: CustomScrollView(
-                  controller: _mainScrollController,
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  slivers: [
-                    // 공지 배너
-                    // SliverToBoxAdapter(child: _buildNoticeBanner()),
-                    SliverToBoxAdapter(child: SizedBox(height: 20.h)), // [ScreenUtil]
+        body: RefreshIndicator(
+          onRefresh: _handleRefresh,
+          child: CustomScrollView(
+            controller: _mainScrollController,
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              // 최상단 배너 광고: 콘텐츠와 함께 스크롤되어 위로 올리면 사라짐
+              const SliverToBoxAdapter(child: MyBannerAdWidget()),
+              // 공지 배너
+              // SliverToBoxAdapter(child: _buildNoticeBanner()),
+              SliverToBoxAdapter(child: SizedBox(height: 20.h)), // [ScreenUtil]
 
-                    // 가까운 체험단
-                    SliverToBoxAdapter(child: _buildNearestCampaignsSection()),
-                    SliverToBoxAdapter(child: SizedBox(height: 24.h)),
+              // 가까운 체험단
+              SliverToBoxAdapter(child: _buildNearestCampaignsSection()),
+              SliverToBoxAdapter(child: SizedBox(height: 24.h)),
 
-                    // 중단 네이티브 광고 (small 템플릿, 가까운 체험단과 추천 체험단 사이)
-                    // 상단 배너와 형식이 달라 동일 광고 반복 노출을 피함
-                    // 하단 여백을 margin에 포함해 로드 실패 시 여백까지 함께 접힘
-                    SliverToBoxAdapter(
-                      child: NativeAdListItem(
-                        margin: EdgeInsets.only(left: 16.w, right: 16.w, bottom: 24.h),
-                      ),
-                    ),
-
-                    // 추천 헤더
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 16.w), // [ScreenUtil]
-                        child: _buildRecommendedHeader(context),
-                      ),
-                    ),
-                    SliverToBoxAdapter(child: SizedBox(height: 12.h)),
-
-                    // 추천 그리드 (네이티브 광고 포함)
-                    if (_isLoading && _visibleCampaigns.isEmpty)
-                      const SliverToBoxAdapter(
-                        child: Center(child: CircularProgressIndicator()),
-                      )
-                    else
-                      ..._buildRecommendedGridWithAds(),
-
-                    // 하단 로딩 인디케이터
-                    if (_isLoading && _visibleCampaigns.isNotEmpty)
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(vertical: 16.h),
-                          child: const Center(child: CircularProgressIndicator()),
-                        ),
-                      ),
-                    SliverToBoxAdapter(child: SizedBox(height: 24.h)),
-                  ],
+              // 중단 네이티브 광고 (small 템플릿, 가까운 체험단과 추천 체험단 사이)
+              // 상단 배너와 형식이 달라 동일 광고 반복 노출을 피함
+              // 하단 여백을 margin에 포함해 로드 실패 시 여백까지 함께 접힘
+              SliverToBoxAdapter(
+                child: NativeAdListItem(
+                  margin: EdgeInsets.only(left: 16.w, right: 16.w, bottom: 24.h),
                 ),
               ),
-            ),
-          ],
+
+              // 추천 헤더
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16.w), // [ScreenUtil]
+                  child: _buildRecommendedHeader(context),
+                ),
+              ),
+              SliverToBoxAdapter(child: SizedBox(height: 12.h)),
+
+              // 추천 그리드 (네이티브 광고 포함)
+              if (_isLoading && _visibleCampaigns.isEmpty)
+                const SliverToBoxAdapter(
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else
+                ..._buildRecommendedGridWithAds(),
+
+              // 하단 로딩 인디케이터
+              if (_isLoading && _visibleCampaigns.isNotEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16.h),
+                    child: const Center(child: CircularProgressIndicator()),
+                  ),
+                ),
+              SliverToBoxAdapter(child: SizedBox(height: 24.h)),
+            ],
+          ),
         ),
       ),
     );

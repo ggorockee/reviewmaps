@@ -20,7 +20,6 @@ import '../models/store_model.dart';
 import '../widgets/experience_card.dart';
 import '../widgets/friendly.dart'; // ← ClampTextScale, showFriendlySnack 여기서 사용
 import '../widgets/native_ad_widget.dart'; // ← 네이티브 광고 위젯
-import '../ads/mid_banner_ad_widget.dart'; // ← AdMob 중단 배너 위젯
 import 'campaign_list_screen.dart';
 
 
@@ -533,53 +532,56 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
-        body: RefreshIndicator(
-          onRefresh: _handleRefresh,
-          child: CustomScrollView(
-            controller: _mainScrollController,
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              // 공지 배너
-              // SliverToBoxAdapter(child: _buildNoticeBanner()),
-              SliverToBoxAdapter(child: MyBannerAdWidget()),
-              SliverToBoxAdapter(child: SizedBox(height: 20.h)), // [ScreenUtil]
+        body: Column(
+          children: [
+            // 최상단 배너 광고: 스크롤 영역 밖에 두어 스크롤해도 상단에 고정
+            MyBannerAdWidget(),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: _handleRefresh,
+                child: CustomScrollView(
+                  controller: _mainScrollController,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                    // 공지 배너
+                    // SliverToBoxAdapter(child: _buildNoticeBanner()),
+                    SliverToBoxAdapter(child: SizedBox(height: 20.h)), // [ScreenUtil]
 
-              // 가까운 체험단
-              SliverToBoxAdapter(child: _buildNearestCampaignsSection()),
-              SliverToBoxAdapter(child: SizedBox(height: 24.h)),
+                    // 가까운 체험단
+                    SliverToBoxAdapter(child: _buildNearestCampaignsSection()),
+                    SliverToBoxAdapter(child: SizedBox(height: 24.h)),
 
-              // AdMob 중단 배너 (가까운 체험단과 추천 체험단 사이)
-              // 광고 미로드 시 영역이 사라지며, 로드 시 하단 32.h 여백 포함
-              SliverToBoxAdapter(child: MidBannerAdWidget(bottomSpacing: 32.h)),
+                    // 추천 헤더
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16.w), // [ScreenUtil]
+                        child: _buildRecommendedHeader(context),
+                      ),
+                    ),
+                    SliverToBoxAdapter(child: SizedBox(height: 12.h)),
 
-              // 추천 헤더
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16.w), // [ScreenUtil]
-                  child: _buildRecommendedHeader(context),
+                    // 추천 그리드 (네이티브 광고 포함)
+                    if (_isLoading && _visibleCampaigns.isEmpty)
+                      const SliverToBoxAdapter(
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    else
+                      ..._buildRecommendedGridWithAds(),
+
+                    // 하단 로딩 인디케이터
+                    if (_isLoading && _visibleCampaigns.isNotEmpty)
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16.h),
+                          child: const Center(child: CircularProgressIndicator()),
+                        ),
+                      ),
+                    SliverToBoxAdapter(child: SizedBox(height: 24.h)),
+                  ],
                 ),
               ),
-              SliverToBoxAdapter(child: SizedBox(height: 12.h)),
-
-              // 추천 그리드 (네이티브 광고 포함)
-              if (_isLoading && _visibleCampaigns.isEmpty)
-                const SliverToBoxAdapter(
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              else
-                ..._buildRecommendedGridWithAds(),
-
-              // 하단 로딩 인디케이터
-              if (_isLoading && _visibleCampaigns.isNotEmpty)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(vertical: 16.h),
-                    child: const Center(child: CircularProgressIndicator()),
-                  ),
-                ),
-              SliverToBoxAdapter(child: SizedBox(height: 24.h)),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

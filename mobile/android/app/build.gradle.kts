@@ -40,7 +40,9 @@ android {
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        // Google Play 대상 API 수준 요구사항: Android 16(API 36) 이상 타겟팅 필수
+        // Flutter SDK 기본값에 의존하지 않도록 명시적으로 고정
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 

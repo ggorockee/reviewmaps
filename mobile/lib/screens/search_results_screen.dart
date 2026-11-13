@@ -279,7 +279,8 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
                         if (positionInGroup == itemsPerAd && adsBefore < adCount) {
                           return Padding(
                             padding: EdgeInsets.symmetric(vertical: 8.h),
-                            child: const NativeAdListItem(),
+                            // ListView에 이미 좌우 16.w 패딩이 있으므로 추가 여백 없음
+                            child: const NativeAdListItem(margin: EdgeInsets.zero),
                           );
                         }
 

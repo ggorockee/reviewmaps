@@ -42,11 +42,10 @@ class AdService {
     try {
       // AdMob 초기화
       await MobileAds.instance.initialize();
-      
-      // iOS 14.5+ App Tracking Transparency 권한 요청
-      if (Platform.isIOS) {
-        await _requestTrackingPermission();
-      }
+
+      // 참고: iOS 추적 권한(ATT)은 여기서 요청하지 않음
+      // main()은 첫 화면이 그려지기 전이라 iOS가 팝업을 무시할 수 있으므로
+      // 스플래시 화면에서 requestTrackingAuthorizationIfNeeded()로 요청
 
       // Firebase Analytics 이벤트 로깅
       await _analytics.logEvent(
@@ -67,9 +66,24 @@ class AdService {
     }
   }
 
+  /// 앱 시작 시 추적 권한 요청 (플랫폼별 처리)
+  ///
+  /// - iOS 14.5+: App Tracking Transparency 시스템 팝업 요청
+  ///   앱이 활성 상태(첫 프레임 이후)일 때만 팝업이 표시되므로 스플래시에서 호출
+  /// - Android: ATT에 해당하는 시스템 팝업 없음
+  ///   (AD_ID 권한은 매니페스트에 선언, 맞춤 광고 여부는 기기 설정에서 사용자가 관리)
+  Future<void> requestTrackingAuthorizationIfNeeded() async {
+    if (!Platform.isIOS) return;
+    await _requestTrackingPermission();
+  }
+
   /// iOS App Tracking Transparency 권한 요청 (앱 업데이트 시 중복 방지)
   Future<void> _requestTrackingPermission() async {
     try {
+      // 직전 시스템 팝업(알림 권한 등)이 닫힌 직후에는 앱이 아직 inactive 상태일 수 있어
+      // 잠시 대기 후 요청해야 ATT 팝업이 무시되지 않음
+      await Future.delayed(const Duration(milliseconds: 500));
+
       final status = await AppTrackingTransparency.trackingAuthorizationStatus;
       
       // 이미 결정된 상태면 권한 요청하지 않음 (중복 방지)

@@ -20,7 +20,7 @@ import '../models/store_model.dart';
 import '../widgets/experience_card.dart';
 import '../widgets/friendly.dart'; // ← ClampTextScale, showFriendlySnack 여기서 사용
 import '../widgets/native_ad_widget.dart'; // ← 네이티브 광고 위젯
-import '../widgets/ojeomneo_banner.dart'; // ← 오점너 앱 프로모션 배너 위젯
+import '../ads/mid_banner_ad_widget.dart'; // ← AdMob 중단 배너 위젯
 import 'campaign_list_screen.dart';
 
 
@@ -548,9 +548,9 @@ class _HomeScreenState extends State<HomeScreen> {
               SliverToBoxAdapter(child: _buildNearestCampaignsSection()),
               SliverToBoxAdapter(child: SizedBox(height: 24.h)),
 
-              // 오점너 앱 프로모션 배너 (가까운 체험단과 추천 체험단 사이)
-              SliverToBoxAdapter(child: const OjeomneoBanner()),
-              SliverToBoxAdapter(child: SizedBox(height: 32.h)),
+              // AdMob 중단 배너 (가까운 체험단과 추천 체험단 사이)
+              // 광고 미로드 시 영역이 사라지며, 로드 시 하단 32.h 여백 포함
+              SliverToBoxAdapter(child: MidBannerAdWidget(bottomSpacing: 32.h)),
 
               // 추천 헤더
               SliverToBoxAdapter(

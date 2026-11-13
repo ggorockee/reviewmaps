@@ -12,6 +12,7 @@ import 'package:mobile/providers/auth_provider.dart';
 import 'package:mobile/services/auth_service.dart' show authServiceProvider;
 import 'package:mobile/const/colors.dart';
 import 'dart:io';
+import 'package:mobile/services/app_open_ad_service.dart';
 
 /// Login Version 1 화면
 /// Figma 디자인을 기반으로 한 로그인 화면
@@ -169,7 +170,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     try {
       // 1. Kakao SDK 로그인
-      final kakaoAccessToken = await KakaoLoginService.login();
+      final kakaoAccessToken = await AppOpenAdService().runWithoutResumeAd(KakaoLoginService.login);
       if (!mounted) return;
 
       // 2. AuthService (Provider 방식) 서버 로그인
@@ -240,7 +241,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     try {
       // 1. Google SDK 로그인
-      final googleAccessToken = await GoogleLoginService.login();
+      final googleAccessToken = await AppOpenAdService().runWithoutResumeAd(GoogleLoginService.login);
       if (!mounted) return;
 
       // 2. AuthService (Provider 방식) 서버 로그인
@@ -310,7 +311,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     try {
       // 1. Apple Sign In
-      final appleCredentials = await AppleLoginService.login();
+      final appleCredentials = await AppOpenAdService().runWithoutResumeAd(AppleLoginService.login);
       if (!mounted) return;
 
       // 2. AuthService (Provider 방식) 서버 로그인

@@ -11,13 +11,17 @@ class AdService {
   factory AdService() => _instance;
   AdService._internal();
 
-  // AdMob 앱 ID (참조용 - GoogleService-Info.plist 및 AndroidManifest.xml에서 설정)
+  // AdMob 앱 ID (참조용 - ios/Runner/Info.plist 및 AndroidManifest.xml에서 설정)
+  // 주의: 앱 ID와 광고 단위 ID는 반드시 같은 AdMob 계정(pub-8516861197467665)이어야 함
   // Android: ca-app-pub-8516861197467665~2285990824
   // iOS: ca-app-pub-8516861197467665~7038364871
 
   // 광고 단위 ID
   static const String _androidBannerAdId = 'ca-app-pub-8516861197467665/1456124881';
   static const String _iosBannerAdId = 'ca-app-pub-8516861197467665/3701755096';
+  // 홈 화면 중단 배너 (가까운 체험단 ↔ 추천 체험단 사이)
+  static const String _androidMidBannerAdId = 'ca-app-pub-8516861197467665/3155368600';
+  static const String _iosMidBannerAdId = 'ca-app-pub-8516861197467665/4196987536';
   static const String _androidInterstitialAdId = 'ca-app-pub-8516861197467665/7840025249';
   static const String _iosInterstitialAdId = 'ca-app-pub-8516861197467665/5318089092';
   static const String _androidNativeAdId = 'ca-app-pub-8516861197467665/4499546031';
@@ -106,6 +110,15 @@ class AdService {
     }
     
     return Platform.isIOS ? _iosBannerAdId : _androidBannerAdId;
+  }
+
+  /// 플랫폼별 중단 배너 광고 ID 반환
+  String get midBannerAdId {
+    if (_isDebugMode()) {
+      return _testBannerAdId;
+    }
+
+    return Platform.isIOS ? _iosMidBannerAdId : _androidMidBannerAdId;
   }
 
   /// 플랫폼별 전면광고 ID 반환

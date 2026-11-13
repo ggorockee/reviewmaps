@@ -41,6 +41,16 @@ class AppOpenAdService with WidgetsBindingObserver {
   int _loadAttempts = 0;
   static const int _maxLoadAttempts = 3;
 
+  /// 실제로 백그라운드(paused/hidden)로 전환되었는지 여부
+  /// - iOS 시스템 시트(Apple 로그인, 권한 팝업 등)는 inactive만 발생하므로 광고 대상 아님
+  bool _wasInBackground = false;
+
+  /// 외부 화면 이동 흐름(SNS 로그인 등) 진행 중 복귀 광고 억제 카운터
+  int _resumeSuppressCount = 0;
+
+  /// 억제 해제 지연 시간 (resumed 이벤트가 작업 완료 직후 도착하는 경우 대비)
+  static const Duration _suppressReleaseDelay = Duration(seconds: 2);
+
   /// App Open Ad 서비스 초기화
   Future<void> initialize() async {
     try {
@@ -268,9 +278,39 @@ class AppOpenAdService with WidgetsBindingObserver {
   /// 앱 라이프사이클 변경 감지
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
+      _wasInBackground = true;
+      return;
+    }
+
     if (state == AppLifecycleState.resumed) {
+      final bool wasInBackground = _wasInBackground;
+      _wasInBackground = false;
+
+      // 실제 백그라운드 복귀가 아니거나(시스템 시트/권한 팝업),
+      // SNS 로그인 등 사용자가 의도한 외부 이동에서 돌아온 경우 광고 표시 안 함
+      if (!wasInBackground || _resumeSuppressCount > 0) {
+        if (kDebugMode) print('[AppOpenAdService] 복귀 광고 생략 (background=$wasInBackground, suppress=$_resumeSuppressCount)');
+        return;
+      }
+
       // 포그라운드 복귀 시 광고 표시
       showAdIfAvailable();
+    }
+  }
+
+  /// 외부 앱/화면으로 이동했다 돌아오는 작업 동안 App Open 광고를 억제
+  ///
+  /// SNS 로그인(카카오톡, Google, Apple), 외부 인증 등 사용자가 의도한 흐름에서
+  /// 복귀 직후 전면 광고가 노출되는 것을 방지 (UX 및 AdMob App Open 광고 정책 준수)
+  Future<T> runWithoutResumeAd<T>(Future<T> Function() action) async {
+    _resumeSuppressCount++;
+    try {
+      return await action();
+    } finally {
+      Future.delayed(_suppressReleaseDelay, () {
+        if (_resumeSuppressCount > 0) _resumeSuppressCount--;
+      });
     }
   }
 

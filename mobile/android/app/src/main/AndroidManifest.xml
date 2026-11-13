@@ -53,7 +53,7 @@
             android:value="${NAVER_MAP_CLIENT_ID}" />
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-3219791135582658~5531424356"/>
+            android:value="ca-app-pub-8516861197467665~2285990824"/>
         <!-- 카카오 로그인: AuthCodeCustomTabsActivity에 리다이렉트 스킴 등록 (필수) -->
         <activity
             android:name="com.kakao.sdk.flutter.AuthCodeCustomTabsActivity"

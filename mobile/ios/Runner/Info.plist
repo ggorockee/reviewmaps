@@ -83,7 +83,15 @@
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
     <string>앱을 사용하지 않을 때에도 주변의 새로운 체험단 정보를 알려드리기 위해 위치 정보가 필요합니다. 이 정보는 실시간 알림 외 다른 목적으로 사용되지 않습니다.</string>
 	<key>GADApplicationIdentifier</key>
-    <string>ca-app-pub-3219791135582658~2537889532</string>
+	<string>ca-app-pub-8516861197467665~7038364871</string>
+	<!-- Google Mobile Ads SDK: SKAdNetwork 식별자 (iOS 14+ 광고 전환 측정) -->
+	<key>SKAdNetworkItems</key>
+	<array>
+		<dict>
+			<key>SKAdNetworkIdentifier</key>
+			<string>cstr6suwn9.skadnetwork</string>
+		</dict>
+	</array>
 	
 	<!-- iOS 14.5+ App Tracking Transparency -->
 	<key>NSUserTrackingUsageDescription</key>

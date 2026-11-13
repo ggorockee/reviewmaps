@@ -27,7 +27,6 @@ import 'package:mobile/screens/auth/login_screen.dart'; // 로그인 화면
 import 'package:mobile/screens/auth/sign_up_screen.dart'; // 회원가입 화면
 import 'package:mobile/services/ad_service.dart'; // 광고 서비스
 import 'package:mobile/services/app_open_ad_service.dart'; // App Open Ad 서비스
-import 'package:mobile/services/interstitial_ad_manager.dart'; // 전면광고 매니저
 import 'package:mobile/services/firebase_service.dart'; // Firebase 통합 서비스
 import 'package:mobile/services/remote_config_service.dart'; // Firebase Remote Config 서비스
 import 'package:mobile/services/fcm_service.dart'; // FCM 푸시 알림 서비스
@@ -81,13 +80,6 @@ Future<void> main() async {
     await AppOpenAdService().initialize();
   } catch (e) {
     debugPrint('App Open Ad 초기화 실패: $e');
-  }
-
-  // 5) 전면광고 매니저 초기화
-  try {
-    await InterstitialAdManager().initialize();
-  } catch (e) {
-    debugPrint('전면광고 매니저 초기화 실패: $e');
   }
 
   // 6) .env 로드

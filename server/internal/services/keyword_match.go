@@ -7,11 +7,12 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
+	"time"
 
 	"github.com/ggorockee/reviewmaps/server/internal/database"
 	"github.com/ggorockee/reviewmaps/server/internal/models"
 	"github.com/ggorockee/reviewmaps/server/pkg/firebase"
+	"gorm.io/gorm/clause"
 )
 
 // KeywordMatchService handles keyword matching and alert creation
@@ -36,376 +37,196 @@ func normalizeText(text string) string {
 	return normalized
 }
 
-// MatchResult represents a keyword match
-type MatchResult struct {
-	KeywordID    uint
-	MatchedField string
+const (
+	// matchCampaignChunkSize 한 번의 IN 조회에 넣을 최대 캠페인 수 (Postgres 파라미터 한도 여유 확보)
+	matchCampaignChunkSize = 1000
+	// alertInsertBatchSize 알림 일괄 INSERT 1회당 최대 행 수
+	alertInsertBatchSize = 500
+)
+
+// AlertKey (키워드, 캠페인) 조합 — 기존 알림 중복 판정용
+type AlertKey struct {
+	KeywordID  uint
+	CampaignID uint
 }
 
-// ProcessCampaignKeywordMatching matches keywords against a new campaign
-func (s *KeywordMatchService) ProcessCampaignKeywordMatching(ctx context.Context, campaign *models.Campaign) {
-	log.Printf("[KeywordMatch] Processing campaign ID: %d", campaign.ID)
-
-	// Get all active keywords
-	var activeKeywords []models.Keyword
-	if err := s.db.Where("is_active = ?", true).Find(&activeKeywords).Error; err != nil {
-		log.Printf("[KeywordMatch] Failed to get active keywords: %v", err)
-		return
-	}
-
-	if len(activeKeywords) == 0 {
-		log.Printf("[KeywordMatch] No active keywords found")
-		return
-	}
-
-	log.Printf("[KeywordMatch] Active keywords count: %d", len(activeKeywords))
-
-	// Normalize campaign text
-	companyNormalized := normalizeText(campaign.Company)
-	var titleNormalized string
-	if campaign.Title != nil {
-		titleNormalized = normalizeText(*campaign.Title)
-	}
-	offerNormalized := normalizeText(campaign.Offer)
-
-	// Get existing alerts to avoid duplicates
-	// Unscoped()로 soft-deleted 포함 조회 → 유저가 삭제한 알림도 재생성 방지
-	keywordIDs := make([]uint, len(activeKeywords))
-	for i, kw := range activeKeywords {
-		keywordIDs[i] = kw.ID
-	}
-
-	var existingAlerts []models.KeywordAlert
-	s.db.Unscoped().Where("keyword_id IN ? AND campaign_id = ?", keywordIDs, campaign.ID).Find(&existingAlerts)
-
-	existingMap := make(map[uint]bool)
-	for _, alert := range existingAlerts {
-		existingMap[alert.KeywordID] = true
-	}
-
-	// Match keywords in parallel
-	var alertsToCreate []models.KeywordAlert
-	var mu sync.Mutex
-	var wg sync.WaitGroup
-
-	for _, keyword := range activeKeywords {
-		if existingMap[keyword.ID] {
-			continue
-		}
-
-		wg.Add(1)
-		go func(kw models.Keyword) {
-			defer wg.Done()
-
-			keywordNormalized := normalizeText(kw.Keyword)
-			if keywordNormalized == "" {
-				return
-			}
-
-			var matchedField string
-
-			// Match against company
-			if strings.Contains(companyNormalized, keywordNormalized) {
-				matchedField = "company"
-			} else if titleNormalized != "" && strings.Contains(titleNormalized, keywordNormalized) {
-				matchedField = "title"
-			} else if strings.Contains(offerNormalized, keywordNormalized) {
-				matchedField = "offer"
-			}
-
-			if matchedField != "" {
-				campaignID := campaign.ID
-				mu.Lock()
-				alertsToCreate = append(alertsToCreate, models.KeywordAlert{
-					KeywordID:    kw.ID,
-					CampaignID:   &campaignID,
-					MatchedField: matchedField,
-					IsRead:       false,
-				})
-				mu.Unlock()
-				log.Printf("[KeywordMatch] Matched - keyword: '%s' → %s", kw.Keyword, matchedField)
-			}
-		}(keyword)
-	}
-
-	wg.Wait()
-
-	// Bulk create alerts
-	if len(alertsToCreate) > 0 {
-		if err := s.db.Create(&alertsToCreate).Error; err != nil {
-			log.Printf("[KeywordMatch] Failed to create alerts: %v", err)
-			return
-		}
-		log.Printf("[KeywordMatch] Created %d alerts for campaign ID: %d", len(alertsToCreate), campaign.ID)
-
-		// Send push notifications
-		go s.sendPushNotifications(ctx, alertsToCreate, campaign)
-	} else {
-		log.Printf("[KeywordMatch] No keywords matched for campaign ID: %d", campaign.ID)
-	}
+// PreparedKeyword 정규화를 미리 끝낸 활성 키워드
+type PreparedKeyword struct {
+	ID         uint
+	Keyword    string
+	Normalized string
+	CreatedAt  time.Time
 }
 
-// sendPushNotifications sends FCM push to matched keyword owners
-func (s *KeywordMatchService) sendPushNotifications(ctx context.Context, alerts []models.KeywordAlert, campaign *models.Campaign) {
-	fcm := firebase.GetFCMService()
-	if !fcm.IsInitialized() {
-		log.Println("[KeywordMatch] FCM not initialized, skipping push")
-		return
-	}
-
-	// Get keywords for alerts
-	keywordIDs := make([]uint, len(alerts))
-	for i, alert := range alerts {
-		keywordIDs[i] = alert.KeywordID
-	}
-
-	var keywords []models.Keyword
-	if err := s.db.Where("id IN ?", keywordIDs).Find(&keywords).Error; err != nil {
-		log.Printf("[KeywordMatch] Failed to get keywords: %v", err)
-		return
-	}
-
-	// Build keyword map for quick lookup
-	keywordMap := make(map[uint]models.Keyword)
+// PrepareKeywords 활성 키워드를 1회만 정규화 (정규화 결과가 빈 키워드는 매칭 대상에서 제외)
+func PrepareKeywords(keywords []models.Keyword) []PreparedKeyword {
+	prepared := make([]PreparedKeyword, 0, len(keywords))
 	for _, kw := range keywords {
-		keywordMap[kw.ID] = kw
-	}
-
-	// Build user to keywords mapping (user may have multiple matched keywords)
-	userKeywords := make(map[uint][]string)
-	for _, alert := range alerts {
-		if kw, ok := keywordMap[alert.KeywordID]; ok {
-			if kw.UserID != nil {
-				userKeywords[*kw.UserID] = append(userKeywords[*kw.UserID], kw.Keyword)
-			}
-		}
-	}
-
-	if len(userKeywords) == 0 {
-		log.Println("[KeywordMatch] No user keywords found for push")
-		return
-	}
-
-	// Get active FCM tokens grouped by user
-	userIDs := make([]uint, 0, len(userKeywords))
-	for userID := range userKeywords {
-		userIDs = append(userIDs, userID)
-	}
-
-	var devices []models.FCMDevice
-	if err := s.db.Where("user_id IN ? AND is_active = ?", userIDs, true).Find(&devices).Error; err != nil {
-		log.Printf("[KeywordMatch] Failed to get FCM devices: %v", err)
-		return
-	}
-
-	if len(devices) == 0 {
-		log.Println("[KeywordMatch] No active FCM tokens found")
-		return
-	}
-
-	// Group devices by user
-	userDevices := make(map[uint][]string)
-	for _, device := range devices {
-		if device.UserID != nil {
-			userDevices[*device.UserID] = append(userDevices[*device.UserID], device.FCMToken)
-		}
-	}
-
-	// Campaign name for push body
-	campaignName := campaign.Company
-	if campaign.Title != nil && *campaign.Title != "" {
-		campaignName = *campaign.Title
-	}
-
-	// Common data payload with full campaign information
-	campaignIDStr := strconv.FormatUint(uint64(campaign.ID), 10)
-
-	// Prepare campaign data for FCM payload
-	campaignTitle := campaign.Company
-	if campaign.Title != nil {
-		campaignTitle = *campaign.Title
-	}
-
-	campaignPlatform := campaign.Platform
-
-	campaignChannel := ""
-	if campaign.CampaignChannel != nil {
-		campaignChannel = *campaign.CampaignChannel
-	}
-
-	// Send personalized push per user
-	var totalSuccess, totalFailure int
-	var allFailedTokens []string
-
-	for userID, tokens := range userDevices {
-		keywords := userKeywords[userID]
-		if len(keywords) == 0 || len(tokens) == 0 {
+		normalized := normalizeText(kw.Keyword)
+		if normalized == "" {
 			continue
 		}
-
-		// Use first matched keyword for title (user may have multiple)
-		firstKeyword := keywords[0]
-
-		// Find matched field for this keyword
-		matchedField := "title"
-		for _, alert := range alerts {
-			if kw, ok := keywordMap[alert.KeywordID]; ok && kw.Keyword == firstKeyword {
-				matchedField = alert.MatchedField
-				break
-			}
-		}
-
-		title := fmt.Sprintf("키워드 \"%s\" 매칭", firstKeyword)
-		body := fmt.Sprintf("%s 체험단이 등록되었습니다", campaignName)
-
-		// Include all campaign details in data payload for rich notification display
-		data := map[string]string{
-			"type":             "keyword_alert",
-			"campaign_id":      campaignIDStr,
-			"campaign_title":   campaignTitle,
-			"campaign_company": campaign.Company,
-			"campaign_offer":   campaign.Offer,
-			"campaign_platform": campaignPlatform,
-			"campaign_channel":  campaignChannel,
-			"keyword":          firstKeyword,
-			"matched_field":    matchedField,
-		}
-
-		result := fcm.SendPushMultiple(ctx, tokens, title, body, data)
-		totalSuccess += result.SuccessCount
-		totalFailure += result.FailureCount
-		allFailedTokens = append(allFailedTokens, result.FailedTokens...)
-
-		log.Printf("[KeywordMatch] Push sent to user %d - keyword: '%s', success: %d, failure: %d",
-			userID, firstKeyword, result.SuccessCount, result.FailureCount)
+		prepared = append(prepared, PreparedKeyword{
+			ID:         kw.ID,
+			Keyword:    kw.Keyword,
+			Normalized: normalized,
+			CreatedAt:  kw.CreatedAt,
+		})
 	}
-
-	log.Printf("[KeywordMatch] Push total - success: %d, failure: %d", totalSuccess, totalFailure)
-
-	// Deactivate failed tokens
-	if len(allFailedTokens) > 0 {
-		s.db.Model(&models.FCMDevice{}).Where("fcm_token IN ?", allFailedTokens).Update("is_active", false)
-		log.Printf("[KeywordMatch] Deactivated %d invalid tokens", len(allFailedTokens))
-	}
-
+	return prepared
 }
 
-// ProcessCampaignKeywordMatchingByID processes keyword matching for a campaign by its ID
-// Returns the created alert IDs (for batch push notification)
-func (s *KeywordMatchService) ProcessCampaignKeywordMatchingByID(ctx context.Context, campaignID uint) []uint {
-	log.Printf("[KeywordMatch] Processing campaign by ID: %d", campaignID)
+// MatchKeywordAlerts 캠페인 × 키워드 매칭으로 생성할 알림 목록 계산 (DB 접근 없음)
+//
+// 매칭 규칙:
+//   - 이미 알림이 있는 (키워드, 캠페인) 조합은 제외 (soft-deleted 포함 — existing에 반영)
+//   - 키워드 등록 시점보다 먼저 생성된 캠페인은 제외
+//   - 제목(title) 우선, 없으면 제공내역(offer)에서 부분 일치 (정규화 후 비교)
+func MatchKeywordAlerts(campaigns []models.Campaign, keywords []PreparedKeyword, existing map[AlertKey]struct{}) []models.KeywordAlert {
+	var alerts []models.KeywordAlert
 
-	// Get campaign from DB
-	var campaign models.Campaign
-	if err := s.db.First(&campaign, campaignID).Error; err != nil {
-		log.Printf("[KeywordMatch] Failed to get campaign ID %d: %v", campaignID, err)
-		return nil
-	}
+	for i := range campaigns {
+		campaign := &campaigns[i]
 
-	// Get all active keywords
-	var activeKeywords []models.Keyword
-	if err := s.db.Where("is_active = ?", true).Find(&activeKeywords).Error; err != nil {
-		log.Printf("[KeywordMatch] Failed to get active keywords: %v", err)
-		return nil
-	}
-
-	if len(activeKeywords) == 0 {
-		log.Printf("[KeywordMatch] No active keywords found")
-		return nil
-	}
-
-	log.Printf("[KeywordMatch] Active keywords count: %d", len(activeKeywords))
-
-	// Normalize campaign text (title + offer)
-	var titleNormalized string
-	if campaign.Title != nil {
-		titleNormalized = normalizeText(*campaign.Title)
-	}
-	offerNormalized := normalizeText(campaign.Offer)
-
-	// Get existing alerts to avoid duplicates
-	// Unscoped()로 soft-deleted 포함 조회 → 유저가 삭제한 알림도 재생성 방지
-	keywordIDs := make([]uint, len(activeKeywords))
-	for i, kw := range activeKeywords {
-		keywordIDs[i] = kw.ID
-	}
-
-	var existingAlerts []models.KeywordAlert
-	s.db.Unscoped().Where("keyword_id IN ? AND campaign_id = ?", keywordIDs, campaign.ID).Find(&existingAlerts)
-
-	existingMap := make(map[uint]bool)
-	for _, alert := range existingAlerts {
-		existingMap[alert.KeywordID] = true
-	}
-
-	// Match keywords in parallel
-	var alertsToCreate []models.KeywordAlert
-	var mu sync.Mutex
-	var wg sync.WaitGroup
-
-	for _, keyword := range activeKeywords {
-		if existingMap[keyword.ID] {
-			continue
+		var titleNormalized string
+		if campaign.Title != nil {
+			titleNormalized = normalizeText(*campaign.Title)
 		}
+		offerNormalized := normalizeText(campaign.Offer)
 
-		// 키워드 등록 시점보다 나중에 생성된 캠페인만 매칭
-		if campaign.CreatedAt.Before(keyword.CreatedAt) {
-			continue
-		}
-
-		wg.Add(1)
-		go func(kw models.Keyword) {
-			defer wg.Done()
-
-			keywordNormalized := normalizeText(kw.Keyword)
-			if keywordNormalized == "" {
-				return
+		for _, kw := range keywords {
+			if _, ok := existing[AlertKey{KeywordID: kw.ID, CampaignID: campaign.ID}]; ok {
+				continue
+			}
+			if campaign.CreatedAt.Before(kw.CreatedAt) {
+				continue
 			}
 
 			var matchedField string
-
-			// Match against title and offer only (as per user requirement)
-			if titleNormalized != "" && strings.Contains(titleNormalized, keywordNormalized) {
+			if titleNormalized != "" && strings.Contains(titleNormalized, kw.Normalized) {
 				matchedField = "title"
-			} else if strings.Contains(offerNormalized, keywordNormalized) {
+			} else if strings.Contains(offerNormalized, kw.Normalized) {
 				matchedField = "offer"
 			}
-
-			if matchedField != "" {
-				campaignID := campaign.ID
-				mu.Lock()
-				alertsToCreate = append(alertsToCreate, models.KeywordAlert{
-					KeywordID:    kw.ID,
-					CampaignID:   &campaignID,
-					MatchedField: matchedField,
-					IsRead:       false,
-				})
-				mu.Unlock()
-				log.Printf("[KeywordMatch] Matched - keyword: '%s' → %s", kw.Keyword, matchedField)
+			if matchedField == "" {
+				continue
 			}
-		}(keyword)
+
+			campaignID := campaign.ID
+			alerts = append(alerts, models.KeywordAlert{
+				KeywordID:    kw.ID,
+				CampaignID:   &campaignID,
+				MatchedField: matchedField,
+				IsRead:       false,
+			})
+		}
 	}
 
-	wg.Wait()
+	return alerts
+}
 
-	// Bulk create alerts
-	if len(alertsToCreate) > 0 {
-		if err := s.db.Create(&alertsToCreate).Error; err != nil {
-			log.Printf("[KeywordMatch] Failed to create alerts: %v", err)
-			return nil
-		}
-		log.Printf("[KeywordMatch] Created %d alerts for campaign ID: %d", len(alertsToCreate), campaign.ID)
-
-		// Return created alert IDs for batch push notification
-		alertIDs := make([]uint, len(alertsToCreate))
-		for i, alert := range alertsToCreate {
-			alertIDs[i] = alert.ID
-		}
-		return alertIDs
+// ProcessCampaignsKeywordMatching 여러 캠페인을 한 번에 키워드 매칭하고 생성된 알림 ID 반환
+//
+// 캠페인 수와 무관하게 활성 키워드 조회 1회, 청크(1000개)당 캠페인/기존 알림 조회 각 1회,
+// 알림 일괄 INSERT로 처리합니다. (기존: 캠페인 1개당 쿼리 3~4회 + 키워드별 goroutine)
+//
+// 동시 요청으로 같은 (키워드, 캠페인) 알림이 경합하면 유니크 인덱스 충돌은 무시(ON CONFLICT DO NOTHING)하고,
+// 실제로 INSERT된 알림 ID만 반환하여 중복 푸시를 방지합니다.
+func (s *KeywordMatchService) ProcessCampaignsKeywordMatching(ctx context.Context, campaignIDs []uint) ([]uint, error) {
+	campaignIDs = uniqueIDs(campaignIDs)
+	if len(campaignIDs) == 0 {
+		return nil, nil
 	}
 
-	log.Printf("[KeywordMatch] No keywords matched for campaign ID: %d", campaign.ID)
-	return nil
+	db := s.db.WithContext(ctx)
+
+	var activeKeywords []models.Keyword
+	if err := db.Where("is_active = ?", true).Find(&activeKeywords).Error; err != nil {
+		return nil, fmt.Errorf("활성 키워드 조회 실패: %w", err)
+	}
+	keywords := PrepareKeywords(activeKeywords)
+	if len(keywords) == 0 {
+		log.Printf("[KeywordMatch] No active keywords found")
+		return nil, nil
+	}
+
+	keywordIDs := make([]uint, len(keywords))
+	for i, kw := range keywords {
+		keywordIDs[i] = kw.ID
+	}
+
+	var createdIDs []uint
+	var foundCampaigns, matchedAlerts int
+
+	for start := 0; start < len(campaignIDs); start += matchCampaignChunkSize {
+		chunk := campaignIDs[start:min(start+matchCampaignChunkSize, len(campaignIDs))]
+
+		// 매칭에 필요한 컬럼만 조회
+		var campaigns []models.Campaign
+		if err := db.Select("id", "title", "offer", "created_at").
+			Where("id IN ?", chunk).Find(&campaigns).Error; err != nil {
+			return createdIDs, fmt.Errorf("캠페인 조회 실패: %w", err)
+		}
+		foundCampaigns += len(campaigns)
+		if len(campaigns) == 0 {
+			continue
+		}
+
+		// Unscoped(): soft-deleted 포함 → 유저가 삭제한 알림도 재생성 방지
+		var existingAlerts []models.KeywordAlert
+		if err := db.Unscoped().Select("keyword_id", "campaign_id").
+			Where("campaign_id IN ? AND keyword_id IN ?", chunk, keywordIDs).
+			Find(&existingAlerts).Error; err != nil {
+			return createdIDs, fmt.Errorf("기존 알림 조회 실패: %w", err)
+		}
+		existing := make(map[AlertKey]struct{}, len(existingAlerts))
+		for _, a := range existingAlerts {
+			if a.CampaignID != nil {
+				existing[AlertKey{KeywordID: a.KeywordID, CampaignID: *a.CampaignID}] = struct{}{}
+			}
+		}
+
+		alerts := MatchKeywordAlerts(campaigns, keywords, existing)
+		if len(alerts) == 0 {
+			continue
+		}
+		matchedAlerts += len(alerts)
+
+		if err := db.Clauses(clause.OnConflict{DoNothing: true}).
+			CreateInBatches(&alerts, alertInsertBatchSize).Error; err != nil {
+			return createdIDs, fmt.Errorf("알림 생성 실패: %w", err)
+		}
+
+		// ON CONFLICT로 건너뛴 행은 ID가 채워지지 않으므로 0이 아닌 ID만 수집
+		// (RETURNING 결과가 순서대로 매핑되므로 행-ID 대응은 보장되지 않지만, ID 집합은 정확함)
+		for _, a := range alerts {
+			if a.ID != 0 {
+				createdIDs = append(createdIDs, a.ID)
+			}
+		}
+	}
+
+	if missing := len(campaignIDs) - foundCampaigns; missing > 0 {
+		log.Printf("[KeywordMatch] %d campaigns not found (requested %d)", missing, len(campaignIDs))
+	}
+	log.Printf("[KeywordMatch] Matched %d campaigns × %d keywords → %d matches, %d alerts created",
+		foundCampaigns, len(keywords), matchedAlerts, len(createdIDs))
+
+	return createdIDs, nil
+}
+
+// uniqueIDs 순서를 유지하며 중복 ID 제거
+func uniqueIDs(ids []uint) []uint {
+	seen := make(map[uint]struct{}, len(ids))
+	out := make([]uint, 0, len(ids))
+	for _, id := range ids {
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+	}
+	return out
 }
 
 // SendPushForRecentAlerts sends push notifications for recently created alerts

@@ -1,13 +1,18 @@
 package handlers
 
 import (
+	"context"
 	"log"
+	"time"
 
 	"github.com/ggorockee/reviewmaps/server/internal/config"
 	"github.com/ggorockee/reviewmaps/server/internal/database"
 	"github.com/ggorockee/reviewmaps/server/internal/services"
 	"github.com/gofiber/fiber/v2"
 )
+
+// pushTimeout 응답 후 백그라운드 푸시 발송 최대 시간
+const pushTimeout = 5 * time.Minute
 
 type InternalHandler struct {
 	db           *database.DB
@@ -77,22 +82,37 @@ func (h *InternalHandler) ProcessCampaignAlerts(c *fiber.Ctx) error {
 
 	log.Printf("[Internal] Processing %d campaigns for keyword alerts", len(req.CampaignIDs))
 
-	// 캠페인별 키워드 매칭 - 모든 alert ID 수집
-	ctx := c.Context()
-	var allAlertIDs []uint
+	// 전체 캠페인을 한 번에 키워드 매칭 (키워드/기존 알림 조회 및 알림 INSERT 일괄 처리)
+	start := time.Now()
 	var errors []string
 
-	for _, campaignID := range req.CampaignIDs {
-		alertIDs := h.keywordMatch.ProcessCampaignKeywordMatchingByID(ctx, campaignID)
-		allAlertIDs = append(allAlertIDs, alertIDs...)
+	allAlertIDs, err := h.keywordMatch.ProcessCampaignsKeywordMatching(c.UserContext(), req.CampaignIDs)
+	if err != nil {
+		// 일부 청크가 처리된 뒤 실패할 수 있으므로, 이미 생성된 알림의 푸시는 계속 발송
+		log.Printf("[Internal] Keyword matching error: %v", err)
+		errors = append(errors, err.Error())
 	}
 
 	alertsCreated := len(allAlertIDs)
-	log.Printf("[Internal] Processed %d campaigns, created %d alerts", len(req.CampaignIDs), alertsCreated)
+	log.Printf("[Internal] Processed %d campaigns, created %d alerts in %s",
+		len(req.CampaignIDs), alertsCreated, time.Since(start).Round(time.Millisecond))
 
 	// 푸시 알림 한 번에 발송 (사용자별 통합)
+	// 응답 후에도 실행되므로 요청 컨텍스트(fasthttp RequestCtx는 응답 후 재사용됨) 대신 독립 컨텍스트 사용
 	if alertsCreated > 0 {
-		go h.keywordMatch.SendPushForRecentAlerts(ctx, allAlertIDs)
+		go func(alertIDs []uint) {
+			pushCtx, cancel := context.WithTimeout(context.Background(), pushTimeout)
+			defer cancel()
+			h.keywordMatch.SendPushForRecentAlerts(pushCtx, alertIDs)
+		}(allAlertIDs)
+	}
+
+	if err != nil && alertsCreated == 0 {
+		return c.Status(fiber.StatusInternalServerError).JSON(ProcessCampaignAlertsResponse{
+			ProcessedCount: 0,
+			AlertsCreated:  0,
+			Errors:         errors,
+		})
 	}
 
 	return c.JSON(ProcessCampaignAlertsResponse{

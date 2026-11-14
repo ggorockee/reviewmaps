@@ -66,13 +66,15 @@ func (b *BaseScraper) Save(ctx context.Context, data []models.Campaign) error {
 	// 2. Server API로 키워드 알림 처리 요청
 	if len(campaignIDs) > 0 && b.ServerClient != nil {
 		result, err := b.ServerClient.ProcessCampaignAlerts(ctx, campaignIDs)
+		// 일부 배치만 실패해도 성공한 배치의 알림 생성 수는 기록
+		if result != nil {
+			runstats.SetAlertsCreated(int(result.AlertsCreated))
+			log.Infof("키워드 알림 처리: %d개 캠페인, %d개 알림 생성",
+				result.ProcessedCount, result.AlertsCreated)
+		}
 		if err != nil {
 			log.Warnf("Server API 호출 실패 (알림 처리 계속 진행): %v", err)
 			runstats.SetServerAPIError()
-		} else if result != nil {
-			runstats.SetAlertsCreated(int(result.AlertsCreated))
-			log.Infof("키워드 알림 처리 완료: %d개 캠페인, %d개 알림 생성",
-				result.ProcessedCount, result.AlertsCreated)
 		}
 	}
 

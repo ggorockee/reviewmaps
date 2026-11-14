@@ -14,7 +14,6 @@
  */
 
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';           // kDebugMode 사용을 위해 추가
 import 'package:flutter_dotenv/flutter_dotenv.dart';         // .env 환경변수 로드
 import 'package:flutter_naver_map/flutter_naver_map.dart';   // 네이버 지도 SDK 플러그인
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,14 +24,12 @@ import 'package:mobile/const/colors.dart';       // primaryColor 등 앱 공통 
 import 'package:mobile/screens/splash_screen.dart'; // 스플래시 화면
 import 'package:mobile/screens/auth/login_screen.dart'; // 로그인 화면
 import 'package:mobile/screens/auth/sign_up_screen.dart'; // 회원가입 화면
-import 'package:mobile/services/ad_service.dart'; // 광고 서비스
-import 'package:mobile/services/app_open_ad_service.dart'; // App Open Ad 서비스
+import 'package:mobile/services/consent_service.dart'; // 광고 동의(UMP) 및 광고 초기화
 import 'package:mobile/services/firebase_service.dart'; // Firebase 통합 서비스
 import 'package:mobile/services/remote_config_service.dart'; // Firebase Remote Config 서비스
 import 'package:mobile/services/fcm_service.dart'; // FCM 푸시 알림 서비스
 import 'package:mobile/providers/auth_provider.dart'; // AuthProvider
 
-import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:firebase_core/firebase_core.dart' hide FirebaseService;
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
@@ -54,32 +51,14 @@ Future<void> main() async {
     debugPrint('Firebase 초기화 실패: $e');
   }
 
-  // 2) AdMob 초기화
+  // 2) 광고 동의(UMP) 정보 갱신 → 광고 요청이 허용된 경우에만 AdMob/앱 오프닝 광고 초기화
+  // - 비규제 지역이거나 이전에 동의한 사용자는 여기서 바로 초기화
+  // - 동의가 필요한 신규 사용자(EEA 등)는 스플래시에서 동의 양식 처리 후 초기화
   try {
-    await MobileAds.instance.initialize();
-    if (kDebugMode) {
-      // DEBUG 모드에서는 테스트 광고 강제 사용
-      final configuration = RequestConfiguration(
-        testDeviceIds: ['d032385e-b579-421a-ae28-2bd485f4b306'],
-      );
-      MobileAds.instance.updateRequestConfiguration(configuration);
-    }
+    await ConsentService().requestConsentInfoUpdate();
+    await ConsentService().initializeAdsIfAllowed();
   } catch (e) {
-    debugPrint('AdMob 초기화 실패: $e');
-  }
-
-  // 3) 광고 서비스 초기화
-  try {
-    await AdService().initialize();
-  } catch (e) {
-    debugPrint('광고 서비스 초기화 실패: $e');
-  }
-
-  // 4) App Open Ad 서비스 초기화
-  try {
-    await AppOpenAdService().initialize();
-  } catch (e) {
-    debugPrint('App Open Ad 초기화 실패: $e');
+    debugPrint('광고 동의/초기화 실패: $e');
   }
 
   // 6) .env 로드

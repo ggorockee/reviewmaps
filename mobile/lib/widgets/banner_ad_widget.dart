@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile/services/consent_service.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../services/ad_service.dart';
@@ -36,6 +37,8 @@ class _BannerAdWidgetState extends State<BannerAdWidget> {
   /// 배너 광고 로드
   Future<void> _loadBannerAd() async {
     if (_isAdLoading) return;
+    // 광고 동의 전에는 광고 요청 금지 (UMP 정책)
+    if (!ConsentService().isAdsInitialized) return;
     
     setState(() {
       _isAdLoading = true;

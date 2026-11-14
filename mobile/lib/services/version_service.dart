@@ -1,15 +1,13 @@
-import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import '../config/config.dart';
 import '../config/app_version.dart';
 import '../models/version_check_models.dart';
+import 'remote_config_service.dart';
 
 /// 버전 체크 서비스
 ///
-/// 백엔드 API를 호출하여 앱 업데이트 필요 여부를 확인합니다.
+/// Firebase Remote Config의 버전 정책을 읽어 앱 업데이트 필요 여부를 확인합니다.
+/// - 버전 정책은 Firebase 콘솔 > Remote Config에서 관리 ({platform}_min_version 등)
 /// - 논리 버전(Logical Version) 기반 비교
 /// - 클라이언트에서 버전 비교 로직 수행
 /// - 권장 업데이트 시 "나중에" 선택 후 일정 기간 재표시 방지
@@ -20,43 +18,18 @@ class VersionService {
   /// 권장 업데이트 스킵 기간 (일)
   static const int skipDays = 3;
 
-  /// 버전 체크 API 호출
+  /// Remote Config에서 버전 정책 조회
+  ///
+  /// 앱 시작 시(main.dart) RemoteConfigService가 이미 fetch/activate를 마친 값을 사용합니다.
   ///
   /// Returns:
   /// - VersionCheckResponse: 버전 정책 정보
   ///
   /// Throws:
-  /// - Exception: API 호출 실패 시
+  /// - Exception: Remote Config 미초기화 등 조회 실패 시
   Future<VersionCheckResponse> checkVersion() async {
     try {
-      // 1. 플랫폼 확인 (iOS 또는 Android)
-      final platform = Platform.isIOS ? 'ios' : 'android';
-
-      // 2. API 엔드포인트 URL 생성
-      final url = Uri.parse('${AppConfig.reviewMapBaseUrl}/app-config/version')
-          .replace(queryParameters: {
-        'platform': platform,
-      });
-
-      // 3. API 호출
-      final response = await http.get(
-        url,
-        headers: {
-          'X-API-Key': AppConfig.reviewMapApiKey,
-          'Content-Type': 'application/json',
-        },
-      );
-
-      // 4. 응답 상태 코드 확인
-      if (response.statusCode != 200) {
-        throw Exception(
-          'Version check API failed with status: ${response.statusCode}',
-        );
-      }
-
-      // 5. JSON 파싱 및 모델 변환
-      final Map<String, dynamic> data = jsonDecode(response.body);
-      return VersionCheckResponse.fromJson(data);
+      return RemoteConfigService().getVersionPolicy();
     } catch (e) {
       throw Exception('Failed to check app version: $e');
     }
@@ -135,9 +108,9 @@ class VersionService {
       debugPrint('📱 [Version Check] 버전 체크 결과');
       debugPrint('═══════════════════════════════════════');
       debugPrint('📌 현재 앱 버전: ${AppVersion.current}');
-      debugPrint('📌 서버 최소 지원 버전 (minVersion): ${result.minVersion}');
-      debugPrint('📌 서버 최신 버전 (latestVersion): ${result.latestVersion}');
-      debugPrint('📌 서버 forceUpdate 플래그: ${result.forceUpdate}');
+      debugPrint('📌 최소 지원 버전 (minVersion): ${result.minVersion}');
+      debugPrint('📌 최신 버전 (latestVersion): ${result.latestVersion}');
+      debugPrint('📌 forceUpdate 플래그: ${result.forceUpdate}');
       debugPrint('───────────────────────────────────────');
       debugPrint('🔍 현재버전 < minVersion: ${result.requiresForceUpdate}');
       debugPrint('🔍 현재버전 < latestVersion: ${result.needsUpdate}');

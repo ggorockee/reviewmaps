@@ -227,7 +227,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     _checkAppVersion();
   }
 
-  /// 백엔드 API를 통한 버전 체크
+  /// Firebase Remote Config 버전 정책을 통한 버전 체크
   ///
   /// 논리 버전(Logical Version) 기반으로 업데이트 필요 여부를 판단합니다.
   /// - current < min_version: 강제 업데이트

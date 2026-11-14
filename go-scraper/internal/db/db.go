@@ -123,26 +123,61 @@ func (db *DB) UpsertCampaigns(ctx context.Context, campaigns []models.Campaign) 
 	defer tx.Rollback(ctx)
 
 	// 1. 기존 캠페인 조회 (이미 존재하는지 체크용)
+	// 같은 키의 중복 레코드가 있을 수 있으므로 해당 키의 ID를 모두 조회 (3단계 DELETE가 키 기준으로 전부 삭제)
 	findQuery := `
 		SELECT id FROM campaign
 		WHERE (platform, title, offer, campaign_channel) = ($1, $2, $3, $4)
 	`
 
-	// 기존에 있던 캠페인 키 추적 (신규 여부 판단용)
+	// 기존에 있던 캠페인 키 추적 (신규 여부 판단 + 알림 복원 매핑용)
 	existingKeys := make(map[string]bool)
+	oldIDsByKey := make(map[string][]uint)
 	var campaignIDsToDelete []uint
 	for _, c := range campaigns {
-		key := fmt.Sprintf("%s|%s|%s|%s", c.Platform, c.Title, c.Offer, c.CampaignChannel)
-		var id uint
-		err := tx.QueryRow(ctx, findQuery, c.Platform, c.Title, c.Offer, c.CampaignChannel).Scan(&id)
-		if err == nil {
-			campaignIDsToDelete = append(campaignIDsToDelete, id)
+		key := campaignKey(c)
+		if _, seen := oldIDsByKey[key]; seen {
+			continue
+		}
+		rows, err := tx.Query(ctx, findQuery, c.Platform, c.Title, c.Offer, c.CampaignChannel)
+		if err != nil {
+			return nil, fmt.Errorf("기존 캠페인 조회 실패: %w", err)
+		}
+		ids, err := pgx.CollectRows(rows, pgx.RowTo[uint])
+		if err != nil {
+			return nil, fmt.Errorf("기존 캠페인 조회 실패: %w", err)
+		}
+		oldIDsByKey[key] = ids
+		if len(ids) > 0 {
 			existingKeys[key] = true // 기존에 있던 캠페인
+			campaignIDsToDelete = append(campaignIDsToDelete, ids...)
 		}
 	}
 
 	// 2. 관련 알림의 campaign_id를 NULL로 설정 (FK constraint 해결)
+	// NULL 처리 전에 "알림 → 기존 캠페인" 연결을 기록해 두었다가 5단계에서 정확히 그 알림만 복원
+	// (soft-deleted 알림 포함: 삭제 상태를 유지한 채 캠페인 연결만 복원)
+	alertIDsByCampaign := make(map[uint][]uint)
 	if len(campaignIDsToDelete) > 0 {
+		rows, err := tx.Query(ctx, `
+			SELECT id, campaign_id FROM keyword_alerts_alerts
+			WHERE campaign_id = ANY($1)
+		`, campaignIDsToDelete)
+		if err != nil {
+			return nil, fmt.Errorf("관련 알림 조회 실패: %w", err)
+		}
+		for rows.Next() {
+			var alertID, campaignID uint
+			if err := rows.Scan(&alertID, &campaignID); err != nil {
+				rows.Close()
+				return nil, fmt.Errorf("관련 알림 조회 실패: %w", err)
+			}
+			alertIDsByCampaign[campaignID] = append(alertIDsByCampaign[campaignID], alertID)
+		}
+		rows.Close()
+		if err := rows.Err(); err != nil {
+			return nil, fmt.Errorf("관련 알림 조회 실패: %w", err)
+		}
+
 		nullifyQuery := `
 			UPDATE keyword_alerts_alerts
 			SET campaign_id = NULL
@@ -150,7 +185,7 @@ func (db *DB) UpsertCampaigns(ctx context.Context, campaigns []models.Campaign) 
 		`
 		result, err := tx.Exec(ctx, nullifyQuery, campaignIDsToDelete)
 		if err != nil {
-			log.Warnf("알림 campaign_id NULL 설정 실패: %v", err)
+			return nil, fmt.Errorf("알림 campaign_id NULL 설정 실패: %w", err)
 		} else if result.RowsAffected() > 0 {
 			log.Infof("관련 알림 %d건의 campaign_id를 NULL로 설정", result.RowsAffected())
 		}
@@ -210,7 +245,7 @@ func (db *DB) UpsertCampaigns(ctx context.Context, campaigns []models.Campaign) 
 		}
 		allInsertedCount++
 
-		key := fmt.Sprintf("%s|%s|%s|%s", c.Platform, c.Title, c.Offer, c.CampaignChannel)
+		key := campaignKey(c)
 		campaignIDMap[key] = id
 
 		// 기존에 없던 신규 캠페인만 알림 대상에 추가
@@ -219,35 +254,24 @@ func (db *DB) UpsertCampaigns(ctx context.Context, campaigns []models.Campaign) 
 		}
 	}
 
-	// 5. NULL로 설정했던 alert의 campaign_id를 새 ID로 복원
-	if len(campaignIDMap) > 0 {
-		updateQuery := `
+	// 5. NULL로 설정했던 알림을 "원래 연결돼 있던 캠페인의 새 ID"로 복원 (알림 ID 단위)
+	// 주의: campaign_id IS NULL 조건만으로 복원하면 테이블의 모든 NULL 알림이 첫 캠페인에 붙음 (2026-11-14 발견)
+	plan := buildAlertRestorePlan(oldIDsByKey, alertIDsByCampaign, campaignIDMap)
+	if len(plan) > 0 {
+		restoreQuery := `
 			UPDATE keyword_alerts_alerts
 			SET campaign_id = $1
-			WHERE campaign_id IS NULL
-			AND EXISTS (
-				SELECT 1 FROM campaign c
-				WHERE c.id = $1
-				AND (c.platform, c.title, c.offer, c.campaign_channel) = ($2, $3, $4, $5)
-			)
+			WHERE id = ANY($2) AND campaign_id IS NULL
 		`
 		restoredCount := int64(0)
-		for _, c := range campaigns {
-			key := fmt.Sprintf("%s|%s|%s|%s", c.Platform, c.Title, c.Offer, c.CampaignChannel)
-			newID, ok := campaignIDMap[key]
-			if !ok {
-				continue
-			}
-			result, err := tx.Exec(ctx, updateQuery, newID, c.Platform, c.Title, c.Offer, c.CampaignChannel)
+		for newID, alertIDs := range plan {
+			result, err := tx.Exec(ctx, restoreQuery, newID, alertIDs)
 			if err != nil {
-				log.Warnf("alert campaign_id 복원 실패: %v", err)
-			} else {
-				restoredCount += result.RowsAffected()
+				return nil, fmt.Errorf("알림 campaign_id 복원 실패: %w", err)
 			}
+			restoredCount += result.RowsAffected()
 		}
-		if restoredCount > 0 {
-			log.Infof("NULL 처리된 알림 %d건의 campaign_id를 새 ID로 복원", restoredCount)
-		}
+		log.Infof("NULL 처리된 알림 %d건의 campaign_id를 새 ID로 복원", restoredCount)
 	}
 
 	// 트랜잭션 커밋
@@ -261,6 +285,32 @@ func (db *DB) UpsertCampaigns(ctx context.Context, campaigns []models.Campaign) 
 	runstats.SetItems(runstats.StageUpdated, int(deletedCount))
 	runstats.SetItems(runstats.StageNew, len(newCampaignIDs))
 	return newCampaignIDs, nil
+}
+
+// campaignKey 캠페인 동일성 키 (platform, title, offer, campaign_channel)
+func campaignKey(c models.Campaign) string {
+	return fmt.Sprintf("%s|%s|%s|%s", c.Platform, c.Title, c.Offer, c.CampaignChannel)
+}
+
+// buildAlertRestorePlan 새 캠페인 ID → 복원할 알림 ID 목록
+//
+// oldIDsByKey: 키 → 삭제된 기존 캠페인 ID들, alertIDsByCampaign: 기존 캠페인 ID → 연결돼 있던 알림 ID들,
+// newIDByKey: 키 → 새로 INSERT된 캠페인 ID. INSERT에 실패한 키의 알림은 복원 대상에서 제외(NULL 유지).
+func buildAlertRestorePlan(oldIDsByKey map[string][]uint, alertIDsByCampaign map[uint][]uint, newIDByKey map[string]uint) map[uint][]uint {
+	plan := make(map[uint][]uint)
+	for key, oldIDs := range oldIDsByKey {
+		newID, ok := newIDByKey[key]
+		if !ok {
+			continue
+		}
+		for _, oldID := range oldIDs {
+			plan[newID] = append(plan[newID], alertIDsByCampaign[oldID]...)
+		}
+		if len(plan[newID]) == 0 {
+			delete(plan, newID)
+		}
+	}
+	return plan
 }
 
 // GetGeocodeCache geocode 캐시 조회

@@ -62,49 +62,78 @@ func (c *Cleaner) DeduplicateCampaigns(ctx context.Context) error {
 	// CTE를 사용하여 각 그룹에서 가장 최신 레코드의 ID를 찾고
 	// 그 외의 레코드를 삭제
 
-	// 먼저 관련 알림의 campaign_id를 NULL로 설정 (FK constraint 해결)
-	nullifyQuery := `
+	// 삭제될 중복 캠페인의 알림은 NULL로 끊지 않고 같은 그룹에서 남기는 캠페인(keep_id)으로 이동
+	// (NULL 처리 시 스크레이퍼 복원 로직에 의해 엉뚱한 캠페인에 붙는 문제가 있었음, 2026-11-14)
+	rankedCTE := `
 		WITH ranked AS (
 			SELECT id,
-				   ROW_NUMBER() OVER (
-					   PARTITION BY platform, title, offer, campaign_channel
-					   ORDER BY updated_at DESC NULLS LAST, id DESC
-				   ) as rn
+				   FIRST_VALUE(id) OVER w AS keep_id,
+				   ROW_NUMBER() OVER w AS rn
 			FROM campaign
+			WINDOW w AS (
+				PARTITION BY platform, title, offer, campaign_channel
+				ORDER BY updated_at DESC NULLS LAST, id DESC
+			)
 		),
 		to_delete AS (
-			SELECT id FROM ranked WHERE rn > 1
+			SELECT id, keep_id FROM ranked WHERE rn > 1
+		)
+	`
+
+	// 이동하면 (키워드, 캠페인) 중복이 되는 알림은 soft-delete (남길 캠페인에 이미 있거나, 이동 대상끼리 겹치는 경우)
+	softDeleteDupQuery := rankedCTE + `,
+		moving AS (
+			SELECT a.id, a.keyword_id, td.keep_id,
+				   ROW_NUMBER() OVER (PARTITION BY a.keyword_id, td.keep_id ORDER BY a.id) AS rn
+			FROM keyword_alerts_alerts a
+			JOIN to_delete td ON a.campaign_id = td.id
 		)
 		UPDATE keyword_alerts_alerts
-		SET campaign_id = NULL
-		WHERE campaign_id IN (SELECT id FROM to_delete)
-	`
-	nullifyResult, err := c.database.Pool.Exec(ctx, nullifyQuery)
-	if err != nil {
-		log.Warnf("알림 campaign_id NULL 설정 실패: %v", err)
-	} else if nullifyResult.RowsAffected() > 0 {
-		log.Infof("관련 알림 %d건의 campaign_id를 NULL로 설정", nullifyResult.RowsAffected())
-	}
-
-	deleteQuery := `
-		WITH ranked AS (
-			SELECT id,
-				   ROW_NUMBER() OVER (
-					   PARTITION BY platform, title, offer, campaign_channel
-					   ORDER BY updated_at DESC NULLS LAST, id DESC
-				   ) as rn
-			FROM campaign
-		),
-		to_delete AS (
-			SELECT id FROM ranked WHERE rn > 1
+		SET campaign_id = NULL, deleted_at = COALESCE(deleted_at, NOW())
+		WHERE id IN (
+			SELECT m.id FROM moving m
+			WHERE m.rn > 1
+			   OR EXISTS (
+				   SELECT 1 FROM keyword_alerts_alerts k
+				   WHERE k.campaign_id = m.keep_id AND k.keyword_id = m.keyword_id
+			   )
 		)
+	`
+
+	moveQuery := rankedCTE + `
+		UPDATE keyword_alerts_alerts a
+		SET campaign_id = td.keep_id
+		FROM to_delete td
+		WHERE a.campaign_id = td.id
+	`
+
+	deleteQuery := rankedCTE + `
 		DELETE FROM campaign
 		WHERE id IN (SELECT id FROM to_delete)
 	`
 
-	result, err := c.database.Pool.Exec(ctx, deleteQuery)
+	tx, err := c.database.Pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("트랜잭션 시작 실패: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	softDeleted, err := tx.Exec(ctx, softDeleteDupQuery)
+	if err != nil {
+		return fmt.Errorf("중복 알림 정리 실패: %w", err)
+	}
+	moved, err := tx.Exec(ctx, moveQuery)
+	if err != nil {
+		return fmt.Errorf("알림 이동 실패: %w", err)
+	}
+	log.Infof("관련 알림 이동 %d건, 중복으로 soft-delete %d건", moved.RowsAffected(), softDeleted.RowsAffected())
+
+	result, err := tx.Exec(ctx, deleteQuery)
 	if err != nil {
 		return fmt.Errorf("중복 캠페인 삭제 실패: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("트랜잭션 커밋 실패: %w", err)
 	}
 
 	rowsAffected := result.RowsAffected()

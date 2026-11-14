@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile/services/consent_service.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../services/ad_service.dart';
@@ -51,6 +52,8 @@ class _NativeAdWidgetState extends State<NativeAdWidget>
 
   /// 네이티브 광고 로드
   void _loadNativeAd() {
+    // 광고 동의 전에는 광고 요청 금지 (UMP 정책)
+    if (!ConsentService().isAdsInitialized) return;
     final String adUnitId = _adService.nativeAdId;
 
     final ad = NativeAd(

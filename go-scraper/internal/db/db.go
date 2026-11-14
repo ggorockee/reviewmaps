@@ -258,10 +258,24 @@ func (db *DB) UpsertCampaigns(ctx context.Context, campaigns []models.Campaign) 
 	// 주의: campaign_id IS NULL 조건만으로 복원하면 테이블의 모든 NULL 알림이 첫 캠페인에 붙음 (2026-11-14 발견)
 	plan := buildAlertRestorePlan(oldIDsByKey, alertIDsByCampaign, campaignIDMap)
 	if len(plan) > 0 {
+		// 같은 키의 중복 캠페인들에 같은 키워드 알림이 있었다면 하나의 새 캠페인으로 합쳐지므로,
+		// 키워드별 1건(읽음 우선, 살아있는 알림 우선)만 남기고 나머지는 soft-delete
+		// → (keyword_id, campaign_id) WHERE deleted_at IS NULL 부분 유니크 인덱스 위반 방지
 		restoreQuery := `
-			UPDATE keyword_alerts_alerts
-			SET campaign_id = $1
-			WHERE id = ANY($2) AND campaign_id IS NULL
+			WITH target AS (
+				SELECT id,
+					   ROW_NUMBER() OVER (
+						   PARTITION BY keyword_id
+						   ORDER BY (deleted_at IS NULL) DESC, is_read DESC, id
+					   ) AS rn
+				FROM keyword_alerts_alerts
+				WHERE id = ANY($2) AND campaign_id IS NULL
+			)
+			UPDATE keyword_alerts_alerts a
+			SET campaign_id = $1,
+				deleted_at = CASE WHEN t.rn > 1 THEN COALESCE(a.deleted_at, NOW()) ELSE a.deleted_at END
+			FROM target t
+			WHERE a.id = t.id
 		`
 		restoredCount := int64(0)
 		for newID, alertIDs := range plan {

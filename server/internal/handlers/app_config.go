@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"github.com/ggorockee/reviewmaps/server/internal/config"
 	"github.com/ggorockee/reviewmaps/server/internal/database"
+	"github.com/ggorockee/reviewmaps/server/internal/middleware"
 	"github.com/ggorockee/reviewmaps/server/internal/services"
 	"github.com/gofiber/fiber/v2"
 )
@@ -16,17 +18,22 @@ func NewAppConfigHandler(db *database.DB) *AppConfigHandler {
 	}
 }
 
-func SetupAppConfigRoutes(router fiber.Router, db *database.DB) {
+func SetupAppConfigRoutes(router fiber.Router, db *database.DB, cfg *config.Config) {
 	h := NewAppConfigHandler(db)
+	internalOnly := middleware.InternalAPIKeyRequired(cfg)
 
 	router.Get("/ads", h.GetAdConfigs)
 	router.Get("/version", h.GetVersion)
 	router.Get("/settings", h.ListSettings)
-	router.Get("/settings/:key", h.GetSetting)
+
+	// 고정 경로는 반드시 /settings/:key 보다 먼저 등록 (Fiber는 등록 순서대로 매칭)
 	router.Get("/settings/keyword-limit", h.GetKeywordLimit)
-	router.Put("/settings/keyword-limit", h.SetKeywordLimit)
 	router.Get("/settings/alert-retention-days", h.GetAlertRetentionDays)
-	router.Put("/settings/alert-retention-days", h.SetAlertRetentionDays)
+	router.Get("/settings/:key", h.GetSetting)
+
+	// 설정 변경은 내부 API Key 인증 필요
+	router.Put("/settings/keyword-limit", internalOnly, h.SetKeywordLimit)
+	router.Put("/settings/alert-retention-days", internalOnly, h.SetAlertRetentionDays)
 }
 
 // GetAdConfigs godoc
@@ -131,6 +138,8 @@ func (h *AppConfigHandler) GetKeywordLimit(c *fiber.Ctx) error {
 // @Produce json
 // @Param request body services.SetKeywordLimitRequest true "Limit value"
 // @Success 200 {object} map[string]int
+// @Param X-API-Key header string true "Internal API Key"
+// @Failure 401 {object} map[string]string
 // @Router /app-config/settings/keyword-limit [put]
 func (h *AppConfigHandler) SetKeywordLimit(c *fiber.Ctx) error {
 	var req services.SetKeywordLimitRequest
@@ -168,6 +177,8 @@ func (h *AppConfigHandler) GetAlertRetentionDays(c *fiber.Ctx) error {
 // @Produce json
 // @Param request body map[string]int true "Days value"
 // @Success 200 {object} map[string]int
+// @Param X-API-Key header string true "Internal API Key"
+// @Failure 401 {object} map[string]string
 // @Router /app-config/settings/alert-retention-days [put]
 func (h *AppConfigHandler) SetAlertRetentionDays(c *fiber.Ctx) error {
 	var req struct {

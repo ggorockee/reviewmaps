@@ -179,9 +179,9 @@ func setupRoutes(app *fiber.App, db *database.DB, cfg *config.Config) {
 	keywordAlerts := v1.Group("/keyword-alerts", middleware.AuthRequired(cfg))
 	handlers.SetupKeywordAlertRoutes(keywordAlerts, db, cfg)
 
-	// App config routes (public)
+	// App config routes (조회는 public, 설정 변경은 Internal API Key 필요)
 	appConfig := v1.Group("/app-config")
-	handlers.SetupAppConfigRoutes(appConfig, db)
+	handlers.SetupAppConfigRoutes(appConfig, db, cfg)
 
 	// Internal API routes (Scraper 전용 - API Key 인증)
 	internal := v1.Group("/internal")

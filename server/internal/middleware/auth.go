@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"crypto/subtle"
 	"strings"
 
 	"github.com/ggorockee/reviewmaps/server/internal/config"
@@ -58,6 +59,24 @@ func OptionalAuth(cfg *config.Config) fiber.Handler {
 		}
 
 		c.Locals("userID", claims.UserID)
+		return c.Next()
+	}
+}
+
+// InternalAPIKeyRequired 내부 API Key(X-API-Key) 인증
+//
+// 운영 설정 변경 등 서버 간/운영자 전용 엔드포인트에 사용합니다.
+// 설정된 키가 비어 있으면 모든 요청을 거부합니다 (fail-closed).
+func InternalAPIKeyRequired(cfg *config.Config) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		apiKey := c.Get("X-API-Key")
+		expected := cfg.InternalAPIKey
+		if apiKey == "" || expected == "" ||
+			subtle.ConstantTimeCompare([]byte(apiKey), []byte(expected)) != 1 {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"error": "Invalid or missing API key",
+			})
+		}
 		return c.Next()
 	}
 }

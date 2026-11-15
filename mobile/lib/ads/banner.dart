@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:mobile/services/consent_service.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import '../services/ad_service.dart';
@@ -43,6 +44,8 @@ class _MyBannerAdWidgetState extends State<MyBannerAdWidget> {
   }
 
   void _loadAd() {
+    // 광고 동의 전에는 광고 요청 금지 (UMP 정책)
+    if (!ConsentService().isAdsInitialized) return;
     final int width = MediaQuery.sizeOf(context).width.truncate();
     final AdSize size = AdSize.getInlineAdaptiveBannerAdSize(width, _maxAdHeight);
     final String adUnitId = _adService.bannerAdId;

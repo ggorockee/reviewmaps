@@ -19,22 +19,17 @@ class AdService {
   // 광고 단위 ID
   static const String _androidBannerAdId = 'ca-app-pub-8516861197467665/1456124881';
   static const String _iosBannerAdId = 'ca-app-pub-8516861197467665/3701755096';
-  static const String _androidInterstitialAdId = 'ca-app-pub-8516861197467665/7840025249';
-  static const String _iosInterstitialAdId = 'ca-app-pub-8516861197467665/5318089092';
   static const String _androidNativeAdId = 'ca-app-pub-8516861197467665/4499546031';
   static const String _iosNativeAdId = 'ca-app-pub-8516861197467665/7720891152';
 
   // 테스트용 광고 단위 ID (개발 시 사용)
   static const String _testBannerAdId = 'ca-app-pub-3940256099942544/6300978111';
-  static const String _testInterstitialAdId = 'ca-app-pub-3940256099942544/1033173712';
   static const String _testNativeAdId = 'ca-app-pub-3940256099942544/2247696110';
 
   // Firebase Analytics 인스턴스
   final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
 
   // 광고 상태 관리
-  InterstitialAd? _interstitialAd;
-  bool _isInterstitialAdLoaded = false;
   bool _isTrackingPermissionGranted = false;
 
   /// AdMob 초기화
@@ -123,16 +118,6 @@ class AdService {
     return Platform.isIOS ? _iosBannerAdId : _androidBannerAdId;
   }
 
-  /// 플랫폼별 전면광고 ID 반환
-  String get interstitialAdId {
-    // 개발 환경에서는 테스트 광고 사용
-    if (_isDebugMode()) {
-      return _testInterstitialAdId;
-    }
-    
-    return Platform.isIOS ? _iosInterstitialAdId : _androidInterstitialAdId;
-  }
-
   /// 플랫폼별 네이티브 광고 ID 반환
   String get nativeAdId {
     // 개발 환경에서는 테스트 광고 사용
@@ -149,93 +134,11 @@ class AdService {
     return kDebugMode; // 디버그 빌드에서는 테스트 광고, 릴리즈에서는 실제 광고
   }
 
-  /// 전면광고 로드
-  Future<void> loadInterstitialAd() async {
-    try {
-      await InterstitialAd.load(
-        adUnitId: interstitialAdId,
-        request: const AdRequest(),
-        adLoadCallback: InterstitialAdLoadCallback(
-          onAdLoaded: (ad) {
-            _interstitialAd = ad;
-            _isInterstitialAdLoaded = true;
-            
-            // 광고 로드 완료 이벤트 로깅
-            _analytics.logEvent(
-              name: 'interstitial_ad_loaded',
-              parameters: {'ad_unit_id': interstitialAdId},
-            );
-            
-            if (kDebugMode) print('[AdService] 전면광고 로드 완료');
-          },
-          onAdFailedToLoad: (error) {
-            _isInterstitialAdLoaded = false;
-            
-            // 광고 로드 실패 이벤트 로깅
-            _analytics.logEvent(
-              name: 'interstitial_ad_load_failed',
-              parameters: {
-                'error_code': error.code,
-                'error_message': error.message,
-              },
-            );
-            
-            if (kDebugMode) print('[AdService] 전면광고 로드 실패: ${error.message}');
-          },
-        ),
-      );
-    } catch (e) {
-      if (kDebugMode) print('[AdService] 전면광고 로드 중 오류: $e');
-      await _analytics.logEvent(
-        name: 'interstitial_ad_load_error',
-        parameters: {'error': e.toString()},
-      );
-    }
-  }
-
-  /// 전면광고 표시 (앱 진입 시 3-5초 지연 후)
-  Future<void> showInterstitialAd() async {
-    if (!_isInterstitialAdLoaded || _interstitialAd == null) {
-      if (kDebugMode) print('[AdService] 전면광고가 로드되지 않음');
-      return;
-    }
-
-    try {
-      // 광고 표시 이벤트 로깅
-      await _analytics.logEvent(
-        name: 'interstitial_ad_shown',
-        parameters: {'ad_unit_id': interstitialAdId},
-      );
-
-      await _interstitialAd!.show();
-      
-      // 광고 표시 후 상태 초기화
-      _interstitialAd = null;
-      _isInterstitialAdLoaded = false;
-      
-      if (kDebugMode) print('[AdService] 전면광고 표시 완료');
-    } catch (e) {
-      if (kDebugMode) print('[AdService] 전면광고 표시 실패: $e');
-      await _analytics.logEvent(
-        name: 'interstitial_ad_show_error',
-        parameters: {'error': e.toString()},
-      );
-    }
-  }
-
   /// 배너 광고 클릭 이벤트 로깅
   Future<void> logBannerAdClick() async {
     await _analytics.logEvent(
       name: 'banner_ad_clicked',
       parameters: {'ad_unit_id': bannerAdId},
-    );
-  }
-
-  /// 전면광고 클릭 이벤트 로깅
-  Future<void> logInterstitialAdClick() async {
-    await _analytics.logEvent(
-      name: 'interstitial_ad_clicked',
-      parameters: {'ad_unit_id': interstitialAdId},
     );
   }
 

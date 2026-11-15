@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../providers/auth_provider.dart';
+import '../services/consent_service.dart';
 
 /// 설정 화면
 /// - 회원 탈퇴 등 설정 관련 기능 제공
@@ -13,6 +14,8 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  late final Future<bool> _privacyOptionsRequired = ConsentService().isPrivacyOptionsRequired();
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -58,6 +61,37 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
 
             SizedBox(height: 24.h),
+
+            // 광고 개인정보 설정 (UMP): 동의가 필요한 지역(EEA 등) 사용자에게만 표시
+            FutureBuilder<bool>(
+              future: _privacyOptionsRequired,
+              builder: (context, snapshot) {
+                if (snapshot.data != true) return const SizedBox.shrink();
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSectionTitle('개인정보'),
+                    SizedBox(height: 8.h),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12.r),
+                        border: Border.all(
+                          color: const Color(0xFFEDF1F3),
+                          width: 1,
+                        ),
+                      ),
+                      child: _buildMenuItem(
+                        icon: Icons.privacy_tip_outlined,
+                        title: '광고 개인정보 설정',
+                        onTap: () => ConsentService().showPrivacyOptionsForm(),
+                      ),
+                    ),
+                    SizedBox(height: 24.h),
+                  ],
+                );
+              },
+            ),
 
             // 향후 추가될 설정 섹션 예시
             // _buildSectionTitle('알림'),

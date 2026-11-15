@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/services/app_open_ad_service.dart';
+import 'package:mobile/services/consent_service.dart';
 import 'package:mobile/services/ad_service.dart';
 import 'package:mobile/services/campaign_cache_manager.dart';
 import 'package:mobile/services/fcm_service.dart';
@@ -85,6 +86,15 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       debugPrint('[SplashScreen] FCM 서비스 초기화 완료');
     } catch (e) {
       debugPrint('[SplashScreen] FCM 서비스 초기화 실패: $e');
+    }
+
+    // 광고 동의(UMP): 동의가 필요한 지역(EEA 등) 사용자에게만 양식 표시 후 광고 초기화
+    // Google 권장 순서에 따라 ATT보다 먼저 처리
+    try {
+      await ConsentService().showConsentFormIfRequired();
+      await ConsentService().initializeAdsIfAllowed();
+    } catch (e) {
+      debugPrint('[SplashScreen] 광고 동의 처리 실패: $e');
     }
 
     // 추적 권한 요청 (iOS ATT만 해당, Android는 시스템 팝업 없음)

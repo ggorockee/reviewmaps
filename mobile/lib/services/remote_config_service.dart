@@ -18,6 +18,10 @@ import '../models/version_check_models.dart';
 ///   {platform}_latest_version, {platform}_min_version,
 ///   {platform}_force_update, {platform}_store_url
 /// - 업데이트 안내 문구 (공통): update_message_title, update_message_body
+/// - 광고 제어: show_banner_ad, show_native_ad, show_app_open_ad,
+///   app_open_min_interval_hours, app_open_wait_ms
+///
+/// 콘솔 값의 원본: firebase/remoteconfig.template.json
 class RemoteConfigService {
   static final RemoteConfigService _instance = RemoteConfigService._internal();
   factory RemoteConfigService() => _instance;
@@ -57,6 +61,12 @@ class RemoteConfigService {
         'android_store_url': _androidStoreUrl,
         'update_message_title': '',
         'update_message_body': '',
+        // 광고 제어
+        'show_banner_ad': true,
+        'show_native_ad': true,
+        'show_app_open_ad': true,
+        'app_open_min_interval_hours': _defaultAppOpenIntervalHours,
+        'app_open_wait_ms': _defaultAppOpenWaitMs,
       });
 
       // 캐시 만료 시간 설정
@@ -121,6 +131,36 @@ class RemoteConfigService {
     final trimmed = value.trim();
     return trimmed.isEmpty ? _noVersion : trimmed;
   }
+
+  // ==================== 광고 제어 ====================
+
+  static const int _defaultAppOpenIntervalHours = 4;
+  static const int _defaultAppOpenWaitMs = 2000;
+
+  /// 홈 상단 배너 표시 여부 (Firebase를 쓸 수 없으면 표시)
+  bool get showBannerAd => _remoteConfig?.getBool('show_banner_ad') ?? true;
+
+  /// 목록 사이 네이티브 광고 표시 여부
+  bool get showNativeAd => _remoteConfig?.getBool('show_native_ad') ?? true;
+
+  /// 앱 오프닝 광고 표시 여부
+  bool get showAppOpenAd => _remoteConfig?.getBool('show_app_open_ad') ?? true;
+
+  /// 앱 오프닝 광고 최소 간격 (1시간 미만은 기본값으로 보정)
+  Duration get appOpenMinInterval =>
+      Duration(hours: appOpenIntervalHours(_remoteConfig?.getInt('app_open_min_interval_hours')));
+
+  /// 시작 화면에서 앱 오프닝 광고 로드를 기다리는 최대 시간 (0~4초 밖은 기본값으로 보정)
+  Duration get appOpenWait =>
+      Duration(milliseconds: appOpenWaitMs(_remoteConfig?.getInt('app_open_wait_ms')));
+
+  @visibleForTesting
+  static int appOpenIntervalHours(int? value) =>
+      value == null || value < 1 ? _defaultAppOpenIntervalHours : value;
+
+  @visibleForTesting
+  static int appOpenWaitMs(int? value) =>
+      value == null || value < 0 || value > 4000 ? _defaultAppOpenWaitMs : value;
 
   // ==================== 공지사항 ====================
 

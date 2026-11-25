@@ -30,9 +30,10 @@ void main() {
     VersionCheckResponse policy({
       required String minVersion,
       required bool forceUpdate,
+      String? latestVersion,
     }) {
       return VersionCheckResponse(
-        latestVersion: '99.0.0',
+        latestVersion: latestVersion ?? AppVersion.current,
         minVersion: minVersion,
         forceUpdate: forceUpdate,
         storeUrl: 'https://example.com',
@@ -43,7 +44,23 @@ void main() {
       expect(policy(minVersion: '0.0.0', forceUpdate: false).updateType, UpdateType.none);
     });
 
-    test('forceUpdate=false면 현재 버전이 최소 버전보다 낮아도 안내 없음', () {
+    test('현재 버전 < 최신 버전이면 선택 업데이트 (forceUpdate와 무관)', () {
+      for (final force in [true, false]) {
+        expect(
+          policy(minVersion: '0.0.0', forceUpdate: force, latestVersion: '99.0.0').updateType,
+          UpdateType.recommended,
+        );
+      }
+    });
+
+    test('최소·최신 버전 모두 높고 forceUpdate=true면 강제가 우선', () {
+      expect(
+        policy(minVersion: '99.0.0', forceUpdate: true, latestVersion: '99.0.0').updateType,
+        UpdateType.force,
+      );
+    });
+
+    test('forceUpdate=false면 최소 버전보다 낮아도 강제하지 않음', () {
       expect(policy(minVersion: '99.0.0', forceUpdate: false).updateType, UpdateType.none);
     });
 

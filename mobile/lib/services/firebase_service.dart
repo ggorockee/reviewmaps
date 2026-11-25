@@ -52,13 +52,20 @@ class FirebaseService {
   /// Crashlytics 설정
   Future<void> _setupCrashlytics() async {
     // Flutter 프레임워크 에러를 Crashlytics에 보고
+    // silent 에러(이미지 로드 실패 등)는 화면에 영향이 없으므로 비정상 종료로 세지 않음
     FlutterError.onError = (errorDetails) {
-      _crashlytics.recordFlutterFatalError(errorDetails);
+      if (errorDetails.silent) {
+        _crashlytics.recordFlutterError(errorDetails);
+      } else {
+        _crashlytics.recordFlutterFatalError(errorDetails);
+      }
     };
 
-    // 플랫폼별 에러를 Crashlytics에 보고
+    // 처리되지 않은 비동기 에러를 Crashlytics에 보고
+    // true를 반환하면 앱이 종료되지 않으므로 '심각하지 않은 문제'로 기록
+    // (fatal로 기록하면 네트워크 실패 한 번이 비정상 종료 한 건으로 집계됨)
     PlatformDispatcher.instance.onError = (error, stack) {
-      _crashlytics.recordError(error, stack, fatal: true);
+      _crashlytics.recordError(error, stack, fatal: false);
       return true;
     };
 

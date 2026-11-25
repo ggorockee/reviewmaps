@@ -1,0 +1,119 @@
+{
+  "parameterGroups": {
+    "ads": {
+      "description": "광고 노출 제어 (2.2.1 이상). 앱 기본값: mobile/lib/services/remote_config_service.dart",
+      "parameters": {
+        "show_banner_ad": {
+          "defaultValue": {
+            "value": "true"
+          },
+          "valueType": "BOOLEAN",
+          "description": "홈 상단 배너"
+        },
+        "show_native_ad": {
+          "defaultValue": {
+            "value": "true"
+          },
+          "valueType": "BOOLEAN",
+          "description": "목록 사이 네이티브 광고"
+        },
+        "show_app_open_ad": {
+          "defaultValue": {
+            "value": "true"
+          },
+          "valueType": "BOOLEAN",
+          "description": "앱 오프닝 광고"
+        },
+        "app_open_min_interval_hours": {
+          "defaultValue": {
+            "value": "4"
+          },
+          "valueType": "NUMBER",
+          "description": "앱 오프닝 광고 최소 간격(시간), 1 미만이면 4"
+        },
+        "app_open_wait_ms": {
+          "defaultValue": {
+            "value": "2000"
+          },
+          "valueType": "NUMBER",
+          "description": "시작 화면에서 앱 오프닝 광고 로드를 기다리는 최대 시간(ms), 0~4000 밖이면 2000"
+        }
+      }
+    },
+    "app_update": {
+      "description": "버전 관리. force_update=true이고 현재 < min이면 강제 업데이트, 현재 < latest이면 선택 업데이트(2.2.1 이상, 3일 간격). 순서: 스토어 공개 확인 → latest 올림 → (필요 시) min 올림",
+      "parameters": {
+        "ios_latest_version": {
+          "defaultValue": {
+            "value": "2.2.0"
+          },
+          "valueType": "STRING",
+          "description": "ios 최신 버전 (x.y.z)"
+        },
+        "ios_min_version": {
+          "defaultValue": {
+            "value": "0.0.0"
+          },
+          "valueType": "STRING",
+          "description": "ios 최소 지원 버전 (x.y.z)"
+        },
+        "ios_force_update": {
+          "defaultValue": {
+            "value": "true"
+          },
+          "valueType": "BOOLEAN",
+          "description": "min_version 강제 여부 (false면 강제하지 않음)"
+        },
+        "ios_store_url": {
+          "defaultValue": {
+            "value": "https://apps.apple.com/app/id6751343880"
+          },
+          "valueType": "STRING",
+          "description": "ios 스토어 링크"
+        },
+        "android_latest_version": {
+          "defaultValue": {
+            "value": "2.2.0"
+          },
+          "valueType": "STRING",
+          "description": "android 최신 버전 (x.y.z)"
+        },
+        "android_min_version": {
+          "defaultValue": {
+            "value": "0.0.0"
+          },
+          "valueType": "STRING",
+          "description": "android 최소 지원 버전 (x.y.z)"
+        },
+        "android_force_update": {
+          "defaultValue": {
+            "value": "true"
+          },
+          "valueType": "BOOLEAN",
+          "description": "min_version 강제 여부 (false면 강제하지 않음)"
+        },
+        "android_store_url": {
+          "defaultValue": {
+            "value": "https://play.google.com/store/apps/details?id=com.reviewmaps.mobile"
+          },
+          "valueType": "STRING",
+          "description": "android 스토어 링크"
+        },
+        "update_message_title": {
+          "defaultValue": {
+            "value": ""
+          },
+          "valueType": "STRING",
+          "description": "업데이트 팝업 제목 (비우면 기본 문구)"
+        },
+        "update_message_body": {
+          "defaultValue": {
+            "value": ""
+          },
+          "valueType": "STRING",
+          "description": "업데이트 팝업 본문 (비우면 기본 문구)"
+        }
+      }
+    }
+  }
+}

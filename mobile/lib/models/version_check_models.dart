@@ -66,22 +66,17 @@ class VersionCheckResponse {
 
   /// 업데이트 유형 결정
   ///
-  /// 서버의 forceUpdate 플래그를 최우선으로 적용:
-  /// 1. forceUpdate == false → 무조건 none (팝업 X)
-  /// 2. forceUpdate == true && 현재버전 >= minVersion → none (팝업 X)
-  /// 3. forceUpdate == true && 현재버전 < minVersion → force (강제 업데이트 팝업)
+  /// 1. forceUpdate == true && 현재버전 < minVersion → force (닫을 수 없는 팝업)
+  /// 2. 현재버전 < latestVersion → recommended (나중에 가능, 스킵 기간 적용)
+  /// 3. 그 외 → none
+  ///
+  /// forceUpdate는 강제 업데이트만 켜고 끄며, 선택 업데이트는 latestVersion으로만 제어합니다.
   UpdateType get updateType {
-    // 서버에서 forceUpdate가 false면 업데이트 안내 없음
-    if (!forceUpdate) {
-      return UpdateType.none;
-    }
-
-    // forceUpdate가 true일 때만 버전 비교
-    if (requiresForceUpdate) {
+    if (forceUpdate && requiresForceUpdate) {
       return UpdateType.force;
     }
 
-    return UpdateType.none;
+    return needsUpdate ? UpdateType.recommended : UpdateType.none;
   }
 
   @override

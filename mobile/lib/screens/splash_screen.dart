@@ -6,6 +6,7 @@ import 'package:mobile/services/consent_service.dart';
 import 'package:mobile/services/ad_service.dart';
 import 'package:mobile/services/campaign_cache_manager.dart';
 import 'package:mobile/services/fcm_service.dart';
+import 'package:mobile/services/remote_config_service.dart';
 import 'package:mobile/config/app_version.dart';
 import 'package:mobile/const/colors.dart';
 import 'package:mobile/screens/main_screen.dart';
@@ -115,6 +116,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
           debugPrint('[SplashScreen] 프리로드 타임아웃 - 캐시 없이 진행');
         },
       ),
+      // 앱 오프닝 광고가 로드 중이면 잠시 기다려 시작 화면에서 표시 (기본 최대 2초, Remote Config app_open_wait_ms)
+      _appOpenAdService.waitForLoad(RemoteConfigService().appOpenWait),
       _adService.logSessionStart().timeout(
         const Duration(seconds: 2), // 2초 타임아웃
         onTimeout: () {

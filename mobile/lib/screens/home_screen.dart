@@ -463,7 +463,8 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _nearestCampaigns = Future.error(e);
+        // FutureBuilder가 붙기 전에 미처리 예외로 보고되지 않도록 오류를 미리 무시 처리
+        _nearestCampaigns = Future<List<Store>>.error(e)..ignore();
       });
       showFriendlySnack(
         context,
@@ -653,7 +654,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   )),
               GestureDetector(
                 onTap: () async {
-                  final data = await _nearestCampaigns;
+                  List<Store>? loaded;
+                  try {
+                    loaded = await _nearestCampaigns;
+                  } catch (_) {
+                    // 로딩 실패 상태는 아래 FutureBuilder가 이미 안내함
+                    return;
+                  }
+                  final data = loaded;
                   if (!mounted || data == null || _currentPosition == null) {
                     return;
                   }

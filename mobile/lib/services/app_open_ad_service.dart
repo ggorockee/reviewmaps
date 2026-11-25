@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -5,12 +6,14 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'remote_config_service.dart';
+
 /// App Open Ad 서비스
 ///
 /// 앱 시작 및 포그라운드 복귀 시 표시되는 전체 화면 광고
 ///
 /// **무효 트래픽 방지 정책**:
-/// - 최소 4시간 간격 유지 (Google 권장)
+/// - 최소 간격 유지 (기본 4시간, Remote Config app_open_min_interval_hours)
 /// - 세션당 1회 표시 제한
 /// - 광고 로드 실패 시 재시도 제한
 class AppOpenAdService with WidgetsBindingObserver {
@@ -28,14 +31,16 @@ class AppOpenAdService with WidgetsBindingObserver {
   // SharedPreferences 키
   static const String _lastAdShownTimeKey = 'last_app_open_ad_shown_time';
 
-  // 무효 트래픽 방지: 최소 광고 표시 간격 (4시간)
-  static const Duration _minAdInterval = Duration(hours: 4);
+  // 받은 광고의 유효 시간 (Google 정책: 4시간이 지난 앱 오프닝 광고는 표시할 수 없음)
+  static const Duration _adLifetime = Duration(hours: 4);
 
   final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
 
   AppOpenAd? _appOpenAd;
   bool _isAdLoaded = false;
   bool _isShowingAd = false;
+  DateTime? _loadedAt;
+  Completer<void>? _loading;
   bool _hasShownAdInSession = false;
   DateTime? _lastAdShownTime;
   int _loadAttempts = 0;
@@ -119,17 +124,7 @@ class AppOpenAdService with WidgetsBindingObserver {
 
   /// 광고 표시 가능 여부 확인
   bool _canShowAd() {
-    // 이미 세션에서 광고를 표시했으면 표시하지 않음
-    if (_hasShownAdInSession) {
-      if (kDebugMode) print('[AppOpenAdService] 이미 세션에서 광고를 표시했음');
-      return false;
-    }
-
-    // 현재 광고를 표시 중이면 표시하지 않음
-    if (_isShowingAd) {
-      if (kDebugMode) print('[AppOpenAdService] 현재 광고를 표시 중');
-      return false;
-    }
+    if (!_isEligible()) return false;
 
     // 광고가 로드되지 않았으면 표시하지 않음
     if (!_isAdLoaded || _appOpenAd == null) {
@@ -137,24 +132,65 @@ class AppOpenAdService with WidgetsBindingObserver {
       return false;
     }
 
-    // 마지막 광고 표시 시간이 최소 간격보다 짧으면 표시하지 않음
-    if (_lastAdShownTime != null) {
-      final timeSinceLastAd = DateTime.now().difference(_lastAdShownTime!);
-      if (timeSinceLastAd < _minAdInterval) {
-        final remainingTime = _minAdInterval - timeSinceLastAd;
-        if (kDebugMode) print('[AppOpenAdService] 광고 표시 대기 중: ${remainingTime.inMinutes}분 남음');
-        return false;
-      }
+    return true;
+  }
+
+  /// 지금 앱 오프닝 광고를 보여줘도 되는 상태인지 (로드 여부와 무관)
+  ///
+  /// 보여줄 수 없을 때는 광고를 요청하지도 않아 버려지는 로드를 막는다.
+  bool _isEligible() {
+    // Remote Config로 끈 경우
+    if (!RemoteConfigService().showAppOpenAd) return false;
+
+    // 세션당 1회 제한 또는 표시 중
+    if (_hasShownAdInSession || _isShowingAd) {
+      if (kDebugMode) print('[AppOpenAdService] 이미 세션에서 광고를 표시했음');
+      return false;
     }
 
-    return true;
+    return intervalElapsed(
+      lastShown: _lastAdShownTime,
+      now: DateTime.now(),
+      minInterval: RemoteConfigService().appOpenMinInterval,
+    );
+  }
+
+  /// 마지막 표시 후 최소 간격이 지났는지
+  @visibleForTesting
+  static bool intervalElapsed({
+    required DateTime? lastShown,
+    required DateTime now,
+    required Duration minInterval,
+  }) {
+    return lastShown == null || now.difference(lastShown) >= minInterval;
+  }
+
+  /// 받은 지 4시간이 지난 광고는 표시할 수 없으므로 버린다
+  void _discardIfExpired() {
+    final loadedAt = _loadedAt;
+    if (_isShowingAd || loadedAt == null) return;
+    if (DateTime.now().difference(loadedAt) < _adLifetime) return;
+    _appOpenAd?.dispose();
+    _clearAd();
+    if (kDebugMode) print('[AppOpenAdService] 만료된 광고 폐기');
+  }
+
+  void _clearAd() {
+    _appOpenAd = null;
+    _isAdLoaded = false;
+    _loadedAt = null;
   }
 
   /// App Open Ad 로드
   Future<void> loadAd() async {
     if (kDebugMode) print('[AppOpenAdService] 광고 로드 시작 (시도 횟수: $_loadAttempts/$_maxLoadAttempts)');
 
-    // 이미 광고가 로드되어 있으면 건너뜀
+    // 보여줄 수 없는 상태면 요청하지 않음
+    if (!_isEligible()) return;
+    _discardIfExpired();
+
+    // 이미 광고가 로드되어 있거나 로드 중이면 건너뜀
+    if (_loading != null) return;
     if (_isAdLoaded && _appOpenAd != null) {
       if (kDebugMode) print('[AppOpenAdService] 광고가 이미 로드되어 있음');
       return;
@@ -167,6 +203,13 @@ class AppOpenAdService with WidgetsBindingObserver {
     }
 
     _loadAttempts++;
+    final loading = Completer<void>();
+    _loading = loading;
+    void finishLoading() {
+      if (!loading.isCompleted) loading.complete();
+      if (identical(_loading, loading)) _loading = null;
+    }
+
     if (kDebugMode) print('[AppOpenAdService] App Open Ad 로드 요청 - Ad Unit ID: $_appOpenAdId');
 
     try {
@@ -177,6 +220,8 @@ class AppOpenAdService with WidgetsBindingObserver {
           onAdLoaded: (ad) {
             _appOpenAd = ad;
             _isAdLoaded = true;
+            _loadedAt = DateTime.now();
+            finishLoading();
             _loadAttempts = 0; // 로드 성공 시 카운터 리셋
 
             // 광고 이벤트 리스너 설정
@@ -187,20 +232,16 @@ class AppOpenAdService with WidgetsBindingObserver {
               },
               onAdDismissedFullScreenContent: (ad) {
                 _isShowingAd = false;
-                _isAdLoaded = false;
                 ad.dispose();
-                _appOpenAd = null;
-
-                // 다음 광고 미리 로드
-                loadAd();
+                // 세션당 1회만 보여주므로 여기서 다음 광고를 미리 받지 않음 (받아도 버려짐)
+                _clearAd();
 
                 if (kDebugMode) print('[AppOpenAdService] 광고 닫힘');
               },
               onAdFailedToShowFullScreenContent: (ad, error) {
                 _isShowingAd = false;
-                _isAdLoaded = false;
                 ad.dispose();
-                _appOpenAd = null;
+                _clearAd();
 
                 _analytics.logEvent(
                   name: 'app_open_ad_show_failed',
@@ -222,8 +263,8 @@ class AppOpenAdService with WidgetsBindingObserver {
             if (kDebugMode) print('[AppOpenAdService] 광고 로드 완료');
           },
           onAdFailedToLoad: (error) {
-            _isAdLoaded = false;
-            _appOpenAd = null;
+            _clearAd();
+            finishLoading();
 
             _analytics.logEvent(
               name: 'app_open_ad_load_failed',
@@ -239,6 +280,7 @@ class AppOpenAdService with WidgetsBindingObserver {
         ),
       );
     } catch (e) {
+      finishLoading();
       if (kDebugMode) print('[AppOpenAdService] 광고 로드 중 오류: $e');
       await _analytics.logEvent(
         name: 'app_open_ad_load_error',
@@ -247,12 +289,22 @@ class AppOpenAdService with WidgetsBindingObserver {
     }
   }
 
+  /// 진행 중인 로드가 끝나기를 최대 [timeout]만큼 기다림 (시작 화면에서 호출)
+  Future<void> waitForLoad(Duration timeout) async {
+    final loading = _loading;
+    if (loading == null || !_isEligible()) return;
+    await loading.future.timeout(timeout, onTimeout: () {});
+  }
+
   /// App Open Ad 표시
   Future<void> showAdIfAvailable() async {
+    _discardIfExpired();
     if (!_canShowAd()) {
       return;
     }
 
+    // await 전에 표시 상태로 바꿔 시작 화면과 복귀 이벤트의 중복 표시를 막는다
+    _isShowingAd = true;
     try {
       await _analytics.logEvent(
         name: 'app_open_ad_shown',
@@ -267,6 +319,7 @@ class AppOpenAdService with WidgetsBindingObserver {
 
       if (kDebugMode) print('[AppOpenAdService] 광고 표시 완료');
     } catch (e) {
+      _isShowingAd = false;
       if (kDebugMode) print('[AppOpenAdService] 광고 표시 실패: $e');
       await _analytics.logEvent(
         name: 'app_open_ad_show_error',
@@ -294,8 +347,8 @@ class AppOpenAdService with WidgetsBindingObserver {
         return;
       }
 
-      // 포그라운드 복귀 시 광고 표시
-      showAdIfAvailable();
+      // 포그라운드 복귀 시 광고 표시. 준비된 광고가 없으면 다음 복귀를 위해 로드
+      showAdIfAvailable().then((_) => loadAd());
     }
   }
 
@@ -324,8 +377,7 @@ class AppOpenAdService with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _appOpenAd?.dispose();
-    _appOpenAd = null;
-    _isAdLoaded = false;
+    _clearAd();
     _isShowingAd = false;
   }
 

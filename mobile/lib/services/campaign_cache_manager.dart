@@ -65,7 +65,7 @@ class CampaignCacheManager {
         return;
       }
 
-      _recommendedLoadingCompleter = Completer<List<Store>>();
+      _recommendedLoadingCompleter = _newLoadingCompleter();
 
       final data = await _campaignService.fetchPage(
         limit: limit,
@@ -93,6 +93,15 @@ class CampaignCacheManager {
     }
   }
 
+  /// 로딩 결과를 함께 기다리기 위한 Completer.
+  /// 기다리는 쪽이 없을 때 실패하면 미처리 예외가 되어 Crashlytics에 비정상 종료로 기록되므로
+  /// 오류를 무시하는 리스너를 미리 붙인다. (기다리는 쪽에는 오류가 그대로 전달됨)
+  Completer<List<Store>> _newLoadingCompleter() {
+    final completer = Completer<List<Store>>();
+    completer.future.ignore();
+    return completer;
+  }
+
   /// 추천 캠페인 가져오기 (캐시 우선)
   Future<List<Store>> getRecommended({
     int limit = 20,
@@ -109,7 +118,7 @@ class CampaignCacheManager {
       return await _recommendedLoadingCompleter!.future;
     }
 
-    _recommendedLoadingCompleter = Completer<List<Store>>();
+    _recommendedLoadingCompleter = _newLoadingCompleter();
 
     try {
       final data = await _campaignService.fetchPage(
@@ -151,7 +160,7 @@ class CampaignCacheManager {
       return await _nearestLoadingCompleter!.future;
     }
 
-    _nearestLoadingCompleter = Completer<List<Store>>();
+    _nearestLoadingCompleter = _newLoadingCompleter();
 
     try {
       final data = await _campaignService.fetchNearest(
@@ -304,7 +313,7 @@ class CampaignCacheManager {
         return;
       }
 
-      _nearestLoadingCompleter = Completer<List<Store>>();
+      _nearestLoadingCompleter = _newLoadingCompleter();
 
       // 마지막 알려진 위치 우선 사용 (빠른 응답)
       Position? position = await Geolocator.getLastKnownPosition();

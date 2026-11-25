@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:mobile/services/consent_service.dart';
+import 'package:mobile/services/remote_config_service.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import '../services/ad_service.dart';
@@ -46,6 +47,8 @@ class _MyBannerAdWidgetState extends State<MyBannerAdWidget> {
   void _loadAd() {
     // 광고 동의 전에는 광고 요청 금지 (UMP 정책)
     if (!ConsentService().isAdsInitialized) return;
+    // Remote Config로 끈 경우 자리도 차지하지 않음 (build에서 접음)
+    if (!RemoteConfigService().showBannerAd) return;
     final int width = MediaQuery.sizeOf(context).width.truncate();
     final AdSize size = AdSize.getInlineAdaptiveBannerAdSize(width, _maxAdHeight);
     final String adUnitId = _adService.bannerAdId;
@@ -63,7 +66,12 @@ class _MyBannerAdWidgetState extends State<MyBannerAdWidget> {
           // 인라인 적응형은 서버가 높이를 결정하므로 실제 크기를 조회해 컨테이너에 반영
           final AdSize? platformSize = await (ad as BannerAd).getPlatformAdSize();
           // 위젯이 이미 dispose된 경우 dispose()에서 광고도 해제됨
-          if (!mounted || platformSize == null) return;
+          if (!mounted) return;
+          if (platformSize == null) {
+            // 크기를 알 수 없으면 광고를 그릴 수 없으므로 빈 자리를 남기지 않고 접음
+            setState(() => _isFailed = true);
+            return;
+          }
           setState(() {
             _platformSize = platformSize;
             _isLoaded = true;
@@ -99,7 +107,7 @@ class _MyBannerAdWidgetState extends State<MyBannerAdWidget> {
   @override
   Widget build(BuildContext context) {
     // 로드 실패 시 빈 공간을 남기지 않음
-    if (_isFailed) return const SizedBox.shrink();
+    if (_isFailed || !RemoteConfigService().showBannerAd) return const SizedBox.shrink();
 
     final AdSize? size = _platformSize;
     final BannerAd? ad = _bannerAd;

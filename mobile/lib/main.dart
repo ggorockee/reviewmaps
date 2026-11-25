@@ -54,8 +54,12 @@ Future<void> main() async {
   // 2) 광고 동의(UMP) 정보 갱신 → 광고 요청이 허용된 경우에만 AdMob/앱 오프닝 광고 초기화
   // - 비규제 지역이거나 이전에 동의한 사용자는 여기서 바로 초기화
   // - 동의가 필요한 신규 사용자(EEA 등)는 스플래시에서 동의 양식 처리 후 초기화
+  // - Remote Config를 함께 받아 광고 스위치가 첫 광고 요청 전에 적용되도록 함
   try {
-    await ConsentService().requestConsentInfoUpdate();
+    await Future.wait([
+      RemoteConfigService().initialize(),
+      ConsentService().requestConsentInfoUpdate(),
+    ]);
     await ConsentService().initializeAdsIfAllowed();
   } catch (e) {
     debugPrint('광고 동의/초기화 실패: $e');
@@ -93,17 +97,10 @@ Future<void> main() async {
     debugPrint('Firebase initialization failed, continuing: $e');
   }
 
-  // 9) Firebase Remote Config 초기화
-  try {
-    await RemoteConfigService().initialize();
-  } catch (e) {
-    debugPrint('Firebase Remote Config 초기화 실패: $e');
-  }
-
-  // 10) FCM 푸시 알림 서비스 초기화
+  // 9) FCM 푸시 알림 서비스 초기화
   // Provider 방식으로 변경하기 위해 runApp 이후로 이동
 
-  // 11) Flutter 앱 실행
+  // 10) Flutter 앱 실행
   runApp(
     // ProviderScope를 추가하여 앱 전체에서 Riverpod Provider를 사용
     const ProviderScope(

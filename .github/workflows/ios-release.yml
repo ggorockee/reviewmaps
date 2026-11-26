@@ -3,11 +3,12 @@ name: iOS Release
 # 수동 실행: Actions → iOS Release → Run workflow (업로드를 끄면 빌드·서명만 확인)
 # 빌드 번호는 비워 두면 실행 시각(UTC, 예: 202611262110)으로 자동 지정. 버전 이름은 pubspec.yaml에서 읽음.
 # GitHub의 Xcode 27 빌드 머신에서 빌드해 App Store Connect(TestFlight)에 업로드한다.
-# 서명은 App Store Connect API 키로 Apple이 관리하는 배포 인증서(cloud signing)를 쓴다.
+# 서명: 개발·배포 인증서(p12)를 임시 키체인에 넣고, 프로비저닝 프로필은 App Store Connect API 키로 자동 관리.
 #
 # 필요한 저장소 시크릿
 #   ASC_KEY_ID, ASC_ISSUER_ID   App Store Connect API 키 ID, 발급자 ID
 #   ASC_KEY_P8_BASE64           API 키 .p8 파일 base64
+#   IOS_SIGNING_P12_BASE64, IOS_SIGNING_P12_PASSWORD  Apple Development·Distribution 인증서 p12
 #   IOS_BUILD_FILES_BASE64      git에 없는 빌드 파일 묶음(tar.gz, mobile/ 기준 경로) base64
 
 on:
@@ -61,6 +62,23 @@ jobs:
           mkdir -p "$RUNNER_TEMP/asc"
           echo "$ASC_KEY_P8_BASE64" | base64 --decode > "$RUNNER_TEMP/asc/AuthKey_${ASC_KEY_ID}.p8"
 
+      - name: 서명 인증서 임시 키체인
+        env:
+          P12_BASE64: ${{ secrets.IOS_SIGNING_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.IOS_SIGNING_P12_PASSWORD }}
+        run: |
+          KC="$RUNNER_TEMP/signing.keychain-db"
+          KC_PW="$(openssl rand -hex 16)"
+          echo "$P12_BASE64" | base64 --decode > "$RUNNER_TEMP/signing.p12"
+          security create-keychain -p "$KC_PW" "$KC"
+          security set-keychain-settings -lut 21600 "$KC"
+          security unlock-keychain -p "$KC_PW" "$KC"
+          security import "$RUNNER_TEMP/signing.p12" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KC"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KC_PW" "$KC" > /dev/null
+          security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr -d '"')
+          rm -f "$RUNNER_TEMP/signing.p12"
+          security find-identity -v -p codesigning "$KC" | sed -E 's/[0-9A-F]{40}/<hash>/'
+
       - run: flutter pub get
 
       - name: 빌드 번호 정하기
@@ -75,11 +93,25 @@ jobs:
 
       - name: Swift 패키지 받기
         run: |
-          flutter build ios --release --config-only --no-codesign
+          flutter build ios --release --config-only --no-codesign --build-number "${{ steps.bn.outputs.number }}"
           xcodebuild -resolvePackageDependencies -workspace ios/Runner.xcworkspace -scheme Runner
 
-      - name: 아카이브 (서명 없이)
-        run: flutter build ipa --release --no-codesign --build-number "${{ steps.bn.outputs.number }}"
+      - name: 아카이브 (서명)
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          xcodebuild archive \
+            -workspace ios/Runner.xcworkspace -scheme Runner -configuration Release \
+            -destination generic/platform=iOS \
+            -archivePath build/ios/archive/Runner.xcarchive \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/asc/AuthKey_${ASC_KEY_ID}.p8" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            | tail -40
+          test "${PIPESTATUS[0]}" -eq 0
+          /usr/libexec/PlistBuddy -c "Print :ApplicationProperties:CFBundleShortVersionString" -c "Print :ApplicationProperties:CFBundleVersion" build/ios/archive/Runner.xcarchive/Info.plist
 
       - name: 서명·App Store Connect 업로드
         env:
@@ -110,4 +142,6 @@ jobs:
 
       - name: 정리
         if: always()
-        run: rm -rf "$RUNNER_TEMP/asc"
+        run: |
+          rm -rf "$RUNNER_TEMP/asc"
+          security delete-keychain "$RUNNER_TEMP/signing.keychain-db" 2>/dev/null || true

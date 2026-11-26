@@ -1,0 +1,90 @@
+name: iOS Release
+
+# 수동 실행: Actions → iOS Release → Run workflow (빌드 번호 입력)
+# GitHub의 Xcode 27 빌드 머신에서 빌드해 App Store Connect(TestFlight)에 업로드한다.
+# 서명은 App Store Connect API 키로 Apple이 관리하는 배포 인증서(cloud signing)를 쓴다.
+#
+# 필요한 저장소 시크릿
+#   ASC_KEY_ID, ASC_ISSUER_ID   App Store Connect API 키 ID, 발급자 ID
+#   ASC_KEY_P8_BASE64           API 키 .p8 파일 base64
+#   IOS_BUILD_FILES_BASE64      git에 없는 빌드 파일 묶음(tar.gz, mobile/ 기준 경로) base64
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_number:
+        description: "빌드 번호 (CFBundleVersion, 같은 버전 안에서 이전보다 커야 함)"
+        required: true
+      xcode:
+        description: "Xcode 버전"
+        required: true
+        default: "27.2"
+
+concurrency:
+  group: ios-release
+  cancel-in-progress: false
+
+jobs:
+  build-upload:
+    runs-on: xcode-27
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: ./mobile
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Xcode 선택
+        run: |
+          sudo xcode-select -s "/Applications/Xcode_${{ inputs.xcode }}.app"
+          xcodebuild -version
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.9
+          cache: true
+
+      - name: 빌드 파일·API 키 준비
+        env:
+          IOS_BUILD_FILES_BASE64: ${{ secrets.IOS_BUILD_FILES_BASE64 }}
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+        run: |
+          echo "$IOS_BUILD_FILES_BASE64" | base64 --decode | tar -xzf - -C .
+          mkdir -p "$RUNNER_TEMP/asc"
+          echo "$ASC_KEY_P8_BASE64" | base64 --decode > "$RUNNER_TEMP/asc/AuthKey_${ASC_KEY_ID}.p8"
+
+      - run: flutter pub get
+
+      - name: 아카이브 (서명 없이)
+        run: flutter build ipa --release --no-codesign --build-number "${{ inputs.build_number }}"
+
+      - name: 서명·App Store Connect 업로드
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>teamID</key><string>KSSVSPN647</string>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+          </dict></plist>
+          PLIST
+          xcodebuild -exportArchive \
+            -archivePath build/ios/archive/Runner.xcarchive \
+            -exportPath "$RUNNER_TEMP/export" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/asc/AuthKey_${ASC_KEY_ID}.p8" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+
+      - name: 정리
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/asc"

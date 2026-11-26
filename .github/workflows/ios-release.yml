@@ -1,6 +1,6 @@
 name: iOS Release
 
-# 수동 실행: Actions → iOS Release → Run workflow
+# 수동 실행: Actions → iOS Release → Run workflow (업로드를 끄면 빌드·서명만 확인)
 # 빌드 번호는 비워 두면 실행 시각(UTC, 예: 202611262110)으로 자동 지정. 버전 이름은 pubspec.yaml에서 읽음.
 # GitHub의 Xcode 27 빌드 머신에서 빌드해 App Store Connect(TestFlight)에 업로드한다.
 # 서명은 App Store Connect API 키로 Apple이 관리하는 배포 인증서(cloud signing)를 쓴다.
@@ -17,6 +17,10 @@ on:
         description: "빌드 번호 (비워 두면 실행 시각으로 자동)"
         required: false
         default: ""
+      upload:
+        description: "App Store Connect에 업로드 (끄면 빌드·서명만 확인)"
+        type: boolean
+        default: true
       xcode:
         description: "Xcode 버전"
         required: true
@@ -73,13 +77,13 @@ jobs:
         run: |
           flutter build ios --release --config-only --no-codesign
           xcodebuild -resolvePackageDependencies -workspace ios/Runner.xcworkspace -scheme Runner
-          ls "$HOME/Library/Developer/Xcode/DerivedData"/Runner-*/SourcePackages/checkouts/ | head -30
 
       - name: 아카이브 (서명 없이)
         run: flutter build ipa --release --no-codesign --build-number "${{ steps.bn.outputs.number }}"
 
       - name: 서명·App Store Connect 업로드
         env:
+          DESTINATION: ${{ inputs.upload && 'upload' || 'export' }}
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
@@ -88,7 +92,7 @@ jobs:
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0"><dict>
             <key>method</key><string>app-store-connect</string>
-            <key>destination</key><string>upload</string>
+            <key>destination</key><string>$DESTINATION</string>
             <key>signingStyle</key><string>automatic</string>
             <key>teamID</key><string>KSSVSPN647</string>
             <key>manageAppVersionAndBuildNumber</key><false/>
@@ -102,6 +106,7 @@ jobs:
             -authenticationKeyPath "$RUNNER_TEMP/asc/AuthKey_${ASC_KEY_ID}.p8" \
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+          if [ "$DESTINATION" = export ]; then ls -la "$RUNNER_TEMP/export"; echo "### 업로드 안 함 (빌드·서명 확인만)" >> "$GITHUB_STEP_SUMMARY"; else echo "### App Store Connect 업로드 완료" >> "$GITHUB_STEP_SUMMARY"; fi
 
       - name: 정리
         if: always()

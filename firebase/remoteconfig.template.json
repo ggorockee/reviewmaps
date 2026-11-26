@@ -73,7 +73,7 @@
         },
         "android_latest_version": {
           "defaultValue": {
-            "value": "2.2.0"
+            "value": "2.2.2"
           },
           "valueType": "STRING",
           "description": "android 최신 버전 (x.y.z)"

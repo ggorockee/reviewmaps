@@ -92,8 +92,4 @@ flutter {
 dependencies {
     // Core library desugaring (flutter_local_notifications 필요)
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
-    // Unity Ads SDK
-    implementation("com.unity3d.ads:unity-ads:4.21.0")
-    // Unity Ads Mediation Adapter
-    implementation("com.google.ads.mediation:unity:4.21.0.0")
 }

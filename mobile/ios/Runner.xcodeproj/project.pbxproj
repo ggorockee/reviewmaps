@@ -258,7 +258,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# Release/Profile 빌드에서만 dSYM을 Crashlytics로 업로드 (Debug는 dSYM 미생성)\nif [ \"${CONFIGURATION}\" != \"Debug\" ]; then\n  \"${BUILD_DIR%/Build/*}/SourcePackages/checkouts/firebase-ios-sdk/Crashlytics/run\"\nfi\n";
+			shellScript = "# Release/Profile 빌드에서만 dSYM을 Crashlytics로 업로드 (Debug는 dSYM 미생성)\n# Swift 패키지가 아직 받아지지 않아 run 스크립트가 없으면 업로드만 건너뛴다 (앱 빌드는 계속)\nif [ \"${CONFIGURATION}\" != \"Debug\" ]; then\n  RUN=\"${BUILD_DIR%/Build/*}/SourcePackages/checkouts/firebase-ios-sdk/Crashlytics/run\"\n  if [ -x \"$RUN\" ]; then\n    \"$RUN\"\n  else\n    echo \"warning: Crashlytics run 스크립트 없음, dSYM 업로드 건너뜀: $RUN\"\n  fi\nfi\n";
 			showEnvVarsInLog = 0;
 		};
 		3B06AD1E1E4923F5004D2608 /* Thin Binary */ = {

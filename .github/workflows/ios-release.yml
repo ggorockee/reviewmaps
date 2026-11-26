@@ -69,6 +69,12 @@ jobs:
           echo "number=$BN" >> "$GITHUB_OUTPUT"
           echo "### 빌드 번호 $BN (버전 $(grep -m1 '^version:' pubspec.yaml | sed 's/version: *//; s/+.*//'))" >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Swift 패키지 받기
+        run: |
+          flutter build ios --release --config-only --no-codesign
+          xcodebuild -resolvePackageDependencies -workspace ios/Runner.xcworkspace -scheme Runner
+          ls "$HOME/Library/Developer/Xcode/DerivedData"/Runner-*/SourcePackages/checkouts/ | head -30
+
       - name: 아카이브 (서명 없이)
         run: flutter build ipa --release --no-codesign --build-number "${{ steps.bn.outputs.number }}"
 

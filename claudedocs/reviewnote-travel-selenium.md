@@ -72,13 +72,22 @@
 - [x] go-scraper `reviewnote-detail` 구현·단위 테스트(일정 계획, 간격, 대상 고르기, 차단·만료 즉시 중단, 보관값 붙이기), 새 계정 쿠키로 실제 상세 API 호출 확인
 - [x] 서버 campaign 모델 필드, 마이그레이션 SQL
 - [x] infra: CronJob·ExternalSecret·알림 4개·대시보드 행 (infra PR)
-- [ ] 운영 DB 마이그레이션 적용 (개발자 승인)
-- [ ] GSM `prod-reviewmaps-reviewnote-session` 생성 (개발자 승인)
-- [ ] 머지·이미지 반영·ArgoCD 동기화 확인
-- [ ] 만료 3일 전 메일 실제 발송 시험 (테스트 지표 push → 메일 확인 → 삭제)
+- [x] 운영 DB 마이그레이션 적용 (개발자 승인, 2026-11-27 17:2x, 임시 Pod·한 트랜잭션, 컬럼 6개·보관 테이블 확인, 기존 리뷰노트 12,449행 유지)
+- [x] GSM `prod-reviewmaps-reviewnote-session` 생성 (개발자 승인, 버전 1 = 수집 전용 계정 재로그인 쿠키, 만료 2026-12-12 17:43 KST)
+- [x] 머지·이미지 반영·ArgoCD 동기화 확인 (reviewmaps #310 → 이미지 `20261127-990dcc0`, infra #1231. reviewmaps·kube-prometheus-stack Synced/Healthy, ExternalSecret SecretSynced, CronJob `reviewmaps-go-cron-reviewnote-detail` backoff 0·deadline 30600·MAX_FETCH 100)
+- [x] 만료 3일 전 메일 실제 발송 시험: 시험 그룹(scraper=alert-test)에 만료 2일 남음 push → 5분 뒤 firing → Alertmanager email 수신자로 발송(실패 0) → 그룹 삭제. 실제 그룹에는 만료 시각을 미리 push(남은 14.99일, "만료일 지표 없음" 오탐 방지)
 - [ ] 2026-11-28 첫 실행(100건) 결과 확인 → 이상 없으면 `REVIEWNOTE_DETAIL_MAX_FETCH` 450
 - [ ] 모바일: 요일 배지를 문구 추정(`StayAvailability`) 대신 `possible_days`/`impossible_days` 우선 사용 (`feature/stay-available-days` 머지 후)
-- [ ] 세션 갱신 2026-12-09 무렵 (현재 쿠키 만료 2026-12-12 17:05)
+- [ ] 세션 갱신 2026-12-09 무렵 (현재 쿠키 만료 2026-12-12 17:43, 만료 3일 전 [WARN] 메일 2026-12-09 17:43 무렵)
+
+## 겪은 문제 (2026-11-27)
+
+| 문제 | 원인 | 조치 |
+|------|------|------|
+| 로그인했는데 `login`이 확인 못 함 (10분 시간 초과) | 로그인 뒤 창이 네이버 등 다른 페이지에 머물면 `driver.get_cookies()`가 리뷰노트 쿠키를 못 봄 | CDP `Network.getCookies`로 리뷰노트 주소 쿠키를 직접 조회, 대기 30분 |
+| 이전 계정으로 로그인하면 회원가입 화면 | 리뷰노트 미가입 네이버 계정 | 가입된 수집 전용 계정 사용 |
+| 세션 쿠키 값이 로컬 작업 로그·대화 기록에 한 번 출력됨 | 백그라운드로 넘어간 명령의 출력 순서 | 로그 파일 삭제, 그 쿠키 대신 재로그인한 새 쿠키를 GSM에 등록. 노출된 쿠키는 운영에 쓰지 않음(2026-12-12 만료). 쿠키 확인은 키·길이만 출력 |
+| 노출 쿠키가 든 프로필 | - | `~/.reviewmaps/reviewnote-chrome-profile.exposed-20261127` 로 보관 (이전 계정 프로필은 `.old-account-20261127`), 필요 없으면 삭제 |
 
 ## 남은 일
 

@@ -16,11 +16,11 @@ import time
 from datetime import UTC, datetime
 from pathlib import Path
 
-from .browser import DEFAULT_PROFILE_DIR, build_driver, is_logged_in
+from .browser import DEFAULT_PROFILE_DIR, SESSION_COOKIE, build_driver, is_logged_in
 from .reviewnote_parse import BASE_URL
 from .reviewnote_travel import CrawlOptions, LoginRequired, crawl
 
-LOGIN_TIMEOUT = 600
+LOGIN_TIMEOUT = 1800  # 네이버 추가 인증(새 기기 확인 등)에 시간이 걸릴 수 있음
 
 log = logging.getLogger("selenium_scraper")
 
@@ -29,22 +29,17 @@ def cmd_login(args: argparse.Namespace) -> int:
     driver = build_driver(args.profile_dir, headless=False)
     try:
         driver.get(f"{BASE_URL}/sns/login")
-        print("열린 Chrome 창에서 네이버(또는 Apple)로 로그인해 주세요. 최대 10분 기다립니다.")
+        print("열린 Chrome 창에서 네이버(또는 Apple)로 로그인해 주세요. 최대 30분 기다립니다.")
         deadline = time.monotonic() + LOGIN_TIMEOUT
         while time.monotonic() < deadline:
             time.sleep(3)
-            if "reviewnote.co.kr" not in driver.current_url:
-                continue  # 네이버 로그인 화면에 있는 동안
-            if is_logged_in(driver):
+            if is_logged_in(driver):  # 창이 어느 페이지에 있어도 리뷰노트 쿠키로 확인
                 print(f"로그인 확인됨. 세션이 프로필에 저장됐습니다: {args.profile_dir}")
                 return 0
         print("시간 안에 로그인이 확인되지 않았습니다.", file=sys.stderr)
         return 2
     finally:
         driver.quit()
-
-
-SESSION_COOKIE = "reviewNoteSession"
 
 
 def cmd_session(args: argparse.Namespace) -> int:

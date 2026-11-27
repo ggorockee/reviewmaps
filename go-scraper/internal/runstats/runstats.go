@@ -40,6 +40,22 @@ type EnrichStats struct {
 	Total, CacheHit, APICalled, Geocoded, Skipped, Errors int64
 }
 
+// DetailStats 상세 이용 조건 보강 통계 (리뷰노트 여행 카테고리)
+type DetailStats struct {
+	Targets  int64 // 보강 대상 캠페인 수
+	Reused   int64 // 기간 안에 받은 DB 값을 그대로 쓴 수
+	Fetched  int64 // 상세 API 성공 수
+	Errors   int64 // 상세 API 실패 수 (세션 만료 제외)
+	Missing  int64 // 이번에 값을 못 채운 수 (세션 없음·만료·실패·호출 한도)
+	WithDays int64 // 저장되는 값 중 가능·불가 요일이 있는 수
+	// SessionOK 1=세션 정상, 0=세션 없음 또는 만료(401)
+	SessionOK bool
+	// SessionExpiresAt 세션 쿠키 만료 시각 (모르면 0)
+	SessionExpiresAt time.Time
+	// Blocked 403·429·5xx 등 차단·과부하 신호를 받아 멈췄는지
+	Blocked bool
+}
+
 type collector struct {
 	mu            sync.Mutex
 	scraper       string
@@ -47,6 +63,7 @@ type collector struct {
 	start         time.Time
 	items         map[string]int64
 	enrich        *EnrichStats
+	detail        *DetailStats
 	alertsCreated int64
 	serverAPIErr  bool
 }
@@ -59,7 +76,7 @@ func Start(scraper, keyword string) {
 	defer cur.mu.Unlock()
 	cur.scraper, cur.keyword, cur.start = scraper, keyword, time.Now()
 	cur.items = map[string]int64{}
-	cur.enrich, cur.alertsCreated, cur.serverAPIErr = nil, 0, false
+	cur.enrich, cur.detail, cur.alertsCreated, cur.serverAPIErr = nil, nil, 0, false
 }
 
 // SetItems 단계별 건수 기록
@@ -74,6 +91,47 @@ func SetEnrich(s EnrichStats) {
 	cur.mu.Lock()
 	defer cur.mu.Unlock()
 	cur.enrich = &s
+}
+
+// SetDetail 상세 보강 통계 기록
+func SetDetail(s DetailStats) {
+	cur.mu.Lock()
+	defer cur.mu.Unlock()
+	cur.detail = &s
+}
+
+// registerDetailSession 세션 상태·만료 시각·차단 신호 지표
+func registerDetailSession(reg *prometheus.Registry, d *DetailStats) {
+	b := func(v bool) float64 {
+		if v {
+			return 1
+		}
+		return 0
+	}
+	add := func(name, help string, v float64) {
+		g := prometheus.NewGauge(prometheus.GaugeOpts{Name: name, Help: help})
+		g.Set(v)
+		reg.MustRegister(g)
+	}
+	add("reviewmaps_scraper_detail_session_ok", "상세 API 로그인 세션 정상 여부 (1=정상, 0=없음·만료)", b(d.SessionOK))
+	add("reviewmaps_scraper_detail_blocked", "상세 API 차단·과부하 신호(403·429·5xx)로 멈췄는지 (1=멈춤)", b(d.Blocked))
+	if !d.SessionExpiresAt.IsZero() {
+		add("reviewmaps_scraper_detail_session_expiry_timestamp_seconds", "상세 API 세션 쿠키 만료 시각 (unix 초)", float64(d.SessionExpiresAt.Unix()))
+	}
+}
+
+// PushDetailSession 세션 상태·만료 시각만 바로 push (상세 수집 시작 직후 호출).
+// 이후 단계가 실패해도 만료 전 알림이 계속 계산되도록 한다.
+func PushDetailSession() error {
+	cur.mu.Lock()
+	d := cur.detail
+	cur.mu.Unlock()
+	if d == nil {
+		return nil
+	}
+	reg := prometheus.NewRegistry()
+	registerDetailSession(reg, d)
+	return post(reg)
 }
 
 // SetAlertsCreated 키워드 알림 생성 수 기록
@@ -136,6 +194,19 @@ func Registry(success bool, now time.Time) *prometheus.Registry {
 			en.WithLabelValues(k).Set(float64(v))
 		}
 		reg.MustRegister(en)
+	}
+
+	if cur.detail != nil {
+		dt := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Name: "reviewmaps_scraper_last_run_detail",
+			Help: "마지막 실행의 상세 이용 조건 보강 통계 (target/reused/fetched/error/missing/with_days)",
+		}, []string{"type"})
+		d := cur.detail
+		for k, v := range map[string]int64{"target": d.Targets, "reused": d.Reused, "fetched": d.Fetched, "error": d.Errors, "missing": d.Missing, "with_days": d.WithDays} {
+			dt.WithLabelValues(k).Set(float64(v))
+		}
+		reg.MustRegister(dt)
+		registerDetailSession(reg, d)
 	}
 
 	gauge("reviewmaps_scraper_last_run_alerts_created", "마지막 실행으로 생성된 키워드 알림 수", float64(cur.alertsCreated))

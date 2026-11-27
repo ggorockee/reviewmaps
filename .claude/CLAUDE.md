@@ -24,6 +24,7 @@ ReviewMaps는 캠페인/리뷰어 정보 제공 서비스로, 모노레포 구�
 | `mobile/` | Flutter | iOS/Android 모바일 앱 |
 | `web/` | Next.js 15 + React 19 | 웹 프론트엔드 |
 | `scrape/` | Python (비활성화) | 레거시 스크레이퍼 (사용 안 함) |
+| `selenium-scraper/` | Python + Selenium (uv) | 리뷰노트 여행 카테고리 상세 수집 (로그인 필요, 로컬 수동 실행). `selenium-scraper/README.md`, `claudedocs/reviewnote-travel-selenium.md` |
 
 ## Development Commands
 
@@ -50,6 +51,7 @@ ReviewMaps는 캠페인/리뷰어 정보 제공 서비스로, 모노레포 구�
 |--------|------|
 | `cd go-scraper && go run cmd/scraper/main.go reviewnote` | 스크레이퍼 실행 |
 | `cd go-scraper && go run cmd/scraper/main.go inflexer --keyword "키워드"` | 키워드 지정 |
+| `cd go-scraper && go run cmd/scraper/main.go reviewnote-detail` | 리뷰노트 여행 상세(이용 요일 등) 천천히 수집 (`REVIEWNOTE_SESSION` 필요, 운영 00:00~08:00, `claudedocs/reviewnote-travel-selenium.md`) |
 | `cd go-scraper && go run cmd/scraper/main.go cleanup` | 만료 캠페인 정리 |
 | `cd go-scraper && go run cmd/scraper/main.go dedupe` | 중복 캠페인 정리 |
 
@@ -242,6 +244,7 @@ Python 파일 수정 후 커밋 전 반드시 실행:
 |----------|--------|
 | `admin-django/` | `cd admin-django && uv run ruff format --check .` (보관용) |
 | `scrape/` | `cd scrape && uv run ruff format --check .` |
+| `selenium-scraper/` | `cd selenium-scraper && uv run ruff format --check .` |
 | `server/` (Python) | `cd server && uv run ruff format --check .` |
 
 **워크플로우:**

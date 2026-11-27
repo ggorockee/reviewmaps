@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -95,6 +96,21 @@ type ServerAPIConfig struct {
 	Enabled    bool   // API 호출 활성화 여부
 }
 
+// ReviewnoteConfig 리뷰노트 상세 보강 설정 (여행 카테고리 이용 요일 등)
+type ReviewnoteConfig struct {
+	Session           string        // 로그인 세션 쿠키(reviewNoteSession) 값. 비어 있으면 상세 API를 부르지 않음
+	SessionExpiresAt  time.Time     // 세션 쿠키 만료 시각 (갱신할 때 함께 저장, 만료 전 알림용). 모르면 0
+	DetailCategories  []string      // 상세를 받을 원본 카테고리 이름 (목록 응답 category.title)
+	DetailCategoryIDs []string      // 목록 API categoryId (사이트 카테고리 선택 상자 값, 2026-11-27 여행)
+	DetailRefreshDays int           // 이 기간 안에 받은 상세는 다시 받지 않음
+	DetailMaxFetch    int           // 한 번 실행에서 상세 API 최대 호출 수
+	DetailMinDelay    time.Duration // 상세 API 호출 최소 간격
+	DetailWindowEnd   string        // 이 시각(HH:MM, TIMEZONE 기준)까지 끝냄
+	DetailEndMargin   time.Duration // 마감 시각보다 이만큼 먼저 멈춤
+	DetailStartJitter time.Duration // 시작 전 무작위 대기 최대값 (매일 같은 시각에 요청하지 않도록)
+	DetailManualRun   time.Duration // 마감 시각 이후 수동 실행 시 쓸 시간
+}
+
 // Config 애플리케이션의 모든 설정을 통합 관리하는 메인 구조체
 type Config struct {
 	BaseURL   string
@@ -105,6 +121,7 @@ type Config struct {
 	Batch     BatchConfig
 	Scrape    ScrapeConfig
 	ServerAPI ServerAPIConfig
+	Reviewnote ReviewnoteConfig
 }
 
 // Load 환경변수에서 설정을 로드
@@ -150,9 +167,42 @@ func Load() (*Config, error) {
 			APIKey:  getEnvWithFallback("SERVER_API_KEY", "API_SECRET_KEY", ""),
 			Enabled: getEnvBool("SERVER_API_ENABLED", false),
 		},
+		Reviewnote: ReviewnoteConfig{
+			Session:           strings.TrimSpace(getEnv("REVIEWNOTE_SESSION", "")),
+			SessionExpiresAt:  parseTime(getEnv("REVIEWNOTE_SESSION_EXPIRES_AT", "")),
+			DetailCategories:  splitCSV(getEnv("REVIEWNOTE_DETAIL_CATEGORIES", "여행")),
+			DetailRefreshDays: getEnvInt("REVIEWNOTE_DETAIL_REFRESH_DAYS", 14),
+			DetailCategoryIDs: splitCSV(getEnv("REVIEWNOTE_DETAIL_CATEGORY_IDS", "d1910206-2676-433b-958f-6cb6e7385d1c")),
+			DetailMaxFetch:    getEnvInt("REVIEWNOTE_DETAIL_MAX_FETCH", 450),
+			DetailMinDelay:    time.Duration(getEnvInt("REVIEWNOTE_DETAIL_MIN_DELAY_SECONDS", 30)) * time.Second,
+			DetailWindowEnd:   getEnv("REVIEWNOTE_DETAIL_WINDOW_END", "08:00"),
+			DetailEndMargin:   time.Duration(getEnvInt("REVIEWNOTE_DETAIL_END_MARGIN_MINUTES", 10)) * time.Minute,
+			DetailStartJitter: time.Duration(getEnvInt("REVIEWNOTE_DETAIL_START_JITTER_MINUTES", 30)) * time.Minute,
+			DetailManualRun:   time.Duration(getEnvInt("REVIEWNOTE_DETAIL_MANUAL_RUN_MINUTES", 60)) * time.Minute,
+		},
 	}
 
 	return cfg, nil
+}
+
+// parseTime RFC3339 시각을 읽는다 (비었거나 형식이 틀리면 0)
+func parseTime(v string) time.Time {
+	t, err := time.Parse(time.RFC3339, strings.TrimSpace(v))
+	if err != nil {
+		return time.Time{}
+	}
+	return t
+}
+
+// splitCSV 쉼표로 구분된 값을 공백 제거 후 목록으로 (빈 값 제외)
+func splitCSV(v string) []string {
+	var out []string
+	for _, part := range strings.Split(v, ",") {
+		if p := strings.TrimSpace(part); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 // getEnv 환경변수 가져오기 (기본값 지원)

@@ -473,38 +473,46 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen>
           unselectedLabelColor: const Color(0xFF6C7278),
           indicatorColor: Theme.of(context).primaryColor,
           labelStyle: TextStyle(
-            fontSize: 14.sp,
+            fontSize: MediaQuery.of(context).size.shortestSide >= 600 ? 11.sp : 14.sp,
             fontWeight: FontWeight.w600,
+          ),
+          unselectedLabelStyle: TextStyle(
+            fontSize: MediaQuery.of(context).size.shortestSide >= 600 ? 11.sp : 14.sp,
+            fontWeight: FontWeight.w500,
           ),
           tabs: [
             Tab(
+              iconMargin: const EdgeInsets.only(bottom: 6),
               icon: const Icon(Icons.notifications_outlined),
               text: '키워드 관리 (${_keywords.length}/20)',
             ),
             Tab(
+              iconMargin: const EdgeInsets.only(bottom: 6),
               icon: Stack(
+                clipBehavior: Clip.none,
                 children: [
                   const Icon(Icons.history),
                   if (_unreadCount > 0)
                     Positioned(
-                      right: -2,
-                      top: -2,
+                      right: -6,
+                      top: -4,
                       child: Container(
-                        padding: EdgeInsets.all(4.w),
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                         decoration: const BoxDecoration(
                           color: Colors.red,
                           shape: BoxShape.circle,
                         ),
-                        constraints: BoxConstraints(
-                          minWidth: 14.w,
-                          minHeight: 14.w,
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
                         ),
                         child: Text(
                           _unreadCount > 99 ? '99+' : '$_unreadCount',
-                          style: TextStyle(
+                          style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 8.sp,
+                            fontSize: 10,
                             fontWeight: FontWeight.bold,
+                            height: 1.1,
                           ),
                           textAlign: TextAlign.center,
                         ),

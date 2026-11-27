@@ -75,7 +75,9 @@ List<Widget> buildChannelIcons(String? channelStr, {double size = 16}) {
 }
 
 class MapScreen extends ConsumerStatefulWidget {
-  const MapScreen({super.key});
+  final bool autoSearchOnReady;
+
+  const MapScreen({super.key, this.autoSearchOnReady = false});
 
   @override
   ConsumerState<MapScreen> createState() => _MapScreenState();
@@ -527,6 +529,22 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     _autoCenteredOnce = true;
                     _pendingTarget = null;
                   }
+                  if (widget.autoSearchOnReady) {
+                    _isFirstSearch = false;
+                    final pos = ref.read(locationProvider).position;
+                    if (pos != null) {
+                      await _naverController.updateCamera(
+                        NCameraUpdate.scrollAndZoomTo(
+                          target: NLatLng(pos.latitude, pos.longitude),
+                          zoom: 14.6,
+                        ),
+                      );
+                    }
+                    await Future<void>.delayed(const Duration(milliseconds: 800));
+                    if (mounted) {
+                      await _searchInCurrentViewport(programmatic: false, shouldOpenPanel: true);
+                    }
+                  }
                 },
                 onCameraChange: (reason, isAnimated) {
                   _isCameraMoving = true;
@@ -963,12 +981,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           NCameraUpdate.scrollAndZoomTo(target: target, zoom: 15),
         );
         _naverController.setLocationTrackingMode(NLocationTrackingMode.follow);
+        _autoCenteredOnce = true;
       } else {
         // 아직 준비 전 → onMapReady에서 적용
         _pendingTarget = target;
       }
-
-      _autoCenteredOnce = true;
     } catch (_) {
       // 권한 거절/타임아웃 등은 조용히 패스: 사용자가 FAB/버튼으로도 이동 가능
     }

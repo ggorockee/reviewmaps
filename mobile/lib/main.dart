@@ -29,6 +29,7 @@ import 'package:mobile/services/firebase_service.dart'; // Firebase 통합 서�
 import 'package:mobile/services/remote_config_service.dart'; // Firebase Remote Config 서비스
 import 'package:mobile/services/fcm_service.dart'; // FCM 푸시 알림 서비스
 import 'package:mobile/providers/auth_provider.dart'; // AuthProvider
+import 'package:mobile/widgets/friendly.dart'; // ClampTextScale
 
 import 'package:firebase_core/firebase_core.dart' hide FirebaseService;
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -226,6 +227,15 @@ class _MyAppState extends ConsumerState<MyApp> {
             // Material 3 활성화
             useMaterial3: true,
           ),
+
+          // 전역 텍스트 배율 상한 (다이얼로그·바텀시트 포함 전 화면 일관 보호)
+          builder: (context, widget) {
+            final isTab = MediaQuery.of(context).size.shortestSide >= 600;
+            return ClampTextScale(
+              max: isTab ? 1.15 : 1.30,
+              child: widget ?? const SizedBox.shrink(),
+            );
+          },
 
           // ScreenUtilInit의 child를 home으로 전달 → 불필요한 재빌드 방지
           home: child,

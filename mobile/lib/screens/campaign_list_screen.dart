@@ -157,18 +157,16 @@ class _CampaignListScreenState extends ConsumerState<CampaignListScreen> {
     });
   }
 
-  /// 아이템 높이 계산 (텍스트 스케일 대응)
+  /// 아이템 높이 계산 (텍스트 스케일 + 숙박 요일 배지 대응)
   double _getItemHeight() {
     final bool isTab = _isTablet(context);
     final ts = MediaQuery.textScalerOf(context).scale(1.0).clamp(1.0, 1.3);
-    
+
     if (widget.isSearchResult) {
-      // 검색결과는 한 줄이므로 높이를 더 작게
-      final baseHeight = isTab ? 120.0 : 100.0;
+      final baseHeight = isTab ? 185.0 : 155.0;
       return (baseHeight * ts).h;
     } else {
-      // 카테고리 결과는 기존 높이 유지
-      final baseHeight = isTab ? 190.0 : 160.0;
+      final baseHeight = isTab ? 245.0 : 205.0;
       return (baseHeight * ts).h;
     }
   }
@@ -395,6 +393,7 @@ class _CampaignListScreenState extends ConsumerState<CampaignListScreen> {
         store: store,
         dense: true,     // 격자에서는 조밀하게
         compact: widget.isSearchResult, // 검색결과는 더 컴팩트하게
+        showDayStrip: widget.isSearchResult,
       ),
     );
   }

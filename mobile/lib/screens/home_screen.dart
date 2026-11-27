@@ -699,7 +699,7 @@ class _HomeScreenState extends State<HomeScreen> {
               // 1) 아직 요청 전(권한 버튼 노출)
               if (_nearestCampaigns == null) {
                 return Container(
-                  height: 150.h,
+                  constraints: BoxConstraints(minHeight: 120.h),
                   margin: EdgeInsets.only(right: 16.w),
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -816,7 +816,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // 공지 닫기: 사용자 설정 저장
 
-  // 근처 가로 카드 영역의 동적 높이(텍스트 스케일 반영)
+  // 근처 가로 카드 영역의 동적 높이(텍스트 스케일 + 숙박 요일 배지 반영)
   double _nearestRowHeight(BuildContext context) {
     final bool isTab = _isTablet(context);
     final double ts = MediaQuery.textScalerOf(context).scale(1.0).clamp(1.0, 1.3);
@@ -824,8 +824,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final double denom = isTab ? (1.10 - 1.00) : (1.30 - 1.00);
     final double t = denom == 0 ? 0 : ((ts - 1.0) / denom).clamp(0.0, 1.0);
 
-    final double minH = isTab ? 190.h : 130.h; // 폰 기본 살짝 ↑
-    final double maxH = isTab ? 230.h : 200.h; // 상한도 ↑
+    final double minH = isTab ? 245.h : 185.h;
+    final double maxH = isTab ? 280.h : 245.h;
     return lerpDouble(minH, maxH, t)!;
   }
 
@@ -839,16 +839,16 @@ class _HomeScreenState extends State<HomeScreen> {
     return cellW / cellH;
   }
 
-  // 추천 그리드: 텍스트 스케일에 따른 셀 높이 보간
+  // 추천 그리드: 텍스트 스케일 + 숙박 요일 배지에 따른 셀 높이 보간
   double _recommendedCellHeight(BuildContext context) {
     final bool isTab = _isTablet(context);
     final double ts = MediaQuery.textScalerOf(context).scale(1.0);
 
-    final double denom = isTab ? (1.10 - 1.00) : (1.30 - 1.00);
+    final double denom = isTab ? (1.15 - 1.00) : (1.30 - 1.00);
     final double t = denom == 0 ? 0 : ((ts - 1.0) / denom).clamp(0.0, 1.0);
 
-    final double minH = isTab ? 175.h : 145.h;
-    final double maxH = isTab ? 180.h : 190.h;
+    final double minH = isTab ? 240.h : 195.h;
+    final double maxH = isTab ? 275.h : 255.h;
 
     return ui.lerpDouble(minH, maxH, t)!;
   }

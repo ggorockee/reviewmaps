@@ -6,6 +6,7 @@ import 'package:mobile/services/keyword_service.dart';
 import 'package:mobile/const/colors.dart';
 import 'package:mobile/models/keyword_models.dart';
 import 'package:mobile/screens/home_screen.dart'; // buildChannelIcons
+import 'package:mobile/widgets/stay_availability_badge.dart';
 
 /// 키워드 알람 관리 화면
 class KeywordAlertsScreen extends ConsumerStatefulWidget {
@@ -650,6 +651,15 @@ class _KeywordAlertsScreenState extends ConsumerState<KeywordAlertsScreen>
             if (alert.campaignOffer != null && alert.campaignOffer!.isNotEmpty)
               _buildOfferRow(alert, isTablet),
 
+            // 숙박/캠핑장 이용 가능·불가 요일 (제공 내역 바로 아래)
+            if (alert.stayAvailability != null) ...[
+              SizedBox(height: 5.h),
+              StayAvailabilityBadge(
+                availability: alert.stayAvailability!,
+                showDayStrip: true,
+              ),
+            ],
+
             SizedBox(height: 8.h),
 
             // 넷째줄: D-day + 거리 + 키워드 매칭 표시
@@ -765,18 +775,10 @@ class _KeywordAlertsScreenState extends ConsumerState<KeywordAlertsScreen>
 
   /// 세번째줄: D-day + 거리 + 키워드 매칭 (검색 결과 스타일)
   Widget _buildMetaRow(AlertInfo alert, bool isTablet) {
-    final textScaleFactor = MediaQuery.textScalerOf(context).scale(1.0);
-
-    // DeadlineChips와 동일한 스타일 파라미터
-    final double baseHorizontalPadding = isTablet ? 16.0 : 8.0;
-    final double baseVerticalPadding = isTablet ? 8.0 : 3.0;
-    final double baseFontSize = isTablet ? 16.0 : 12.0;
-    final double baseBorderRadius = isTablet ? 20.0 : 12.0;
-
-    final adjustedHorizontalPadding = (baseHorizontalPadding * textScaleFactor.clamp(0.8, 1.4)).w;
-    final adjustedVerticalPadding = (baseVerticalPadding * textScaleFactor.clamp(0.8, 1.4)).h;
-    final adjustedFontSize = (baseFontSize * textScaleFactor.clamp(0.8, 1.4));
-    final adjustedBorderRadius = (baseBorderRadius * textScaleFactor.clamp(0.8, 1.4)).r;
+    final double horizontalPadding = (isTablet ? 10.0 : 8.0).w;
+    final double verticalPadding = (isTablet ? 4.0 : 3.0).h;
+    final double fontSize = isTablet ? 12.sp : 11.5.sp;
+    final double borderRadius = (isTablet ? 14.0 : 12.0).r;
 
     return Wrap(
       spacing: isTablet ? 6.w : 4.w,
@@ -786,12 +788,12 @@ class _KeywordAlertsScreenState extends ConsumerState<KeywordAlertsScreen>
         if (alert.dDayText.isNotEmpty)
           Container(
             padding: EdgeInsets.symmetric(
-              horizontal: adjustedHorizontalPadding,
-              vertical: adjustedVerticalPadding,
+              horizontal: horizontalPadding,
+              vertical: verticalPadding,
             ),
             decoration: BoxDecoration(
               color: _getDDayColor(alert.dDay).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(adjustedBorderRadius),
+              borderRadius: BorderRadius.circular(borderRadius),
               border: Border.all(
                 color: _getDDayColor(alert.dDay).withValues(alpha: 0.3),
                 width: 0.5,
@@ -800,7 +802,7 @@ class _KeywordAlertsScreenState extends ConsumerState<KeywordAlertsScreen>
             child: Text(
               alert.dDayText,
               style: TextStyle(
-                fontSize: adjustedFontSize,
+                fontSize: fontSize,
                 fontWeight: FontWeight.w500,
                 color: _getDDayColor(alert.dDay),
                 height: 1.2,
@@ -812,12 +814,12 @@ class _KeywordAlertsScreenState extends ConsumerState<KeywordAlertsScreen>
         if (alert.distanceText.isNotEmpty)
           Container(
             padding: EdgeInsets.symmetric(
-              horizontal: adjustedHorizontalPadding,
-              vertical: adjustedVerticalPadding,
+              horizontal: horizontalPadding,
+              vertical: verticalPadding,
             ),
             decoration: BoxDecoration(
               color: Colors.blue.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(adjustedBorderRadius),
+              borderRadius: BorderRadius.circular(borderRadius),
               border: Border.all(
                 color: Colors.blue.withValues(alpha: 0.3),
                 width: 0.5,
@@ -826,7 +828,7 @@ class _KeywordAlertsScreenState extends ConsumerState<KeywordAlertsScreen>
             child: Text(
               alert.distanceText,
               style: TextStyle(
-                fontSize: adjustedFontSize,
+                fontSize: fontSize,
                 fontWeight: FontWeight.w500,
                 color: Colors.blue[700],
                 height: 1.2,
@@ -837,12 +839,12 @@ class _KeywordAlertsScreenState extends ConsumerState<KeywordAlertsScreen>
         // 키워드 매칭 칩 (초록색)
         Container(
           padding: EdgeInsets.symmetric(
-            horizontal: adjustedHorizontalPadding,
-            vertical: adjustedVerticalPadding,
+            horizontal: horizontalPadding,
+            vertical: verticalPadding,
           ),
           decoration: BoxDecoration(
             color: primaryColor.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(adjustedBorderRadius),
+            borderRadius: BorderRadius.circular(borderRadius),
             border: Border.all(
               color: primaryColor.withValues(alpha: 0.3),
               width: 0.5,
@@ -853,14 +855,14 @@ class _KeywordAlertsScreenState extends ConsumerState<KeywordAlertsScreen>
             children: [
               Icon(
                 Icons.label_outline,
-                size: adjustedFontSize,
+                size: fontSize,
                 color: primaryColor,
               ),
               SizedBox(width: 2.w),
               Text(
                 alert.keyword,
                 style: TextStyle(
-                  fontSize: adjustedFontSize,
+                  fontSize: fontSize,
                   fontWeight: FontWeight.w500,
                   color: primaryColor,
                   height: 1.2,

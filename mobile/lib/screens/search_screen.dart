@@ -299,18 +299,19 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Widget _buildSectionHeader(String title, {VoidCallback? onClearAll}) {
-    // 폰트 배율에 따른 제목 크기 조정
-    final textScaleFactor = MediaQuery.textScalerOf(context).scale(1.0);
-    final baseFontSize = 16.sp;
-    final titleFontSize = baseFontSize * (1.0 + (textScaleFactor - 1.0) * 0.5).clamp(1.0, 1.3);
-    final subtitleFontSize = 13.sp * (1.0 + (textScaleFactor - 1.0) * 0.5).clamp(1.0, 1.3);
+    final titleFontSize = 16.sp;
+    final subtitleFontSize = 13.sp;
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          title,
-          style: TextStyle(fontSize: titleFontSize, fontWeight: FontWeight.bold),
+        Flexible(
+          child: Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: titleFontSize, fontWeight: FontWeight.bold),
+          ),
         ),
         if (onClearAll != null)
           GestureDetector(
@@ -325,16 +326,15 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Widget _buildRecentSearchItem(String term) {
-    // 폰트 배율에 따른 텍스트 크기 조정
-    final textScaleFactor = MediaQuery.textScalerOf(context).scale(1.0);
-    final baseFontSize = 16.sp;
-    final fontSize = baseFontSize * (1.0 + (textScaleFactor - 1.0) * 0.5).clamp(1.0, 1.3);
+    final fontSize = 15.sp;
 
     return ListTile(
       onTap: () => _handleSearch(term),
       leading: const Icon(Icons.access_time),
       title: Text(
         term,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: TextStyle(fontSize: fontSize),
       ),
       trailing: IconButton(

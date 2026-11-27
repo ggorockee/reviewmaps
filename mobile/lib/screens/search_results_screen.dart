@@ -312,6 +312,7 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
                             dense: true,
                             compact: false,
                             bottomAlignMeta: false, // 검색 결과는 타이트 간격
+                            showDayStrip: true,
                           ),
                         );
                       },

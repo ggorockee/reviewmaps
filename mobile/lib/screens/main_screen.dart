@@ -185,20 +185,20 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         type: BottomNavigationBarType.fixed, // 탭 4개일 때도 안정
         items: [
           BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined, size: (isTab ? 32.0 : 24.0) * (1.0 + (MediaQuery.textScalerOf(context).scale(1.0) - 1.0) * 0.3).clamp(1.0, 1.2)),
-            label: '홈'
+            icon: Icon(Icons.home_outlined, size: isTab ? 30.0 : 24.0),
+            label: '홈',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.map_outlined, size: (isTab ? 32.0 : 24.0) * (1.0 + (MediaQuery.textScalerOf(context).scale(1.0) - 1.0) * 0.3).clamp(1.0, 1.2)),
-            label: '지도'
+            icon: Icon(Icons.map_outlined, size: isTab ? 30.0 : 24.0),
+            label: '지도',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.notifications_outlined, size: (isTab ? 32.0 : 24.0) * (1.0 + (MediaQuery.textScalerOf(context).scale(1.0) - 1.0) * 0.3).clamp(1.0, 1.2)),
-            label: '알림'
+            icon: Icon(Icons.notifications_outlined, size: isTab ? 30.0 : 24.0),
+            label: '알림',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline, size: (isTab ? 32.0 : 24.0) * (1.0 + (MediaQuery.textScalerOf(context).scale(1.0) - 1.0) * 0.3).clamp(1.0, 1.2)),
-            label: '내정보'
+            icon: Icon(Icons.person_outline, size: isTab ? 30.0 : 24.0),
+            label: '내정보',
           ),
         ],
         currentIndex: _selectedIndex,
@@ -206,9 +206,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         onTap: _onItemTapped,
         showUnselectedLabels: true,
 
-        iconSize: (isTab ? 32.0 : 24.0) * (1.0 + (MediaQuery.textScalerOf(context).scale(1.0) - 1.0) * 0.3).clamp(1.0, 1.2),
-        selectedFontSize: (isTab ? 25.0 : 12.0) * (1.0 + (MediaQuery.textScalerOf(context).scale(1.0) - 1.0) * 0.5).clamp(1.0, 1.3),
-        unselectedFontSize: (isTab ? 25.0 : 12.0) * (1.0 + (MediaQuery.textScalerOf(context).scale(1.0) - 1.0) * 0.5).clamp(1.0, 1.3),
+        iconSize: isTab ? 30.0 : 24.0,
+        selectedFontSize: isTab ? 16.0 : 12.0,
+        unselectedFontSize: isTab ? 16.0 : 12.0,
       ),
       ),
     ),

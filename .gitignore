@@ -12,3 +12,6 @@ server_backup/
 docker-compose.yml
 my_req.txt
 my_request.txt
+# 스토어 이미지 (tool/store_assets.py로 다시 만들 수 있음, 실제 업체명이 담겨 커밋하지 않음)
+mobile/store/ios/
+mobile/store/android/

@@ -137,14 +137,21 @@ class RemoteConfigService {
   static const int _defaultAppOpenIntervalHours = 4;
   static const int _defaultAppOpenWaitMs = 2000;
 
+  /// 스토어 스크린샷 캡처 시 광고 영역을 완전히 숨기기 위한 플래그
+  @visibleForTesting
+  bool disableAdsForScreenshots = false;
+
   /// 홈 상단 배너 표시 여부 (Firebase를 쓸 수 없으면 표시)
-  bool get showBannerAd => _remoteConfig?.getBool('show_banner_ad') ?? true;
+  bool get showBannerAd =>
+      !disableAdsForScreenshots && (_remoteConfig?.getBool('show_banner_ad') ?? true);
 
   /// 목록 사이 네이티브 광고 표시 여부
-  bool get showNativeAd => _remoteConfig?.getBool('show_native_ad') ?? true;
+  bool get showNativeAd =>
+      !disableAdsForScreenshots && (_remoteConfig?.getBool('show_native_ad') ?? true);
 
   /// 앱 오프닝 광고 표시 여부
-  bool get showAppOpenAd => _remoteConfig?.getBool('show_app_open_ad') ?? true;
+  bool get showAppOpenAd =>
+      !disableAdsForScreenshots && (_remoteConfig?.getBool('show_app_open_ad') ?? true);
 
   /// 앱 오프닝 광고 최소 간격 (1시간 미만은 기본값으로 보정)
   Duration get appOpenMinInterval =>

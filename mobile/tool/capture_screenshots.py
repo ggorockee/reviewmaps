@@ -5,6 +5,7 @@
 
 사용법 (mobile 디렉터리에서):
   python3 tool/capture_screenshots.py <UDID> <출력하위폴더>
+  일부만 다시 찍으려면 세 번째 인자에 화면 이름 (예: 04_stay)
   Android는 에뮬레이터 시리얼과 android_phone|android_tablet (먼저 flutter build apk --debug -t tool/store_screenshots_app.dart)
 예:
   python3 tool/capture_screenshots.py DAC52F08-DD09-47F6-97BA-682D20659377 phone
@@ -121,6 +122,11 @@ def android(serial: str, kind: str, root: Path, out_dir: Path) -> None:
 def main() -> None:
     udid = sys.argv[1]
     kind = sys.argv[2]
+    if len(sys.argv) > 3:  # 일부 화면만 다시 찍기: 04_stay 또는 01_map,04_stay
+        wanted = sys.argv[3].split(",")
+        SLIDES[:] = [s for s in SLIDES if s[0] in wanted]
+        if len(SLIDES) != len(wanted):
+            raise SystemExit(f"없는 화면 이름: {sys.argv[3]}")
     root = Path(__file__).resolve().parent.parent
     out_dir = root / "build" / "store_screenshots" / kind
     out_dir.mkdir(parents=True, exist_ok=True)

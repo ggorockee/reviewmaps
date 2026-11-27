@@ -1,45 +1,15 @@
-# Build stage
-FROM python:3.12-slim AS builder
-
-WORKDIR /app
-
-# Install uv
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
-
-# Copy dependency files
-COPY pyproject.toml uv.lock ./
-
-# Install dependencies
-RUN uv sync --frozen --no-dev
-
-# Runtime stage
-FROM python:3.12-slim
-
-WORKDIR /app
-
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libpq5 \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy virtual environment from builder
-COPY --from=builder /app/.venv /app/.venv
-
-# Copy application code
+# 관리자 콘솔: Nuxt 정적 생성(SPA) → nginx(비루트)로 서빙
+FROM node:24-alpine AS builder
+WORKDIR /src
+COPY package.json package-lock.json ./
+RUN npm ci --ignore-scripts
 COPY . .
+# API 주소는 빌드 시 고정 (정적 파일에 포함)
+ARG API_BASE=https://api.review-maps.com
+ENV NUXT_PUBLIC_API_BASE=${API_BASE}
+RUN npx nuxi prepare && npx nuxi generate
 
-# Set environment variables
-ENV PATH="/app/.venv/bin:$PATH"
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-ENV TZ=Asia/Seoul
-
-# Collect static files
-RUN python manage.py collectstatic --noinput
-
-# Expose port
-EXPOSE 8000
-
-# Run with gunicorn
-# gunicorn 27+: 미사용 control socket 비활성화 (읽기 전용 파일시스템 대응)
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "2", "--threads", "4", "--no-control-socket", "config.wsgi:application"]
+FROM nginxinc/nginx-unprivileged:1.29-alpine
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=builder /src/.output/public /usr/share/nginx/html
+EXPOSE 8080

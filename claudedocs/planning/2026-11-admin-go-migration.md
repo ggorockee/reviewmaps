@@ -98,7 +98,7 @@
 
 - [x] C-1 서버: `GET /admin/v1/raw-categories?unmapped=1&q=` (사용량 = 지역 검색 캐시에서 그 원문을 쓰는 건수, 추천 카테고리·신뢰도·근거), `PUT /admin/v1/raw-categories/:id/mapping`, `POST /admin/v1/raw-categories/bulk-mapping`(여러 개 한 번에), `GET /admin/v1/categories/coverage`(카테고리 없는 캠페인 비율, 출처별)
 - [x] C-2 추천 규칙: ① 숫자 원본이 `categories.id`와 같으면 그 카테고리(신뢰도 100%) ② 원문의 대분류 경로(긴 것부터)가 기존 매핑에 있으면 가장 많은 카테고리(신뢰도 = 비율) ③ 없으면 추천 없음
-- [승인] C-3 화면: 미매핑을 사용량 순으로, 추천을 미리 선택해 두고 확인 후 일괄 매핑. 신뢰도 80% 이상만 한 번에 고르는 버튼
+- [x] C-3 화면: 미매핑을 사용량 순으로, 추천을 미리 선택해 두고 확인 후 일괄 매핑. 신뢰도 80% 이상만 한 번에 고르는 버튼
 - [승인] C-4 지표·알림: `reviewmaps_raw_categories_unmapped`, `reviewmaps_campaigns_uncategorized_ratio{source}` → 대시보드 패널, 미매핑이 7일 넘게 50개 이상이면 INFO 알림 (다시 조용히 밀리지 않게)
   - 서버 지표는 구현(`reviewmaps_raw_categories_unmapped`, `reviewmaps_campaigns_uncategorized_ratio{source}`, `reviewmaps_campaigns_active{source}`, 5분 캐시). 대시보드 패널·알림은 Phase 6에서
 - [승인] C-5 전환 후 첫 정리: 숫자 원본 12개와 신뢰도 높은 추천부터 매핑 → 다음 날 수집 뒤 카테고리 없는 비율 재확인 (운영 DB 쓰기는 관리자 화면에서, 변경 기록에 남음)
@@ -165,24 +165,27 @@
 
 ## Phase 3. 관리자 화면 (Nuxt)
 
-- [승인] 3-0 테마(2026-11-27 개발자 요청): 리뷰맵 앱 색에 맞춤. 앱 `mobile/lib/const/colors.dart` 기준 메인 `#22A45D`(녹색), 본문 글자 `#1A1C1E`, 보조 글자 `#6C7278`, 테두리·구분선 `#EDF1F3`, 흐린 글자 `#ADB5BD`. @nuxt/ui primary를 이 녹색 계열로, 로고는 리뷰맵 앱 아이콘
-- [승인] 3-1 `admin/`을 새 Nuxt 프로젝트로 교체 (Django 코드는 Phase 7까지 `admin-django/`로 옮겨 보관). Nuxt 4, @nuxt/ui, TypeScript, ESLint, Vitest — 라익찍스 `admin/package.json` 기준
-- [승인] 3-2 로그인 화면: Google 버튼(GIS), 예비 로그인(D2), 로컬 개발 로그인
-- [승인] 3-3 레이아웃: 왼쪽 메뉴(대시보드, 사용자, 키워드·알림, 캠페인, 카테고리, 설정, 변경 기록), 로그인한 이메일, 로그아웃
-- [승인] 3-4 공통 표 컴포넌트: 서버 페이지 나눔, 검색, 필터, 빈 값 문구, 오류 표시
-- [승인] 3-5 사용자 화면 (상세에 SNS·키워드·기기 요약, 삭제 확인 창에 이메일 재입력)
-- [승인] 3-6 키워드·알림 화면 (일괄 정리: 조건 미리보기 건수 → 확인)
-- [승인] 3-7 캠페인 화면 ("수집 때 덮어써짐" 안내, 삭제·프로모션만)
-- [승인] 3-8 카테고리·매핑 화면 (매핑 없는 원본을 위에)
-- [승인] 3-9 설정·앱 버전 화면, 2차: 광고 설정·요청 제한
-- [승인] 3-10 대시보드·변경 기록 화면
-- [승인] 3-11 `Dockerfile`(빌드 시 `API_BASE=https://api.review-maps.com`), `nginx.conf`(보안 헤더, noindex, SPA), 테스트(Vitest)
+- [x] 3-0 테마(2026-11-27 개발자 요청): 리뷰맵 앱 색에 맞춤. 앱 `mobile/lib/const/colors.dart` 기준 메인 `#22A45D`(녹색), 본문 글자 `#1A1C1E`, 보조 글자 `#6C7278`, 테두리·구분선 `#EDF1F3`, 흐린 글자 `#ADB5BD`. @nuxt/ui primary를 이 녹색 계열로, 로고는 리뷰맵 앱 아이콘
+- [x] 3-1 `admin/`을 새 Nuxt 프로젝트로 교체 (Django 코드는 Phase 7까지 `admin-django/`로 옮겨 보관). Nuxt 4, @nuxt/ui, TypeScript, ESLint, Vitest — 라익찍스 `admin/package.json` 기준
+- [x] 3-2 로그인 화면: Google 버튼(GIS), 예비 로그인(D2), 로컬 개발 로그인
+- [x] 3-3 레이아웃: 왼쪽 메뉴(대시보드, 사용자, 키워드·알림, 캠페인, 카테고리, 설정, 변경 기록), 로그인한 이메일, 로그아웃
+- [x] 3-4 공통 표 컴포넌트: 서버 페이지 나눔, 검색, 필터, 빈 값 문구, 오류 표시
+- [x] 3-5 사용자 화면 (상세에 SNS·키워드·기기 요약, 삭제 확인 창에 이메일 재입력)
+- [x] 3-6 키워드·알림 화면 (일괄 정리: 조건 미리보기 건수 → 확인)
+- [x] 3-7 캠페인 화면 ("수집 때 덮어써짐" 안내, 삭제·프로모션만)
+- [x] 3-8 카테고리·매핑 화면 (매핑 없는 원본을 위에)
+- [x] 3-9 설정·앱 버전 화면, 2차: 광고 설정·요청 제한
+- [x] 3-10 대시보드·변경 기록 화면
+- [x] 3-11 `Dockerfile`(빌드 시 `API_BASE=https://api.review-maps.com`), `nginx.conf`(보안 헤더, noindex, SPA), 테스트(Vitest)
+  - 결과(2026-11-27): lint·typecheck·test(5)·generate 통과. 로컬 검증은 운영 API 대신 `server/cmd/admindev`(메모리 SQLite + 예시 데이터)로 전 화면 캡처 확인 — 운영 API 포트포워딩 확인은 서버 설정(0-3·0-5) 후 5-1에서
+  - 캡처 중 발견·수정: 저장된 값이 없는 설정(alert_retention_days)이 화면에 1로 채워져 그대로 저장하면 알림 보관이 1일이 될 수 있었음 → 서버가 기본값(3일, 키워드 10개)과 `stored:false`를 주도록 수정
 
 완료 기준: `npm run lint`, `typecheck`, `test`, `generate` 통과, 로컬에서 운영 API(포트포워딩)로 로그인·조회 확인 화면 캡처
 
 ## Phase 4. CI·인프라
 
-- [승인] 4-1 `.github/workflows/ci-admin.yml`을 Node 빌드로 교체 (라익찍스 `ci-admin.yml` 기준: lint·typecheck·test → Docker 빌드·푸시 `ggorockee/reviewmaps-admin` → infra 태그 PR 자동 머지). 이미지 이름은 그대로 두어 차트·ArgoCD 변경을 줄임
+- [x] 4-1 `.github/workflows/ci-admin.yml`을 Node 빌드로 교체 (라익찍스 `ci-admin.yml` 기준: lint·typecheck·test → Docker 빌드·푸시 `ggorockee/reviewmaps-admin` → infra 태그 PR 자동 머지). 이미지 이름은 그대로 두어 차트·ArgoCD 변경을 줄임
+  - 변경: infra 태그 자동 PR은 저장소 변수 `ADMIN_AUTO_DEPLOY=true`일 때만 (전환 전에 Django 배포에 Nuxt 이미지가 들어가 관리자가 멈추는 것 방지). `latest` 태그는 올리지 않음(Django 되돌리기 이미지와 같은 저장소)
 - [승인] 4-2 infra `charts/helm/prod/reviewmaps` admin 값: 포트 8000(django) → 8080(http), 프로브 `/healthz`, 리소스(요청 10m/32Mi 수준), Django 환경변수(`ALLOWED_HOSTS`, `POSTGRES_*` 주입) 제거, 읽기 전용 루트 파일시스템. 하위 차트 `charts/admin` 템플릿이 포트 이름 `django`를 쓰면 함께 수정
 - [승인] 4-3 infra 서버 값: `ADMIN_ORIGIN=https://admin.review-maps.com`, ExternalSecret에 `ADMIN_EMAILS`·`ADMIN_GOOGLE_CLIENT_ID`·(D2) 키 추가
 - [승인] 4-4 blackbox 검사 대상 `https://admin.review-maps.com/login/` → `/healthz`

@@ -427,6 +427,10 @@ func TestSettingsValidation(t *testing.T) {
 		t.Fatalf("update: %d %s", code, body)
 	}
 	_, body, _ := e.do(t, "GET", "/admin/v1/settings", nil, tok)
+	// 저장 안 된 설정은 서버 기본값(알림 보관 3일)으로 보여야 함 (null이면 화면이 1로 채워 잘못 저장될 수 있음)
+	if !strings.Contains(body, `"key":"alert_retention_days","value":3`) || !strings.Contains(body, `"stored":false`) {
+		t.Fatalf("default setting: %s", body)
+	}
 	if !strings.Contains(body, `"key":"keyword_limit","value":15`) {
 		t.Fatalf("settings: %s", body)
 	}

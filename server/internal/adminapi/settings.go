@@ -2,6 +2,7 @@ package adminapi
 
 import (
 	"encoding/json"
+	"sort"
 	"strconv"
 	"time"
 
@@ -14,10 +15,11 @@ import (
 // settingRules: 관리자 화면에서 바꿀 수 있는 앱 설정과 허용 범위
 var settingRules = map[string]struct {
 	Min, Max    int
+	Default     int // DB에 값이 없을 때 서버가 쓰는 값 (services.AppConfigService와 같아야 함)
 	Description string
 }{
-	"keyword_limit":        {1, 100, "사용자당 키워드 최대 개수"},
-	"alert_retention_days": {1, 365, "키워드 알림 보관 일수"},
+	"keyword_limit":        {1, 100, 10, "사용자당 키워드 최대 개수"},
+	"alert_retention_days": {1, 365, 3, "키워드 알림 보관 일수"},
 }
 
 func (h *handlers) listSettings(c *fiber.Ctx) error {
@@ -28,22 +30,29 @@ func (h *handlers) listSettings(c *fiber.Ctx) error {
 	type item struct {
 		models.AppSetting
 		Editable bool `json:"editable"`
+		Stored   bool `json:"stored"` // false면 DB에 없어 서버 기본값을 쓰는 중
 		Min      int  `json:"min,omitempty"`
 		Max      int  `json:"max,omitempty"`
+		Default  int  `json:"default,omitempty"`
 	}
 	seen := map[string]bool{}
 	items := []item{}
 	for _, r := range rows {
 		rule, ok := settingRules[r.Key]
-		items = append(items, item{AppSetting: r, Editable: ok, Min: rule.Min, Max: rule.Max})
+		items = append(items, item{AppSetting: r, Editable: ok, Stored: true, Min: rule.Min, Max: rule.Max, Default: rule.Default})
 		seen[r.Key] = true
 	}
-	// 아직 DB에 없는 편집 가능 설정도 보여 준다 (저장하면 생성)
-	for key, rule := range settingRules {
-		if !seen[key] {
+	// 아직 DB에 없는 편집 가능 설정도 서버 기본값으로 보여 준다 (저장하면 생성). 순서는 키 이름순
+	keys := make([]string, 0, len(settingRules))
+	for key := range settingRules {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		if rule := settingRules[key]; !seen[key] {
 			d := rule.Description
-			items = append(items, item{AppSetting: models.AppSetting{Key: key, Value: json.RawMessage("null"), Description: &d, IsActive: true},
-				Editable: true, Min: rule.Min, Max: rule.Max})
+			items = append(items, item{AppSetting: models.AppSetting{Key: key, Value: json.RawMessage(strconv.Itoa(rule.Default)), Description: &d, IsActive: true},
+				Editable: true, Min: rule.Min, Max: rule.Max, Default: rule.Default})
 		}
 	}
 	return c.JSON(items)

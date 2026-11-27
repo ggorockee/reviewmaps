@@ -18,7 +18,8 @@ ReviewMaps는 캠페인/리뷰어 정보 제공 서비스로, 모노레포 구�
 | Directory | Tech Stack | Description |
 |-----------|------------|-------------|
 | `server/` | Go 1.23 + Fiber + GORM | REST API 서버 (Production) |
-| `admin/` | Django 5.2 + Unfold | 어드민 패널 (managed=False) |
+| `admin/` | Nuxt 4 + @nuxt/ui (정적 SPA → nginx) | 관리자 화면. API는 `server/`의 `/admin/v1` (Google 로그인). 사용법 `admin/README.md` |
+| `admin-django/` | Django 5.2 + Unfold | 이전 관리자 (전환 후 30일 보관, 되돌리기용. 빌드·배포 안 함) |
 | `go-scraper/` | Go + Colly | 캠페인 데이터 수집기 |
 | `mobile/` | Flutter | iOS/Android 모바일 앱 |
 | `web/` | Next.js 15 + React 19 | 웹 프론트엔드 |
@@ -143,13 +144,23 @@ ReviewMaps는 캠페인/리뷰어 정보 제공 서비스로, 모노레포 구�
 | `APPLE_*` | Apple 로그인 설정 |
 | `SIGNOZ_ENDPOINT` | SigNoz OTLP 엔드포인트 |
 
-### Admin (admin/.env)
+### 이전 Admin (admin-django/.env, 보관용)
 
 | 변수 | 설명 |
 |------|------|
 | `DATABASE_URL` | PostgreSQL 연결 문자열 (동일 DB) |
 | `SECRET_KEY` | Django 시크릿 키 |
 | `DEBUG` | 디버그 모드 |
+
+### 관리자 API (server 환경변수, `ADMIN_ORIGIN`이 없으면 /admin/v1 미등록)
+
+| 변수 | 설명 |
+|------|------|
+| `ADMIN_ORIGIN` | 관리자 화면 주소 (CORS·Origin 검사), 운영 `https://admin.review-maps.com` |
+| `ADMIN_EMAILS` | 로그인 허용 Google 계정 (쉼표 구분) |
+| `ADMIN_GOOGLE_CLIENT_ID` | Google OAuth 웹 클라이언트 ID (yanggo-514212) |
+| `ADMIN_LOGIN_ID` / `ADMIN_PASSWORD_HASH` | 예비 로그인 (bcrypt). 둘 다 있어야 켜짐 |
+| `ADMIN_DEV_EMAIL` | `SERVER_ENV=local`일 때만 개발용 로그인 |
 
 ### Go Scraper (go-scraper/.env)
 
@@ -229,7 +240,7 @@ Python 파일 수정 후 커밋 전 반드시 실행:
 
 | 디렉토리 | 명령어 |
 |----------|--------|
-| `admin/` | `cd admin && uv run ruff format --check .` |
+| `admin-django/` | `cd admin-django && uv run ruff format --check .` (보관용) |
 | `scrape/` | `cd scrape && uv run ruff format --check .` |
 | `server/` (Python) | `cd server && uv run ruff format --check .` |
 

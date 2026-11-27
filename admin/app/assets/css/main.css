@@ -1,0 +1,29 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
+/* 리뷰맵 앱 색 (mobile/lib/const/colors.dart): 메인 #22A45D, 본문 #1A1C1E, 보조 #6C7278, 테두리 #EDF1F3 */
+@theme static {
+  --font-sans: 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+
+  --color-brand-50: #EAF8F0;
+  --color-brand-100: #CDEFDC;
+  --color-brand-200: #9EDFBA;
+  --color-brand-300: #67CC93;
+  --color-brand-400: #3BB873;
+  --color-brand-500: #22A45D;
+  --color-brand-600: #1B864C;
+  --color-brand-700: #176A3D;
+  --color-brand-800: #135433;
+  --color-brand-900: #10452B;
+  --color-brand-950: #082717;
+}
+
+:root {
+  --ui-primary: var(--color-brand-500);
+  --ui-text: #1A1C1E;
+  --ui-text-highlighted: #1A1C1E;
+  --ui-text-muted: #6C7278;
+  --ui-text-dimmed: #ADB5BD;
+  --ui-border: #EDF1F3;
+  --ui-bg-muted: #F8F9FA;
+}

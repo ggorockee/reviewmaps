@@ -11,7 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile/providers/location_provider.dart';
 import 'package:mobile/providers/auth_provider.dart';
 import 'package:mobile/services/version_service.dart';
-import 'package:mobile/widgets/update_dialog.dart';
+import 'package:mobile/services/release_note_presenter.dart';
 
 
 /// MainScreen
@@ -230,29 +230,30 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   /// Firebase Remote Config 버전 정책을 통한 버전 체크
   ///
   /// 논리 버전(Logical Version) 기반으로 업데이트 필요 여부를 판단합니다.
-  /// - current < min_version: 강제 업데이트
-  /// - current < latest_version: 권장 업데이트 (스킵 기간 고려)
-  /// - current >= latest_version: 안내 없음
+  /// - current < min_version: 강제 업데이트 카드
+  /// - current < latest_version: 권장 업데이트 카드 (스킵 기간 고려)
+  /// - 그 밖: 업데이트한 직후라면 "새로워진 점" 카드를 한 번
+  ///
+  /// 한 번에 카드 하나만 띄웁니다.
   Future<void> _checkAppVersion() async {
+    final cards = ReleaseNotePresenter();
+    Future<void> whatsNew() async {
+      if (mounted) await cards.showWhatsNew(context);
+    }
+
     try {
       await _versionService.checkAndNotify(
         onForceUpdate: (result) {
-          if (mounted) {
-            UpdateDialog.showForceUpdate(context, result);
-          }
+          if (mounted) cards.showUpdate(context, result, forced: true);
         },
         onRecommendedUpdate: (result) {
-          if (mounted) {
-            UpdateDialog.showRecommendedUpdate(context, result);
-          }
+          if (mounted) cards.showUpdate(context, result, forced: false);
         },
-        onLatest: () {
-          // 최신 버전 사용 중 - 아무 동작 없음
-          debugPrint('App is up to date');
-        },
+        onLatest: whatsNew,
         onError: (error) {
-          // 버전 체크 실패 시 조용히 무시 (네트워크 이슈 등)
+          // 버전 체크 실패(네트워크 등)여도 앱에 든 "새로워진 점"은 보여준다
           debugPrint('Version check failed: $error');
+          whatsNew();
         },
       );
     } catch (e) {

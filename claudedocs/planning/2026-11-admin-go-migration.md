@@ -129,15 +129,19 @@
 - [D1~D7] 0-1 직접: 위 D1~D7 선택 표시
 - [x] 0-2 제가: 서버 지표로 `/v1/app-config/version`, `/v1/app-config/ads` 호출이 어떤 앱 버전에서 오는지 확인 (D4·광고 설정 화면 필요 여부 근거)
   - 결과: 7일간 `/v1/app-config/version` 1회, `/v1/app-config/ads` 0회. 앱은 2.2.0부터 Remote Config 사용(#287) → D4 추천안(앱 버전 화면 읽기 전용), 광고 설정·요청 제한도 읽기 전용
-- [승인] 0-3 제가(콘솔, 실행 직전 승인): Google OAuth 웹 클라이언트(yanggo-514212, Grafana·ArgoCD·라익찍스 관리자 공용)의 "승인된 JavaScript 원본"에 `https://admin.review-maps.com`, 로컬 개발용 `http://localhost:3000` 추가
-- [무슨내용인지 모르겠음 이거 작업할때 개발자에게 다시 질의] 0-4 직접: 관리자 Google 계정 목록 확정 (OAuth 동의 화면이 Testing이라 Test users에도 들어 있어야 로그인 가능)
-- [승인] 0-5 제가(GSM 쓰기, 실행 직전 승인): `prod-reviewmaps-api-credentials`에 `ADMIN_EMAILS`, `ADMIN_GOOGLE_CLIENT_ID`, (D2) `ADMIN_LOGIN_ID`·`ADMIN_PASSWORD_HASH` 추가. 위치를 infra `.secrets/README.md`에 기록
+- [x] 0-3 제가(콘솔, 실행 직전 승인): Google OAuth 웹 클라이언트(yanggo-514212, Grafana·ArgoCD·라익찍스 관리자 공용)의 "승인된 JavaScript 원본"에 `https://admin.review-maps.com`, 로컬 개발용 `http://localhost:3000` 추가
+  - 2026-11-27 완료(프로젝트 소유 계정 woohalabs11로 콘솔 수정). JS 원본에 `https://admin.review-maps.com`, `http://localhost:3001` 추가. 화면이 Google 리디렉션 방식(라익찍스와 같음)이라 승인된 리디렉션 URI에도 `https://admin.review-maps.com/login`, `http://localhost:3001/login` 추가
+- [ ] 0-4 직접: 관리자 Google 계정 목록 확정 (OAuth 동의 화면이 Testing이라 Test users에도 들어 있어야 로그인 가능)
+  - 2026-11-27 개발자 결정: woohaen88@gmail.com, woohalabs@gmail.com. Test users에는 woohaen88만 있음 → woohalabs 추가는 콘솔 저장이 반응하지 않아(브라우저 확장 차단 추정) **개발자가 직접 추가 필요** (Google 인증 플랫폼 → 대상 → 테스트 사용자 → 사용자 추가)
+- [x] 0-5 제가(GSM 쓰기, 실행 직전 승인): `prod-reviewmaps-api-credentials`에 `ADMIN_EMAILS`, `ADMIN_GOOGLE_CLIENT_ID`, (D2) `ADMIN_LOGIN_ID`·`ADMIN_PASSWORD_HASH` 추가. 위치를 infra `.secrets/README.md`에 기록
+  - 2026-11-27 완료: GSM 버전 3 = 기존 19개 키 + `ADMIN_EMAILS`, `ADMIN_LOGIN_ID`(rm-breakglass), `ADMIN_PASSWORD_HASH`(bcrypt 12). 비밀번호 원문은 infra `.secrets/reviewmaps-admin-breakglass.env`에만. 클라이언트 ID는 공개 값이라 GSM 대신 서버 configMap
 
 완료 기준: 결정 표시 완료, GSM 키 위치 문서화
 
 ## Phase 1. 서버: 인증 기반
 
 - [x] 1-1 SQL 마이그레이션 `server/migrations/`: `admin_sessions`(token_hash, email, expires_at, created_at), `admin_audit_logs`(id, admin_email, action, entity, entity_id, before JSONB, after JSONB, created_at, 인덱스: created_at·entity). GORM AutoMigrate는 운영에서 꺼져 있으므로 SQL로 적용 (적용 절차: 서버 문서의 마이그레이션 방식 그대로)
+  - 운영 적용 2026-11-27 (개발자 승인): 임시 Pod(postgres:16, 서버 DB 계정)로 실행, 테이블 2개·인덱스 3개 생성 확인
 - [x] 1-2 `server/internal/admin`: 라익찍스 `auth.go`·`password.go` 이식 (Google 검증기, 허용 목록, 세션 생성·해시, bcrypt). `keyfunc/v3` 의존성 추가
 - [x] 1-3 `/admin/v1` 그룹: CORS(`ADMIN_ORIGIN`만, credentials), 로그인 요청 제한(IP당), `GET /config`(클라이언트 ID·예비 로그인 사용 여부), `POST /auth/google`, `POST /auth/password`, `POST /auth/logout`, `GET /me`, `requireSession`
 - [x] 1-4 쿠키: HttpOnly, Secure, SameSite=Strict(라익찍스와 같음, Lax보다 엄격), 12시간, 경로 `/admin/v1`. 변경 요청은 `Origin` 헤더가 `ADMIN_ORIGIN`인지 확인 (CSRF 방어)
@@ -187,7 +191,8 @@
 - [x] 4-1 `.github/workflows/ci-admin.yml`을 Node 빌드로 교체 (라익찍스 `ci-admin.yml` 기준: lint·typecheck·test → Docker 빌드·푸시 `ggorockee/reviewmaps-admin` → infra 태그 PR 자동 머지). 이미지 이름은 그대로 두어 차트·ArgoCD 변경을 줄임
   - 변경: infra 태그 자동 PR은 저장소 변수 `ADMIN_AUTO_DEPLOY=true`일 때만 (전환 전에 Django 배포에 Nuxt 이미지가 들어가 관리자가 멈추는 것 방지). `latest` 태그는 올리지 않음(Django 되돌리기 이미지와 같은 저장소)
 - [승인] 4-2 infra `charts/helm/prod/reviewmaps` admin 값: 포트 8000(django) → 8080(http), 프로브 `/healthz`, 리소스(요청 10m/32Mi 수준), Django 환경변수(`ALLOWED_HOSTS`, `POSTGRES_*` 주입) 제거, 읽기 전용 루트 파일시스템. 하위 차트 `charts/admin` 템플릿이 포트 이름 `django`를 쓰면 함께 수정
-- [승인] 4-3 infra 서버 값: `ADMIN_ORIGIN=https://admin.review-maps.com`, ExternalSecret에 `ADMIN_EMAILS`·`ADMIN_GOOGLE_CLIENT_ID`·(D2) 키 추가
+- [x] 4-3 infra 서버 값: `ADMIN_ORIGIN=https://admin.review-maps.com`, ExternalSecret에 `ADMIN_EMAILS`·`ADMIN_GOOGLE_CLIENT_ID`·(D2) 키 추가
+  - 2026-11-27 완료(infra #1223). 주의: configMap·Secret만 바뀌면 서버 Pod가 다시 뜨지 않아 `kubectl -n reviewmaps rollout restart deploy/reviewmaps-server`가 필요했음. 확인: `/admin/v1/config` 200(google·password 로그인 켜짐), 다른 Origin POST 403, 세션 없이 `/me` 401, 앱 API 정상
 - [승인] 4-4 blackbox 검사 대상 `https://admin.review-maps.com/login/` → `/healthz`
 - [승인] 4-5 ServiceMonitor: 서버 지표는 기존 그대로 수집되는지 확인 (새 지표 이름 포함)
 
@@ -237,3 +242,4 @@
 |---|---|---|
 | 2026-11-27 | 계획 작성 | 현재 구조·사용량 조사(운영 DB 읽기 전용), 라익찍스 구조 확인 |
 | 2026-11-27 | 진행 시작 | D1~D7 표시 없음 → 추천안. 0-2: `/v1/app-config/version` 7일 1회, `/ads` 0회(2.2.0부터 앱은 Remote Config) → 앱 버전 화면 읽기 전용. 발견: users 외래 키가 모두 NO ACTION이라 앱 회원 탈퇴가 연결 데이터 있는 사용자(160명 중 146명)에게 실패 → 탈퇴를 연관 데이터 포함 트랜잭션으로 수정. 카테고리 매핑 편입(3-1장) 추가 |
+| 2026-11-27 | Phase 1~4-3 | 서버 #304(관리자 API, 회원 탈퇴 수정), 화면 #305(Nuxt, Django는 `admin-django/`), DB 테이블 생성, OAuth 원본·리디렉션, GSM 버전 3, infra #1223 → 운영 서버에 `/admin/v1` 켜짐. 지표 확인: 미매핑 623, 카테고리 없는 비율 49.6%. 남은 것: woohalabs Test users(개발자), 4-2·4-4 admin 차트, Phase 5 전환 |

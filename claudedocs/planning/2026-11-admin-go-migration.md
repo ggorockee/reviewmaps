@@ -84,6 +84,25 @@
 | D6 | 전환 방식 | [같은 주소 교체] 검증 후 admin.review-maps.com을 새 화면으로, 문제 시 이미지 되돌림 / [임시 주소 병행] 새 주소(인증서·게이트웨이 추가) | 같은 주소 교체: 관리자 화면이라 몇 분 중단은 괜찮고, Django 이미지·차트 값으로 바로 되돌릴 수 있음. 교체 전 로컬·포트포워딩으로 전부 검증 |
 | D7 | Django 테이블 정리 | [30일 뒤 백업 후 삭제] / [남겨 둠] | 30일 뒤 삭제: `django_admin_log`는 CSV로 내보내 보관(Cloud SQL 자동 백업은 비용 때문에 꺼 둔 상태) |
 
+## 3-1. 카테고리 매핑 편입 (2026-11-27 추가, 개발자 요청)
+
+예전 Django Ninja 서버(`server_backup/campaigns/category_api.py`)에는 `GET /unmapped-categories`와 `POST /category-mappings`가 있어, 미매핑 원본 카테고리를 받아 매핑을 POST하는 방식으로 관리했습니다. 서버를 Go로 옮기면서 이 두 API가 빠져 매핑이 멈췄습니다.
+
+| 조사 (운영 DB 읽기 전용) | 값 |
+|---|---|
+| 원본 카테고리 / 미매핑 | 1,444개 / 623개. 2025-08 생성분은 전부 매핑, 2025-09에 일부, 2025-10부터 새 원본은 매핑 0건 |
+| 카테고리 없는 활성 캠페인 | 23,733건 중 11,770건(49.6%) → 앱 카테고리 필터에 안 나옴 |
+| 출처별 | 인플렉서 11,284건 중 10,438건(92.5%), 리뷰노트 12,449건 중 1,332건(10.7%) |
+| 숫자 원본 `1`~`12` | 예전 Python 수집기가 `local_search_cache.category`(원문 칸)에 카테고리 ID를 넣은 것 (2025-09~12). 캐시 약 6,700건. 번호가 곧 `categories.id` (예: 1 맛집, 2 뷰티/헬스) |
+| 추천 가능성 | 미매핑 623개 중 522개는 기존 매핑의 대분류(`>` 앞부분)로 추천 가능, 372개는 신뢰도 80% 이상 |
+
+- [x] C-1 서버: `GET /admin/v1/raw-categories?unmapped=1&q=` (사용량 = 지역 검색 캐시에서 그 원문을 쓰는 건수, 추천 카테고리·신뢰도·근거), `PUT /admin/v1/raw-categories/:id/mapping`, `POST /admin/v1/raw-categories/bulk-mapping`(여러 개 한 번에), `GET /admin/v1/categories/coverage`(카테고리 없는 캠페인 비율, 출처별)
+- [x] C-2 추천 규칙: ① 숫자 원본이 `categories.id`와 같으면 그 카테고리(신뢰도 100%) ② 원문의 대분류 경로(긴 것부터)가 기존 매핑에 있으면 가장 많은 카테고리(신뢰도 = 비율) ③ 없으면 추천 없음
+- [승인] C-3 화면: 미매핑을 사용량 순으로, 추천을 미리 선택해 두고 확인 후 일괄 매핑. 신뢰도 80% 이상만 한 번에 고르는 버튼
+- [승인] C-4 지표·알림: `reviewmaps_raw_categories_unmapped`, `reviewmaps_campaigns_uncategorized_ratio{source}` → 대시보드 패널, 미매핑이 7일 넘게 50개 이상이면 INFO 알림 (다시 조용히 밀리지 않게)
+  - 서버 지표는 구현(`reviewmaps_raw_categories_unmapped`, `reviewmaps_campaigns_uncategorized_ratio{source}`, `reviewmaps_campaigns_active{source}`, 5분 캐시). 대시보드 패널·알림은 Phase 6에서
+- [승인] C-5 전환 후 첫 정리: 숫자 원본 12개와 신뢰도 높은 추천부터 매핑 → 다음 날 수집 뒤 카테고리 없는 비율 재확인 (운영 DB 쓰기는 관리자 화면에서, 변경 기록에 남음)
+
 ## 4. 화면·API 범위
 
 | 화면 | API (`/admin/v1/...`) | 기능 | 주의 |
@@ -96,7 +115,7 @@
 | FCM 기기 | `GET /fcm-devices` | 기기 종류, 활성, 사용자 | 토큰은 앞 8자만 |
 | 캠페인 | `GET /campaigns`(플랫폼·카테고리·지역·기간·검색, `deleted_at IS NULL` 기본), `GET /campaigns/:id`, `PATCH /campaigns/:id`(promotion_level), `DELETE /campaigns/:id`(soft delete) | | 수집 때 덮어써진다는 안내 문구 |
 | 카테고리 | `GET/POST/PATCH/DELETE /categories`, 순서 변경 | 표시 순서 | |
-| 카테고리 매핑 | `GET /raw-categories`(매핑 없는 것 먼저), `PUT /raw-categories/:id/mapping` | 수집 원본 카테고리 → 앱 카테고리 연결 | go-scraper 분류에 바로 영향. 변경 기록 필수 |
+| 카테고리 매핑 | 3-1장 C-1 | 수집 원본 카테고리 → 앱 카테고리 연결, 추천·일괄 매핑 | go-scraper 분류에 바로 영향(다음 수집부터). 변경 기록 필수. Django의 원본 카테고리 화면은 컬럼이 실제 테이블(`raw_text`)과 달라 동작하지 않았음 |
 | 앱 설정 | `GET /settings`, `PUT /settings/:key` (keyword_limit, alert_retention_days) | 값 검증(숫자 범위) | 기존 `services/app_config.go` 재사용 |
 | 앱 버전 | `GET /app-versions`, (D4에 따라) `PUT /app-versions/:platform` | 현재·최소 버전, 강제 업데이트 | D4가 일원화면 읽기 전용 + Remote Config 값 함께 표시 |
 | 광고 설정·요청 제한 | `GET/PUT /ad-configs`, `GET/PUT /rate-limits` | | 사용 기록 없음 → 2차(Phase 3-9)로 |
@@ -107,90 +126,94 @@
 
 ## Phase 0. 결정·준비
 
-- [ ] 0-1 직접: 위 D1~D7 선택 표시
-- [ ] 0-2 제가: 서버 지표로 `/v1/app-config/version`, `/v1/app-config/ads` 호출이 어떤 앱 버전에서 오는지 확인 (D4·광고 설정 화면 필요 여부 근거)
-- [ ] 0-3 제가(콘솔, 실행 직전 승인): Google OAuth 웹 클라이언트(yanggo-514212, Grafana·ArgoCD·라익찍스 관리자 공용)의 "승인된 JavaScript 원본"에 `https://admin.review-maps.com`, 로컬 개발용 `http://localhost:3000` 추가
-- [ ] 0-4 직접: 관리자 Google 계정 목록 확정 (OAuth 동의 화면이 Testing이라 Test users에도 들어 있어야 로그인 가능)
-- [ ] 0-5 제가(GSM 쓰기, 실행 직전 승인): `prod-reviewmaps-api-credentials`에 `ADMIN_EMAILS`, `ADMIN_GOOGLE_CLIENT_ID`, (D2) `ADMIN_LOGIN_ID`·`ADMIN_PASSWORD_HASH` 추가. 위치를 infra `.secrets/README.md`에 기록
+- [D1~D7] 0-1 직접: 위 D1~D7 선택 표시
+- [x] 0-2 제가: 서버 지표로 `/v1/app-config/version`, `/v1/app-config/ads` 호출이 어떤 앱 버전에서 오는지 확인 (D4·광고 설정 화면 필요 여부 근거)
+  - 결과: 7일간 `/v1/app-config/version` 1회, `/v1/app-config/ads` 0회. 앱은 2.2.0부터 Remote Config 사용(#287) → D4 추천안(앱 버전 화면 읽기 전용), 광고 설정·요청 제한도 읽기 전용
+- [승인] 0-3 제가(콘솔, 실행 직전 승인): Google OAuth 웹 클라이언트(yanggo-514212, Grafana·ArgoCD·라익찍스 관리자 공용)의 "승인된 JavaScript 원본"에 `https://admin.review-maps.com`, 로컬 개발용 `http://localhost:3000` 추가
+- [무슨내용인지 모르겠음 이거 작업할때 개발자에게 다시 질의] 0-4 직접: 관리자 Google 계정 목록 확정 (OAuth 동의 화면이 Testing이라 Test users에도 들어 있어야 로그인 가능)
+- [승인] 0-5 제가(GSM 쓰기, 실행 직전 승인): `prod-reviewmaps-api-credentials`에 `ADMIN_EMAILS`, `ADMIN_GOOGLE_CLIENT_ID`, (D2) `ADMIN_LOGIN_ID`·`ADMIN_PASSWORD_HASH` 추가. 위치를 infra `.secrets/README.md`에 기록
 
 완료 기준: 결정 표시 완료, GSM 키 위치 문서화
 
 ## Phase 1. 서버: 인증 기반
 
-- [ ] 1-1 SQL 마이그레이션 `server/migrations/`: `admin_sessions`(token_hash, email, expires_at, created_at), `admin_audit_logs`(id, admin_email, action, entity, entity_id, before JSONB, after JSONB, created_at, 인덱스: created_at·entity). GORM AutoMigrate는 운영에서 꺼져 있으므로 SQL로 적용 (적용 절차: 서버 문서의 마이그레이션 방식 그대로)
-- [ ] 1-2 `server/internal/admin`: 라익찍스 `auth.go`·`password.go` 이식 (Google 검증기, 허용 목록, 세션 생성·해시, bcrypt). `keyfunc/v3` 의존성 추가
-- [ ] 1-3 `/admin/v1` 그룹: CORS(`ADMIN_ORIGIN`만, credentials), 로그인 요청 제한(IP당), `GET /config`(클라이언트 ID·예비 로그인 사용 여부), `POST /auth/google`, `POST /auth/password`, `POST /auth/logout`, `GET /me`, `requireSession`
-- [ ] 1-4 쿠키: HttpOnly, Secure, SameSite=Lax, 12시간, 경로 `/admin/v1`. 변경 요청은 `Origin` 헤더가 `ADMIN_ORIGIN`인지 확인 (CSRF 방어)
-- [ ] 1-5 지표: `reviewmaps_admin_logins_total{method,result}`, `reviewmaps_admin_changes_total{entity,action}`, `reviewmaps_admin_sessions_active`
-- [ ] 1-6 테스트: 검증기(가짜 키), 허용 목록, 세션 만료, 잘못된 Origin, 요청 제한, 로그아웃 (라익찍스 `admin_test.go` 참고). `go test ./...` 통과
-- [ ] 1-7 로컬 개발 로그인: `APP_ENV=local`일 때만 `/auth/dev` (라익찍스와 같음)
+- [x] 1-1 SQL 마이그레이션 `server/migrations/`: `admin_sessions`(token_hash, email, expires_at, created_at), `admin_audit_logs`(id, admin_email, action, entity, entity_id, before JSONB, after JSONB, created_at, 인덱스: created_at·entity). GORM AutoMigrate는 운영에서 꺼져 있으므로 SQL로 적용 (적용 절차: 서버 문서의 마이그레이션 방식 그대로)
+- [x] 1-2 `server/internal/admin`: 라익찍스 `auth.go`·`password.go` 이식 (Google 검증기, 허용 목록, 세션 생성·해시, bcrypt). `keyfunc/v3` 의존성 추가
+- [x] 1-3 `/admin/v1` 그룹: CORS(`ADMIN_ORIGIN`만, credentials), 로그인 요청 제한(IP당), `GET /config`(클라이언트 ID·예비 로그인 사용 여부), `POST /auth/google`, `POST /auth/password`, `POST /auth/logout`, `GET /me`, `requireSession`
+- [x] 1-4 쿠키: HttpOnly, Secure, SameSite=Strict(라익찍스와 같음, Lax보다 엄격), 12시간, 경로 `/admin/v1`. 변경 요청은 `Origin` 헤더가 `ADMIN_ORIGIN`인지 확인 (CSRF 방어)
+- [x] 1-5 지표: `reviewmaps_admin_logins_total{method,result}`, `reviewmaps_admin_changes_total{entity,action}`, `reviewmaps_admin_sessions_active`
+- [x] 1-6 테스트: 검증기(가짜 키), 허용 목록, 세션 만료, 잘못된 Origin, 요청 제한, 로그아웃 (라익찍스 `admin_test.go` 참고). `go test ./...` 통과
+- [x] 1-7 로컬 개발 로그인: `SERVER_ENV=local`이고 `ADMIN_DEV_EMAIL`이 있을 때만 `/auth/dev` (운영에서는 등록 안 됨)
 
 완료 기준: PR 머지, 운영 서버 배포 후 `/admin/v1/config` 응답, `/metrics`에 새 지표 노출, 서버 기존 테스트·앱 API 영향 없음
 
 ## Phase 2. 서버: 관리 API
 
-- [ ] 2-1 공통: 페이지 나눔·정렬·검색 도우미, 변경 기록 도우미(전후 JSON, 토큰류 필드 제외), 응답 DTO에서 민감 필드 제거
-- [ ] 2-2 사용자 (목록·상세·수정·삭제). 삭제는 앱 회원 탈퇴와 같은 서비스 함수
-- [ ] 2-3 SNS 계정·FCM 기기·이메일 인증 (읽기 전용, 마스킹)
-- [ ] 2-4 키워드·키워드 알림 (일괄 정리 포함, soft delete)
-- [ ] 2-5 캠페인 (조회, soft delete, promotion_level)
-- [ ] 2-6 카테고리·원본 카테고리 매핑
-- [ ] 2-7 앱 설정·앱 버전 (D4에 따라)
-- [ ] 2-8 대시보드 요약, 변경 기록 조회
-- [ ] 2-9 테스트: 핸들러 단위 테스트(권한 없음 401, 민감 필드 미포함, soft delete 조건), Swagger 문서 갱신
+- [x] 2-1 공통: 페이지 나눔·정렬·검색 도우미, 변경 기록 도우미(전후 JSON, 토큰류 필드 제외), 응답 DTO에서 민감 필드 제거
+- [x] 2-2 사용자 (목록·상세·수정·삭제). 삭제는 앱 회원 탈퇴와 같은 서비스 함수
+  - 사용자 삭제: 운영 DB의 users 외래 키가 모두 NO ACTION이라 앱 회원 탈퇴(`UserService.Delete`)가 연결 데이터가 있는 사용자(160명 중 146명)에게 실패하던 문제를 함께 수정 → 알림·키워드·기기·SNS 계정·Django 권한 연결을 한 트랜잭션에서 삭제. 앱 탈퇴와 관리자 삭제가 같은 함수 사용
+- [x] 2-3 SNS 계정·FCM 기기·이메일 인증 (읽기 전용, 마스킹)
+- [x] 2-4 키워드·키워드 알림 (일괄 정리 포함, soft delete)
+- [x] 2-5 캠페인 (조회, soft delete, promotion_level)
+- [x] 2-6 카테고리·원본 카테고리 매핑
+- [x] 2-7 앱 설정·앱 버전 (D4에 따라)
+- [x] 2-8 대시보드 요약, 변경 기록 조회
+- [x] 2-9 테스트: 핸들러 단위 테스트(권한 없음 401, 민감 필드 미포함, soft delete 조건), Swagger 문서 갱신
+  - 테스트 10개(SQLite, 외래 키 검사 켬): 인증·Origin·세션 만료·탈퇴 연관 삭제·민감 필드 미노출·알림 soft delete·캠페인 삭제/복구·카테고리 추천/일괄 매핑 롤백·설정 범위·Google 토큰 검증. 관리자 API는 공개 Swagger(/v1/docs)에 넣지 않음(노출 범위 최소화)
 
 완료 기준: 각 API에 테스트, 응답에 토큰·코드 원문이 없음을 테스트로 고정, 운영 배포 후 읽기 API를 포트포워딩으로 확인(쓰기 API는 Phase 5)
 
 ## Phase 3. 관리자 화면 (Nuxt)
 
-- [ ] 3-1 `admin/`을 새 Nuxt 프로젝트로 교체 (Django 코드는 Phase 7까지 `admin-django/`로 옮겨 보관). Nuxt 4, @nuxt/ui, TypeScript, ESLint, Vitest — 라익찍스 `admin/package.json` 기준
-- [ ] 3-2 로그인 화면: Google 버튼(GIS), 예비 로그인(D2), 로컬 개발 로그인
-- [ ] 3-3 레이아웃: 왼쪽 메뉴(대시보드, 사용자, 키워드·알림, 캠페인, 카테고리, 설정, 변경 기록), 로그인한 이메일, 로그아웃
-- [ ] 3-4 공통 표 컴포넌트: 서버 페이지 나눔, 검색, 필터, 빈 값 문구, 오류 표시
-- [ ] 3-5 사용자 화면 (상세에 SNS·키워드·기기 요약, 삭제 확인 창에 이메일 재입력)
-- [ ] 3-6 키워드·알림 화면 (일괄 정리: 조건 미리보기 건수 → 확인)
-- [ ] 3-7 캠페인 화면 ("수집 때 덮어써짐" 안내, 삭제·프로모션만)
-- [ ] 3-8 카테고리·매핑 화면 (매핑 없는 원본을 위에)
-- [ ] 3-9 설정·앱 버전 화면, 2차: 광고 설정·요청 제한
-- [ ] 3-10 대시보드·변경 기록 화면
-- [ ] 3-11 `Dockerfile`(빌드 시 `API_BASE=https://api.review-maps.com`), `nginx.conf`(보안 헤더, noindex, SPA), 테스트(Vitest)
+- [승인] 3-0 테마(2026-11-27 개발자 요청): 리뷰맵 앱 색에 맞춤. 앱 `mobile/lib/const/colors.dart` 기준 메인 `#22A45D`(녹색), 본문 글자 `#1A1C1E`, 보조 글자 `#6C7278`, 테두리·구분선 `#EDF1F3`, 흐린 글자 `#ADB5BD`. @nuxt/ui primary를 이 녹색 계열로, 로고는 리뷰맵 앱 아이콘
+- [승인] 3-1 `admin/`을 새 Nuxt 프로젝트로 교체 (Django 코드는 Phase 7까지 `admin-django/`로 옮겨 보관). Nuxt 4, @nuxt/ui, TypeScript, ESLint, Vitest — 라익찍스 `admin/package.json` 기준
+- [승인] 3-2 로그인 화면: Google 버튼(GIS), 예비 로그인(D2), 로컬 개발 로그인
+- [승인] 3-3 레이아웃: 왼쪽 메뉴(대시보드, 사용자, 키워드·알림, 캠페인, 카테고리, 설정, 변경 기록), 로그인한 이메일, 로그아웃
+- [승인] 3-4 공통 표 컴포넌트: 서버 페이지 나눔, 검색, 필터, 빈 값 문구, 오류 표시
+- [승인] 3-5 사용자 화면 (상세에 SNS·키워드·기기 요약, 삭제 확인 창에 이메일 재입력)
+- [승인] 3-6 키워드·알림 화면 (일괄 정리: 조건 미리보기 건수 → 확인)
+- [승인] 3-7 캠페인 화면 ("수집 때 덮어써짐" 안내, 삭제·프로모션만)
+- [승인] 3-8 카테고리·매핑 화면 (매핑 없는 원본을 위에)
+- [승인] 3-9 설정·앱 버전 화면, 2차: 광고 설정·요청 제한
+- [승인] 3-10 대시보드·변경 기록 화면
+- [승인] 3-11 `Dockerfile`(빌드 시 `API_BASE=https://api.review-maps.com`), `nginx.conf`(보안 헤더, noindex, SPA), 테스트(Vitest)
 
 완료 기준: `npm run lint`, `typecheck`, `test`, `generate` 통과, 로컬에서 운영 API(포트포워딩)로 로그인·조회 확인 화면 캡처
 
 ## Phase 4. CI·인프라
 
-- [ ] 4-1 `.github/workflows/ci-admin.yml`을 Node 빌드로 교체 (라익찍스 `ci-admin.yml` 기준: lint·typecheck·test → Docker 빌드·푸시 `ggorockee/reviewmaps-admin` → infra 태그 PR 자동 머지). 이미지 이름은 그대로 두어 차트·ArgoCD 변경을 줄임
-- [ ] 4-2 infra `charts/helm/prod/reviewmaps` admin 값: 포트 8000(django) → 8080(http), 프로브 `/healthz`, 리소스(요청 10m/32Mi 수준), Django 환경변수(`ALLOWED_HOSTS`, `POSTGRES_*` 주입) 제거, 읽기 전용 루트 파일시스템. 하위 차트 `charts/admin` 템플릿이 포트 이름 `django`를 쓰면 함께 수정
-- [ ] 4-3 infra 서버 값: `ADMIN_ORIGIN=https://admin.review-maps.com`, ExternalSecret에 `ADMIN_EMAILS`·`ADMIN_GOOGLE_CLIENT_ID`·(D2) 키 추가
-- [ ] 4-4 blackbox 검사 대상 `https://admin.review-maps.com/login/` → `/healthz`
-- [ ] 4-5 ServiceMonitor: 서버 지표는 기존 그대로 수집되는지 확인 (새 지표 이름 포함)
+- [승인] 4-1 `.github/workflows/ci-admin.yml`을 Node 빌드로 교체 (라익찍스 `ci-admin.yml` 기준: lint·typecheck·test → Docker 빌드·푸시 `ggorockee/reviewmaps-admin` → infra 태그 PR 자동 머지). 이미지 이름은 그대로 두어 차트·ArgoCD 변경을 줄임
+- [승인] 4-2 infra `charts/helm/prod/reviewmaps` admin 값: 포트 8000(django) → 8080(http), 프로브 `/healthz`, 리소스(요청 10m/32Mi 수준), Django 환경변수(`ALLOWED_HOSTS`, `POSTGRES_*` 주입) 제거, 읽기 전용 루트 파일시스템. 하위 차트 `charts/admin` 템플릿이 포트 이름 `django`를 쓰면 함께 수정
+- [승인] 4-3 infra 서버 값: `ADMIN_ORIGIN=https://admin.review-maps.com`, ExternalSecret에 `ADMIN_EMAILS`·`ADMIN_GOOGLE_CLIENT_ID`·(D2) 키 추가
+- [승인] 4-4 blackbox 검사 대상 `https://admin.review-maps.com/login/` → `/healthz`
+- [승인] 4-5 ServiceMonitor: 서버 지표는 기존 그대로 수집되는지 확인 (새 지표 이름 포함)
 
 완료 기준: ArgoCD Synced/Healthy, blackbox 성공, 새 지표가 Prometheus에서 조회됨
 
 ## Phase 5. 검증·전환 (D6 같은 주소 교체 기준)
 
-- [ ] 5-1 전환 전 점검표: 관리자 전원 Google 로그인 성공(포트포워딩 또는 로컬 화면), 각 화면 조회, 테스트 계정으로 쓰기 API(사용자 비활성, 키워드 삭제, 카테고리 매핑) 실행 후 되돌리기, 변경 기록·지표 증가 확인
-- [ ] 5-2 전환: infra 태그 PR로 admin 이미지 교체 → ArgoCD 동기화 → https://admin.review-maps.com 접속, 로그인, 화면 캡처 (CLAUDE.md 검증 규칙: Playwright, 비밀번호는 브라우저에 입력하지 않음)
-- [ ] 5-3 되돌리기 절차(문서에 미리 적어 둠): infra admin 값·이미지 태그를 이전 Django 커밋으로 되돌리는 PR → 동기화. Django 이미지 `20261110-7ed5b97` 보존
-- [ ] 5-4 1주 관찰: 로그인 실패·오류율·변경 기록 확인 후 Phase 7 진행 여부 결정
+- [승인] 5-1 전환 전 점검표: 관리자 전원 Google 로그인 성공(포트포워딩 또는 로컬 화면), 각 화면 조회, 테스트 계정으로 쓰기 API(사용자 비활성, 키워드 삭제, 카테고리 매핑) 실행 후 되돌리기, 변경 기록·지표 증가 확인
+- [승인] 5-2 전환: infra 태그 PR로 admin 이미지 교체 → ArgoCD 동기화 → https://admin.review-maps.com 접속, 로그인, 화면 캡처 (CLAUDE.md 검증 규칙: Playwright, 비밀번호는 브라우저에 입력하지 않음)
+- [승인] 5-3 되돌리기 절차(문서에 미리 적어 둠): infra admin 값·이미지 태그를 이전 Django 커밋으로 되돌리는 PR → 동기화. Django 이미지 `20261110-7ed5b97` 보존
+- [승인] 5-4 1주 관찰: 로그인 실패·오류율·변경 기록 확인 후 Phase 7 진행 여부 결정
 
 완료 기준: 운영 주소에서 새 화면으로 실제 작업 1건 이상(예: 앱 버전 조회, 사용자 검색) 성공, 되돌리기 절차 문서화
 
 ## Phase 6. 모니터링·문서
 
-- [ ] 6-1 Grafana 리뷰맵 대시보드에 "관리자" 행: 로그인 성공·실패, 변경 건수(대상별), 활성 세션, 최근 변경 표. 범위표·차트 설명 3단 형식 (infra CLAUDE.md 대시보드 규칙)
-- [ ] 6-2 알림: 관리자 로그인 실패 급증 `ReviewmapsAdminLoginFailures`(10분 10회 초과, WARN), 허용 목록 밖 계정 로그인 시도 `ReviewmapsAdminUnauthorizedLogin`(1회, INFO), 관리자 화면 접속 실패는 기존 blackbox 알림 사용. 대시보드 색상 기준과 알림 기준 동일하게
-- [ ] 6-3 문서: infra `.claude/CLAUDE.md` 배포 경로 표에 "리뷰맵 관리자 콘솔" 행(라익찍스 행과 같은 형식), 알림 표에 새 알림, `claudedocs/app-release-runbook.md`에 관리자 계정 추가·제거 절차(GSM `ADMIN_EMAILS` 수정 → ExternalSecret 갱신 → 서버 재시작), 이 저장소 `admin/README.md`
-- [ ] 6-4 `.secrets/README.md`에 새 GSM 키 위치
+- [승인] 6-1 Grafana 리뷰맵 대시보드에 "관리자" 행: 로그인 성공·실패, 변경 건수(대상별), 활성 세션, 최근 변경 표. 범위표·차트 설명 3단 형식 (infra CLAUDE.md 대시보드 규칙)
+- [승인] 6-2 알림: 관리자 로그인 실패 급증 `ReviewmapsAdminLoginFailures`(10분 10회 초과, WARN), 허용 목록 밖 계정 로그인 시도 `ReviewmapsAdminUnauthorizedLogin`(1회, INFO), 관리자 화면 접속 실패는 기존 blackbox 알림 사용. 대시보드 색상 기준과 알림 기준 동일하게
+- [승인] 6-3 문서: infra `.claude/CLAUDE.md` 배포 경로 표에 "리뷰맵 관리자 콘솔" 행(라익찍스 행과 같은 형식), 알림 표에 새 알림, `claudedocs/app-release-runbook.md`에 관리자 계정 추가·제거 절차(GSM `ADMIN_EMAILS` 수정 → ExternalSecret 갱신 → 서버 재시작), 이 저장소 `admin/README.md`
+- [승인] 6-4 `.secrets/README.md`에 새 GSM 키 위치
 
 완료 기준: 대시보드 캡처, 테스트 알림 메일 수신 확인, 문서 PR 머지
 
 ## Phase 7. Django 정리 (전환 30일 뒤, D7)
 
-- [ ] 7-1 `django_admin_log`를 CSV로 내보내 로컬 보관 (읽기 전용 임시 Pod, `default_transaction_read_only`)
-- [ ] 7-2 Django 전용 테이블 삭제 SQL을 `server/migrations/`에 작성 → 개발자 확인 후 적용 (운영 DB 쓰기, 실행 직전 승인): `auth_group`, `auth_group_permissions`, `auth_permission`, `django_admin_log`, `django_content_type`, `django_migrations`, `django_session`, `users_groups`, `users_user_permissions`. `users` 테이블의 `is_staff`·`is_superuser`·`password` 컬럼은 앱 서버 모델이 쓰므로 유지
-- [ ] 7-3 `admin-django/` 코드, Python 관련 CI 단계, Dependabot Python 설정 제거
-- [ ] 7-4 GSM·Secret 중 Django 전용 값(예: `DJANGO_SECRET_KEY`) 제거, 문서 갱신
+- [승인] 7-1 `django_admin_log`를 CSV로 내보내 로컬 보관 (읽기 전용 임시 Pod, `default_transaction_read_only`)
+- [승인] 7-2 Django 전용 테이블 삭제 SQL을 `server/migrations/`에 작성 → 개발자 확인 후 적용 (운영 DB 쓰기, 실행 직전 승인): `auth_group`, `auth_group_permissions`, `auth_permission`, `django_admin_log`, `django_content_type`, `django_migrations`, `django_session`, `users_groups`, `users_user_permissions`. `users` 테이블의 `is_staff`·`is_superuser`·`password` 컬럼은 앱 서버 모델이 쓰므로 유지
+- [승인] 7-3 `admin-django/` 코드, Python 관련 CI 단계, Dependabot Python 설정 제거
+- [승인] 7-4 GSM·Secret 중 Django 전용 값(예: `DJANGO_SECRET_KEY`) 제거, 문서 갱신
 
 완료 기준: Django 흔적 없음, 문서·대시보드에 남은 참조 없음
 
@@ -210,3 +233,4 @@
 | 날짜 | 항목 | 결과 |
 |---|---|---|
 | 2026-11-27 | 계획 작성 | 현재 구조·사용량 조사(운영 DB 읽기 전용), 라익찍스 구조 확인 |
+| 2026-11-27 | 진행 시작 | D1~D7 표시 없음 → 추천안. 0-2: `/v1/app-config/version` 7일 1회, `/ads` 0회(2.2.0부터 앱은 Remote Config) → 앱 버전 화면 읽기 전용. 발견: users 외래 키가 모두 NO ACTION이라 앱 회원 탈퇴가 연결 데이터 있는 사용자(160명 중 146명)에게 실패 → 탈퇴를 연관 데이터 포함 트랜잭션으로 수정. 카테고리 매핑 편입(3-1장) 추가 |

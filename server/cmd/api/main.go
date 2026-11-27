@@ -5,10 +5,13 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	_ "github.com/ggorockee/reviewmaps/server/docs"
+	"github.com/ggorockee/reviewmaps/server/internal/admin"
+	"github.com/ggorockee/reviewmaps/server/internal/adminapi"
 	"github.com/ggorockee/reviewmaps/server/internal/config"
 	"github.com/ggorockee/reviewmaps/server/internal/database"
 	"github.com/ggorockee/reviewmaps/server/internal/handlers"
@@ -20,6 +23,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/gofiber/swagger"
 	"github.com/joho/godotenv"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // @title ReviewMaps API
@@ -106,6 +110,8 @@ func main() {
 	// CORS 설정 (원본 Django 설정과 동일)
 	// Mobile app (Android/iOS)에서 API 호출을 위해 모든 origin 허용
 	app.Use(cors.New(cors.Config{
+		// 관리자 API(/admin/v1)는 쿠키를 쓰므로 자체 CORS(관리자 주소만, credentials)를 쓴다
+		Next:             func(c *fiber.Ctx) bool { return strings.HasPrefix(c.Path(), adminapi.Prefix) },
 		AllowOrigins:     "*",
 		AllowMethods:     "GET, POST, PUT, PATCH, DELETE, OPTIONS",
 		AllowHeaders:     "Accept, Accept-Encoding, Authorization, Content-Type, DNT, Origin, User-Agent, X-Requested-With, X-API-Key",
@@ -116,6 +122,12 @@ func main() {
 
 	// Setup routes
 	setupRoutes(app, db, cfg)
+
+	// 카테고리 매핑 상태 지표 (미매핑 원본 수, 카테고리 없는 캠페인 비율)
+	prometheus.MustRegister(adminapi.NewCategoryCollector(db.DB))
+
+	// Admin console API (/admin/v1) - ADMIN_ORIGIN이 있을 때만
+	mountAdmin(ctx, app, db, cfg)
 
 	// Start server
 	port := cfg.ServerPort
@@ -186,4 +198,42 @@ func setupRoutes(app *fiber.App, db *database.DB, cfg *config.Config) {
 	// Internal API routes (Scraper 전용 - API Key 인증)
 	internal := v1.Group("/internal")
 	handlers.SetupInternalRoutes(internal, db, cfg)
+}
+
+// mountAdmin registers /admin/v1 when ADMIN_ORIGIN is set (admin.review-maps.com).
+func mountAdmin(ctx context.Context, app *fiber.App, db *database.DB, cfg *config.Config) {
+	if cfg.AdminOrigin == "" {
+		log.Println("Admin API disabled (ADMIN_ORIGIN is empty)")
+		return
+	}
+	allow := admin.ParseAllowlist(cfg.AdminEmails)
+	sessions := &admin.Sessions{DB: db.DB, TTL: 12 * time.Hour}
+	admin.RegisterActiveSessionsGauge(sessions)
+	opt := &adminapi.Options{
+		DB:             db,
+		Allowlist:      allow,
+		Sessions:       sessions,
+		Origin:         cfg.AdminOrigin,
+		GoogleClientID: cfg.AdminGoogleClientID,
+		CookieSecure:   strings.HasPrefix(cfg.AdminOrigin, "https://"),
+	}
+	if cfg.AdminGoogleClientID != "" {
+		v, err := admin.NewGoogleVerifier(ctx, cfg.AdminGoogleClientID)
+		if err != nil {
+			log.Printf("Admin Google login disabled: %v", err)
+		} else {
+			opt.Verifier = v
+		}
+	}
+	pw, err := admin.NewPasswordLogin(cfg.AdminLoginID, cfg.AdminPasswordHash)
+	if err != nil {
+		log.Printf("Admin password login disabled: %v", err)
+	}
+	opt.Password = pw
+	if cfg.ServerEnv == "local" && cfg.AdminDevEmail != "" {
+		opt.DevEmail = cfg.AdminDevEmail
+	}
+	adminapi.Mount(app, opt)
+	log.Printf("Admin API mounted at %s (origin %s, %d admins, google=%t, password=%t)",
+		adminapi.Prefix, cfg.AdminOrigin, len(allow), opt.Verifier != nil, opt.Password != nil)
 }

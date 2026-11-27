@@ -53,6 +53,15 @@ type Config struct {
 	EmailHostPassword string
 	EmailUseTLS       bool
 	DefaultFromEmail  string
+
+	// Admin console (/admin/v1, admin.review-maps.com)
+	// ADMIN_ORIGIN이 비어 있으면 관리자 API를 등록하지 않음
+	AdminOrigin         string
+	AdminEmails         string // 쉼표로 구분한 관리자 Google 계정 (GSM)
+	AdminGoogleClientID string // 관리자 콘솔용 Google OAuth 웹 클라이언트 ID
+	AdminLoginID        string // 예비 아이디/비밀번호 로그인 (비우면 끔)
+	AdminPasswordHash   string // bcrypt
+	AdminDevEmail       string // 로컬 개발 전용 (SERVER_ENV=local일 때만 사용)
 }
 
 func Load() *Config {
@@ -100,6 +109,14 @@ func Load() *Config {
 		EmailHostPassword: getEnv("EMAIL_HOST_PASSWORD", ""),
 		EmailUseTLS:       getEnvAsBool("EMAIL_USE_TLS", true),
 		DefaultFromEmail:  getEnv("DEFAULT_FROM_EMAIL", ""),
+
+		// Admin console
+		AdminOrigin:         getEnv("ADMIN_ORIGIN", ""),
+		AdminEmails:         getEnv("ADMIN_EMAILS", ""),
+		AdminGoogleClientID: getEnv("ADMIN_GOOGLE_CLIENT_ID", ""),
+		AdminLoginID:        getEnv("ADMIN_LOGIN_ID", ""),
+		AdminPasswordHash:   getEnv("ADMIN_PASSWORD_HASH", ""),
+		AdminDevEmail:       getEnv("ADMIN_DEV_EMAIL", ""),
 	}
 }
 

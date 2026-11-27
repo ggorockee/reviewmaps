@@ -11,22 +11,31 @@ import FirebaseMessaging
   ) -> Bool {
     FirebaseApp.configure()
 
-    // iOS 푸시 알림 등록
-    if #available(iOS 10.0, *) {
-      UNUserNotificationCenter.current().delegate = self
+    // 스토어 캡처(tool/capture_screenshots.py)는 시뮬레이터에서만. 실기기 빌드는 항상 false
+    #if targetEnvironment(simulator)
+    let isScreenshotMode = ProcessInfo.processInfo.arguments.contains("--screenshots")
+    #else
+    let isScreenshotMode = false
+    #endif
 
-      let authOptions: UNAuthorizationOptions = [.alert, .badge, .sound]
-      UNUserNotificationCenter.current().requestAuthorization(
-        options: authOptions,
-        completionHandler: { _, _ in }
-      )
-    } else {
-      let settings: UIUserNotificationSettings =
-        UIUserNotificationSettings(types: [.alert, .badge, .sound], categories: nil)
-      application.registerUserNotificationSettings(settings)
+    // iOS 푸시 알림 등록 (스크린샷 캡처 모드에서는 권한 시스템 알림창 생략)
+    if !isScreenshotMode {
+      if #available(iOS 10.0, *) {
+        UNUserNotificationCenter.current().delegate = self
+
+        let authOptions: UNAuthorizationOptions = [.alert, .badge, .sound]
+        UNUserNotificationCenter.current().requestAuthorization(
+          options: authOptions,
+          completionHandler: { _, _ in }
+        )
+      } else {
+        let settings: UIUserNotificationSettings =
+          UIUserNotificationSettings(types: [.alert, .badge, .sound], categories: nil)
+        application.registerUserNotificationSettings(settings)
+      }
+
+      application.registerForRemoteNotifications()
     }
-
-    application.registerForRemoteNotifications()
 
     // Firebase Messaging 델리게이트 설정
     Messaging.messaging().delegate = self

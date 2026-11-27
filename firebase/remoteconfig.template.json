@@ -106,6 +106,13 @@
           "valueType": "STRING",
           "description": "업데이트 팝업 제목 (비우면 기본 문구)"
         },
+        "release_note": {
+          "defaultValue": {
+            "value": ""
+          },
+          "valueType": "STRING",
+          "description": "업데이트 안내 카드(2.2.3 이상). JSON: version, pages(title, body, image, icon) 3장까지. version이 대상 버전과 같을 때만 사용(업데이트 전 카드는 latest_version, 뒤 카드는 설치된 버전). 비우면 앱에 든 안내·기본 문구"
+        },
         "update_message_body": {
           "defaultValue": {
             "value": ""

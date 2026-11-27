@@ -26,6 +26,25 @@ ReviewMaps는 캠페인/리뷰어 정보 제공 서비스로, 모노레포 구�
 | `scrape/` | Python (비활성화) | 레거시 스크레이퍼 (사용 안 함) |
 | `selenium-scraper/` | Python + Selenium (uv) | 리뷰노트 여행 카테고리 상세 수집 (로그인 필요, 로컬 수동 실행). `selenium-scraper/README.md`, `claudedocs/reviewnote-travel-selenium.md` |
 
+## 업데이트 안내 카드 (릴리스마다 할 일)
+
+세 앱 공통 표준은 infra 저장소 `claudedocs/app-update-card.md`. 리뷰맵은 2.2.3부터 적용.
+
+| 순서 | 할 일 |
+|------|-------|
+| 1 | `mobile/pubspec.yaml`의 `version`과 `mobile/lib/config/app_version.dart`를 함께 올림 |
+| 2 | `mobile/asset/release_notes.json`의 `version`을 같게 바꾸고 `pages`를 새로 씀 (3장까지, 알릴 것이 없으면 빈 배열). 안 바꾸면 테스트 실패 |
+| 3 | 그림이 필요하면 `mobile/asset/image/release_notes/`에 넣고 지난 버전 그림은 삭제 |
+| 4 | 스토어 공개를 확인한 뒤 Remote Config `release_note`(업데이트 전 카드 내용)와 `*_latest_version`을 올림 |
+| 5 | 출시 1주 뒤 GA4 `update_card_shown`·`update_card_action` 확인 |
+
+| 코드 | 역할 |
+|------|------|
+| `mobile/lib/services/release_note_service.dart` | 언제·무엇을 보여줄지 |
+| `mobile/lib/widgets/release_note_card.dart` | 카드 화면 |
+| `mobile/lib/services/release_note_presenter.dart` | 표시·건너뛰기·이벤트 기록 |
+| `mobile/tool/make_note_images.py` | 설명 그림 만들기 |
+
 ## Development Commands
 
 ### Server (Go Fiber)

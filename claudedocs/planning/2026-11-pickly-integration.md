@@ -102,6 +102,24 @@
 - [ ] 6-1 infra `.claude/CLAUDE.md` 리뷰맵 운영 메모(CronJob 시간표·수집 기준값)에 피클리 추가
 - [ ] 6-2 이 문서 진행 기록, 피클리와 주고받은 허락 내용 요약
 
+## 6. 개발 계획 상세 (2026-11-27 메일 재확인 후)
+
+메일 내용(네이버 블로그 체험단 31건, 맛집·카페 방문형 위주 + 배송형, 즉시 확정/선정형 혼재, 비회원 열람 가능, 상세에 제공 내역·모집 인원·마감일·주소)이 1장 조사 결과와 일치함을 확인했습니다. 메일은 "목록에 넣어 달라"는 요청이라 수집 자체는 동의로 볼 수 있으나, robots.txt의 `/api/` 제한 때문에 **API 사용 방식은 Phase 0 답장으로 확인받은 뒤** 운영에 넣습니다.
+
+| 순서 | 작업 | 파일·위치 | 완료 기준 |
+|---|---|---|---|
+| 1 | 응답 구조체·변환 함수 (`ListItem`, `Detail` → `models.Campaign`) | `go-scraper/internal/scraper/pickly/pickly.go` | 2장 매핑표 그대로, 배송형은 주소·좌표 비움 |
+| 2 | 목록 조회(`limit=100`, `channel=naver_blog`, offset 페이지) → DB에 없는 `content_link`만 상세 조회 (요청 간 1초) | 같은 파일, `internal/db`에 `content_link` 존재 조회 함수 추가 | 두 번째 실행부터 상세 요청 0~수 건 |
+| 3 | 고정 데이터 테스트 (목록·상세 응답 JSON) | `pickly/testdata/*.json`, `pickly_test.go` | 마감일 KST 23:59:59, 이미지 절대 주소, 배송형 처리, `status!=active` 제외 |
+| 4 | 플랫폼 등록 + 끄기 스위치 `PICKLY_ENABLED` (기본 꺼짐) | `go-scraper/cmd/scraper/main.go`, `internal/config` | `go run cmd/scraper/main.go pickly` 로컬 DB 적재 |
+| 5 | runstats push (scraped/saved, 성공·실패) | 리뷰노트와 동일 호출 | Pushgateway에 `scraper="pickly"` 라벨 |
+| 6 | CronJob 추가 02:30 KST, `PICKLY_ENABLED=true` | infra `charts/helm/prod/reviewmaps/values.yaml` | 수동 Job 1회 성공, DB 약 30건 |
+| 7 | 카테고리 매핑 (맛집·카페·여행·배송형·뷰티·반려동물·서비스) | 관리자 화면 | 미매핑 0건 |
+| 8 | 앱 로고 `pickly.png` + 매핑 3곳 | `mobile/asset/image/logo/`, `store_model.dart`, `build_store_list_item.dart` | 로고 표시 허락 후 다음 앱 버전에 포함 |
+
+- 즉시 확정(`instant`) 표시는 앱 칸이 없어 1차에서는 보류. 필요하면 제공 내역 뒤 "[바로 확정]" 덧붙임으로 2차 검토.
+- 앱 로고는 허락 회신 전에는 넣지 않음 (로고 없는 플랫폼은 기본 로고로 표시되므로 수집만 먼저 시작해도 앱이 깨지지 않음).
+
 ## 진행 기록
 
 | 날짜 | 항목 | 결과 |

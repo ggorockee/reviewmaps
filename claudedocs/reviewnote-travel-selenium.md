@@ -18,6 +18,10 @@
 
 ## 세션 갱신 (약 15일마다, 만료 3일 전 [WARN] 메일이 오면)
 
+**결정 (2026-11-27):** 당분간 개발자 노트북에서 갱신한다. 휴대폰·관리자 화면 갱신(클러스터에 그때만 뜨는 원격 크롬에서 로그인 → 쿠키 자동 저장)이나 쿠키 붙여넣기 메뉴는 리뷰맵 서버 비용이 회수된 뒤 다시 논의한다. 쿠키가 HttpOnly라 휴대폰 브라우저로는 값을 꺼낼 수 없어, 휴대폰으로 하려면 원격 브라우저 방식만 가능하다.
+
+갱신은 `selenium-scraper`가 있는 최신 main 체크아웃에서 한다 (2026-11-27 기준 `/Users/woohyeon/ggorockee/reviewmaps-rn-travel` worktree, 처음이면 `uv sync`).
+
 1. `selenium-scraper`에서 `uv run python -m selenium_scraper login` → 열린 창에서 **수집 전용 계정**으로 네이버 로그인 (미가입 계정은 회원가입 화면으로 감)
 2. `uv run python -m selenium_scraper session | gcloud secrets versions add prod-reviewmaps-reviewnote-session --data-file=- --project=yanggo-514212` (쿠키 값이 화면·파일에 남지 않게 파이프로만 전달, gcloud 쓰기라 실행 전 개발자 승인)
 3. ExternalSecret은 1시간마다 갱신. 바로 반영하려면 `kubectl -n reviewmaps annotate externalsecret reviewmaps-reviewnote-session force-sync=$(date +%s) --overwrite`
@@ -78,6 +82,7 @@
 - [x] 만료 3일 전 메일 실제 발송 시험: 시험 그룹(scraper=alert-test)에 만료 2일 남음 push → 5분 뒤 firing → Alertmanager email 수신자로 발송(실패 0) → 그룹 삭제. 실제 그룹에는 만료 시각을 미리 push(남은 14.99일, "만료일 지표 없음" 오탐 방지)
 - [ ] 2026-11-28 첫 실행(100건) 결과 확인 → 이상 없으면 `REVIEWNOTE_DETAIL_MAX_FETCH` 450
 - [ ] 모바일: 요일 배지를 문구 추정(`StayAvailability`) 대신 `possible_days`/`impossible_days` 우선 사용 (`feature/stay-available-days` 머지 후)
+- [ ] 세션 갱신 자동화(휴대폰·관리자 화면) — 리뷰맵 서버 비용 회수 후 논의 (2026-11-27 결정)
 - [ ] 세션 갱신 2026-12-09 무렵 (현재 쿠키 만료 2026-12-12 17:43, 만료 3일 전 [WARN] 메일 2026-12-09 17:43 무렵)
 
 ## 겪은 문제 (2026-11-27)
@@ -88,6 +93,17 @@
 | 이전 계정으로 로그인하면 회원가입 화면 | 리뷰노트 미가입 네이버 계정 | 가입된 수집 전용 계정 사용 |
 | 세션 쿠키 값이 로컬 작업 로그·대화 기록에 한 번 출력됨 | 백그라운드로 넘어간 명령의 출력 순서 | 로그 파일 삭제, 그 쿠키 대신 재로그인한 새 쿠키를 GSM에 등록. 노출된 쿠키는 운영에 쓰지 않음(2026-12-12 만료). 쿠키 확인은 키·길이만 출력 |
 | 노출 쿠키가 든 프로필 | - | `~/.reviewmaps/reviewnote-chrome-profile.exposed-20261127` 로 보관 (이전 계정 프로필은 `.old-account-20261127`), 필요 없으면 삭제 |
+
+## 리뷰노트 이미지 주소 404 (2026-11-27 수정)
+
+| 항목 | 내용 |
+|------|------|
+| 증상 | 앱의 리뷰노트 캠페인 이미지가 전부 안 보임. 운영 DB의 삭제 안 된 리뷰노트 12,449건 img_url 이 모두 S3 주소 |
+| 원인 | 리뷰노트가 이미지를 Firebase Storage(`reviewnote-e92d9.appspot.com`)로 옮김. S3 주소는 시험한 16건 모두 404, Firebase 주소는 16건 모두 200 |
+| 코드 | go-scraper `imageURL()`: `https://firebasestorage.googleapis.com/v0/b/reviewnote-e92d9.appspot.com/o/<키, "/"는 %2F>?alt=media` (#312, 이미지 `20261127-69d8028`) |
+| 기존 행 보정 | 개발자 승인 후 일회성 UPDATE (한 트랜잭션, 삭제 안 된 행만, 키가 영숫자·`/_.-`만인 행). 실행 전 변환 주소 무작위 15건 200 확인 → `UPDATE 12449`, S3 주소 0건 |
+| 되돌리기 | `UPDATE campaign SET img_url = 'https://reviewnote.s3.ap-northeast-2.amazonaws.com/' \|\| replace(substring(img_url from '/o/(.*)\?alt=media$'), '%2F', '/') WHERE platform='리뷰노트' AND img_url LIKE 'https://firebasestorage.googleapis.com/v0/b/reviewnote-e92d9.appspot.com/o/%'` |
+| 참고 | 원본 이미지라 1MB가 넘는 것도 있음 (시험 10건 중 3건). 목록 화면 데이터 사용량이 크면 썸네일 처리 검토 |
 
 ## 남은 일
 

@@ -13,7 +13,7 @@ import json
 import logging
 import sys
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 from .browser import DEFAULT_PROFILE_DIR, build_driver, is_logged_in
@@ -42,6 +42,36 @@ def cmd_login(args: argparse.Namespace) -> int:
         return 2
     finally:
         driver.quit()
+
+
+SESSION_COOKIE = "reviewNoteSession"
+
+
+def cmd_session(args: argparse.Namespace) -> int:
+    """go-scraper용 세션 쿠키를 GSM 형식 JSON으로 stdout에 낸다 (파일로 남기지 않음).
+
+    예: ... session | gcloud secrets versions add prod-reviewmaps-reviewnote-session --data-file=-
+    """
+    driver = build_driver(args.profile_dir, headless=True)
+    try:
+        driver.get(BASE_URL)
+        cookie = next((c for c in driver.get_cookies() if c.get("name") == SESSION_COOKIE), None)
+    finally:
+        driver.quit()
+    if not cookie or not cookie.get("value"):
+        print("세션 쿠키가 없습니다. 먼저 login을 실행하세요.", file=sys.stderr)
+        return 2
+    expires = cookie.get("expiry")
+    expires_at = (
+        datetime.fromtimestamp(expires, tz=UTC).isoformat(timespec="seconds") if expires else ""
+    )
+    print(
+        json.dumps(
+            {"REVIEWNOTE_SESSION": cookie["value"], "REVIEWNOTE_SESSION_EXPIRES_AT": expires_at}
+        )
+    )
+    print(f"세션 만료: {expires_at or '알 수 없음'}", file=sys.stderr)
+    return 0
 
 
 def cmd_crawl(args: argparse.Namespace) -> int:
@@ -108,6 +138,7 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("login", help="Chrome 창을 열어 직접 로그인 (처음 한 번, 세션 만료 시)")
+    sub.add_parser("session", help="go-scraper용 세션 쿠키 JSON을 stdout으로 (GSM 등록용)")
 
     p = sub.add_parser("crawl", help="체험단 > 카테고리 > 여행 목록과 상세 수집")
     p.add_argument("--max-items", type=int, default=0, help="목록 최대 건수 (0=전부)")
@@ -126,6 +157,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     if args.command == "login":
         return cmd_login(args)
+    if args.command == "session":
+        return cmd_session(args)
     return cmd_crawl(args)
 
 

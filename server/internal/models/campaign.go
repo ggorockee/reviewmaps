@@ -46,10 +46,17 @@ type Campaign struct {
 	Region          *string    `gorm:"column:region;size:100;index:idx_cpg_region" json:"region,omitempty"`
 	CampaignChannel *string    `gorm:"column:campaign_channel;size:255" json:"campaign_channel,omitempty"`
 	Status          *string    `gorm:"column:status;size:20;index:idx_campaign_status" json:"status,omitempty"`
-	PromotionLevel  int            `gorm:"column:promotion_level;not null;default:0" json:"promotion_level"`
-	CreatedAt       time.Time      `gorm:"column:created_at;not null;index:idx_cpg_created,sort:desc" json:"created_at"`
-	UpdatedAt       time.Time      `gorm:"column:updated_at;not null" json:"updated_at"`
-	DeletedAt       gorm.DeletedAt `gorm:"column:deleted_at;index:idx_cpg_deleted" json:"deleted_at,omitempty"`
+	// 상세 이용 조건 (go-scraper가 리뷰노트 여행 카테고리 상세에서 수집, migrations/add_stay_detail_to_campaign.sql)
+	PossibleDays      *string        `gorm:"column:possible_days;type:text" json:"possible_days,omitempty"`
+	ImpossibleDays    *string        `gorm:"column:impossible_days;type:text" json:"impossible_days,omitempty"`
+	PossibleTime      *string        `gorm:"column:possible_time;type:text" json:"possible_time,omitempty"`
+	SameDayVisit      *bool          `gorm:"column:same_day_visit" json:"same_day_visit,omitempty"`
+	ReservationNotice *string        `gorm:"column:reservation_notice;type:text" json:"reservation_notice,omitempty"`
+	DetailFetchedAt   *time.Time     `gorm:"column:detail_fetched_at" json:"detail_fetched_at,omitempty"`
+	PromotionLevel    int            `gorm:"column:promotion_level;not null;default:0" json:"promotion_level"`
+	CreatedAt         time.Time      `gorm:"column:created_at;not null;index:idx_cpg_created,sort:desc" json:"created_at"`
+	UpdatedAt         time.Time      `gorm:"column:updated_at;not null" json:"updated_at"`
+	DeletedAt         gorm.DeletedAt `gorm:"column:deleted_at;index:idx_cpg_deleted" json:"deleted_at,omitempty"`
 
 	// Relations
 	Category *Category `gorm:"foreignKey:CategoryID" json:"category,omitempty"`

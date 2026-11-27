@@ -27,6 +27,35 @@ type Campaign struct {
 	CampaignType    *string    `json:"campaign_type"`
 	Region          *string    `json:"region"`
 	Status          *string    `json:"status"`
+
+	// 상세 이용 조건 (리뷰노트 여행 카테고리: 로그인 세션으로 상세 API에서 수집)
+	PossibleDays      *string    `json:"possible_days"`      // 체험 가능 요일 (예: "월 / 화 / 수 / 목 / 일")
+	ImpossibleDays    *string    `json:"impossible_days"`    // 체험 불가 요일
+	PossibleTime      *string    `json:"possible_time"`      // 체험 가능 시간 (예: "오후 3시 ~ 오전 11시")
+	SameDayVisit      *bool      `json:"same_day_visit"`     // 당일 예약·방문 가능 여부
+	ReservationNotice *string    `json:"reservation_notice"` // 예약 시 주의사항
+	DetailFetchedAt   *time.Time `json:"detail_fetched_at"`  // 상세를 마지막으로 받은 시각
+
+	// 수집 중에만 쓰는 값 (DB에 저장 안 함)
+	SourceID       int    `json:"-"` // 원본 사이트 캠페인 ID
+	SourceCategory string `json:"-"` // 원본 사이트 카테고리 이름
+}
+
+// StayDetail 상세 이용 조건 (DB에 저장된 값, 상세 API 결과)
+type StayDetail struct {
+	PossibleDays      *string
+	ImpossibleDays    *string
+	PossibleTime      *string
+	SameDayVisit      *bool
+	ReservationNotice *string
+	FetchedAt         time.Time
+}
+
+// Apply 캠페인에 상세 이용 조건을 채운다.
+func (d StayDetail) Apply(c *Campaign) {
+	fetched := d.FetchedAt
+	c.PossibleDays, c.ImpossibleDays, c.PossibleTime = d.PossibleDays, d.ImpossibleDays, d.PossibleTime
+	c.SameDayVisit, c.ReservationNotice, c.DetailFetchedAt = d.SameDayVisit, d.ReservationNotice, &fetched
 }
 
 // CampaignKey 캠페인 고유 키 (중복 체크용)

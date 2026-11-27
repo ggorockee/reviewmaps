@@ -51,6 +51,7 @@ ReviewMaps는 캠페인/리뷰어 정보 제공 서비스로, 모노레포 구�
 |--------|------|
 | `cd go-scraper && go run cmd/scraper/main.go reviewnote` | 스크레이퍼 실행 |
 | `cd go-scraper && go run cmd/scraper/main.go inflexer --keyword "키워드"` | 키워드 지정 |
+| `cd go-scraper && go run cmd/scraper/main.go reviewnote-detail` | 리뷰노트 여행 상세(이용 요일 등) 천천히 수집 (`REVIEWNOTE_SESSION` 필요, 운영 00:00~08:00, `claudedocs/reviewnote-travel-selenium.md`) |
 | `cd go-scraper && go run cmd/scraper/main.go cleanup` | 만료 캠페인 정리 |
 | `cd go-scraper && go run cmd/scraper/main.go dedupe` | 중복 캠페인 정리 |
 

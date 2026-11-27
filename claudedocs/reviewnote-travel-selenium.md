@@ -1,6 +1,29 @@
-# 리뷰노트 여행 카테고리 Selenium 수집기 (2026-11-27)
+# 리뷰노트 여행 카테고리 상세 수집 (2026-11-27)
 
-사용법은 `selenium-scraper/README.md`. 이 문서는 조사 결과·결정·남은 일을 기록합니다.
+운영 수집은 **go-scraper `reviewnote-detail`**(클러스터 CronJob, 브라우저 없음)이 하고, `selenium-scraper/`는 **로그인·세션 쿠키 갱신 도구**로 씁니다 (전체 수집 기능도 남아 있음, 사용법은 `selenium-scraper/README.md`). 이 문서는 조사 결과·결정·운영 절차·남은 일을 기록합니다.
+
+## 운영 구조 (2026-11-28~)
+
+| 구성 | 내용 |
+|------|------|
+| `reviewnote-detail` (CronJob 00:00) | 0~30분 무작위 대기 → 목록 API(로그인 불필요, 100건씩, 쪽 사이 10~20초)에서 여행·모집 중 고름 → 14일 안에 받은 것 제외, 없는 것·오래된 것 순 → 07:50까지 남은 시간을 남은 건수로 나눈 간격(×0.6~1.2, 최소 30초)으로 상세 API 1건씩 → `campaign_stay_detail` 저장·campaign 행 반영 → 끝에 campaign 전체 맞추기 |
+| 차단 방지 | 동시 요청 없음, 401·403·429·5xx 한 번이면 그날 즉시 중단, 다른 실패 3회면 중단, Job 재시도 없음(backoffLimit 0), 08:30 강제 종료(activeDeadlineSeconds), 하루 최대 `REVIEWNOTE_DETAIL_MAX_FETCH` |
+| `reviewnote` (CronJob 02:00) | 상세 API는 부르지 않고 `campaign_stay_detail` 값을 붙여 저장 (DELETE 후 INSERT 라 붙이지 않으면 요일이 지워짐) |
+| DB | `server/migrations/add_stay_detail_to_campaign.sql`: campaign 에 `possible_days`, `impossible_days`, `possible_time`, `same_day_visit`, `reservation_notice`, `detail_fetched_at` + 보관 테이블 `campaign_stay_detail` |
+| 서버 API | campaign 모델에 위 필드 추가 → 캠페인 목록·상세 응답에 포함 (값 없으면 생략) |
+| 세션 | GSM `prod-reviewmaps-reviewnote-session` (`REVIEWNOTE_SESSION`, `REVIEWNOTE_SESSION_EXPIRES_AT`) → ExternalSecret `reviewnote-session` (optional, 없으면 상세만 건너뜀) |
+| 지표 (Pushgateway, scraper="reviewnote-detail") | `reviewmaps_scraper_detail_session_ok`, `..._session_expiry_timestamp_seconds`(시작 직후 먼저 push), `..._blocked`, `reviewmaps_scraper_last_run_detail{type=target/reused/fetched/error/missing/with_days}` |
+| 알림 | 만료 3일 전 [WARN](12시간마다 반복), 만료·401 [ERROR], 만료일 지표 없음 1시간 [ERROR], 차단 신호 [ERROR], Job 실패 [ERROR], 26시간 미성공 [ERROR] |
+| 대시보드 | ReviewMaps 수집 서버(`reviewmaps-scraper`) "리뷰노트 여행 상세" 행 |
+
+## 세션 갱신 (약 15일마다, 만료 3일 전 [WARN] 메일이 오면)
+
+1. `selenium-scraper`에서 `uv run python -m selenium_scraper login` → 열린 창에서 **수집 전용 계정**으로 네이버 로그인 (미가입 계정은 회원가입 화면으로 감)
+2. `uv run python -m selenium_scraper session | gcloud secrets versions add prod-reviewmaps-reviewnote-session --data-file=- --project=yanggo-514212` (쿠키 값이 화면·파일에 남지 않게 파이프로만 전달, gcloud 쓰기라 실행 전 개발자 승인)
+3. ExternalSecret은 1시간마다 갱신. 바로 반영하려면 `kubectl -n reviewmaps annotate externalsecret reviewmaps-reviewnote-session force-sync=$(date +%s) --overwrite`
+4. 다음 날 아침 대시보드 "세션 만료까지"가 약 15일로 바뀌었는지 확인
+
+쿠키 형태: `reviewNoteSession`(HttpOnly, 약 15일) 하나로 상세 API 200. 사용해도 연장되지 않음(2026-11-27 확인, 응답에 새 세션 쿠키 없음). `reviewnoteLoginToken`(30일)·`token` 만으로는 401.
 
 ## 왜 만들었나
 
@@ -28,7 +51,11 @@
 |------|------|
 | 화면 DOM 대신 CDP 성능 로그에서 API 응답을 읽음 | 화면 구조 변경에 덜 깨지고, 값이 사이트 표기 그대로 남음 |
 | 로그인은 사람이 전용 Chrome 프로필에서 직접 | 계정 비밀번호를 코드·Secret에 두지 않음. 네이버 로그인은 자동화 탐지·2단계 인증이 있어 자동 로그인 불가 |
-| 기본은 모집 중(SELECT)만 상세 진입, 상세 사이 2~3초 | 리뷰맵이 쓰는 범위(go-scraper도 SELECT만 저장)로 요청 수를 줄임. 413건이면 약 20~30분 |
+| 기본은 모집 중(SELECT)만 상세 진입 | 리뷰맵이 쓰는 범위(go-scraper도 SELECT만 저장)로 요청 수를 줄임 |
+| 운영은 Go(브라우저 없이 쿠키 하나로 HTTP) | 상세 API가 `reviewNoteSession` 쿠키 하나로 열림. 기존 go-scraper·CronJob·지표·알림을 그대로 씀 |
+| 상세는 별도 CronJob으로 새벽 내내 천천히 | 차단 방지가 최우선 (개발자 요청 2026-11-27). 시간대는 00:00~08:00(하루 400건 이상 가능), 첫날 100건 시험 후 450건 |
+| 상세 값은 보관 테이블이 원본 | campaign 은 수집 때마다 DELETE 후 INSERT 되어 값이 지워짐 |
+| 세션 만료일을 시작 직후 push + 지표 없음 알림 | 만료 3일 전 메일이 반드시 가도록 (개발자 요청). Pushgateway PVC 보관이라 Job이 안 돌아도 계산 유지 |
 | 업체 연락처·신청자·사용자 상태는 저장 안 함 | 개인정보 |
 | 결과는 우선 JSON 파일 | DB 반영 방식(go-scraper 리뷰노트 행에 필드 추가 vs 별도 테이블)을 정하기 전 실제 값 형태부터 확인 |
 
@@ -39,6 +66,19 @@
 - [x] 비로그인 상세 진입 시 로그인 필요로 판단하고 중단
 - [x] 로그인 후 상세 수집: `crawl --max-items 40 --max-details 5` → 5건 모두 성공, 5건 모두 이용 요일 있음, 약 14초 (2026-11-27)
 - [ ] 실제 `possibleDays`·`impossibleDays` 값 형태 확인 후 모바일 `StayAvailability` 파서와 비교
+
+## 진행 (2026-11-27~)
+
+- [x] go-scraper `reviewnote-detail` 구현·단위 테스트(일정 계획, 간격, 대상 고르기, 차단·만료 즉시 중단, 보관값 붙이기), 새 계정 쿠키로 실제 상세 API 호출 확인
+- [x] 서버 campaign 모델 필드, 마이그레이션 SQL
+- [x] infra: CronJob·ExternalSecret·알림 4개·대시보드 행 (infra PR)
+- [ ] 운영 DB 마이그레이션 적용 (개발자 승인)
+- [ ] GSM `prod-reviewmaps-reviewnote-session` 생성 (개발자 승인)
+- [ ] 머지·이미지 반영·ArgoCD 동기화 확인
+- [ ] 만료 3일 전 메일 실제 발송 시험 (테스트 지표 push → 메일 확인 → 삭제)
+- [ ] 2026-11-28 첫 실행(100건) 결과 확인 → 이상 없으면 `REVIEWNOTE_DETAIL_MAX_FETCH` 450
+- [ ] 모바일: 요일 배지를 문구 추정(`StayAvailability`) 대신 `possible_days`/`impossible_days` 우선 사용 (`feature/stay-available-days` 머지 후)
+- [ ] 세션 갱신 2026-12-09 무렵 (현재 쿠키 만료 2026-12-12 17:05)
 
 ## 남은 일
 

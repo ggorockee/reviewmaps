@@ -21,6 +21,7 @@
 |------|------|
 | `uv sync` | 의존성 설치 (Selenium. chromedriver는 Selenium Manager가 설치된 Chrome에 맞춰 자동 준비) |
 | `uv run python -m selenium_scraper login` | Chrome 창이 열리면 **직접** 리뷰노트에 가입된 네이버(또는 Apple) 계정으로 로그인 (미가입 계정은 회원가입 화면으로 감). 로그인 판정은 쿠키 `reviewnoteLoginToken`. 세션은 `~/.reviewmaps/reviewnote-chrome-profile`에 저장 (저장소 밖) |
+| `uv run python -m selenium_scraper session` | go-scraper용 세션 쿠키 JSON(`REVIEWNOTE_SESSION`, `REVIEWNOTE_SESSION_EXPIRES_AT`)을 stdout으로. GSM 등록 시 파이프로만 넘김 (절차: `claudedocs/reviewnote-travel-selenium.md` 세션 갱신) |
 | `uv run python -m selenium_scraper crawl --max-details 5` | 시험 실행: 상세 5건만 |
 | `uv run python -m selenium_scraper crawl` | 전체 실행 (창 표시). `--headless`로 창 없이 |
 | `uv run pytest -q` / `uv run ruff format --check .` | 테스트 / 포맷 검사 |
@@ -50,4 +51,4 @@ crawl 옵션: `--max-items`(목록 최대), `--max-details`(상세 최대), `--d
 
 - 리뷰노트 상세는 로그인한 사용자만 볼 수 있고, `robots.txt`가 `/campaigns/`를 막고 있으며, 제휴·API 요청은 거절된 상태입니다 (2026-11-27). 수집에 쓰는 계정이 제재될 수 있으니 본인 계정 대신 수집 전용 계정을 권장하고, 대기 시간을 줄이지 마세요.
 - 로그인 정보(쿠키)는 프로필 폴더에만 있습니다. 저장소·서버에 올리지 마세요.
-- 아직 DB 저장·정기 실행·모니터링은 없습니다 (로컬 수동 실행 도구). 진행 상황은 `claudedocs/reviewnote-travel-selenium.md`.
+- 운영 수집은 go-scraper `reviewnote-detail`(CronJob)이 하고, 이 도구는 로그인·세션 갱신용입니다. 진행 상황은 `claudedocs/reviewnote-travel-selenium.md`.

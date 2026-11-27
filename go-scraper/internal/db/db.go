@@ -223,9 +223,12 @@ func (db *DB) UpsertCampaigns(ctx context.Context, campaigns []models.Campaign) 
 		INSERT INTO campaign (
 			platform, title, offer, campaign_channel, company, content_link,
 			company_link, source, campaign_type, region, apply_deadline,
-			review_deadline, address, lat, lng, category_id, img_url, status
+			review_deadline, address, lat, lng, category_id, img_url, status,
+			possible_days, impossible_days, possible_time, same_day_visit,
+			reservation_notice, detail_fetched_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18,
+			$19, $20, $21, $22, $23, $24
 		) RETURNING id
 	`
 
@@ -238,6 +241,8 @@ func (db *DB) UpsertCampaigns(ctx context.Context, campaigns []models.Campaign) 
 			c.Platform, c.Title, c.Offer, c.CampaignChannel, c.Company, c.ContentLink,
 			c.CompanyLink, c.Source, c.CampaignType, c.Region, c.ApplyDeadline,
 			c.ReviewDeadline, c.Address, c.Lat, c.Lng, c.CategoryID, c.ImgURL, c.Status,
+			c.PossibleDays, c.ImpossibleDays, c.PossibleTime, c.SameDayVisit,
+			c.ReservationNotice, c.DetailFetchedAt,
 		).Scan(&id)
 		if err != nil {
 			log.Errorf("캠페인 INSERT 실패: %v", err)
@@ -299,6 +304,84 @@ func (db *DB) UpsertCampaigns(ctx context.Context, campaigns []models.Campaign) 
 	runstats.SetItems(runstats.StageUpdated, int(deletedCount))
 	runstats.SetItems(runstats.StageNew, len(newCampaignIDs))
 	return newCampaignIDs, nil
+}
+
+// LoadStayDetails 보관 테이블(campaign_stay_detail)에서 content_link별 상세 이용 조건을 읽는다.
+// campaign 테이블은 수집 때마다 DELETE 후 INSERT 되므로, 상세 값은 보관 테이블이 원본이다.
+func (db *DB) LoadStayDetails(ctx context.Context, platform string, links []string) (map[string]models.StayDetail, error) {
+	out := make(map[string]models.StayDetail)
+	if len(links) == 0 {
+		return out, nil
+	}
+	rows, err := db.Pool.Query(ctx, `
+		SELECT content_link, possible_days, impossible_days, possible_time,
+			same_day_visit, reservation_notice, fetched_at
+		FROM campaign_stay_detail
+		WHERE platform = $1 AND content_link = ANY($2)
+	`, platform, links)
+	if err != nil {
+		return nil, fmt.Errorf("상세 이용 조건 조회 실패: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var link string
+		var d models.StayDetail
+		if err := rows.Scan(&link, &d.PossibleDays, &d.ImpossibleDays, &d.PossibleTime,
+			&d.SameDayVisit, &d.ReservationNotice, &d.FetchedAt); err != nil {
+			return nil, fmt.Errorf("상세 이용 조건 조회 실패: %w", err)
+		}
+		out[link] = d
+	}
+	return out, rows.Err()
+}
+
+// SaveStayDetail 상세 이용 조건을 보관 테이블에 넣고(같은 링크면 갱신), 지금 있는 campaign 행에도 바로 반영한다.
+func (db *DB) SaveStayDetail(ctx context.Context, platform, link string, sourceID int, d models.StayDetail) error {
+	if _, err := db.Pool.Exec(ctx, `
+		INSERT INTO campaign_stay_detail (
+			platform, content_link, source_id, possible_days, impossible_days,
+			possible_time, same_day_visit, reservation_notice, fetched_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		ON CONFLICT (platform, content_link) DO UPDATE SET
+			source_id = EXCLUDED.source_id,
+			possible_days = EXCLUDED.possible_days,
+			impossible_days = EXCLUDED.impossible_days,
+			possible_time = EXCLUDED.possible_time,
+			same_day_visit = EXCLUDED.same_day_visit,
+			reservation_notice = EXCLUDED.reservation_notice,
+			fetched_at = EXCLUDED.fetched_at
+	`, platform, link, sourceID, d.PossibleDays, d.ImpossibleDays, d.PossibleTime,
+		d.SameDayVisit, d.ReservationNotice, d.FetchedAt); err != nil {
+		return fmt.Errorf("상세 이용 조건 저장 실패: %w", err)
+	}
+	if _, err := db.Pool.Exec(ctx, `
+		UPDATE campaign SET
+			possible_days = $3, impossible_days = $4, possible_time = $5,
+			same_day_visit = $6, reservation_notice = $7, detail_fetched_at = $8
+		WHERE platform = $1 AND content_link = $2
+	`, platform, link, d.PossibleDays, d.ImpossibleDays, d.PossibleTime,
+		d.SameDayVisit, d.ReservationNotice, d.FetchedAt); err != nil {
+		return fmt.Errorf("캠페인 상세 이용 조건 반영 실패: %w", err)
+	}
+	return nil
+}
+
+// SyncStayDetailsToCampaigns 보관 테이블 값을 campaign 행에 다시 맞춘다 (상세 수집 마지막에 1회).
+// 상세 수집 도중 02:00 목록 수집이 campaign 행을 다시 넣어 값이 빠진 경우를 메운다.
+func (db *DB) SyncStayDetailsToCampaigns(ctx context.Context, platform string) (int64, error) {
+	tag, err := db.Pool.Exec(ctx, `
+		UPDATE campaign c SET
+			possible_days = s.possible_days, impossible_days = s.impossible_days,
+			possible_time = s.possible_time, same_day_visit = s.same_day_visit,
+			reservation_notice = s.reservation_notice, detail_fetched_at = s.fetched_at
+		FROM campaign_stay_detail s
+		WHERE c.platform = $1 AND s.platform = c.platform AND s.content_link = c.content_link
+			AND c.detail_fetched_at IS DISTINCT FROM s.fetched_at
+	`, platform)
+	if err != nil {
+		return 0, fmt.Errorf("캠페인 상세 이용 조건 맞추기 실패: %w", err)
+	}
+	return tag.RowsAffected(), nil
 }
 
 // campaignKey 캠페인 동일성 키 (platform, title, offer, campaign_channel)

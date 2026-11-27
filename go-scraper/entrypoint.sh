@@ -82,6 +82,7 @@ case "$COMMAND" in
         echo "Commands:"
         echo "  reviewnote [--keyword <keyword>]  Run reviewnote scraper"
         echo "  inflexer [--keyword <keyword>]    Run inflexer scraper (keyword required)"
+        echo "  reviewnote-detail                 Slowly fetch travel campaign details (00:00-05:00, needs REVIEWNOTE_SESSION)"
         echo "  cleanup                           Clean up expired campaigns"
         echo "  dedupe                            Remove duplicate campaigns (keep newest)"
         echo "  add-unique                        Add UNIQUE constraint (run after dedupe)"

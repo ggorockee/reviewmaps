@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"strings"
 	"time"
@@ -89,19 +90,34 @@ type Sido struct {
 // Scraper reviewnote 스크래퍼
 type Scraper struct {
 	*scraper.BaseScraper
-	httpClient *http.Client
-	telemetry  *telemetry.Telemetry
+	httpClient  *http.Client
+	telemetry   *telemetry.Telemetry
+	stays       stayStore       // 보관된 상세 값 읽기 (DB)
+	details     detailStore     // 상세 값 저장 (DB, reviewnote-detail)
+	fetchDetail detailFetcher   // 상세 API 호출
+	listPage    listPageFetcher // 목록 API 한 페이지
+	sleep       func(ctx context.Context, d time.Duration) bool
+	rnd         *rand.Rand
 }
 
 // New 새로운 reviewnote 스크래퍼 생성
 func New(cfg *config.Config, database *db.DB, tel *telemetry.Telemetry) *Scraper {
-	return &Scraper{
+	s := &Scraper{
 		BaseScraper: scraper.NewBaseScraper(cfg, database),
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
 		telemetry: tel,
 	}
+	if database != nil {
+		s.stays = database
+		s.details = database
+	}
+	s.fetchDetail = s.fetchDetailHTTP
+	s.listPage = s.scrapePage
+	s.sleep = sleepCtx
+	s.rnd = rand.New(rand.NewSource(time.Now().UnixNano()))
+	return s
 }
 
 // PlatformName 플랫폼 이름 반환
@@ -156,7 +172,10 @@ func (s *Scraper) Run(ctx context.Context, keyword *string) error {
 		return err
 	}
 
-	// 4. Save
+	// 4. 보관된 상세 이용 조건(요일 등) 붙이기 (상세 API 호출은 reviewnote-detail 이 새벽에 따로 함)
+	enrichedData = s.ApplyStoredStayDetails(ctx, enrichedData)
+
+	// 5. Save
 	if err := s.Save(ctx, enrichedData); err != nil {
 		log.Errorf("save 단계에서 에러 발생: %v", err)
 		return err
@@ -350,8 +369,13 @@ func (s *Scraper) Parse(ctx context.Context, rawData []map[string]interface{}) (
 			campaign.Region = &region
 		}
 
+		if categoryTitle, ok := raw["categoryTitle"].(string); ok {
+			campaign.SourceCategory = categoryTitle
+		}
+
 		// Content Link
 		if id, ok := raw["id"].(int); ok {
+			campaign.SourceID = id
 			contentLink := fmt.Sprintf("https://www.reviewnote.co.kr/campaigns/%d", id)
 			campaign.ContentLink = &contentLink
 			campaign.CompanyLink = &contentLink

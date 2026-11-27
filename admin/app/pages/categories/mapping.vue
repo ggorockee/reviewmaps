@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { CategoryRow, CoverageRow, Page } from '~/utils/types'
-import { bulkPayload, confidentIds, initialChoices, type RawCategory } from '~/utils/mapping'
+import { bulkPayload, confidentIds, initialChoices, selectByConfidence, selectionState, toggleAll, CONFIDENCE_DEFAULT, CONFIDENCE_MIN, CONFIDENCE_STEP, type RawCategory } from '~/utils/mapping'
 
 const { api } = useApi()
 const toast = useToast()
@@ -34,9 +34,19 @@ const isSelected = (id: number) => selected.value.includes(id)
 function toggle(id: number, v: boolean) {
   selected.value = v ? [...selected.value, id] : selected.value.filter(x => x !== id)
 }
-const confident = computed(() => confidentIds(items.value))
+// 신뢰도 기준 (슬라이더, 백분율). 기준 이상 추천을 한 번에 선택
+const threshold = ref(Math.round(CONFIDENCE_DEFAULT * 100))
+const confident = computed(() => confidentIds(items.value, threshold.value / 100))
 function selectConfident() {
-  selected.value = [...new Set([...selected.value, ...confident.value])]
+  selected.value = selectByConfidence(selected.value, items.value, threshold.value / 100)
+}
+// 표 머리 칸: 이 페이지 전체 선택/해제
+const allState = computed(() => selectionState(selected.value, items.value))
+function onToggleAll(v: boolean | 'indeterminate') {
+  selected.value = toggleAll(selected.value, items.value, v === true)
+}
+function clearSelection() {
+  selected.value = []
 }
 const payload = computed(() => bulkPayload(selected.value, choices.value))
 
@@ -66,7 +76,8 @@ function search() {
 }
 
 const total = computed(() => cov.value?.by_source.find(s => s.source === '전체'))
-const confColor = (c: number) => (c >= 0.8 ? 'success' : c >= 0.5 ? 'warning' : 'neutral')
+// 추천 배지 색: 지금 기준 이상이면 초록 (선택 버튼이 고르는 항목과 같게)
+const confColor = (c: number) => (Math.round(c * 100) >= threshold.value ? 'success' : c >= 0.5 ? 'warning' : 'neutral')
 </script>
 
 <template>
@@ -135,14 +146,34 @@ const confColor = (c: number) => (c >= 0.8 ? 'success' : c >= 0.5 ? 'warning' : 
         :items="[{ label: '많이 쓰인 순', value: 'usage' }, { label: '최근 생긴 순', value: 'recent' }]"
         class="w-36"
       />
-      <div class="ml-auto flex gap-2">
+      <div class="ml-auto flex flex-wrap items-center gap-2">
+        <div class="flex items-center gap-2 rounded-md border border-default px-3 py-1.5">
+          <span class="text-sm text-muted whitespace-nowrap">신뢰도</span>
+          <USlider
+            v-model="threshold"
+            :min="Math.round(CONFIDENCE_MIN * 100)"
+            :max="100"
+            :step="Math.round(CONFIDENCE_STEP * 100)"
+            class="w-32"
+            aria-label="신뢰도 기준"
+          />
+          <span class="w-10 text-right text-sm font-semibold tabular-nums">{{ threshold }}%</span>
+        </div>
         <UButton
           color="neutral"
           variant="outline"
           icon="i-lucide-sparkles"
-          :label="`신뢰도 80% 이상 선택 (${confident.length})`"
+          :label="`${threshold}% 이상 선택 (${confident.length})`"
           :disabled="!confident.length"
           @click="selectConfident"
+        />
+        <UButton
+          v-if="selected.length"
+          color="neutral"
+          variant="ghost"
+          icon="i-lucide-x"
+          :label="`선택 해제 (${selected.length})`"
+          @click="clearSelection"
         />
         <UButton
           icon="i-lucide-check-check"
@@ -175,6 +206,14 @@ const confColor = (c: number) => (c >= 0.8 ? 'success' : c >= 0.5 ? 'warning' : 
       empty="매핑할 원본 카테고리가 없습니다."
       class="rounded-lg border border-default bg-default"
     >
+      <template #select-header>
+        <UCheckbox
+          :model-value="allState"
+          :disabled="!items.length"
+          aria-label="이 페이지 전체 선택"
+          @update:model-value="onToggleAll"
+        />
+      </template>
       <template #select-cell="{ row }">
         <UCheckbox
           :model-value="isSelected(row.original.id)"

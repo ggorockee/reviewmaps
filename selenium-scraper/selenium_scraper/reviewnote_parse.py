@@ -30,6 +30,9 @@ SENSITIVE_KEYS = frozenset(
         "hasCompletedStoreApply",
         "hasPreviousSelectedApply",
         "hasInsufficientBlogCampaigns",
+        "likes",
+        "_count",
+        "rejectReason",
     }
 )
 
@@ -61,6 +64,23 @@ def _nested(obj: Any, *keys: str) -> Any:
             return None
         obj = obj.get(key)
     return obj
+
+
+def _address(d: dict[str, Any]) -> str | None:
+    """상세 응답 주소는 address1(도로명) + address2(상세)로 나뉘어 온다."""
+    if d.get("address"):
+        return _text(d.get("address"))
+    return _text(" ".join(x.strip() for x in (d.get("address1"), d.get("address2")) if x))
+
+
+def _keywords(d: dict[str, Any]) -> list[str]:
+    """keyword1~3 (블로그 작성 키워드)."""
+    out = []
+    for key in ("keyword1", "keyword2", "keyword3", "keyword"):
+        value = _text(d.get(key))
+        if value and value not in out:
+            out.append(value)
+    return out
 
 
 def list_objects(body: Any) -> list[dict[str, Any]]:
@@ -105,7 +125,8 @@ def to_record(
         "reviewEndAt": pick("reviewEndAt"),
         "imageUrl": image_url(pick("imageKey")),
         # 상세에서만 나오는 값
-        "address": _text(d.get("address")),
+        "address": _address(d),
+        "zipcode": _text(d.get("zipcode")),
         "lat": d.get("lat"),
         "lng": d.get("lng"),
         "possibleDays": _text(d.get("possibleDays")),
@@ -113,7 +134,7 @@ def to_record(
         "possibleTime": _text(d.get("possibleTime")),
         "sameDayVisit": d.get("sameDayVisit") if isinstance(d.get("sameDayVisit"), bool) else None,
         "scheduleInformation": _text(d.get("scheduleInformation")),
-        "keyword": _text(d.get("keyword")),
+        "keywords": _keywords(d),
         "naverPlaceUrl": _text(_nested(d, "storeInformation", "naverPlaceUrl")),
         "description": _text(d.get("description")),
         "detailFetched": detail is not None,

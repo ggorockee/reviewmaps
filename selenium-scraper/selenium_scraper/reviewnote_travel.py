@@ -23,7 +23,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
-from .browser import NetworkCapture, session_user
+from .browser import NetworkCapture, is_logged_in
 from .reviewnote_parse import BASE_URL, campaign_url, list_objects, to_record
 
 log = logging.getLogger("reviewnote_travel")
@@ -76,7 +76,7 @@ def open_category(driver: webdriver.Chrome, capture: NetworkCapture) -> str | No
     driver.get(BASE_URL)
     wait.until(lambda d: d.execute_script("return document.readyState") == "complete")
 
-    if session_user(driver) is None:
+    if not is_logged_in(driver):
         raise LoginRequired("리뷰노트 로그인이 필요합니다")
 
     # 상단 메뉴는 <a>가 아니라 클릭 이벤트가 걸린 <div> (2026-11-27 확인)

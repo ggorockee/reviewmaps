@@ -20,7 +20,7 @@
 | 명령 | 설명 |
 |------|------|
 | `uv sync` | 의존성 설치 (Selenium. chromedriver는 Selenium Manager가 설치된 Chrome에 맞춰 자동 준비) |
-| `uv run python -m selenium_scraper login` | Chrome 창이 열리면 **직접** 네이버(또는 Apple)로 로그인. 세션은 `~/.reviewmaps/reviewnote-chrome-profile`에 저장 (저장소 밖) |
+| `uv run python -m selenium_scraper login` | Chrome 창이 열리면 **직접** 리뷰노트에 가입된 네이버(또는 Apple) 계정으로 로그인 (미가입 계정은 회원가입 화면으로 감). 로그인 판정은 쿠키 `reviewnoteLoginToken`. 세션은 `~/.reviewmaps/reviewnote-chrome-profile`에 저장 (저장소 밖) |
 | `uv run python -m selenium_scraper crawl --max-details 5` | 시험 실행: 상세 5건만 |
 | `uv run python -m selenium_scraper crawl` | 전체 실행 (창 표시). `--headless`로 창 없이 |
 | `uv run pytest -q` / `uv run ruff format --check .` | 테스트 / 포맷 검사 |
@@ -36,7 +36,8 @@ crawl 옵션: `--max-items`(목록 최대), `--max-details`(상세 최대), `--d
 | `possibleDays` / `impossibleDays` / `possibleTime` | 체험 가능 요일 / 불가 요일 / 가능 시간 (사이트 표기 그대로, 예: "일~목") |
 | `sameDayVisit` | 당일 예약·방문 가능 여부 (true/false, 값 없으면 null) |
 | `scheduleInformation` | 예약 시 주의사항 |
-| `address`, `lat`, `lng`, `naverPlaceUrl` | 방문 주소·좌표·플레이스 주소 |
+| `address`, `zipcode`, `lat`, `lng`, `naverPlaceUrl` | 방문 주소(address1+address2)·우편번호·좌표·플레이스 주소 |
+| `keywords` | 블로그 작성 키워드 (keyword1~3) |
 | `offer`, `information`, `description` | 제공 내역, 제공 상세, 본문 |
 | `imageUrl` | Firebase Storage 주소 (사이트가 실제로 쓰는 주소) |
 | `raw` | 상세 응답 원본 (아래 개인정보 키 제외) |

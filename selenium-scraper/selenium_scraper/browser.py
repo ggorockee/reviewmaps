@@ -110,15 +110,12 @@ class NetworkCapture:
             return None
 
 
-def session_user(driver: webdriver.Chrome) -> dict[str, Any] | None:
-    """현재 페이지 출처에서 로그인 세션(next-auth)을 확인한다. 로그인 안 됐으면 None."""
-    script = """
-    const done = arguments[arguments.length - 1];
-    fetch('/api/auth/session', {credentials: 'include'})
-      .then(r => r.json()).then(j => done(j)).catch(() => done(null));
+LOGIN_COOKIE = "reviewnoteLoginToken"
+
+
+def is_logged_in(driver: webdriver.Chrome) -> bool:
+    """리뷰노트 로그인 여부. 로그인 상태는 next-auth 세션이 아니라 쿠키로 관리된다 (2026-11-27 확인).
+
+    현재 페이지가 reviewnote.co.kr 이어야 한다.
     """
-    driver.set_script_timeout(15)
-    data = driver.execute_async_script(script)
-    if isinstance(data, dict) and data.get("user"):
-        return data["user"]
-    return None
+    return any(c.get("name") == LOGIN_COOKIE and c.get("value") for c in driver.get_cookies())

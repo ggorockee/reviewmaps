@@ -50,7 +50,11 @@ def test_record_with_detail_prefers_detail_and_drops_personal_info():
         "possibleTime": "15:00 입실",
         "sameDayVisit": False,
         "scheduleInformation": "최소 3일 전 예약",
-        "address": "강원 삼척시 어딘가 1",
+        "address1": "강원 삼척시 어딘가 1",
+        "address2": " 101호",
+        "keyword1": "삼척 펜션",
+        "keyword2": "",
+        "likes": [{"userId": 1}],
         "lat": 37.1,
         "lng": 129.1,
         "storeInformation": {"naverPlaceUrl": "https://naver.me/x"},
@@ -64,8 +68,10 @@ def test_record_with_detail_prefers_detail_and_drops_personal_info():
     assert rec["impossibleDays"] == "금, 토, 공휴일 전날"
     assert rec["sameDayVisit"] is False
     assert rec["naverPlaceUrl"] == "https://naver.me/x"
+    assert rec["address"] == "강원 삼척시 어딘가 1 101호"
+    assert rec["keywords"] == ["삼척 펜션"]
     assert rec["detailFetched"] is True
-    for key in ("contact", "user", "userApply"):
+    for key in ("contact", "user", "userApply", "likes"):
         assert key not in rec["raw"]
     assert "possibleDays" in rec["raw"]
 

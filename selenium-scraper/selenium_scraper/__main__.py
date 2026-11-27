@@ -16,7 +16,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from .browser import DEFAULT_PROFILE_DIR, build_driver, session_user
+from .browser import DEFAULT_PROFILE_DIR, build_driver, is_logged_in
 from .reviewnote_parse import BASE_URL
 from .reviewnote_travel import CrawlOptions, LoginRequired, crawl
 
@@ -35,7 +35,7 @@ def cmd_login(args: argparse.Namespace) -> int:
             time.sleep(3)
             if "reviewnote.co.kr" not in driver.current_url:
                 continue  # 네이버 로그인 화면에 있는 동안
-            if session_user(driver):
+            if is_logged_in(driver):
                 print(f"로그인 확인됨. 세션이 프로필에 저장됐습니다: {args.profile_dir}")
                 return 0
         print("시간 안에 로그인이 확인되지 않았습니다.", file=sys.stderr)

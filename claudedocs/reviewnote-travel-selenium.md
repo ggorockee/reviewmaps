@@ -14,8 +14,11 @@
 | 목록 API | `/api/v2/campaigns?categoryId=…&s=default&limit=16&page=N`, 로그인 불필요. 서버 렌더링 HTML에는 카테고리 필터가 적용되지 않음 |
 | 여행 카테고리 규모 | 목록 1,148건 (모집 중 SELECT 413, 진행 중 PROGRESS 735) |
 | 상세 화면 | `/campaigns/<id>`, 비로그인 시 "로그인이 필요합니다" → `/sns/login` (네이버·Apple 로그인만) |
-| 상세 API | `/api/campaign?id=<id>` (Next.js API, next-auth 세션 쿠키 필요, 비로그인 401 "인증되지 않은 사용자입니다.") |
-| 상세에만 있는 필드 | `possibleDays`, `impossibleDays`, `possibleTime`, `sameDayVisit`, `scheduleInformation`, `address`, `lat`, `lng`, `storeInformation.naverPlaceUrl`, `information`, `description`, `keyword` (상세 화면 JS에서 확인, 화면 표기 "체험 가능 요일 : …") |
+| 상세 API | `/api/campaign?id=<id>` (Next.js API, 비로그인 401 "인증되지 않은 사용자입니다.") |
+| 로그인 상태 | next-auth 세션(`/api/auth/session`)은 로그인해도 비어 있음. 쿠키 `reviewnoteLoginToken`·`isLogin`으로 판단 |
+| 로그인 계정 | 리뷰노트에 가입 안 된 네이버 계정으로 로그인하면 `/users/signup`(회원가입)으로 감 → 가입된 계정 필요 |
+| 상세에만 있는 필드 | `possibleDays`, `impossibleDays`, `possibleTime`, `sameDayVisit`, `scheduleInformation`, `zipcode`, `address1`, `address2`, `lat`, `lng`, `storeInformation.naverPlaceUrl`, `information`, `description`, `keyword1~3` (화면 표기 "체험 가능 요일 : …") |
+| 요일 값 형태 | `possibleDays`는 "월 / 화 / 수 / 목 / 일"처럼 ` / `로 구분된 요일 목록, "금" 한 개도 있음. `possibleTime`은 "오후 3시 ~ 오전 11시", "24시간 영업" 같은 자유 문구. 시험 5건은 `impossibleDays`가 모두 비어 있음 |
 | robots.txt | `Disallow: /campaigns/`, `/users/`, `/applies/` |
 | 이미지 주소 | 사이트는 Firebase Storage(`firebasestorage.googleapis.com/v0/b/reviewnote-e92d9.appspot.com/o/<키>?alt=media`) 사용. `go-scraper`가 쓰는 S3 주소(`reviewnote.s3.ap-northeast-2.amazonaws.com/<키>`)는 확인한 16건 모두 404 |
 
@@ -34,12 +37,12 @@
 - [x] 단위 테스트 6개 (목록 응답 해석, 레코드 변환, 개인정보 키 제거, 이미지 주소)
 - [x] 헤드리스 Chrome 실제 실행: 체험단 검색 메뉴 클릭 → 카테고리 → 여행 → 끝까지 스크롤, 1,148건 수집·전부 '여행'·목록 끝 도달
 - [x] 비로그인 상세 진입 시 로그인 필요로 판단하고 중단
-- [ ] 로그인 후 상세 수집 (`login` → `crawl --max-details 5`) — 개발자 로그인 필요
+- [x] 로그인 후 상세 수집: `crawl --max-items 40 --max-details 5` → 5건 모두 성공, 5건 모두 이용 요일 있음, 약 14초 (2026-11-27)
 - [ ] 실제 `possibleDays`·`impossibleDays` 값 형태 확인 후 모바일 `StayAvailability` 파서와 비교
 
 ## 남은 일
 
-- [ ] 로그인 후 상세 5건 시험 수집, 결과 확인
+- [x] 로그인 후 상세 5건 시험 수집, 결과 확인
 - [ ] 전체(모집 중 413건) 수집 1회, 이용 요일 정보가 있는 비율 확인
 - [ ] DB 반영 방식 결정 (campaign에 요일 컬럼 추가 또는 별도 테이블, 서버 API·앱 표시 연결)
 - [ ] 정기 실행 여부 결정. 로그인 세션이 필요해 클러스터 CronJob으로 옮기기 어려움 → 정기 실행하면 Pushgateway로 결과(목록·상세 성공·실패·로그인 만료) push와 알림 추가 필요. 그 전까지는 수동 실행이며 결과 `meta`와 종료 코드로 확인

@@ -1,0 +1,24 @@
+[project]
+name = "reviewmaps-selenium-scraper"
+version = "0.1.0"
+description = "리뷰노트 여행 카테고리 상세 수집기 (Selenium, 로그인 필요)"
+requires-python = ">=3.11"
+dependencies = [
+    "selenium>=4.27",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "ruff>=0.8",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100

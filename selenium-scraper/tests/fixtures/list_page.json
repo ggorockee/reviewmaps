@@ -1,0 +1,70 @@
+{
+ "page": 0,
+ "objects": [
+  {
+   "id": 1565099,
+   "title": "푸른바다스파펜션",
+   "status": "SELECT",
+   "sort": "VISIT",
+   "channel": "BLOG_CLIP",
+   "paybackPlatform": null,
+   "infNum": 1,
+   "infPoint": 10000,
+   "offer": "오션뷰 스파 객실 1인 숙박권,기준 인원 : 2인 (인원 추가 시 1인 20,000원),바베큐장 이용 시, 그릴 사용 비용 : 10,000원 발생,스파무료",
+   "imageKey": "campaigns/5d20665e-a27d-4b6d-8afa-b677d8471fbc",
+   "city": "강원",
+   "currentTurn": 1,
+   "applyEndAt": "2026-12-07T14:59:59.999Z",
+   "reviewEndAt": "2026-12-21T14:59:59.999Z",
+   "extendedReviewEndAt": null,
+   "beforeReviewEndAt": null,
+   "reviewlottoPosition": null,
+   "hotDealPosition": null,
+   "productPurchasePoint": null,
+   "additionalRewardPoint": null,
+   "applicantCount": 6,
+   "isPremium": true,
+   "premiumPosition": null,
+   "inspectionFee": null,
+   "category": {
+    "title": "여행"
+   },
+   "sido": {
+    "name": "삼척시"
+   }
+  },
+  {
+   "id": 1564273,
+   "title": "포천 글램포레 글램핑",
+   "status": "SELECT",
+   "sort": "VISIT",
+   "channel": "INSTAGRAM",
+   "paybackPlatform": null,
+   "infNum": 5,
+   "infPoint": 5000,
+   "offer": "글램핑 숙박권(객실 랜덤배정), 바베큐 숯불+핀란드 사우나 제공",
+   "imageKey": "campaigns/e0a0a466-5791-40ff-8b4e-b336b073602a",
+   "city": "경기",
+   "currentTurn": 1,
+   "applyEndAt": "2026-12-07T14:59:59.999Z",
+   "reviewEndAt": "2026-12-21T14:59:59.999Z",
+   "extendedReviewEndAt": null,
+   "beforeReviewEndAt": null,
+   "reviewlottoPosition": null,
+   "hotDealPosition": null,
+   "productPurchasePoint": null,
+   "additionalRewardPoint": null,
+   "applicantCount": 33,
+   "isPremium": true,
+   "premiumPosition": null,
+   "inspectionFee": null,
+   "category": {
+    "title": "여행"
+   },
+   "sido": {
+    "name": "포천시"
+   }
+  }
+ ],
+ "has_more": true
+}

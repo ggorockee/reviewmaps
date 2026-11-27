@@ -1,48 +1,24 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
+# Nuxt dev/build outputs
+.output
+.data
+.nuxt
+.nitro
+.cache
+dist
 
-# Virtual environments
-.venv/
-venv/
-ENV/
+# Node dependencies
+node_modules
 
-# Environment files
-.env
-.env.local
-.env.*.local
-
-# Django
+# Logs
+logs
 *.log
-local_settings.py
-db.sqlite3
-staticfiles/
-media/
 
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-
-# OS
+# Misc
 .DS_Store
-Thumbs.db
+.fleet
+.idea
+
+# Local env files
+.env
+.env.*
+!.env.example

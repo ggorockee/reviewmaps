@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mobile/models/store_model.dart';
 import 'package:mobile/widgets/experience_card.dart';
 import 'package:mobile/widgets/deadline_chips.dart';
+import 'package:mobile/widgets/stay_availability_badge.dart';
 import 'package:mobile/screens/home_screen.dart';
 
 /// 스토어 리스트 아이템 위젯
@@ -48,7 +49,17 @@ class StoreListItem extends StatelessWidget {
                   // 두번째줄: offer (폰트 작게 붉은색)
                   if (store.offer != null && store.offer!.isNotEmpty)
                     _buildOfferRow(isTablet),
-                  
+
+                  // 숙박/캠핑장 이용 가능·불가 요일 (제공 내역 바로 아래)
+                  if (store.stayAvailability != null) ...[
+                    SizedBox(height: 5.h),
+                    StayAvailabilityBadge(
+                      availability: store.stayAvailability!,
+                      dense: dense,
+                      showDayStrip: true,
+                    ),
+                  ],
+
                   SizedBox(height: 8.h),
                   
                   // 세번째줄: 플랫폼명 + D-day + 거리정보
@@ -69,10 +80,8 @@ class StoreListItem extends StatelessWidget {
 
   // 첫째줄: 타이틀 + 채널 + NEW (2줄까지 가능)
   Widget _buildTitleRow(bool isTablet) {
-    return RichText(
-      maxLines: 2,
-      overflow: TextOverflow.ellipsis,
-      text: TextSpan(
+    return Text.rich(
+      TextSpan(
         children: [
           // 제목 텍스트
           TextSpan(
@@ -84,10 +93,11 @@ class StoreListItem extends StatelessWidget {
               height: 1.3,
             ),
           ),
-          
+
           // 채널 아이콘들 (홈화면 참조)
-          if (store.campaignChannel != null && store.campaignChannel!.isNotEmpty) ...[
+          if (store.campaignChannel != null && store.campaignChannel!.isNotEmpty)
             WidgetSpan(
+              alignment: PlaceholderAlignment.middle,
               child: Padding(
                 padding: EdgeInsets.only(left: 4.w),
                 child: Row(
@@ -96,11 +106,11 @@ class StoreListItem extends StatelessWidget {
                 ),
               ),
             ),
-          ],
-          
+
           // NEW 뱃지
-          if (store.isNew == true) ...[
+          if (store.isNew == true)
             WidgetSpan(
+              alignment: PlaceholderAlignment.middle,
               child: Padding(
                 padding: EdgeInsets.only(left: 4.w),
                 child: Container(
@@ -127,9 +137,10 @@ class StoreListItem extends StatelessWidget {
                 ),
               ),
             ),
-          ],
         ],
       ),
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
     );
   }
 
@@ -141,8 +152,9 @@ class StoreListItem extends StatelessWidget {
         fontSize: dense ? 11.sp : (isTablet ? 13.sp : 11.sp),
         color: Colors.red[600],
         fontWeight: FontWeight.w500,
+        height: 1.25,
       ),
-      maxLines: 1,
+      maxLines: 2,
       overflow: TextOverflow.ellipsis,
     );
   }
@@ -153,25 +165,33 @@ class StoreListItem extends StatelessWidget {
       children: [
         // 9개 상자 아이콘
         Icon(
-          Icons.apps, // 9개 상자가 있는 더보기 아이콘
-          size: 16.sp,
+          Icons.apps,
+          size: 15.sp,
           color: Colors.grey[600],
         ),
-        
+
         SizedBox(width: 4.w),
-        
-        // 플랫폼 이름
-        Text(
-          store.platform,
-          style: TextStyle(
-            fontSize: dense ? 12.sp : (isTablet ? 14.sp : 12.sp),
-            color: Colors.grey[600],
-            fontWeight: FontWeight.w500,
+
+        // 플랫폼 이름 (긴 이름·큰 글자 배율에서도 넘치지 않도록 제한)
+        Flexible(
+          flex: 0,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: 96.w),
+            child: Text(
+              store.platform,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: dense ? 11.5.sp : (isTablet ? 13.sp : 11.5.sp),
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ),
         ),
-        
+
         SizedBox(width: 8.w),
-        
+
         // D-day와 거리 칩들 (홈화면과 동일)
         Expanded(
           child: DeadlineChips(
@@ -183,13 +203,13 @@ class StoreListItem extends StatelessWidget {
     );
   }
 
-  // 플랫폼 로고 (asset 이미지) - 크게 표시
+  // 플랫폼 로고 (asset 이미지) - 정사각형 유지
   Widget _buildPlatformLogo(String platform) {
     final String logoAssetPath = _getLogoPathForPlatform(platform);
-    
+
     return Container(
       width: 48.w,
-      height: 48.h,
+      height: 48.w,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8.r),
         color: Colors.white,
@@ -199,11 +219,11 @@ class StoreListItem extends StatelessWidget {
         child: Image.asset(
           logoAssetPath,
           width: 48.w,
-          height: 48.h,
+          height: 48.w,
           fit: BoxFit.contain,
           errorBuilder: (_, _, _) => Container(
             width: 48.w,
-            height: 48.h,
+            height: 48.w,
             color: Colors.white,
             child: Icon(
               Icons.image_not_supported,

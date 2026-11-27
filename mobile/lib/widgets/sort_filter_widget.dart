@@ -15,7 +15,8 @@ enum SortOption {
 }
 
 /// 통일된 정렬 필터 위젯
-/// 모든 화면에서 동일한 디자인과 동작을 제공
+/// 모든 화면에서 동일한 디자인과 동작을 제공하며,
+/// 고정 높이를 쓰지 않아 글자 배율이 커져도 텍스트가 잘리지 않습니다.
 class SortFilterWidget extends StatelessWidget {
   final SortOption currentSort;
   final ValueChanged<SortOption> onSortChanged;
@@ -33,16 +34,12 @@ class SortFilterWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isTablet = _isTablet(context);
-    final textScaleFactor = MediaQuery.textScalerOf(context).scale(1.0);
-    
-    // 태블릿에서 시스템 폰트 크기에 따라 높이 동적 조정
-    final double baseHeight = isTablet ? 56.0 : 48.0;
-    // final adjustedHeight = (baseHeight * textScaleFactor.clamp(0.8, 1.4)).h;
-    final adjustedHeight = (baseHeight * textScaleFactor.clamp(0.8, 1.4)).h 
-                       + (3.0 * (textScaleFactor - 1.0)).h;
-    
+
     return Container(
-      height: adjustedHeight,
+      width: double.infinity,
+      constraints: BoxConstraints(
+        minHeight: isTablet ? 52.h : 46.h,
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(
@@ -53,28 +50,17 @@ class SortFilterWidget extends StatelessWidget {
         ),
       ),
       child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 16.w),
-        child: Row(
-          children: [
-            // 정렬 옵션들
-            Expanded(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: SortOption.values.map((option) {
-                    return Padding(
-                      padding: EdgeInsets.fromLTRB(0,0, 8.w, 8.h), 
-                      child: _buildSortChip(
-                        context,
-                        option,
-                        isTablet,
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-            ),
-          ],
+        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: SortOption.values.map((option) {
+              return Padding(
+                padding: EdgeInsets.only(right: 8.w),
+                child: _buildSortChip(context, option, isTablet),
+              );
+            }).toList(),
+          ),
         ),
       ),
     );
@@ -88,21 +74,10 @@ class SortFilterWidget extends StatelessWidget {
   ) {
     final bool isSelected = currentSort == option;
     final bool isLocationRequired = option == SortOption.nearest && userPosition == null;
-    final textScaleFactor = MediaQuery.textScalerOf(context).scale(1.0);
-    
-    // 시스템 폰트 크기에 따라 칩 높이와 패딩 동적 조정
-    final double baseChipHeight = isTablet ? 36.0 : 32.0;
-    final adjustedChipHeight = (baseChipHeight * textScaleFactor.clamp(0.8, 1.4)).h;
-    
-    final double baseHorizontalPadding = isTablet ? 16.0 : 14.0;
-    final double baseVerticalPadding = isTablet ? 8.0 : 6.0;
-    final adjustedHorizontalPadding = (baseHorizontalPadding * textScaleFactor.clamp(0.8, 1.4)).w;
-    final adjustedVerticalPadding = (baseVerticalPadding * textScaleFactor.clamp(0.8, 1.4)).h;
 
     return GestureDetector(
       onTap: () {
         if (option == SortOption.nearest && userPosition == null) {
-          // 위치 권한이 필요한 경우
           onLocationRequest?.call();
         } else {
           onSortChanged(option);
@@ -110,56 +85,54 @@ class SortFilterWidget extends StatelessWidget {
       },
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          minWidth: isTablet ? 120.w : 60.w, // ✅ 버튼 최소 너비 동일
-          minHeight: isTablet ? 45.h : 25.h,  // ✅ 버튼 높이 동일
+          minWidth: isTablet ? 88.w : 60.w,
+          minHeight: isTablet ? 36.h : 30.h,
         ),
         child: Container(
           alignment: Alignment.center,
-        height: adjustedChipHeight,
-        padding: EdgeInsets.symmetric(
-          horizontal: adjustedHorizontalPadding,
-          vertical: adjustedVerticalPadding,
-        ),
-        decoration: BoxDecoration(
-          color: isSelected ? primaryColor : Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(isTablet ? 18.r : 16.r),
-          border: Border.all(
-            color: isSelected ? primaryColor : Colors.grey.shade300,
-            width: 1.0,
+          padding: EdgeInsets.symmetric(
+            horizontal: isTablet ? 14.w : 12.w,
+            vertical: isTablet ? 7.h : 6.h,
+          ),
+          decoration: BoxDecoration(
+            color: isSelected ? primaryColor : Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(isTablet ? 18.r : 16.r),
+            border: Border.all(
+              color: isSelected ? primaryColor : Colors.grey.shade300,
+              width: 1.0,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                option.displayName,
+                maxLines: 1,
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: isTablet ? 14.sp : 13.sp,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                  color: isSelected ? Colors.white : Colors.grey.shade700,
+                  letterSpacing: -0.2,
+                  height: 1.2,
+                ),
+              ),
+              if (isLocationRequired) ...[
+                SizedBox(width: 4.w),
+                Icon(
+                  Icons.location_off_outlined,
+                  size: isTablet ? 15.sp : 14.sp,
+                  color: isSelected ? Colors.white70 : Colors.grey.shade500,
+                ),
+              ],
+            ],
           ),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              option.displayName,
-              maxLines: 1,
-              textAlign: TextAlign.center,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: (isTablet ? 24.0.sp : 13.5.sp) * textScaleFactor.clamp(0.8, 1.4),
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: isSelected ? Colors.white : Colors.grey.shade700,
-                letterSpacing: -0.2,
-                height: 1.2, // 줄 간격 추가로 텍스트 클리핑 방지
-              ),
-            ),
-            if (isLocationRequired) ...[
-              SizedBox(width: (4.0 * textScaleFactor.clamp(0.8, 1.4)).w),
-              Icon(
-                Icons.location_off_outlined,
-                size: (isTablet ? 16.0 : 14.0) * textScaleFactor.clamp(0.8, 1.4),
-                color: isSelected ? Colors.white70 : Colors.grey.shade500,
-              ),
-            ],
-          ],
-        ),
-      ),
       ),
     );
   }
 
-  /// 태블릿 여부 확인
   bool _isTablet(BuildContext context) {
     return MediaQuery.of(context).size.shortestSide >= 600;
   }
@@ -169,14 +142,12 @@ class SortFilterWidget extends StatelessWidget {
 mixin SortFilterMixin<T extends StatefulWidget> on State<T> {
   SortOption currentSort = SortOption.newest;
 
-  /// 정렬 변경 처리
   void onSortChanged(SortOption newSort) {
     setState(() {
       currentSort = newSort;
     });
   }
 
-  /// 위치 권한 요청 (구현 필요)
   void onLocationRequest() {
     // 각 화면에서 구현
   }

@@ -12,48 +12,11 @@ class NewBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isTablet = _isTablet(context);
-    final textScaleFactor = MediaQuery.textScalerOf(context).scale(1.0);
-    
-    // 태블릿에서 시스템 폰트 크기에 따라 동적 조정
-    final double baseHorizontalPadding = dense ? 4.0 : (isTablet ? 8.0 : 6.0);
-    final double baseVerticalPadding = dense ? 1.0 : (isTablet ? 3.0 : 2.0);
-    final double baseFontSize = dense ? 8.0 : (isTablet ? 12.0 : 9.0);
-    final double baseBorderRadius = dense ? 6.0 : (isTablet ? 10.0 : 8.0);
-    
-    final adjustedHorizontalPadding = (baseHorizontalPadding * textScaleFactor.clamp(0.8, 1.4)).w;
-    final adjustedVerticalPadding = (baseVerticalPadding * textScaleFactor.clamp(0.8, 1.4)).h;
-    final adjustedFontSize = (baseFontSize * textScaleFactor.clamp(0.8, 1.4));
-    final adjustedBorderRadius = (baseBorderRadius * textScaleFactor.clamp(0.8, 1.4)).r;
-    
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: adjustedHorizontalPadding,
-        vertical: adjustedVerticalPadding,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.red.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(adjustedBorderRadius),
-        border: Border.all(
-          color: Colors.red.withValues(alpha: 0.3),
-          width: 0.5,
-        ),
-      ),
-      child: Text(
-        'NEW',
-        style: TextStyle(
-          fontSize: adjustedFontSize,
-          fontWeight: FontWeight.w600,
-          color: Colors.red,
-          height: 1.2, // 줄 간격 추가로 텍스트 클리핑 방지
-        ),
-      ),
+    return _StatusBadge(
+      label: 'NEW',
+      color: Colors.red,
+      dense: dense,
     );
-  }
-  
-  /// 태블릿 여부 확인
-  bool _isTablet(BuildContext context) {
-    return MediaQuery.of(context).size.shortestSide >= 600;
   }
 }
 
@@ -68,48 +31,11 @@ class HotBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isTablet = _isTablet(context);
-    final textScaleFactor = MediaQuery.textScalerOf(context).scale(1.0);
-    
-    // 태블릿에서 시스템 폰트 크기에 따라 동적 조정
-    final double baseHorizontalPadding = dense ? 4.0 : (isTablet ? 8.0 : 6.0);
-    final double baseVerticalPadding = dense ? 1.0 : (isTablet ? 3.0 : 2.0);
-    final double baseFontSize = dense ? 8.0 : (isTablet ? 12.0 : 9.0);
-    final double baseBorderRadius = dense ? 6.0 : (isTablet ? 10.0 : 8.0);
-    
-    final adjustedHorizontalPadding = (baseHorizontalPadding * textScaleFactor.clamp(0.8, 1.4)).w;
-    final adjustedVerticalPadding = (baseVerticalPadding * textScaleFactor.clamp(0.8, 1.4)).h;
-    final adjustedFontSize = (baseFontSize * textScaleFactor.clamp(0.8, 1.4));
-    final adjustedBorderRadius = (baseBorderRadius * textScaleFactor.clamp(0.8, 1.4)).r;
-    
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: adjustedHorizontalPadding,
-        vertical: adjustedVerticalPadding,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.orange.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(adjustedBorderRadius),
-        border: Border.all(
-          color: Colors.orange.withValues(alpha: 0.3),
-          width: 0.5,
-        ),
-      ),
-      child: Text(
-        'HOT',
-        style: TextStyle(
-          fontSize: adjustedFontSize,
-          fontWeight: FontWeight.w600,
-          color: Colors.orange[700],
-          height: 1.2, // 줄 간격 추가로 텍스트 클리핑 방지
-        ),
-      ),
+    return _StatusBadge(
+      label: 'HOT',
+      color: Colors.orange[700]!,
+      dense: dense,
     );
-  }
-  
-  /// 태블릿 여부 확인
-  bool _isTablet(BuildContext context) {
-    return MediaQuery.of(context).size.shortestSide >= 600;
   }
 }
 
@@ -124,47 +50,57 @@ class UrgentBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isTablet = _isTablet(context);
-    final textScaleFactor = MediaQuery.textScalerOf(context).scale(1.0);
-    
-    // 태블릿에서 시스템 폰트 크기에 따라 동적 조정
-    final double baseHorizontalPadding = dense ? 4.0 : (isTablet ? 8.0 : 6.0);
-    final double baseVerticalPadding = dense ? 1.0 : (isTablet ? 3.0 : 2.0);
-    final double baseFontSize = dense ? 8.0 : (isTablet ? 12.0 : 9.0);
-    final double baseBorderRadius = dense ? 6.0 : (isTablet ? 10.0 : 8.0);
-    
-    final adjustedHorizontalPadding = (baseHorizontalPadding * textScaleFactor.clamp(0.8, 1.4)).w;
-    final adjustedVerticalPadding = (baseVerticalPadding * textScaleFactor.clamp(0.8, 1.4)).h;
-    final adjustedFontSize = (baseFontSize * textScaleFactor.clamp(0.8, 1.4));
-    final adjustedBorderRadius = (baseBorderRadius * textScaleFactor.clamp(0.8, 1.4)).r;
-    
+    return _StatusBadge(
+      label: '마감임박',
+      color: Colors.red,
+      dense: dense,
+    );
+  }
+}
+
+class _StatusBadge extends StatelessWidget {
+  final String label;
+  final Color color;
+  final bool dense;
+
+  const _StatusBadge({
+    required this.label,
+    required this.color,
+    required this.dense,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isTablet = MediaQuery.of(context).size.shortestSide >= 600;
+    final double horizontalPadding = (dense ? 4.0 : (isTablet ? 7.0 : 6.0)).w;
+    final double verticalPadding = (dense ? 1.0 : (isTablet ? 2.5 : 2.0)).h;
+    final double fontSize = dense
+        ? (isTablet ? 8.5.sp : 8.5.sp)
+        : (isTablet ? 10.sp : 9.sp);
+    final double borderRadius = (dense ? 6.0 : (isTablet ? 9.0 : 8.0)).r;
+
     return Container(
       padding: EdgeInsets.symmetric(
-        horizontal: adjustedHorizontalPadding,
-        vertical: adjustedVerticalPadding,
+        horizontal: horizontalPadding,
+        vertical: verticalPadding,
       ),
       decoration: BoxDecoration(
-        color: Colors.red.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(adjustedBorderRadius),
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(borderRadius),
         border: Border.all(
-          color: Colors.red.withValues(alpha: 0.3),
+          color: color.withValues(alpha: 0.3),
           width: 0.5,
         ),
       ),
       child: Text(
-        '마감임박',
+        label,
         style: TextStyle(
-          fontSize: adjustedFontSize,
+          fontSize: fontSize,
           fontWeight: FontWeight.w600,
-          color: Colors.red,
-          height: 1.2, // 줄 간격 추가로 텍스트 클리핑 방지
+          color: color,
+          height: 1.2,
         ),
       ),
     );
-  }
-  
-  /// 태블릿 여부 확인
-  bool _isTablet(BuildContext context) {
-    return MediaQuery.of(context).size.shortestSide >= 600;
   }
 }

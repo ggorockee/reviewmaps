@@ -1,9 +1,14 @@
+import 'package:mobile/utils/stay_availability.dart';
+
 /// Store
 /// --------------------------------------------
 /// 단일 캠페인/업체 정보를 담는 도메인 모델.
 class Store {
   /// 고유 식별자 (필수)
   final int id;
+
+  /// 카테고리 ID (선택, 3=숙박)
+  final int? categoryId;
 
   /// 유입 플랫폼명(예: '가보자', '레뷰' 등) (필수)
   final String platform;
@@ -39,8 +44,14 @@ class Store {
   /// 캠페인 채널(예: "blog,instagram,youtube")
   final String? campaignChannel;
 
+  /// 상세 페이지의 이용 가능·불가 요일 (서버 possible_days / impossible_days, 예: "월 / 화 / 수 / 목 / 일")
+  /// 리뷰노트 여행 카테고리처럼 상세를 수집한 캠페인만 값이 있음
+  final String? possibleDays;
+  final String? impossibleDays;
+
   Store({
     required this.id,
+    this.categoryId,
     required this.platform,
     required this.title,
     required this.createdAt,
@@ -53,7 +64,18 @@ class Store {
     this.distance,
     this.isNew = false,
     this.campaignChannel,
+    this.possibleDays,
+    this.impossibleDays,
   });
+
+  /// 이용 가능·불가 요일 (상세 정보 우선, 없으면 숙박 제공 내역 파싱. 해당 없으면 null)
+  StayAvailability? get stayAvailability => stayAvailabilityFor(
+        categoryId: categoryId,
+        title: title,
+        offer: offer,
+        possibleDays: possibleDays,
+        impossibleDays: impossibleDays,
+      );
 
   /// etc/unknown 제외한 채널 리스트 (소문자, trim 완료)
   List<String> get channels {
@@ -108,8 +130,20 @@ class Store {
     final isNewServer = (j['is_new'] == true) || (j['isNew'] == true);
     final isNewAuto = DateTime.now().difference(created).inHours < 72;
 
+    int? toIntOrNull(dynamic v) {
+      if (v == null) return null;
+      if (v is int) return v;
+      if (v is num) return v.toInt();
+      return int.tryParse('$v');
+    }
+
+    final categoryObj = j['category'];
+    final parsedCategoryId = toIntOrNull(j['category_id'] ?? j['categoryId']) ??
+        (categoryObj is Map ? toIntOrNull(categoryObj['id']) : null);
+
     return Store(
       id: toInt(j['id']),
+      categoryId: parsedCategoryId,
       platform: (j['platform'] ?? '').toString().trim(),
       title: (j['title'] ?? '').toString().trim(),
       contentLink: (j['content_link'] ?? j['content_link'])?.toString().trim(),
@@ -124,6 +158,8 @@ class Store {
       campaignChannel: normChannel(
         j['campaign_channel'] ?? j['campaignChannel'] ?? j['channels'] ?? j['channel'],
       ),
+      possibleDays: (j['possible_days'] as String?)?.trim(),
+      impossibleDays: (j['impossible_days'] as String?)?.trim(),
     );
   }
 
@@ -131,6 +167,7 @@ class Store {
   /// 얕은 복사 (필요 필드 갱신)
   Store copyWith({
     int? id,
+    int? categoryId,
     String? platform,
     String? title,
     String? contentLink,
@@ -143,9 +180,12 @@ class Store {
     double? distance,
     bool? isNew,
     String? campaignChannel,
+    String? possibleDays,
+    String? impossibleDays,
   }) {
     return Store(
       id: id ?? this.id,
+      categoryId: categoryId ?? this.categoryId,
       platform: platform ?? this.platform,
       title: title ?? this.title,
       contentLink: contentLink ?? this.contentLink,
@@ -158,6 +198,8 @@ class Store {
       distance: distance ?? this.distance,
       isNew: isNew ?? this.isNew,
       campaignChannel: campaignChannel ?? this.campaignChannel,
+      possibleDays: possibleDays ?? this.possibleDays,
+      impossibleDays: impossibleDays ?? this.impossibleDays,
     );
   }
 }

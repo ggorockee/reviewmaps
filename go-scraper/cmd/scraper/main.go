@@ -15,6 +15,7 @@ import (
 	"github.com/ggorockee/reviewmaps/go-scraper/internal/logger"
 	"github.com/ggorockee/reviewmaps/go-scraper/internal/runstats"
 	"github.com/ggorockee/reviewmaps/go-scraper/internal/scraper/inflexer"
+	"github.com/ggorockee/reviewmaps/go-scraper/internal/scraper/pickly"
 	"github.com/ggorockee/reviewmaps/go-scraper/internal/scraper/reviewnote"
 	"github.com/ggorockee/reviewmaps/go-scraper/internal/telemetry"
 )
@@ -165,6 +166,10 @@ func runScraper(ctx context.Context, name string, cfg *config.Config, database *
 		// 여행 카테고리 상세 이용 조건을 새벽에 천천히 수집 (로그인 세션 필요)
 		scraper := reviewnote.New(cfg, database, tel)
 		return scraper.RunDetail(ctx)
+	case "pickly":
+		// 피클리 공개 API (PICKLY_ENABLED=true 일 때만 수집)
+		scraper := pickly.New(cfg, database, tel)
+		return scraper.Run(ctx, keyword)
 	case "inflexer":
 		scraper := inflexer.New(cfg, database, tel)
 		return scraper.Run(ctx, keyword)
@@ -185,7 +190,7 @@ func runScraper(ctx context.Context, name string, cfg *config.Config, database *
 		return cleaner.DeduplicateKeywordAlerts(ctx)
 	default:
 		log.Errorf("'%s' 스크레이퍼를 찾을 수 없습니다.", name)
-		log.Info("사용 가능한 명령어: reviewnote, reviewnote-detail, inflexer, cleanup, dedupe, add-unique, dedupe-alerts")
+		log.Info("사용 가능한 명령어: reviewnote, reviewnote-detail, pickly, inflexer, cleanup, dedupe, add-unique, dedupe-alerts")
 		return nil
 	}
 }

@@ -252,6 +252,7 @@ class StoreListItem extends StatelessWidget {
       '포블로그': 'asset/image/logo/4blog2.png',
       '포포몬': 'asset/image/logo/popomon.png',
       '리뷰노트': 'asset/image/logo/reviewnote.png',
+      '피클리': 'asset/image/logo/pickly.png',
       '리뷰플레이스': 'asset/image/logo/reviewplace.png',
       '디너의여왕': 'asset/image/logo/dinnerqueen.png',
       '체험뷰': 'asset/image/logo/chehumview.png',

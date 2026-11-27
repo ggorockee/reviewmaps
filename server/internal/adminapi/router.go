@@ -1,4 +1,4 @@
-// Package adminapi serves the admin console API under /admin/v1 (admin.review-maps.com).
+// Package adminapi 관리자 화면(admin.review-maps.com)용 API, /admin/v1.
 //
 // 인증: Google ID 토큰 또는 예비 아이디/비밀번호 → 허용 목록(ADMIN_EMAILS) → 세션 쿠키.
 // 앱 API(/v1)와 같은 서버·DB를 쓰지만, CORS·쿠키·Origin 검사는 이 그룹에만 적용한다.
@@ -19,34 +19,34 @@ import (
 	"github.com/ggorockee/reviewmaps/server/internal/database"
 )
 
-// Options configures /admin/v1.
+// Options /admin/v1 설정.
 type Options struct {
 	DB        *database.DB
 	Verifier  admin.Verifier
 	Allowlist admin.Allowlist
 	Sessions  *admin.Sessions
-	// Origin is the admin console origin (https://admin.review-maps.com).
+	// Origin 관리자 화면 주소 (https://admin.review-maps.com).
 	Origin string
-	// GoogleClientID is handed to the console's login button.
+	// GoogleClientID 화면의 Google 로그인 버튼에 넘겨줄 클라이언트 ID.
 	GoogleClientID string
-	// CookieSecure must be true in production (HTTPS).
+	// CookieSecure 운영(HTTPS)에서는 반드시 true.
 	CookieSecure bool
-	// Password enables POST /auth/password (break-glass account); nil disables it.
+	// Password 있으면 POST /auth/password(예비 로그인) 사용, nil이면 끔.
 	Password *admin.PasswordLogin
-	// DevEmail enables POST /auth/dev for local development only. Never set in production.
+	// DevEmail 로컬 개발 전용 POST /auth/dev. 운영에서는 절대 설정하지 않는다.
 	DevEmail string
-	// LoginLimit is login attempts per minute per IP (default 5).
+	// LoginLimit IP당 분당 로그인 시도 횟수 (기본 5).
 	LoginLimit int
 }
 
 const (
-	// SessionCookie is the admin session cookie name.
+	// SessionCookie 관리자 세션 쿠키 이름.
 	SessionCookie = "rm_admin"
-	// Prefix is where the admin API is mounted.
+	// Prefix 관리자 API 경로.
 	Prefix = "/admin/v1"
 )
 
-// Mount registers /admin/v1 on app.
+// Mount app에 /admin/v1을 등록한다.
 func Mount(app *fiber.App, opt *Options) {
 	if opt.LoginLimit == 0 {
 		opt.LoginLimit = 5

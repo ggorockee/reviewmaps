@@ -12,17 +12,17 @@ import (
 	"gorm.io/gorm"
 )
 
-// ErrNoSession means the cookie is missing, unknown or expired.
+// ErrNoSession 쿠키가 없거나, 모르는 값이거나, 만료됨.
 var ErrNoSession = errors.New("no admin session")
 
-// Sessions issues and resolves session cookies backed by admin_sessions.
+// Sessions admin_sessions 테이블로 세션 쿠키를 발급·확인한다.
 type Sessions struct {
 	DB  *gorm.DB
 	TTL time.Duration
 	Now func() time.Time
 }
 
-// Create returns a new random session token for email.
+// Create 이메일에 대한 새 무작위 세션 토큰을 만든다.
 func (s *Sessions) Create(ctx context.Context, email string) (token string, expires time.Time, err error) {
 	raw := make([]byte, 32)
 	if _, err := rand.Read(raw); err != nil {
@@ -40,7 +40,7 @@ func (s *Sessions) Create(ctx context.Context, email string) (token string, expi
 	return token, expires, nil
 }
 
-// Lookup returns the email of a live session.
+// Lookup 유효한 세션의 이메일을 돌려준다.
 func (s *Sessions) Lookup(ctx context.Context, token string) (string, error) {
 	if token == "" {
 		return "", ErrNoSession
@@ -60,12 +60,12 @@ func (s *Sessions) Lookup(ctx context.Context, token string) (string, error) {
 	return row.Email, nil
 }
 
-// Delete ends a session.
+// Delete 세션을 끝낸다.
 func (s *Sessions) Delete(ctx context.Context, token string) error {
 	return s.DB.WithContext(ctx).Where("token_hash = ?", Hash(token)).Delete(&models.AdminSession{}).Error
 }
 
-// Active counts live sessions (for the reviewmaps_admin_sessions_active gauge).
+// Active 유효한 세션 수 (reviewmaps_admin_sessions_active 지표용).
 func (s *Sessions) Active(ctx context.Context) (int64, error) {
 	var n int64
 	err := s.DB.WithContext(ctx).Model(&models.AdminSession{}).Where("expires_at > ?", s.now()).Count(&n).Error
@@ -79,7 +79,7 @@ func (s *Sessions) now() time.Time {
 	return time.Now()
 }
 
-// Hash is what the store keeps instead of the token.
+// Hash 토큰 대신 DB에 저장하는 값.
 func Hash(token string) []byte {
 	sum := sha256.Sum256([]byte(token))
 	return sum[:]

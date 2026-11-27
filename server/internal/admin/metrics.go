@@ -20,13 +20,13 @@ var (
 	}, []string{"entity", "action"})
 )
 
-// RecordLogin counts a login attempt.
+// RecordLogin 로그인 시도 수를 센다.
 func RecordLogin(method, result string) { loginsTotal.WithLabelValues(method, result).Inc() }
 
-// RecordChange counts an admin change.
+// RecordChange 관리자 변경 수를 센다.
 func RecordChange(entity, action string) { changesTotal.WithLabelValues(entity, action).Inc() }
 
-// RegisterActiveSessionsGauge exposes reviewmaps_admin_sessions_active (counted on scrape).
+// RegisterActiveSessionsGauge reviewmaps_admin_sessions_active 지표 등록 (수집할 때 셈).
 func RegisterActiveSessionsGauge(s *Sessions) {
 	promauto.NewGaugeFunc(prometheus.GaugeOpts{
 		Name: "reviewmaps_admin_sessions_active",

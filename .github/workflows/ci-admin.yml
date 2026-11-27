@@ -116,21 +116,21 @@ jobs:
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
 
-          # Check for changes
+          # 변경 여부 확인
           git add ${{ env.VALUES_FILE_PATH }}
           if git diff --staged --quiet; then
             echo "No changes to commit in values.yaml."
             exit 0
           fi
 
-          # Create feature branch
+          # 브랜치 생성
           BRANCH_NAME="ci/update-reviewmaps-admin-${{ needs.build-and-push.outputs.image_tag }}"
           git checkout -b "$BRANCH_NAME"
 
-          # Commit changes
+          # 커밋
           git commit -m "ci: Update reviewmaps-admin image tag to ${{ needs.build-and-push.outputs.image_tag }}"
 
-          # Push feature branch
+          # 브랜치 푸시
           git push -u origin "$BRANCH_NAME"
 
           # Create PR and capture PR URL
@@ -147,6 +147,6 @@ jobs:
 
           echo "Created PR: $PR_URL"
 
-          # Enable auto-merge (squash) using PR URL
+          # PR 자동 머지(squash) 예약
           # PR이 이미 머지 가능한 상태(clean)면 auto-merge 예약이 거부됨 → 즉시 squash 머지로 대체
           gh pr merge --auto --squash "$PR_URL" || gh pr merge --squash "$PR_URL"

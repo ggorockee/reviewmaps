@@ -18,7 +18,7 @@ ReviewMaps는 캠페인/리뷰어 정보 제공 서비스로, 모노레포 구�
 | Directory | Tech Stack | Description |
 |-----------|------------|-------------|
 | `server/` | Go 1.23 + Fiber + GORM | REST API 서버 (Production) |
-| `admin/` | Nuxt 4 + @nuxt/ui (정적 SPA → nginx) | 관리자 화면. API는 `server/`의 `/admin/v1` (Google 로그인). 사용법 `admin/README.md` |
+| `admin/` | Nuxt 4 + @nuxt/ui (정적 SPA → nginx) | 관리자 화면 (https://admin.review-maps.com). API는 `server/`의 `/admin/v1` (Google 로그인). 운영 `claudedocs/admin-operations.md`, 개발 `admin/README.md` |
 | `admin-django/` | Django 5.2 + Unfold | 이전 관리자 (전환 후 30일 보관, 되돌리기용. 빌드·배포 안 함) |
 | `go-scraper/` | Go + Colly | 캠페인 데이터 수집기 |
 | `mobile/` | Flutter | iOS/Android 모바일 앱 |

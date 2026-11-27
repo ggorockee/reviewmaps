@@ -384,6 +384,33 @@ func (db *DB) SyncStayDetailsToCampaigns(ctx context.Context, platform string) (
 	return tag.RowsAffected(), nil
 }
 
+// LoadLocationsByLinks 플랫폼의 content_link별 저장된 주소·좌표·카테고리 (상세를 다시 부르지 않으려고 사용)
+func (db *DB) LoadLocationsByLinks(ctx context.Context, platform string, links []string) (map[string]models.CampaignKey, error) {
+	out := make(map[string]models.CampaignKey)
+	if len(links) == 0 {
+		return out, nil
+	}
+	rows, err := db.Pool.Query(ctx, `
+		SELECT DISTINCT ON (content_link) content_link, address, lat, lng, category_id
+		FROM campaign
+		WHERE platform = $1 AND content_link = ANY($2)
+		ORDER BY content_link, (lat IS NOT NULL) DESC, id DESC
+	`, platform, links)
+	if err != nil {
+		return nil, fmt.Errorf("저장된 위치 조회 실패: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var link string
+		var ck models.CampaignKey
+		if err := rows.Scan(&link, &ck.Address, &ck.Lat, &ck.Lng, &ck.CategoryID); err != nil {
+			return nil, fmt.Errorf("저장된 위치 조회 실패: %w", err)
+		}
+		out[link] = ck
+	}
+	return out, rows.Err()
+}
+
 // campaignKey 캠페인 동일성 키 (platform, title, offer, campaign_channel)
 func campaignKey(c models.Campaign) string {
 	return fmt.Sprintf("%s|%s|%s|%s", c.Platform, c.Title, c.Offer, c.CampaignChannel)

@@ -111,6 +111,13 @@ type ReviewnoteConfig struct {
 	DetailManualRun   time.Duration // 마감 시각 이후 수동 실행 시 쓸 시간
 }
 
+// PicklyConfig 피클리(picklykorea.kr) 수집 설정
+type PicklyConfig struct {
+	Enabled        bool          // 끄기 스위치 (피클리가 중단을 요청하면 false). 기본 false
+	MaxDetailFetch int           // 한 번 실행에서 상세(좌표) 조회 최대 수 (새 공고만 조회)
+	RequestDelay   time.Duration // 요청 간격
+}
+
 // Config 애플리케이션의 모든 설정을 통합 관리하는 메인 구조체
 type Config struct {
 	BaseURL   string
@@ -122,6 +129,7 @@ type Config struct {
 	Scrape    ScrapeConfig
 	ServerAPI ServerAPIConfig
 	Reviewnote ReviewnoteConfig
+	Pickly     PicklyConfig
 }
 
 // Load 환경변수에서 설정을 로드
@@ -166,6 +174,11 @@ func Load() (*Config, error) {
 			BaseURL: getEnv("SERVER_API_BASE_URL", ""),
 			APIKey:  getEnvWithFallback("SERVER_API_KEY", "API_SECRET_KEY", ""),
 			Enabled: getEnvBool("SERVER_API_ENABLED", false),
+		},
+		Pickly: PicklyConfig{
+			Enabled:        getEnvBool("PICKLY_ENABLED", false),
+			MaxDetailFetch: getEnvInt("PICKLY_MAX_DETAIL_FETCH", 60),
+			RequestDelay:   time.Duration(getEnvInt("PICKLY_REQUEST_DELAY_MS", 2000)) * time.Millisecond,
 		},
 		Reviewnote: ReviewnoteConfig{
 			Session:           strings.TrimSpace(getEnv("REVIEWNOTE_SESSION", "")),

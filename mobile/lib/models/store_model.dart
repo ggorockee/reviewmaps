@@ -225,6 +225,7 @@ const Map<String, String> _platformLogoFile = {
   '오마이블로그': 'ohmyblog.png',
   '포포몬': 'popomon.png',
   '리뷰노트': 'reviewnote.png',
+  '피클리': 'pickly.png', // 2026-11-27 추가 (picklykorea.kr 사이트 아이콘, 배너는 기본)
   '리뷰플레이스': 'reviewplace.png',
   '레뷰': 'revu.png',
   '링뷰': 'ringvue.png',

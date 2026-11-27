@@ -1,0 +1,254 @@
+[
+ {
+  "id": "5212edd8-7bc2-420f-b7c3-8bcec6cf094a",
+  "name": "마유유 마라탕 더현대서울점",
+  "location": "서울 영등포구 여의대로 108 더현대서울 지하1층",
+  "address": "",
+  "imageUrl": "/objects/businesses/mD-LQEQnaE20Rc6SM8a5E.webp",
+  "applicationStartDate": "2026-11-27",
+  "applicationEndDate": "2026-12-10",
+  "experienceEndDate": "2026-12-10",
+  "status": "active",
+  "businessType": "restaurant",
+  "channel": "naver_blog",
+  "city": "서울",
+  "district": "여의도",
+  "productInfoOne": "3만원 이용권",
+  "benefitsOne": "30000",
+  "visitDays": [
+   "월",
+   "화",
+   "수",
+   "목",
+   "금",
+   "토",
+   "일"
+  ],
+  "allowTodayVisit": false,
+  "weekdaySchedule": {
+   "friday": {
+    "enabled": true,
+    "endTime": "19:00",
+    "capacity": 2,
+    "hasBreak": false,
+    "startTime": "13:30"
+   },
+   "monday": {
+    "enabled": true,
+    "endTime": "19:00",
+    "capacity": 2,
+    "hasBreak": false,
+    "startTime": "13:30"
+   },
+   "sunday": {
+    "enabled": true,
+    "endTime": "19:00",
+    "capacity": 2,
+    "hasBreak": false,
+    "startTime": "13:30"
+   },
+   "tuesday": {
+    "enabled": true,
+    "endTime": "19:00",
+    "capacity": 2,
+    "hasBreak": false,
+    "startTime": "13:30"
+   },
+   "saturday": {
+    "enabled": true,
+    "endTime": "19:00",
+    "capacity": 2,
+    "hasBreak": false,
+    "startTime": "13:30"
+   },
+   "thursday": {
+    "enabled": true,
+    "endTime": "19:00",
+    "capacity": 2,
+    "hasBreak": false,
+    "startTime": "13:30"
+   },
+   "wednesday": {
+    "enabled": true,
+    "endTime": "19:00",
+    "capacity": 2,
+    "hasBreak": false,
+    "startTime": "13:30"
+   }
+  },
+  "category": {
+   "name": "맛집"
+  },
+  "confirmationType": "instant"
+ },
+ {
+  "id": "62da0d5f-d7fa-463d-aff6-b103e9ead340",
+  "name": "얼리언스(EARLYANCE)",
+  "location": "",
+  "address": "",
+  "imageUrl": "/objects/businesses/intake-A4KrRWy_gXheWAi53PLwi.webp",
+  "applicationStartDate": "2026-11-24",
+  "applicationEndDate": "2026-11-30",
+  "experienceEndDate": "2026-12-14",
+  "status": "active",
+  "businessType": "delivery",
+  "channel": "naver_blog",
+  "city": null,
+  "district": null,
+  "productInfoOne": "티슈오프 글로우 립스테인",
+  "benefitsOne": "24000",
+  "visitDays": [],
+  "allowTodayVisit": false,
+  "weekdaySchedule": {
+   "friday": {
+    "enabled": false,
+    "endTime": "18:00",
+    "breakEnd": "",
+    "capacity": 100,
+    "hasBreak": false,
+    "startTime": "10:00",
+    "breakStart": ""
+   },
+   "monday": {
+    "enabled": false,
+    "endTime": "18:00",
+    "breakEnd": "",
+    "capacity": 100,
+    "hasBreak": false,
+    "startTime": "10:00",
+    "breakStart": ""
+   },
+   "sunday": {
+    "enabled": false,
+    "endTime": "18:00",
+    "breakEnd": "",
+    "capacity": 100,
+    "hasBreak": false,
+    "startTime": "10:00",
+    "breakStart": ""
+   },
+   "tuesday": {
+    "enabled": false,
+    "endTime": "18:00",
+    "breakEnd": "",
+    "capacity": 100,
+    "hasBreak": false,
+    "startTime": "10:00",
+    "breakStart": ""
+   },
+   "saturday": {
+    "enabled": false,
+    "endTime": "18:00",
+    "breakEnd": "",
+    "capacity": 100,
+    "hasBreak": false,
+    "startTime": "10:00",
+    "breakStart": ""
+   },
+   "thursday": {
+    "enabled": false,
+    "endTime": "18:00",
+    "breakEnd": "",
+    "capacity": 100,
+    "hasBreak": false,
+    "startTime": "10:00",
+    "breakStart": ""
+   },
+   "wednesday": {
+    "enabled": false,
+    "endTime": "18:00",
+    "breakEnd": "",
+    "capacity": 100,
+    "hasBreak": false,
+    "startTime": "10:00",
+    "breakStart": ""
+   }
+  },
+  "category": {
+   "name": "배송형"
+  },
+  "confirmationType": "selection"
+ },
+ {
+  "id": "c8bdff34-28ab-4177-b3b5-ab27167d165a",
+  "name": "쥬라리움 세종점",
+  "location": "세종 한누리대로 2275 B1층",
+  "address": "",
+  "imageUrl": "/objects/businesses/clPIgJBmhuRMYwafb4xhu.webp",
+  "applicationStartDate": "2026-11-12",
+  "applicationEndDate": "2026-12-09",
+  "experienceEndDate": "2026-12-09",
+  "status": "active",
+  "businessType": "restaurant",
+  "channel": "naver_blog",
+  "city": "세종",
+  "district": "세종",
+  "productInfoOne": "입장권 최대 4인 (2시간권, 최대 7.56만원 상당)",
+  "benefitsOne": "75600",
+  "visitDays": [
+   "금",
+   "월",
+   "일",
+   "화",
+   "토",
+   "목",
+   "수"
+  ],
+  "allowTodayVisit": false,
+  "weekdaySchedule": {
+   "friday": {
+    "enabled": true,
+    "endTime": "17:00",
+    "capacity": 2,
+    "hasBreak": false,
+    "startTime": "10:30"
+   },
+   "monday": {
+    "enabled": true,
+    "endTime": "17:00",
+    "capacity": 2,
+    "hasBreak": false,
+    "startTime": "10:30"
+   },
+   "sunday": {
+    "enabled": true,
+    "endTime": "17:00",
+    "capacity": 2,
+    "hasBreak": false,
+    "startTime": "10:30"
+   },
+   "tuesday": {
+    "enabled": true,
+    "endTime": "17:00",
+    "capacity": 2,
+    "hasBreak": false,
+    "startTime": "10:30"
+   },
+   "saturday": {
+    "enabled": true,
+    "endTime": "17:00",
+    "capacity": 2,
+    "hasBreak": false,
+    "startTime": "10:30"
+   },
+   "thursday": {
+    "enabled": true,
+    "endTime": "17:00",
+    "capacity": 2,
+    "hasBreak": false,
+    "startTime": "10:30"
+   },
+   "wednesday": {
+    "enabled": true,
+    "endTime": "17:00",
+    "capacity": 2,
+    "hasBreak": false,
+    "startTime": "10:30"
+   }
+  },
+  "category": {
+   "name": "여행"
+  },
+  "confirmationType": "instant"
+ }
+]

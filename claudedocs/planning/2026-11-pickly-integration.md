@@ -76,10 +76,10 @@
 - [ ] 0-2 피클리 답장 확인 → API 사용·로고 표시 허락 여부, 별도 피드 제공 여부를 이 문서에 기록
 
 ### Phase 1. 수집기 (허락 후)
-- [ ] 1-1 `go-scraper/internal/scraper/pickly`: 목록 → 새 공고만 상세 조회 → 2장 규칙으로 변환. 리뷰노트 수집기 구조와 같게 (Scrape, Parse, 보강 없음, Save)
-- [ ] 1-2 테스트: 11-27 응답을 고정 데이터(fixture)로 저장해 변환 규칙·배송형·마감일 시간대·이미지 주소를 검증
-- [ ] 1-3 `cmd/scraper/main.go`에 플랫폼 등록, 끄기 스위치(환경변수)
-- [ ] 1-4 수집 결과를 기존 방식대로 Pushgateway에 push (`internal/runstats`: 실행 중, 성공·실패, 수집·저장 건수)
+- [x] 1-1 `go-scraper/internal/scraper/pickly`: 목록 → 새 공고만 상세 조회 → 2장 규칙으로 변환. 리뷰노트 수집기 구조와 같게 (Scrape, Parse, 보강 없음, Save)
+- [x] 1-2 테스트: 11-27 응답을 고정 데이터(fixture)로 저장해 변환 규칙·배송형·마감일 시간대·이미지 주소를 검증
+- [x] 1-3 `cmd/scraper/main.go`에 플랫폼 등록, 끄기 스위치(환경변수 `PICKLY_ENABLED`, 기본 false)
+- [x] 1-4 수집 결과를 기존 방식대로 Pushgateway에 push (`internal/runstats`: 실행 중, 성공·실패, 수집·저장 건수)
 
 ### Phase 2. 인프라
 - [ ] 2-1 infra `charts/helm/prod/reviewmaps/values.yaml` 수집 CronJob에 `pickly` 추가 (리뷰노트 다음 시간)
@@ -89,8 +89,8 @@
 - [ ] 3-1 관리자 화면에서 피클리 원본 카테고리(맛집, 여행, 배송형, 뷰티, 반려동물, 서비스 등) → 리뷰맵 카테고리 매핑
 
 ### Phase 4. 앱 로고 (다음 앱 버전)
-- [ ] 4-1 `mobile/asset/image/logo/pickly.png` 추가 (이 문서의 `assets/pickly/pickly.png`)
-- [ ] 4-2 로고 매핑 세 곳에 '피클리' 추가: `mobile/lib/models/store_model.dart`의 `_platformLogoFile`, `_platformBannerFile`(배너 없으면 기본), `mobile/lib/widgets/build_store_list_item.dart`의 `_getLogoPathForPlatform`
+- [x] 4-1 `mobile/asset/image/logo/pickly.png` 추가 (이 문서의 `assets/pickly/pickly.png`)
+- [x] 4-2 로고 매핑에 '피클리' 추가 (`_platformLogoFile`, `_getLogoPathForPlatform`. 배너는 기본 사용): `mobile/lib/models/store_model.dart`의 `_platformLogoFile`, `_platformBannerFile`(배너 없으면 기본), `mobile/lib/widgets/build_store_list_item.dart`의 `_getLogoPathForPlatform`
 - [ ] 4-3 로고가 없는 이전 앱 버전에서도 목록이 깨지지 않는지 확인 (매핑이 없으면 빈 문자열 → 기본 표시)
 
 ### Phase 5. 모니터링 (원칙 2)
@@ -124,4 +124,5 @@
 
 | 날짜 | 항목 | 결과 |
 |---|---|---|
+| 2026-11-27 | 구현 | 개발자 지시로 진행 (허락 회신 전, 피클리가 먼저 목록 추가를 요청). 수집기·테스트(실제 응답 고정 데이터 6개)·앱 로고. 실제 API로 31건 → 31건 변환, 방문 가능 요일 27건(`visitDays` → `possible_days`, 앱 요일 배지가 읽음), 당일 방문(`allowTodayVisit` → `same_day_visit`), 운영 시간이 모두 같으면 `possible_time`. 좌표는 DB 재사용, 새 공고만 상세 조회(하루 최대 60, 요청 간 2초). 원본 카테고리는 `피클리>맛집` 형식으로 raw_categories 에 쌓임 |
 | 2026-11-27 | 검토 | 공개 API 확인(목록 31건·상세·카테고리), 필드 매핑, robots.txt `/api/` 제한 확인, 로고 수집·PNG 변환, 운영 DB에 피클리 공고 없음 확인 |

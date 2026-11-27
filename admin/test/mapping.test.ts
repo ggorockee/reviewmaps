@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bulkPayload, confidentIds, initialChoices, type RawCategory } from '../app/utils/mapping'
+import { bulkPayload, confidentIds, initialChoices, selectByConfidence, selectionState, toggleAll, type RawCategory } from '../app/utils/mapping'
 import { fmtPct, kstDateInput } from '../app/utils/format'
 
 const items: RawCategory[] = [
@@ -17,6 +17,29 @@ describe('매핑 선택 규칙', () => {
   it('신뢰도 80% 이상이고 아직 매핑 안 된 것만', () => {
     expect(confidentIds(items)).toEqual([1])
     expect(confidentIds(items, 0.5)).toEqual([1, 2])
+  })
+
+  it('신뢰도 경계값은 백분율로 비교 (슬라이더 소수 오차)', () => {
+    const edge: RawCategory[] = [{ id: 9, raw_text: 'x', usage: 1, suggestion: { category_id: 1, category_name: '맛집', confidence: 0.8, basis: '' }, created_at: '' }]
+    expect(confidentIds(edge, 0.7999999999999999)).toEqual([9])
+    expect(confidentIds(edge, 0.85)).toEqual([])
+  })
+
+  it('머리 칸 전체 선택 상태', () => {
+    expect(selectionState([], items)).toBe(false)
+    expect(selectionState([1], items)).toBe('indeterminate')
+    expect(selectionState([1, 2, 3, 4], items)).toBe(true)
+    expect(selectionState([1], [])).toBe(false)
+  })
+
+  it('전체 선택·해제는 이 페이지만, 다른 페이지 선택은 유지', () => {
+    expect(toggleAll([99], items, true)).toEqual([99, 1, 2, 3, 4])
+    expect(toggleAll([99, 1, 2], items, false)).toEqual([99])
+  })
+
+  it('신뢰도 기준으로 선택을 바꾼다 (기준을 내리면 더 많이, 올리면 줄어듦)', () => {
+    expect(selectByConfidence([3, 99], items, 0.5)).toEqual([99, 1, 2])
+    expect(selectByConfidence([1, 2], items, 0.9)).toEqual([1])
   })
 
   it('카테고리를 고르지 않은 행은 요청에서 뺀다', () => {

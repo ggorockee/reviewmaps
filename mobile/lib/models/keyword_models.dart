@@ -84,6 +84,8 @@ class AlertInfo {
   final String? campaignContentLink; // 콘텐츠 링크
   final String? campaignChannel; // 캠페인 채널
   final int? campaignCategoryId; // 캠페인 카테고리 ID
+  final String? campaignPossibleDays; // 상세 페이지 이용 가능 요일 (서버 possible_days)
+  final String? campaignImpossibleDays; // 상세 페이지 이용 불가 요일 (서버 impossible_days)
   final String matchedField;
   final bool isRead;
   final String createdAt;
@@ -105,6 +107,8 @@ class AlertInfo {
     this.campaignContentLink,
     this.campaignChannel,
     this.campaignCategoryId,
+    this.campaignPossibleDays,
+    this.campaignImpossibleDays,
     required this.matchedField,
     required this.isRead,
     required this.createdAt,
@@ -138,6 +142,8 @@ class AlertInfo {
       campaignContentLink: campaignObj?['content_link'] as String?,
       campaignChannel: campaignObj?['campaign_channel'] as String?,
       campaignCategoryId: (campaignObj?['category_id'] as num?)?.toInt(),
+      campaignPossibleDays: campaignObj?['possible_days'] as String?,
+      campaignImpossibleDays: campaignObj?['impossible_days'] as String?,
       matchedField: json['matched_field'] as String? ?? '',
       isRead: json['is_read'] as bool? ?? false,
       createdAt: json['created_at'] as String? ?? '',
@@ -163,6 +169,8 @@ class AlertInfo {
     'campaign_content_link': campaignContentLink,
     'campaign_channel': campaignChannel,
     'campaign_category_id': campaignCategoryId,
+    'campaign_possible_days': campaignPossibleDays,
+    'campaign_impossible_days': campaignImpossibleDays,
     'matched_field': matchedField,
     'is_read': isRead,
     'created_at': createdAt,
@@ -174,6 +182,8 @@ class AlertInfo {
         categoryId: campaignCategoryId,
         title: (campaignCompany?.isNotEmpty == true) ? campaignCompany : campaignTitle,
         offer: campaignOffer,
+        possibleDays: campaignPossibleDays,
+        impossibleDays: campaignImpossibleDays,
       );
 
   /// 거리 표시 문자열 (예: "1.5km", "500m")

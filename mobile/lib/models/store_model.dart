@@ -44,6 +44,11 @@ class Store {
   /// 캠페인 채널(예: "blog,instagram,youtube")
   final String? campaignChannel;
 
+  /// 상세 페이지의 이용 가능·불가 요일 (서버 possible_days / impossible_days, 예: "월 / 화 / 수 / 목 / 일")
+  /// 리뷰노트 여행 카테고리처럼 상세를 수집한 캠페인만 값이 있음
+  final String? possibleDays;
+  final String? impossibleDays;
+
   Store({
     required this.id,
     this.categoryId,
@@ -59,13 +64,17 @@ class Store {
     this.distance,
     this.isNew = false,
     this.campaignChannel,
+    this.possibleDays,
+    this.impossibleDays,
   });
 
-  /// 숙박/캠핑장 체험단의 이용 가능·불가 요일 (해당 없으면 null)
+  /// 이용 가능·불가 요일 (상세 정보 우선, 없으면 숙박 제공 내역 파싱. 해당 없으면 null)
   StayAvailability? get stayAvailability => stayAvailabilityFor(
         categoryId: categoryId,
         title: title,
         offer: offer,
+        possibleDays: possibleDays,
+        impossibleDays: impossibleDays,
       );
 
   /// etc/unknown 제외한 채널 리스트 (소문자, trim 완료)
@@ -149,6 +158,8 @@ class Store {
       campaignChannel: normChannel(
         j['campaign_channel'] ?? j['campaignChannel'] ?? j['channels'] ?? j['channel'],
       ),
+      possibleDays: (j['possible_days'] as String?)?.trim(),
+      impossibleDays: (j['impossible_days'] as String?)?.trim(),
     );
   }
 
@@ -169,6 +180,8 @@ class Store {
     double? distance,
     bool? isNew,
     String? campaignChannel,
+    String? possibleDays,
+    String? impossibleDays,
   }) {
     return Store(
       id: id ?? this.id,
@@ -185,6 +198,8 @@ class Store {
       distance: distance ?? this.distance,
       isNew: isNew ?? this.isNew,
       campaignChannel: campaignChannel ?? this.campaignChannel,
+      possibleDays: possibleDays ?? this.possibleDays,
+      impossibleDays: impossibleDays ?? this.impossibleDays,
     );
   }
 }

@@ -141,4 +141,71 @@ void main() {
       expect(p('평일(일~목) 1박 / 공휴일 제외')!.semanticsLabel, '평일(일~목) 이용 가능, 공휴일 이용 불가');
     });
   });
+
+  // 2026-11-27 리뷰노트 여행 상세 수집(possible_days / impossible_days) 실제 값 형태
+  group('상세 페이지 정보 우선 (fromDetail / stayAvailabilityFor)', () {
+    test('일요일을 넘어가는 범위는 "일~목"으로', () {
+      final r = StayAvailability.fromDetail(possibleDays: '월 / 화 / 수 / 목 / 일')!;
+      expect(r.availableText, '일~목');
+      expect(r.availableDays, {1, 2, 3, 4, 7});
+      expect(r.dayState(5), isFalse);
+      expect(r.dayState(7), isTrue);
+      expect(r.hasExplicitDays, isTrue);
+    });
+
+    test('하루만 가능', () {
+      expect(StayAvailability.fromDetail(possibleDays: '금')!.availableText, '금');
+    });
+
+    test('이어지지 않는 요일은 나열', () {
+      expect(StayAvailability.fromDetail(possibleDays: '월 / 수 / 금')!.availableText, '월·수·금');
+    });
+
+    test('7일 모두 가능하고 불가 정보가 없으면 표시 안 함', () {
+      expect(StayAvailability.fromDetail(possibleDays: '월 / 화 / 수 / 목 / 금 / 토 / 일'), isNull);
+      expect(StayAvailability.fromDetail(possibleDays: '매일'), isNull);
+    });
+
+    test('불가 요일·공휴일', () {
+      final r = StayAvailability.fromDetail(
+        possibleDays: '월 / 화 / 수 / 목 / 금 / 토 / 일',
+        impossibleDays: '토 / 공휴일',
+      )!;
+      expect(r.availableText, '일~금'); // 7일 중 불가(토)를 뺀 나머지
+      expect(r.excludedText, '토·공휴일');
+      expect(r.dayState(6), isFalse);
+    });
+
+    test('상세에 "평일"만 적혀 있으면 이용 가능은 표시 안 함', () {
+      expect(StayAvailability.fromDetail(possibleDays: '평일'), isNull);
+    });
+
+    test('상세 정보가 있으면 제공 내역 글보다 우선', () {
+      final r = stayAvailabilityFor(
+        categoryId: kLodgingCategoryId,
+        title: '푸른바다스파펜션',
+        offer: '평일 1박 숙박권 (4인 기준)',
+        possibleDays: '월 / 화 / 수 / 목 / 일',
+      )!;
+      expect(r.availableText, '일~목');
+      expect(r.weekdaysOnly, isFalse);
+    });
+
+    test('숙박이 아니어도 상세 요일이 있으면 표시 (공연 등)', () {
+      final r = stayAvailabilityFor(title: '원테이블 매직', offer: '2인 공연 초대권', possibleDays: '금');
+      expect(r?.availableText, '금');
+    });
+
+    test('상세 정보가 없으면 애매한 "평일만"은 표시하지 않음', () {
+      expect(stayAvailabilityFor(categoryId: kLodgingCategoryId, title: '펜션', offer: '평일 1박 숙박권 (4인 기준)'), isNull);
+      expect(stayAvailabilityFor(title: '라벤더온천텔', offer: '평일 숙박 or 대실 체험권 (2인 기준)'), isNull);
+    });
+
+    test('상세 정보가 없어도 요일이 분명한 문구는 표시', () {
+      expect(stayAvailabilityFor(title: '펜션', offer: '평일(일-목) 1박 숙박권')!.availableText, '평일(일~목)');
+      final r = stayAvailabilityFor(title: '펜션', offer: '평일 1박 숙박권 (토요일 및 공휴일제외)')!;
+      expect(r.availableText, isNull);
+      expect(r.excludedText, '토·공휴일');
+    });
+  });
 }

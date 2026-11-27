@@ -125,7 +125,7 @@ flutter test                    # 테스트 실행
 - App ID: 6751343880
 - Bundle ID: com.reviewmaps.mobile
 - CocoaPods 의존성 관리 (ios/Podfile)
-- 앱 업데이트 체크: iTunes API 활용 (MainScreen._checkAppStoreUpdate)
+- 앱 업데이트 안내: Remote Config 버전 정책 → 화면 대부분을 덮는 카드. 릴리스마다 `asset/release_notes.json` 갱신 (저장소 `.claude/CLAUDE.md` 업데이트 안내 카드)
 
 ### Android
 - 버전: 1.3.1+44 (주석처리, pubspec.yaml:24)

@@ -115,6 +115,8 @@ flutter:
     - asset/image/logo/application/
     - asset/image/login/
     - asset/image/ads/dangmi/
+    - asset/image/release_notes/
+    - asset/release_notes.json
     - .env
 
 

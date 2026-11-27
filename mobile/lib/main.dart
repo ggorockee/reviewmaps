@@ -27,6 +27,7 @@ import 'package:mobile/screens/auth/sign_up_screen.dart'; // 회원가입 화면
 import 'package:mobile/services/consent_service.dart'; // 광고 동의(UMP) 및 광고 초기화
 import 'package:mobile/services/firebase_service.dart'; // Firebase 통합 서비스
 import 'package:mobile/services/remote_config_service.dart'; // Firebase Remote Config 서비스
+import 'package:mobile/services/release_note_service.dart'; // 업데이트 안내
 import 'package:mobile/services/fcm_service.dart'; // FCM 푸시 알림 서비스
 import 'package:mobile/providers/auth_provider.dart'; // AuthProvider
 import 'package:mobile/widgets/friendly.dart'; // ClampTextScale
@@ -100,6 +101,13 @@ Future<void> main() async {
 
   // 9) FCM 푸시 알림 서비스 초기화
   // Provider 방식으로 변경하기 위해 runApp 이후로 이동
+
+  // 새로 설치했는지 기록한다. 홈 화면이 첫 실행 표시를 저장하기 전이어야 한다.
+  try {
+    await ReleaseNoteService().recordFirstInstall();
+  } catch (e) {
+    debugPrint('업데이트 안내 초기화 실패: $e');
+  }
 
   // 10) Flutter 앱 실행
   runApp(

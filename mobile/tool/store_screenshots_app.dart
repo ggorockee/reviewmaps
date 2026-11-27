@@ -7,11 +7,14 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,6 +25,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mobile/config/config.dart';
 import 'package:mobile/const/colors.dart';
 import 'package:mobile/models/keyword_models.dart';
+import 'package:mobile/models/release_note.dart';
 import 'package:mobile/models/store_model.dart';
 import 'package:mobile/providers/location_provider.dart';
 import 'package:mobile/screens/campaign_list_screen.dart';
@@ -31,10 +35,17 @@ import 'package:mobile/screens/notification_screen.dart';
 import 'package:mobile/services/campaign_service.dart';
 import 'package:mobile/services/fcm_service.dart';
 import 'package:mobile/services/keyword_service.dart';
+import 'package:mobile/services/release_note_service.dart';
 import 'package:mobile/services/remote_config_service.dart';
+import 'package:mobile/utils/stay_availability.dart';
 import 'package:mobile/widgets/friendly.dart';
+import 'package:mobile/widgets/release_note_card.dart';
+import 'package:mobile/widgets/stay_availability_badge.dart';
 
 final ValueNotifier<String> _activeSlide = ValueNotifier<String>('01_map');
+
+/// 업데이트 안내 카드에 넣을 설명 그림 영역
+final GlobalKey _noteImageKey = GlobalKey();
 
 /// 화면에 난 오류. 캡처 스크립트가 /errors 로 확인하고 하나라도 있으면 중단한다
 final List<String> _errors = [];
@@ -192,7 +203,7 @@ Future<List<AlertInfo>> _buildAlerts(CampaignService service) async {
   return alerts;
 }
 
-/// 숙박 목록: 이용 요일 정보가 있는 캠페인을 앞에 둔다
+/// 숙박 목록: 앱이 요일 배지를 보여주는 공고만, 요일 띠(월~일)가 있는 것을 앞에 둔다
 Future<List<Store>> _loadStayStores(CampaignService service) async {
   final stores = await service.fetchInBounds(
     south: 33.0,
@@ -202,10 +213,11 @@ Future<List<Store>> _loadStayStores(CampaignService service) async {
     categoryId: _stayCategoryId,
     limit: 200,
   );
-  bool hasDays(Store s) => (s.possibleDays ?? '').isNotEmpty || (s.impossibleDays ?? '').isNotEmpty;
-  debugPrint('[capture] 숙박 ${stores.length}건, 요일 정보 ${stores.where(hasDays).length}건');
-  return [...stores.where(hasDays), ...stores.where((s) => !hasDays(s))]
-      .take(20)
+  final badged = stores.where((s) => s.stayAvailability != null).toList();
+  final strip = badged.where((s) => s.stayAvailability!.hasExplicitDays).toList();
+  debugPrint('[capture] 숙박 ${stores.length}건, 요일 배지 ${badged.length}건 (요일 띠 ${strip.length}건)');
+  if (badged.isEmpty) throw StateError('요일 배지가 보이는 숙박 공고가 없어 4번 화면을 만들 수 없음');
+  return [...strip, ...badged.where((s) => !strip.contains(s))]
       .map((s) => s.copyWith(distance: _distanceKm(s)))
       .toList();
 }
@@ -218,6 +230,16 @@ Future<void> _startControlServer() async {
       req.response
         ..headers.contentType = ContentType.json
         ..write(jsonEncode(_errors));
+      await req.response.close();
+      return;
+    }
+    if (segs.length == 1 && segs[0] == 'note.png') {
+      final boundary = _noteImageKey.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+      final image = await boundary.toImage(pixelRatio: 3);
+      final png = await image.toByteData(format: ui.ImageByteFormat.png);
+      req.response
+        ..headers.contentType = ContentType('image', 'png')
+        ..add(png!.buffer.asUint8List());
       await req.response.close();
       return;
     }
@@ -298,6 +320,11 @@ class _ScreenshotApp extends StatelessWidget {
       ),
     ),
     '05_keywords' => const _Shell(selectedIndex: 2, body: NotificationScreen(initialTabIndex: 0)),
+    'note_stay' => const _NoteStayImage(),
+    // 업데이트 안내 카드 모양 확인용 (card_after, card_optional, card_force)
+    'card_after' => const _CardPreview(ReleaseCardType.afterUpdate),
+    'card_optional' => const _CardPreview(ReleaseCardType.optionalUpdate),
+    'card_force' => const _CardPreview(ReleaseCardType.forceUpdate),
     _ => const _Shell(selectedIndex: 1, body: MapScreen(autoSearchOnReady: true)),
   };
 
@@ -339,6 +366,76 @@ class _ScreenshotApp extends StatelessWidget {
       },
     );
   }
+}
+
+/// 업데이트 안내 카드의 "이용 가능 요일" 설명 그림. 숙소 이름은 예시이고 배지는 앱의 실제 위젯이다.
+class _NoteStayImage extends StatelessWidget {
+  const _NoteStayImage();
+
+  static final List<(String, StayAvailability)> _examples = [
+    ('예시 · 바다 앞 독채 펜션', StayAvailability.fromDetail(possibleDays: '월 / 화 / 수 / 목 / 일', impossibleDays: '금 / 토')!),
+    ('예시 · 숲속 글램핑장', StayAvailability.parse('1박 2일 숙박권 (토요일 제외)')!),
+    ('예시 · 마당 있는 한옥', StayAvailability.fromDetail(possibleDays: '화 / 수 / 목 / 금')!),
+  ];
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: Colors.white,
+    body: Center(
+      child: RepaintBoundary(
+        key: _noteImageKey,
+        child: MediaQuery(
+          data: MediaQuery.of(context).copyWith(textScaler: const TextScaler.linear(1.2)),
+          child: Container(
+            width: 300,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: const Color(0xFFF3F7F5), borderRadius: BorderRadius.circular(20)),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final (name, availability) in _examples)
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.symmetric(vertical: 5),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.black87)),
+                        const SizedBox(height: 8),
+                        StayAvailabilityBadge(availability: availability, showDayStrip: true),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+/// 앱에 든 안내 내용으로 카드를 그대로 그린다
+class _CardPreview extends StatelessWidget {
+  const _CardPreview(this.type);
+
+  final ReleaseCardType type;
+
+  @override
+  Widget build(BuildContext context) => Stack(
+    children: [
+      const _Shell(selectedIndex: 0, body: HomeScreen()),
+      const ModalBarrier(color: Colors.black54, dismissible: false),
+      FutureBuilder<String>(
+        future: rootBundle.loadString(ReleaseNoteService.assetPath),
+        builder: (context, snapshot) => snapshot.hasData
+            ? ReleaseNoteCard(note: ReleaseNote.tryParse(snapshot.data!)!, type: type)
+            : const SizedBox.shrink(),
+      ),
+    ],
+  );
 }
 
 class _Shell extends StatelessWidget {

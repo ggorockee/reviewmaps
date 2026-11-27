@@ -99,7 +99,7 @@
 - [x] C-1 서버: `GET /admin/v1/raw-categories?unmapped=1&q=` (사용량 = 지역 검색 캐시에서 그 원문을 쓰는 건수, 추천 카테고리·신뢰도·근거), `PUT /admin/v1/raw-categories/:id/mapping`, `POST /admin/v1/raw-categories/bulk-mapping`(여러 개 한 번에), `GET /admin/v1/categories/coverage`(카테고리 없는 캠페인 비율, 출처별)
 - [x] C-2 추천 규칙: ① 숫자 원본이 `categories.id`와 같으면 그 카테고리(신뢰도 100%) ② 원문의 대분류 경로(긴 것부터)가 기존 매핑에 있으면 가장 많은 카테고리(신뢰도 = 비율) ③ 없으면 추천 없음
 - [x] C-3 화면: 미매핑을 사용량 순으로, 추천을 미리 선택해 두고 확인 후 일괄 매핑. 신뢰도 80% 이상만 한 번에 고르는 버튼
-- [승인] C-4 지표·알림: `reviewmaps_raw_categories_unmapped`, `reviewmaps_campaigns_uncategorized_ratio{source}` → 대시보드 패널, 미매핑이 7일 넘게 50개 이상이면 INFO 알림 (다시 조용히 밀리지 않게)
+- [x] C-4 지표·알림: `reviewmaps_raw_categories_unmapped`, `reviewmaps_campaigns_uncategorized_ratio{source}` → 대시보드 패널, 미매핑이 7일 넘게 50개 이상이면 INFO 알림 (다시 조용히 밀리지 않게)
   - 서버 지표는 구현(`reviewmaps_raw_categories_unmapped`, `reviewmaps_campaigns_uncategorized_ratio{source}`, `reviewmaps_campaigns_active{source}`, 5분 캐시). 대시보드 패널·알림은 Phase 6에서
 - [승인] C-5 전환 후 첫 정리: 숫자 원본 12개와 신뢰도 높은 추천부터 매핑 → 다음 날 수집 뒤 카테고리 없는 비율 재확인 (운영 DB 쓰기는 관리자 화면에서, 변경 기록에 남음)
 
@@ -190,29 +190,39 @@
 
 - [x] 4-1 `.github/workflows/ci-admin.yml`을 Node 빌드로 교체 (라익찍스 `ci-admin.yml` 기준: lint·typecheck·test → Docker 빌드·푸시 `ggorockee/reviewmaps-admin` → infra 태그 PR 자동 머지). 이미지 이름은 그대로 두어 차트·ArgoCD 변경을 줄임
   - 변경: infra 태그 자동 PR은 저장소 변수 `ADMIN_AUTO_DEPLOY=true`일 때만 (전환 전에 Django 배포에 Nuxt 이미지가 들어가 관리자가 멈추는 것 방지). `latest` 태그는 올리지 않음(Django 되돌리기 이미지와 같은 저장소)
-- [승인] 4-2 infra `charts/helm/prod/reviewmaps` admin 값: 포트 8000(django) → 8080(http), 프로브 `/healthz`, 리소스(요청 10m/32Mi 수준), Django 환경변수(`ALLOWED_HOSTS`, `POSTGRES_*` 주입) 제거, 읽기 전용 루트 파일시스템. 하위 차트 `charts/admin` 템플릿이 포트 이름 `django`를 쓰면 함께 수정
+- [x] 4-2 infra `charts/helm/prod/reviewmaps` admin 값: 포트 8000(django) → 8080(http), 프로브 `/healthz`, 리소스(요청 10m/32Mi 수준), Django 환경변수(`ALLOWED_HOSTS`, `POSTGRES_*` 주입) 제거, 읽기 전용 루트 파일시스템. 하위 차트 `charts/admin` 템플릿이 포트 이름 `django`를 쓰면 함께 수정
+  - infra #1227: 이미지 `20261127-068d75f`, Service 포트 8000 유지·컨테이너 8080(VirtualService 변경 없음), 프로브 `/healthz`, 비루트·읽기 전용 루트, DB·API Secret과 `manage.py migrate` Job 제거
 - [x] 4-3 infra 서버 값: `ADMIN_ORIGIN=https://admin.review-maps.com`, ExternalSecret에 `ADMIN_EMAILS`·`ADMIN_GOOGLE_CLIENT_ID`·(D2) 키 추가
   - 2026-11-27 완료(infra #1223). 주의: configMap·Secret만 바뀌면 서버 Pod가 다시 뜨지 않아 `kubectl -n reviewmaps rollout restart deploy/reviewmaps-server`가 필요했음. 확인: `/admin/v1/config` 200(google·password 로그인 켜짐), 다른 Origin POST 403, 세션 없이 `/me` 401, 앱 API 정상
-- [승인] 4-4 blackbox 검사 대상 `https://admin.review-maps.com/login/` → `/healthz`
-- [승인] 4-5 ServiceMonitor: 서버 지표는 기존 그대로 수집되는지 확인 (새 지표 이름 포함)
+- [x] 4-4 blackbox 검사 대상 `https://admin.review-maps.com/login/` → `/healthz`
+  - infra #1227 (`/healthz`)
+- [x] 4-5 ServiceMonitor: 서버 지표는 기존 그대로 수집되는지 확인 (새 지표 이름 포함)
+  - 서버 ServiceMonitor 그대로 새 지표 수집 확인 (`reviewmaps_raw_categories_unmapped` 623, `reviewmaps_admin_sessions_active` 0)
 
 완료 기준: ArgoCD Synced/Healthy, blackbox 성공, 새 지표가 Prometheus에서 조회됨
 
 ## Phase 5. 검증·전환 (D6 같은 주소 교체 기준)
 
-- [승인] 5-1 전환 전 점검표: 관리자 전원 Google 로그인 성공(포트포워딩 또는 로컬 화면), 각 화면 조회, 테스트 계정으로 쓰기 API(사용자 비활성, 키워드 삭제, 카테고리 매핑) 실행 후 되돌리기, 변경 기록·지표 증가 확인
-- [승인] 5-2 전환: infra 태그 PR로 admin 이미지 교체 → ArgoCD 동기화 → https://admin.review-maps.com 접속, 로그인, 화면 캡처 (CLAUDE.md 검증 규칙: Playwright, 비밀번호는 브라우저에 입력하지 않음)
-- [승인] 5-3 되돌리기 절차(문서에 미리 적어 둠): infra admin 값·이미지 태그를 이전 Django 커밋으로 되돌리는 PR → 동기화. Django 이미지 `20261110-7ed5b97` 보존
+- [~] 5-1 전환 전 점검표: 관리자 전원 Google 로그인 성공(포트포워딩 또는 로컬 화면), 각 화면 조회, 테스트 계정으로 쓰기 API(사용자 비활성, 키워드 삭제, 카테고리 매핑) 실행 후 되돌리기, 변경 기록·지표 증가 확인
+  - 전환 전 점검은 서버 API 단위(설정 응답, 다른 Origin 403, 세션 없음 401)와 로컬 화면으로 대신함. 관리자 로그인은 운영 Origin에서만 가능해 전환 직후 개발자 로그인으로 확인
+- [x] 5-2 전환: infra 태그 PR로 admin 이미지 교체 → ArgoCD 동기화 → https://admin.review-maps.com 접속, 로그인, 화면 캡처 (CLAUDE.md 검증 규칙: Playwright, 비밀번호는 브라우저에 입력하지 않음)
+  - 2026-11-27 전환(infra #1227). https://admin.review-maps.com/login 화면·Google 버튼·예비 로그인 표시, 콘솔 오류 없음, `/healthz` 200, noindex·X-Frame-Options 헤더 확인. reviewmaps 저장소 변수 `ADMIN_AUTO_DEPLOY=true` 켬. **남은 확인: 개발자 Google 로그인 1회와 실제 작업 1건**
+- [x] 5-3 되돌리기 절차(문서에 미리 적어 둠): infra admin 값·이미지 태그를 이전 Django 커밋으로 되돌리는 PR → 동기화. Django 이미지 `20261110-7ed5b97` 보존
+  - 되돌리기: infra #1227 revert → ArgoCD 동기화 (Django 이미지 `20261110-7ed5b97` 보존, 같은 Service 포트라 VirtualService 변경 없음). 서버 `/admin/v1`은 그대로 둬도 Django에 영향 없음
 - [승인] 5-4 1주 관찰: 로그인 실패·오류율·변경 기록 확인 후 Phase 7 진행 여부 결정
 
 완료 기준: 운영 주소에서 새 화면으로 실제 작업 1건 이상(예: 앱 버전 조회, 사용자 검색) 성공, 되돌리기 절차 문서화
 
 ## Phase 6. 모니터링·문서
 
-- [승인] 6-1 Grafana 리뷰맵 대시보드에 "관리자" 행: 로그인 성공·실패, 변경 건수(대상별), 활성 세션, 최근 변경 표. 범위표·차트 설명 3단 형식 (infra CLAUDE.md 대시보드 규칙)
-- [승인] 6-2 알림: 관리자 로그인 실패 급증 `ReviewmapsAdminLoginFailures`(10분 10회 초과, WARN), 허용 목록 밖 계정 로그인 시도 `ReviewmapsAdminUnauthorizedLogin`(1회, INFO), 관리자 화면 접속 실패는 기존 blackbox 알림 사용. 대시보드 색상 기준과 알림 기준 동일하게
-- [승인] 6-3 문서: infra `.claude/CLAUDE.md` 배포 경로 표에 "리뷰맵 관리자 콘솔" 행(라익찍스 행과 같은 형식), 알림 표에 새 알림, `claudedocs/app-release-runbook.md`에 관리자 계정 추가·제거 절차(GSM `ADMIN_EMAILS` 수정 → ExternalSecret 갱신 → 서버 재시작), 이 저장소 `admin/README.md`
-- [승인] 6-4 `.secrets/README.md`에 새 GSM 키 위치
+- [x] 6-1 Grafana 리뷰맵 대시보드에 "관리자" 행: 로그인 성공·실패, 변경 건수(대상별), 활성 세션, 최근 변경 표. 범위표·차트 설명 3단 형식 (infra CLAUDE.md 대시보드 규칙)
+  - 대시보드 `reviewmaps-http-metrics`에 관리자 행·카테고리 매핑 행 (infra #1225, #1226), 화면 캡처 확인
+- [x] 6-2 알림: 관리자 로그인 실패 급증 `ReviewmapsAdminLoginFailures`(10분 10회 초과, WARN), 허용 목록 밖 계정 로그인 시도 `ReviewmapsAdminUnauthorizedLogin`(1회, INFO), 관리자 화면 접속 실패는 기존 blackbox 알림 사용. 대시보드 색상 기준과 알림 기준 동일하게
+  - 알림 그룹 `reviewmaps.admin` (infra #1225): ReviewmapsAdminLoginFailures(WARN), ReviewmapsAdminUnauthorizedLogin(INFO), ReviewmapsCategoryUnmappedBacklog(INFO, C-4). 테스트 알림 2건 Alertmanager 전송(200)
+- [x] 6-3 문서: infra `.claude/CLAUDE.md` 배포 경로 표에 "리뷰맵 관리자 콘솔" 행(라익찍스 행과 같은 형식), 알림 표에 새 알림, `claudedocs/app-release-runbook.md`에 관리자 계정 추가·제거 절차(GSM `ADMIN_EMAILS` 수정 → ExternalSecret 갱신 → 서버 재시작), 이 저장소 `admin/README.md`
+  - infra CLAUDE.md 배포 경로·대시보드·알림 표(#1224, #1225, #1228), 절차서 8-1 관리자 계정 추가·제거, `admin/README.md`(#305)
+- [x] 6-4 `.secrets/README.md`에 새 GSM 키 위치
+  - infra `.secrets/README.md` (로컬 전용)
 
 완료 기준: 대시보드 캡처, 테스트 알림 메일 수신 확인, 문서 PR 머지
 
@@ -243,3 +253,4 @@
 | 2026-11-27 | 계획 작성 | 현재 구조·사용량 조사(운영 DB 읽기 전용), 라익찍스 구조 확인 |
 | 2026-11-27 | 진행 시작 | D1~D7 표시 없음 → 추천안. 0-2: `/v1/app-config/version` 7일 1회, `/ads` 0회(2.2.0부터 앱은 Remote Config) → 앱 버전 화면 읽기 전용. 발견: users 외래 키가 모두 NO ACTION이라 앱 회원 탈퇴가 연결 데이터 있는 사용자(160명 중 146명)에게 실패 → 탈퇴를 연관 데이터 포함 트랜잭션으로 수정. 카테고리 매핑 편입(3-1장) 추가 |
 | 2026-11-27 | Phase 1~4-3 | 서버 #304(관리자 API, 회원 탈퇴 수정), 화면 #305(Nuxt, Django는 `admin-django/`), DB 테이블 생성, OAuth 원본·리디렉션, GSM 버전 3, infra #1223 → 운영 서버에 `/admin/v1` 켜짐. 지표 확인: 미매핑 623, 카테고리 없는 비율 49.6%. 남은 것: woohalabs Test users(개발자), 4-2·4-4 admin 차트, Phase 5 전환 |
+| 2026-11-27 | 전환·모니터링 | infra #1225·#1226 대시보드·알림, #1227 화면 전환(Nuxt), `ADMIN_AUTO_DEPLOY` 켬. 남은 것: 개발자 Google 로그인 확인, woohalabs Test users(콘솔 저장이 브라우저 확장 차단으로 실패 → 개발자가 직접), C-5 첫 매핑 정리, 5-4 1주 관찰(~12-04), Phase 7(12-27 이후) |

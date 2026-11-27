@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -21,7 +22,9 @@ import (
 const (
 	platformName = "리뷰노트"
 	baseURL      = "https://www.reviewnote.co.kr/api/v2/campaigns"
-	imageBaseURL = "https://reviewnote.s3.ap-northeast-2.amazonaws.com/"
+	// 이미지는 Firebase Storage에 있다 (사이트가 쓰는 주소, 2026-11-27 확인).
+	// 예전 S3 주소(reviewnote.s3.ap-northeast-2.amazonaws.com/<키>)는 전부 404.
+	imageURLFormat = "https://firebasestorage.googleapis.com/v0/b/reviewnote-e92d9.appspot.com/o/%s?alt=media"
 	pageLimit    = 100
 )
 
@@ -383,7 +386,7 @@ func (s *Scraper) Parse(ctx context.Context, rawData []map[string]interface{}) (
 
 		// Image URL
 		if imageKey, ok := raw["imageKey"].(string); ok && imageKey != "" {
-			imgURL := imageBaseURL + imageKey
+			imgURL := imageURL(imageKey)
 			campaign.ImgURL = &imgURL
 		}
 
@@ -511,4 +514,9 @@ func (s *Scraper) Enrich(ctx context.Context, parsedData []models.Campaign) ([]m
 		stats.Total, stats.CacheHit, stats.APICalled, stats.Geocoded)
 
 	return enrichedData, nil
+}
+
+// imageURL 이미지 키(예: "campaigns/<uuid>")를 Firebase Storage 주소로 바꾼다. 키의 "/"는 %2F로 인코딩해야 한다.
+func imageURL(key string) string {
+	return fmt.Sprintf(imageURLFormat, strings.ReplaceAll(url.PathEscape(key), "/", "%2F"))
 }

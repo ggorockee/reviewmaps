@@ -20,7 +20,7 @@ type handlers struct {
 	db *database.DB
 }
 
-// page is the common list response.
+// page 목록 응답 공통 형식.
 type page[T any] struct {
 	Items []T   `json:"items"`
 	Total int64 `json:"total"`
@@ -33,7 +33,7 @@ const (
 	maxSize     = 200
 )
 
-// paging reads ?page=&size= (page from 1, size 1..200, default 50).
+// paging ?page=&size= 읽기 (page는 1부터, size 1~200, 기본 50).
 func paging(c *fiber.Ctx) (pageNo, size, offset int) {
 	pageNo = c.QueryInt("page", 1)
 	if pageNo < 1 {
@@ -69,7 +69,7 @@ func notFoundOr(err error, what string) error {
 	return fiber.NewError(fiber.StatusServiceUnavailable, "database error")
 }
 
-// audit stores who changed what (before/after JSON) and counts the change.
+// audit 누가 무엇을 바꿨는지(전·후 JSON) 저장하고 변경 수를 센다.
 // before/after에는 DTO만 넘긴다 (토큰·비밀번호·인증 코드가 들어가지 않도록).
 func (h *handlers) audit(tx *gorm.DB, c *fiber.Ctx, entity, action, entityID string, before, after any) error {
 	row := models.AdminAuditLog{

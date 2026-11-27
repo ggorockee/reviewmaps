@@ -29,7 +29,7 @@ type CategoryCollector struct {
 	ok      bool
 }
 
-// NewCategoryCollector returns a collector to register once in main.
+// NewCategoryCollector main에서 한 번만 등록할 수집기.
 func NewCategoryCollector(db *gorm.DB) *CategoryCollector {
 	return &CategoryCollector{
 		db:       db,

@@ -1,6 +1,6 @@
 # 리뷰맵 관리자 화면
 
-Nuxt 4 + @nuxt/ui 정적 SPA. 빌드 결과를 nginx(포트 8080, `/healthz`)로 서빙하고, 데이터는 `server/`의 `/admin/v1` API만 사용합니다. 이전 Django 관리자는 `admin-django/`에 보관(전환 후 30일)합니다. 계획·결정은 `claudedocs/planning/2026-11-admin-go-migration.md`.
+Nuxt 4 + @nuxt/ui 정적 SPA. 빌드 결과를 nginx(포트 8080, `/healthz`)로 서빙하고, 데이터는 `server/`의 `/admin/v1` API만 사용합니다. 이전 Django 관리자는 `admin-django/`에 보관(전환 후 30일)합니다. 운영 기준(계정·배포·되돌리기·모니터링·카테고리 매핑)은 `claudedocs/admin-operations.md`, 계획·결정은 `claudedocs/planning/2026-11-admin-go-migration.md`.
 
 ## 로컬 개발 (운영 DB 없이)
 
@@ -35,4 +35,4 @@ Nuxt 4 + @nuxt/ui 정적 SPA. 빌드 결과를 nginx(포트 8080, `/healthz`)로
 
 ## 배포
 
-main 머지 시 `ci-admin.yml`이 `ggorockee/reviewmaps-admin:<날짜>-<커밋>` 이미지를 올립니다. infra 태그 자동 갱신은 저장소 변수 `ADMIN_AUTO_DEPLOY=true`일 때만 동작하며, Django → Nuxt 전환(계획 Phase 5) 때 켭니다. 되돌리기는 infra의 admin 값과 이미지 태그를 Django `20261110-7ed5b97`로 되돌리는 PR입니다.
+main 머지 시 `ci-admin.yml`이 `ggorockee/reviewmaps-admin:<날짜>-<커밋>` 이미지를 올립니다. infra 태그 자동 갱신은 저장소 변수 `ADMIN_AUTO_DEPLOY=true`일 때만 동작합니다 (2026-11-27 전환 때 켬). 되돌리기는 infra의 admin 값과 이미지 태그를 Django `20261110-7ed5b97`로 되돌리는 PR입니다.

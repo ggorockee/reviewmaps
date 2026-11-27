@@ -230,7 +230,7 @@ func unmappedQuery(db *gorm.DB) *gorm.DB {
 	return db.Model(&models.RawCategory{}).Where("id NOT IN (?)", db.Model(&models.CategoryMapping{}).Select("raw_category_id"))
 }
 
-// suggestion is the recommended category for a raw category text.
+// suggestion 원본 카테고리 문구에 대한 추천 카테고리.
 type suggestion struct {
 	CategoryID   uint    `json:"category_id"`
 	CategoryName string  `json:"category_name"`
@@ -276,7 +276,7 @@ func newSuggester(db *gorm.DB) (*suggester, error) {
 	return s, nil
 }
 
-// prefixes returns the parent paths of a raw text, longest first ("a>b>c" → "a>b", "a").
+// prefixes 원본 문구의 상위 경로를 긴 것부터 돌려준다 ("a>b>c" → "a>b", "a").
 func prefixes(raw string) []string {
 	parts := strings.Split(raw, ">")
 	for i := range parts {

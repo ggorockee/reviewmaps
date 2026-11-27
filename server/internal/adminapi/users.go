@@ -12,10 +12,10 @@ import (
 	"github.com/ggorockee/reviewmaps/server/internal/services"
 )
 
-// ilike is a portable case-insensitive LIKE (pattern from like()).
+// ilike 대소문자 구분 없는 LIKE (PostgreSQL·SQLite 공용, 패턴은 like()로 만든다).
 func ilike(col string) string { return "LOWER(" + col + ") LIKE ? ESCAPE '\\'" }
 
-// userDTO never carries the password hash.
+// userDTO 비밀번호 해시는 절대 넣지 않는다.
 type userDTO struct {
 	ID          uint       `json:"id"`
 	Email       string     `json:"email"`
@@ -32,14 +32,14 @@ func toUserDTO(u models.User) userDTO {
 		IsStaff: u.IsStaff, DateJoined: u.DateJoined, LastLogin: u.LastLogin}
 }
 
-// socialDTO never carries access/refresh tokens.
+// socialDTO 접근·갱신 토큰은 절대 넣지 않는다.
 type socialDTO struct {
 	Provider  string    `json:"provider"`
 	Email     *string   `json:"email,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// deviceDTO shows only the first 8 characters of the FCM token.
+// deviceDTO FCM 토큰은 앞 8자만 보여 준다.
 type deviceDTO struct {
 	ID         uint      `json:"id"`
 	UserID     *uint     `json:"user_id,omitempty"`
@@ -222,7 +222,7 @@ func (h *handlers) listFCMDevices(c *fiber.Ctx) error {
 	return c.JSON(page[deviceDTO]{Items: items, Total: total, Page: pageNo, Size: size})
 }
 
-// emailVerificationDTO never carries the code or token.
+// emailVerificationDTO 인증 코드·토큰은 절대 넣지 않는다.
 type emailVerificationDTO struct {
 	ID         uint       `json:"id"`
 	Email      string     `json:"email"`

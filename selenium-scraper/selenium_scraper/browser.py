@@ -110,12 +110,16 @@ class NetworkCapture:
             return None
 
 
-LOGIN_COOKIE = "reviewnoteLoginToken"
+# go-scraper 상세 API에 필요한 세션 쿠키 (HttpOnly, 약 15일)
+SESSION_COOKIE = "reviewNoteSession"
+REVIEWNOTE_URL = "https://www.reviewnote.co.kr/"
 
 
 def is_logged_in(driver: webdriver.Chrome) -> bool:
-    """리뷰노트 로그인 여부. 로그인 상태는 next-auth 세션이 아니라 쿠키로 관리된다 (2026-11-27 확인).
+    """리뷰노트 세션 쿠키가 있는지. 로그인 상태는 next-auth 세션이 아니라 쿠키로 관리된다 (2026-11-27 확인).
 
-    현재 페이지가 reviewnote.co.kr 이어야 한다.
+    driver.get_cookies()는 현재 페이지 도메인 쿠키만 돌려줘서, 로그인 뒤 창이 네이버 등 다른 페이지에
+    머물면 로그인을 못 알아챘다 (2026-11-27). CDP로 리뷰노트 주소의 쿠키를 직접 조회한다.
     """
-    return any(c.get("name") == LOGIN_COOKIE and c.get("value") for c in driver.get_cookies())
+    res = driver.execute_cdp_cmd("Network.getCookies", {"urls": [REVIEWNOTE_URL]})
+    return any(c.get("name") == SESSION_COOKIE and c.get("value") for c in res.get("cookies", []))

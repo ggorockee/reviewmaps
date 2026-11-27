@@ -227,7 +227,7 @@ def feature_graphic() -> Image.Image:
     draw.text((text_x, 162), "리뷰맵", font=font(96, bold=True), fill="white", anchor="la")
     draw.text(
         (text_x + 2, 294),
-        "흩어진 블로그·인스타 체험단을",
+        "흩어진 블로그·SNS 체험단을",
         font=font(38, bold=False),
         fill=MINT_TEXT,
         anchor="la",

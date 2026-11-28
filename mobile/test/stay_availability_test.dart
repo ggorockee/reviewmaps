@@ -34,10 +34,10 @@ void main() {
       expect(r.availableText, '평일(일~목)');
     });
 
-    test('평일만 쓴 경우', () {
-      expect(p('평일 1일 숙박 체험권 (2인 기준)')!.availableText, '평일만');
-      expect(p('평일1박숙박권')!.availableText, '평일만');
-      expect(p('50만원 상당의 평일 1박 숙박 체험권 (4인 기준)')!.availableText, '평일만');
+    test('평일만 쓴 경우는 낱말 그대로', () {
+      expect(p('평일 1일 숙박 체험권 (2인 기준)')!.availableText, '평일');
+      expect(p('평일1박숙박권')!.availableText, '평일');
+      expect(p('50만원 상당의 평일 1박 숙박 체험권 (4인 기준)')!.availableText, '평일');
       expect(p('평일 1박 숙박권 (4인 기준)')!.dayState(6), isNull);
     });
 
@@ -118,7 +118,7 @@ void main() {
     }
 
     test('주말 추가요금은 제한 아님', () {
-      expect(p('평일 1박 숙박권 (주말 추가요금 3만원)')!.availableText, '평일만');
+      expect(p('평일 1박 숙박권 (주말 추가요금 3만원)')!.availableText, '평일');
     });
   });
 
@@ -161,9 +161,18 @@ void main() {
       expect(StayAvailability.fromDetail(possibleDays: '월 / 수 / 금')!.availableText, '월·수·금');
     });
 
-    test('7일 모두 가능하고 불가 정보가 없으면 표시 안 함', () {
-      expect(StayAvailability.fromDetail(possibleDays: '월 / 화 / 수 / 목 / 금 / 토 / 일'), isNull);
-      expect(StayAvailability.fromDetail(possibleDays: '매일'), isNull);
+    test('7일 모두 가능하면 월~일로 표시', () {
+      for (final days in ['월 / 화 / 수 / 목 / 금 / 토 / 일', '매일']) {
+        final r = StayAvailability.fromDetail(possibleDays: days)!;
+        expect(r.availableText, '월~일', reason: days);
+        expect(List.generate(7, (i) => r.dayState(i + 1)), everyElement(isTrue));
+      }
+    });
+
+    test('문구가 "평일"이어도 상세가 7일이면 상세를 따름', () {
+      final r = stayAvailabilityFor(
+        title: '펜션', offer: '평일 1박 숙박권', possibleDays: '월 / 화 / 수 / 목 / 금 / 토 / 일')!;
+      expect(r.availableText, '월~일');
     });
 
     test('불가 요일·공휴일', () {
@@ -176,8 +185,11 @@ void main() {
       expect(r.dayState(6), isFalse);
     });
 
-    test('상세에 "평일"만 적혀 있으면 이용 가능은 표시 안 함', () {
-      expect(StayAvailability.fromDetail(possibleDays: '평일'), isNull);
+    test('상세에 "평일"만 적혀 있으면 요일로 풀지 않고 그대로', () {
+      final r = StayAvailability.fromDetail(possibleDays: '평일')!;
+      expect(r.availableText, '평일');
+      expect(r.availableDays, isEmpty);
+      expect(r.hasExplicitDays, isFalse);
     });
 
     test('상세 정보가 있으면 제공 내역 글보다 우선', () {
@@ -196,16 +208,25 @@ void main() {
       expect(r?.availableText, '금');
     });
 
-    test('상세 정보가 없으면 애매한 "평일만"은 표시하지 않음', () {
-      expect(stayAvailabilityFor(categoryId: kLodgingCategoryId, title: '펜션', offer: '평일 1박 숙박권 (4인 기준)'), isNull);
-      expect(stayAvailabilityFor(title: '라벤더온천텔', offer: '평일 숙박 or 대실 체험권 (2인 기준)'), isNull);
+    test('상세 정보가 없으면 "평일"을 써 있는 그대로 (요일 띠 없음)', () {
+      for (final r in [
+        stayAvailabilityFor(categoryId: kLodgingCategoryId, title: '펜션', offer: '평일 1박 숙박권 (4인 기준)'),
+        stayAvailabilityFor(title: '라벤더온천텔', offer: '평일 숙박 or 대실 체험권 (2인 기준)'),
+      ]) {
+        expect(r!.availableText, '평일');
+        expect(r.availableDays, isEmpty);
+        expect(r.hasExplicitDays, isFalse);
+        expect(r.semanticsLabel, '평일 이용 가능');
+      }
     });
 
     test('상세 정보가 없어도 요일이 분명한 문구는 표시', () {
       expect(stayAvailabilityFor(title: '펜션', offer: '평일(일-목) 1박 숙박권')!.availableText, '평일(일~목)');
       final r = stayAvailabilityFor(title: '펜션', offer: '평일 1박 숙박권 (토요일 및 공휴일제외)')!;
-      expect(r.availableText, isNull);
+      expect(r.availableText, '평일');
       expect(r.excludedText, '토·공휴일');
+      expect(r.dayState(6), isFalse);
+      expect(r.dayState(5), isNull); // "평일"의 금·일은 짐작하지 않음
     });
   });
 }

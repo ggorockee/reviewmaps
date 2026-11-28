@@ -9,6 +9,7 @@
 | app_update | {platform}_min_version + {platform}_force_update | 현재 버전이 낮으면 강제 업데이트 (닫을 수 없음) | 2.2.0 이상 |
 | app_update | {platform}_latest_version | 현재 버전이 낮으면 선택 업데이트 (나중에 선택 시 3일 뒤 다시) | 2.2.1 이상 |
 | app_update | {platform}_store_url, update_message_title, update_message_body | 링크와 문구 | 2.2.0 이상 |
+| app_update | release_note_enabled | 업데이트한 뒤 "새로워진 점" 카드 켜기/끄기 (false 면 안 띄움, 본 것으로 기록하지 않음) | 2.2.4 이상 |
 | app_update | release_note | 업데이트 안내 카드 내용(JSON, 3장까지). version이 대상 버전과 같을 때만 사용. 형식은 infra `claudedocs/app-update-card.md` | 2.2.3 이상 |
 
 배포 전에 `firebase remoteconfig:get`으로 라이브 값과 원본을 비교합니다. 라이브가 앞서 있으면 먼저 원본에 반영합니다.

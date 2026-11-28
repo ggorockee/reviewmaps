@@ -63,6 +63,8 @@ class RemoteConfigService {
         'update_message_body': '',
         // 업데이트 안내 카드 내용 (JSON, ReleaseNote 형식). 비우면 앱에 든 안내·기본 문구
         'release_note': '',
+        // 업데이트한 뒤 "새로워진 점" 카드 표시 여부
+        'release_note_enabled': true,
         // 광고 제어
         'show_banner_ad': true,
         'show_native_ad': true,
@@ -131,6 +133,9 @@ class RemoteConfigService {
 
   /// 업데이트 안내 카드의 원격 내용. 어느 버전용인지는 내용의 `version`으로 정한다.
   String get releaseNoteSource => _remoteConfig?.getString('release_note') ?? '';
+
+  /// 업데이트한 뒤 "새로워진 점" 카드를 띄울지 (Firebase를 쓸 수 없으면 표시)
+  bool get releaseNoteEnabled => _remoteConfig?.getBool('release_note_enabled') ?? true;
 
   String _versionOrDefault(String value) {
     final trimmed = value.trim();

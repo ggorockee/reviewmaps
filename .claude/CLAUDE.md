@@ -30,6 +30,8 @@ ReviewMaps는 캠페인/리뷰어 정보 제공 서비스로, 모노레포 구�
 
 세 앱 공통 표준은 infra 저장소 `claudedocs/app-update-card.md`. 리뷰맵은 2.2.3부터 적용.
 
+2026-11-28 개발자 결정: 2.2.3의 카드(이용 요일·피클리·편의 개선)는 큰 변화라 **당분간 유지**한다. 새 버전에서도 `pages`는 그대로 두고 `version`만 올리며, 업데이트한 모든 사람에게 다시 보인다. 끄기는 Remote Config `release_note_enabled`(2.2.4 이상).
+
 | 순서 | 할 일 |
 |------|-------|
 | 1 | `mobile/pubspec.yaml`의 `version`과 `mobile/lib/config/app_version.dart`를 함께 올림 |

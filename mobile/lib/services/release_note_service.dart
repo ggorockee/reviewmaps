@@ -13,8 +13,11 @@ class ReleaseNoteService {
     this.currentVersion = AppVersion.current,
     Future<String> Function()? loadBundled,
     String Function()? remoteSource,
+    bool Function()? afterUpdateEnabled,
   }) : _loadBundled = loadBundled ?? (() => rootBundle.loadString(assetPath)),
-       _remoteSource = remoteSource ?? (() => RemoteConfigService().releaseNoteSource);
+       _remoteSource = remoteSource ?? (() => RemoteConfigService().releaseNoteSource),
+       _afterUpdateEnabled =
+           afterUpdateEnabled ?? (() => RemoteConfigService().releaseNoteEnabled);
 
   static const String assetPath = 'asset/release_notes.json';
   static const String seenVersionKey = 'release_note_seen_version';
@@ -25,6 +28,7 @@ class ReleaseNoteService {
   final String currentVersion;
   final Future<String> Function() _loadBundled;
   final String Function() _remoteSource;
+  final bool Function() _afterUpdateEnabled;
 
   /// 앱 시작 때, 홈 화면이 만들어지기 **전에** 호출한다.
   /// 새로 설치한 사용자는 이 버전을 본 것으로 기록해 "새로워진 점"을 띄우지 않는다.
@@ -36,7 +40,10 @@ class ReleaseNoteService {
   }
 
   /// 업데이트한 뒤 보여줄 안내. 보여줄 것이 없으면 null.
+  /// Remote Config `release_note_enabled`가 꺼져 있으면 띄우지 않고 본 것으로 기록하지도 않는다
+  /// (다음 업데이트 전에 다시 켜면 그때 한 번 보임).
   Future<ReleaseNote?> pendingAfterUpdate() async {
+    if (!_afterUpdateEnabled()) return null;
     final prefs = await SharedPreferences.getInstance();
     final seen = prefs.getString(seenVersionKey);
     if (seen != null && !AppVersion.isLowerThan(seen, currentVersion)) return null;

@@ -483,7 +483,7 @@ func (s *Scraper) Parse(ctx context.Context, rawData []map[string]interface{}) (
 }
 
 // dedupeCampaigns 저장 키(platform + title + offer + campaign_channel)가 같은 공고는 하나만 남긴다.
-// 같은 업체가 회차를 나눠 올린 공고라, 앱에 보여줄 정보가 가장 많은 것을 고른다 (순서는 처음 나온 자리 유지).
+// 같은 업체가 회차를 나눠 올린 공고라, 가장 최신 회차를 고른다 (순서는 처음 나온 자리 유지).
 func dedupeCampaigns(campaigns []models.Campaign) []models.Campaign {
 	index := make(map[string]int, len(campaigns))
 	out := make([]models.Campaign, 0, len(campaigns))
@@ -495,15 +495,29 @@ func dedupeCampaigns(campaigns []models.Campaign) []models.Campaign {
 			out = append(out, c)
 			continue
 		}
-		if richerCampaign(c, out[i]) {
+		if preferCampaign(c, out[i]) {
 			out[i] = c
 		}
 	}
 	return out
 }
 
-// richerCampaign a가 b보다 보여줄 것이 많은지: 이용 요일 있음 > 상세 받음 > 모집 마감이 늦음(더 오래 신청 가능)
-func richerCampaign(a, b models.Campaign) bool {
+// kst 모집 마감 날짜를 비교하는 기준 시간대
+var kst = time.FixedZone("KST", 9*60*60)
+
+// preferCampaign a를 b 대신 남길지.
+// 최신이 먼저다: 모집 마감 날짜(한국 날짜)가 늦은 것. 날짜가 같으면 정보가 많은 것(이용 요일 있음 > 상세 받음),
+// 그것도 같으면 나중에 등록된 것(원본 ID가 큰 것).
+func preferCampaign(a, b models.Campaign) bool {
+	deadlineDate := func(c models.Campaign) string {
+		if c.ApplyDeadline == nil {
+			return ""
+		}
+		return c.ApplyDeadline.In(kst).Format(time.DateOnly)
+	}
+	if da, db := deadlineDate(a), deadlineDate(b); da != db {
+		return da > db
+	}
 	hasDays := func(c models.Campaign) bool { return c.PossibleDays != nil || c.ImpossibleDays != nil }
 	if hasDays(a) != hasDays(b) {
 		return hasDays(a)
@@ -511,7 +525,7 @@ func richerCampaign(a, b models.Campaign) bool {
 	if (a.DetailFetchedAt != nil) != (b.DetailFetchedAt != nil) {
 		return a.DetailFetchedAt != nil
 	}
-	return a.ApplyDeadline != nil && (b.ApplyDeadline == nil || a.ApplyDeadline.After(*b.ApplyDeadline))
+	return a.SourceID > b.SourceID
 }
 
 // scrapePage 목록 API 한 쪽. categoryID가 있으면 그 카테고리만 받는다.

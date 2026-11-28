@@ -7,14 +7,18 @@ import (
 	"github.com/ggorockee/reviewmaps/go-scraper/pkg/models"
 )
 
-func TestDedupeCampaignsKeepsRichest(t *testing.T) {
+func TestDedupeCampaignsKeepsLatestThenRichest(t *testing.T) {
 	day := func(d int) *time.Time {
 		v := time.Date(2026, 12, d, 0, 0, 0, 0, time.UTC)
 		return &v
 	}
+	at := func(d, utcHour int) *time.Time {
+		v := time.Date(2026, 12, d, utcHour, 0, 0, 0, time.UTC)
+		return &v
+	}
 	fetched := day(1)
-	c := func(title, id string, deadline *time.Time) models.Campaign {
-		return models.Campaign{Platform: platformName, Title: title, Offer: "숙박", CampaignChannel: "blog", ContentLink: strp(id), ApplyDeadline: deadline}
+	c := func(title string, id int, deadline *time.Time) models.Campaign {
+		return models.Campaign{Platform: platformName, Title: title, Offer: "숙박", CampaignChannel: "blog", SourceID: id, ApplyDeadline: deadline}
 	}
 	withDays := func(v models.Campaign) models.Campaign {
 		v.PossibleDays, v.DetailFetchedAt = strp("금"), fetched
@@ -27,23 +31,25 @@ func TestDedupeCampaignsKeepsRichest(t *testing.T) {
 
 	for name, tc := range map[string]struct {
 		in   []models.Campaign
-		want string
+		want int
 	}{
-		"요일 있는 것이 마감이 늦은 것보다 먼저": {[]models.Campaign{c("a", "late", day(9)), withDays(c("a", "days", day(1)))}, "days"},
-		"순서가 반대여도 같음":            {[]models.Campaign{withDays(c("a", "days", day(1))), c("a", "late", day(9))}, "days"},
-		"요일이 없으면 상세 받은 것":        {[]models.Campaign{c("a", "none", day(9)), withDetail(c("a", "detail", day(1)))}, "detail"},
-		"둘 다 요일 있으면 마감이 늦은 것":    {[]models.Campaign{withDays(c("a", "early", day(1))), withDays(c("a", "late", day(9)))}, "late"},
-		"마감 없는 것보다 있는 것":         {[]models.Campaign{c("a", "nodate", nil), c("a", "dated", day(1))}, "dated"},
-		"모두 같으면 처음 것":            {[]models.Campaign{c("a", "first", day(1)), c("a", "second", day(1))}, "first"},
+		"최신 회차가 요일 있는 지난 회차보다 먼저":     {[]models.Campaign{withDays(c("a", 1, day(1))), c("a", 2, day(9))}, 2},
+		"순서가 반대여도 같음":                 {[]models.Campaign{c("a", 2, day(9)), withDays(c("a", 1, day(1)))}, 2},
+		"마감이 같으면 요일 있는 것":             {[]models.Campaign{c("a", 2, day(9)), withDays(c("a", 1, day(9)))}, 1},
+		"마감이 같고 요일이 없으면 상세 받은 것":      {[]models.Campaign{c("a", 2, day(9)), withDetail(c("a", 1, day(9)))}, 1},
+		"같은 날짜면 시각이 늦은 것보다 요일 있는 것":   {[]models.Campaign{c("a", 2, at(9, 14)), withDays(c("a", 1, at(9, 1)))}, 1},
+		"UTC로는 같은 날이어도 한국 날짜가 늦으면 최신": {[]models.Campaign{withDays(c("a", 1, at(9, 14))), c("a", 2, at(9, 16))}, 2},
+		"마감 없는 것보다 있는 것":              {[]models.Campaign{c("a", 2, nil), c("a", 1, day(1))}, 1},
+		"모두 같으면 나중에 등록된 것":            {[]models.Campaign{c("a", 1, day(1)), c("a", 2, day(1))}, 2},
 	} {
 		got := dedupeCampaigns(tc.in)
-		if len(got) != 1 || *got[0].ContentLink != tc.want {
-			t.Errorf("%s: %d건, %s, want %s", name, len(got), *got[0].ContentLink, tc.want)
+		if len(got) != 1 || got[0].SourceID != tc.want {
+			t.Errorf("%s: %d건, %d, want %d", name, len(got), got[0].SourceID, tc.want)
 		}
 	}
 
-	got := dedupeCampaigns([]models.Campaign{c("a", "a1", day(1)), c("b", "b1", day(1)), c("a", "a2", day(9))})
-	if len(got) != 2 || *got[0].ContentLink != "a2" || *got[1].ContentLink != "b1" {
+	got := dedupeCampaigns([]models.Campaign{c("a", 1, day(1)), c("b", 3, day(1)), c("a", 2, day(9))})
+	if len(got) != 2 || got[0].SourceID != 2 || got[1].SourceID != 3 {
 		t.Errorf("다른 공고는 남기고 자리 유지: %d건", len(got))
 	}
 }

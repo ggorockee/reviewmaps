@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
-	"net/url"
+	neturl "net/url"
 	"strings"
 	"time"
 
@@ -26,6 +26,11 @@ const (
 	// 예전 S3 주소(reviewnote.s3.ap-northeast-2.amazonaws.com/<키>)는 전부 404.
 	imageURLFormat = "https://firebasestorage.googleapis.com/v0/b/reviewnote-e92d9.appspot.com/o/%s?alt=media"
 	pageLimit    = 100
+	// 목록 API는 limit 값과 상관없이 한 쪽에 16건을 주고, 한 조건당 100쪽(1,600건)까지만 준다 (2026-11-28 확인).
+	// 카테고리별로 나눠 받아야 그 뒤의 공고가 빠지지 않는다.
+	listPageCap = 100
+	// 카테고리별 목록 요청 간격 (reviewnote 02:00)
+	categoryPageDelay = time.Second
 )
 
 // channelMap reviewnote channel을 내부 채널 형식으로 매핑
@@ -305,8 +310,61 @@ func (s *Scraper) Scrape(ctx context.Context, keyword *string) ([]map[string]int
 		time.Sleep(100 * time.Millisecond)
 	}
 
+	allData, err := s.appendCategoryPages(ctx, allData, s.Config.Reviewnote.ListCategoryIDs)
+	if err != nil {
+		return nil, err
+	}
+
 	log.Infof("Scrape 완료: 총 %d개 캠페인 수집", len(allData))
 	return allData, nil
+}
+
+// appendCategoryPages 카테고리별 목록을 더 받아 아직 없는 공고만 붙인다.
+// 필터 없는 목록은 앞의 1,600건만 주므로, 빠지면 안 되는 카테고리(여행: 이용 요일 상세 대상)는 따로 받는다.
+func (s *Scraper) appendCategoryPages(ctx context.Context, data []map[string]interface{}, categoryIDs []string) ([]map[string]interface{}, error) {
+	if len(categoryIDs) == 0 {
+		return data, nil
+	}
+	log := logger.GetLogger("scraper.reviewnote")
+	maxItems := s.Config.Scrape.MaxItems
+	seen := make(map[int]bool, len(data))
+	for _, raw := range data {
+		if id, ok := raw["id"].(int); ok {
+			seen[id] = true
+		}
+	}
+	for _, categoryID := range categoryIDs {
+		added := 0
+		for page := 0; page < listPageCap; page++ {
+			if maxItems > 0 && len(data) >= maxItems {
+				return data, nil
+			}
+			if !s.sleep(ctx, categoryPageDelay) {
+				return nil, ctx.Err()
+			}
+			items, err := s.listPage(ctx, categoryID, page, pageLimit)
+			if err != nil {
+				return nil, fmt.Errorf("카테고리 %s 목록 %d쪽: %w", categoryID, page, err)
+			}
+			if len(items) == 0 {
+				break
+			}
+			for _, raw := range items {
+				id, _ := raw["id"].(int)
+				if id == 0 || seen[id] || (maxItems > 0 && len(data) >= maxItems) {
+					continue
+				}
+				seen[id] = true
+				data = append(data, raw)
+				added++
+			}
+			if page == listPageCap-1 {
+				log.Warnf("카테고리 %s 목록이 상한(%d쪽)까지 참, 뒤의 공고는 빠졌을 수 있음", categoryID, listPageCap)
+			}
+		}
+		log.Infof("카테고리 %s 목록에서 %d건 추가", categoryID, added)
+	}
+	return data, nil
 }
 
 // Parse 데이터 파싱 - 원시 데이터를 Campaign 모델로 변환
@@ -434,9 +492,12 @@ func (s *Scraper) Parse(ctx context.Context, rawData []map[string]interface{}) (
 	return campaigns, nil
 }
 
-// scrapePage 단일 페이지 데이터 수집 (테스트용 헬퍼)
-func (s *Scraper) scrapePage(ctx context.Context, page, limit int) ([]map[string]interface{}, error) {
+// scrapePage 목록 API 한 쪽. categoryID가 있으면 그 카테고리만 받는다.
+func (s *Scraper) scrapePage(ctx context.Context, categoryID string, page, limit int) ([]map[string]interface{}, error) {
 	url := fmt.Sprintf("%s?limit=%d&page=%d", baseURL, limit, page)
+	if categoryID != "" {
+		url += "&s=default&categoryId=" + neturl.QueryEscape(categoryID)
+	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -518,5 +579,5 @@ func (s *Scraper) Enrich(ctx context.Context, parsedData []models.Campaign) ([]m
 
 // imageURL 이미지 키(예: "campaigns/<uuid>")를 Firebase Storage 주소로 바꾼다. 키의 "/"는 %2F로 인코딩해야 한다.
 func imageURL(key string) string {
-	return fmt.Sprintf(imageURLFormat, strings.ReplaceAll(url.PathEscape(key), "/", "%2F"))
+	return fmt.Sprintf(imageURLFormat, strings.ReplaceAll(neturl.PathEscape(key), "/", "%2F"))
 }

@@ -103,7 +103,8 @@ type ReviewnoteConfig struct {
 	DetailCategories  []string      // 상세를 받을 원본 카테고리 이름 (목록 응답 category.title)
 	DetailCategoryIDs []string      // 목록 API categoryId (사이트 카테고리 선택 상자 값, 2026-11-27 여행)
 	DetailRefreshDays int           // 이 기간 안에 받은 상세는 다시 받지 않음
-	DetailMaxFetch    int           // 한 번 실행에서 상세 API 최대 호출 수
+	DetailMaxFetch    int           // 한 번 실행에서 상세 API 최대 호출 수 (0 = 상한 없음)
+	ListCategoryIDs   []string      // 02:00 목록 수집에서 따로 더 받을 categoryId (전체 목록은 1,600건까지만 줌)
 	DetailMinDelay    time.Duration // 상세 API 호출 최소 간격
 	DetailWindowEnd   string        // 이 시각(HH:MM, TIMEZONE 기준)까지 끝냄
 	DetailEndMargin   time.Duration // 마감 시각보다 이만큼 먼저 멈춤
@@ -186,7 +187,8 @@ func Load() (*Config, error) {
 			DetailCategories:  splitCSV(getEnv("REVIEWNOTE_DETAIL_CATEGORIES", "여행")),
 			DetailRefreshDays: getEnvInt("REVIEWNOTE_DETAIL_REFRESH_DAYS", 14),
 			DetailCategoryIDs: splitCSV(getEnv("REVIEWNOTE_DETAIL_CATEGORY_IDS", "d1910206-2676-433b-958f-6cb6e7385d1c")),
-			DetailMaxFetch:    getEnvInt("REVIEWNOTE_DETAIL_MAX_FETCH", 450),
+			DetailMaxFetch:    getEnvInt("REVIEWNOTE_DETAIL_MAX_FETCH", 0),
+			ListCategoryIDs:   splitCSV(getEnv("REVIEWNOTE_LIST_CATEGORY_IDS", "d1910206-2676-433b-958f-6cb6e7385d1c")),
 			DetailMinDelay:    time.Duration(getEnvInt("REVIEWNOTE_DETAIL_MIN_DELAY_SECONDS", 30)) * time.Second,
 			DetailWindowEnd:   getEnv("REVIEWNOTE_DETAIL_WINDOW_END", "08:00"),
 			DetailEndMargin:   time.Duration(getEnvInt("REVIEWNOTE_DETAIL_END_MARGIN_MINUTES", 10)) * time.Minute,

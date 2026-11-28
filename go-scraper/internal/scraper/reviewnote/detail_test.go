@@ -82,7 +82,7 @@ func newDetailScraper(t *testing.T, r config.ReviewnoteConfig, store *memStore, 
 		stays:       store,
 		details:     store,
 		fetchDetail: fetch,
-		listPage: func(_ context.Context, page, _ int) ([]map[string]interface{}, error) {
+		listPage: func(_ context.Context, _ string, page, _ int) ([]map[string]interface{}, error) {
 			if page < len(pages) {
 				return pages[page], nil
 			}
@@ -133,6 +133,12 @@ func TestNextGapSpreadsAndRespectsMinimum(t *testing.T) {
 		g := nextGap(7*time.Hour, 400, 30*time.Second, rnd)
 		if g < 30*time.Second || g > 76*time.Second {
 			t.Fatalf("간격 범위 밖: %v", g)
+		}
+	}
+	// 마지막 1건도 남은 시간 안에 받을 수 있어야 함
+	for i := 0; i < 100; i++ {
+		if g := nextGap(10*time.Minute, 1, 30*time.Second, rnd); g >= 10*time.Minute {
+			t.Fatalf("마지막 간격이 남은 시간을 넘음: %v", g)
 		}
 	}
 	// 남은 시간이 적어도 최소 간격은 지킴
@@ -214,6 +220,41 @@ func TestRunDetail_StopsImmediatelyOnBlockOrExpiry(t *testing.T) {
 	}
 }
 
+func TestRunDetail_ToleratesScatteredErrorsButStopsOnRun(t *testing.T) {
+	var items []map[string]interface{}
+	for id := 1; id <= 60; id++ {
+		items = append(items, item(id, "여행", "SELECT"))
+	}
+	for name, tc := range map[string]struct {
+		fails     func(id int) bool
+		wantCalls int
+	}{
+		"드문 실패는 끝까지": {func(id int) bool { return id%5 == 0 }, 60},
+		"연속 3회면 멈춤":  {func(id int) bool { return id >= 10 }, 12},
+		"누적 20회면 멈춤": {func(id int) bool { return id%2 == 0 }, 40},
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := rc("s")
+			r.DetailMaxFetch = 0
+			calls := 0
+			fetch := func(_ context.Context, id int) (*detailResponse, error) {
+				calls++
+				if tc.fails(id) {
+					return nil, errors.New("상세 API 응답 404")
+				}
+				return &detailResponse{PossibleDays: strp("금")}, nil
+			}
+			s := newDetailScraper(t, r, newMemStore(), [][]map[string]interface{}{items}, fetch)
+			if err := s.RunDetail(context.Background()); err != nil {
+				t.Fatal(err)
+			}
+			if calls != tc.wantCalls {
+				t.Errorf("호출 %d, want %d", calls, tc.wantCalls)
+			}
+		})
+	}
+}
+
 func TestRunDetail_NoSessionDoesNothing(t *testing.T) {
 	store := newMemStore()
 	fetch := func(_ context.Context, _ int) (*detailResponse, error) {
@@ -221,12 +262,86 @@ func TestRunDetail_NoSessionDoesNothing(t *testing.T) {
 		return nil, nil
 	}
 	s := newDetailScraper(t, rc(""), store, nil, fetch)
-	s.listPage = func(context.Context, int, int) ([]map[string]interface{}, error) {
+	s.listPage = func(context.Context, string, int, int) ([]map[string]interface{}, error) {
 		t.Fatal("세션이 없으면 목록도 부르지 않음")
 		return nil, nil
 	}
 	if err := s.RunDetail(context.Background()); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestRunDetail_ListsEachCategoryAndFetchesAll(t *testing.T) {
+	store := newMemStore()
+	r := rc("s")
+	r.DetailMaxFetch = 0 // 상한 없음
+	r.DetailCategoryIDs = []string{"travel-id"}
+	s := newDetailScraper(t, r, store, nil, nil)
+	var asked []string
+	s.listPage = func(_ context.Context, categoryID string, page, _ int) ([]map[string]interface{}, error) {
+		asked = append(asked, fmt.Sprintf("%s:%d", categoryID, page))
+		if page >= 30 {
+			return nil, nil
+		}
+		var items []map[string]interface{}
+		for i := 0; i < 16; i++ {
+			items = append(items, item(page*16+i+1, "여행", "SELECT"))
+		}
+		return items, nil
+	}
+
+	targets, listed, err := s.listDetailTargets(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(targets) != 480 || listed != 480 {
+		t.Fatalf("카테고리 목록 끝까지: 대상 %d, 목록 %d", len(targets), listed)
+	}
+	if asked[0] != "travel-id:0" || asked[len(asked)-1] != "travel-id:30" {
+		t.Errorf("categoryId로 요청해야 함: %s … %s", asked[0], asked[len(asked)-1])
+	}
+	if got, _ := pickTargets(targets, nil, time.Now(), time.Hour, s.Config.Reviewnote.DetailMaxFetch); len(got) != 480 {
+		t.Errorf("상한 0이면 전부: %d", len(got))
+	}
+}
+
+func TestAppendCategoryPages(t *testing.T) {
+	s := newDetailScraper(t, rc(""), newMemStore(), nil, nil)
+	pages := [][]map[string]interface{}{
+		{item(1, "여행", "SELECT"), item(2, "여행", "SELECT")},
+		{item(3, "여행", "SELECT"), item(2, "여행", "SELECT")},
+	}
+	s.listPage = func(_ context.Context, categoryID string, page, _ int) ([]map[string]interface{}, error) {
+		if categoryID != "travel-id" {
+			t.Fatalf("categoryId: %q", categoryID)
+		}
+		if page < len(pages) {
+			return pages[page], nil
+		}
+		return nil, nil
+	}
+
+	main := []map[string]interface{}{item(1, "여행", "SELECT"), item(9, "맛집", "SELECT")}
+	out, err := s.appendCategoryPages(context.Background(), main, []string{"travel-id"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var ids []int
+	for _, raw := range out {
+		ids = append(ids, raw["id"].(int))
+	}
+	if fmt.Sprint(ids) != "[1 9 2 3]" {
+		t.Errorf("없는 것만 뒤에 붙임: %v", ids)
+	}
+
+	if out, _ := s.appendCategoryPages(context.Background(), main, nil); len(out) != 2 {
+		t.Errorf("카테고리가 없으면 그대로: %d", len(out))
+	}
+	s.listPage = func(context.Context, string, int, int) ([]map[string]interface{}, error) {
+		return nil, errors.New("boom")
+	}
+	if _, err := s.appendCategoryPages(context.Background(), main, []string{"travel-id"}); err == nil {
+		t.Error("목록 실패는 에러")
 	}
 }
 

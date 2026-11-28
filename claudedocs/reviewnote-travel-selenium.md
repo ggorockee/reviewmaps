@@ -6,9 +6,9 @@
 
 | 구성 | 내용 |
 |------|------|
-| `reviewnote-detail` (CronJob 00:00) | 0~30분 무작위 대기 → 목록 API(로그인 불필요, 100건씩, 쪽 사이 10~20초)에서 여행·모집 중 고름 → 14일 안에 받은 것 제외, 없는 것·오래된 것 순 → 07:50까지 남은 시간을 남은 건수로 나눈 간격(×0.6~1.2, 최소 30초)으로 상세 API 1건씩 → `campaign_stay_detail` 저장·campaign 행 반영 → 끝에 campaign 전체 맞추기 |
-| 차단 방지 | 동시 요청 없음, 401·403·429·5xx 한 번이면 그날 즉시 중단, 다른 실패 3회면 중단, Job 재시도 없음(backoffLimit 0), 08:30 강제 종료(activeDeadlineSeconds), 하루 최대 `REVIEWNOTE_DETAIL_MAX_FETCH` |
-| `reviewnote` (CronJob 02:00) | 상세 API는 부르지 않고 `campaign_stay_detail` 값을 붙여 저장 (DELETE 후 INSERT 라 붙이지 않으면 요일이 지워짐) |
+| `reviewnote-detail` (CronJob 00:00) | 0~30분 무작위 대기 → 목록 API(로그인 불필요, **여행 categoryId로 걸러** 16건씩 끝까지, 쪽 사이 1~2초, 약 68쪽·2분)에서 모집 중 고름 → 14일 안에 받은 것 제외, 없는 것·오래된 것 순 → 07:50까지 남은 시간을 남은 건수로 나눈 간격(×0.6~1.2, 최소 30초)으로 상세 API 1건씩 → `campaign_stay_detail` 저장·campaign 행 반영 → 끝에 campaign 전체 맞추기 |
+| 차단 방지 | 동시 요청 없음, 401·403·429·5xx 한 번이면 그날 즉시 중단, 다른 실패는 연속 3회 또는 누적 20회면 중단, Job 재시도 없음(backoffLimit 0), 08:30 강제 종료(activeDeadlineSeconds). 건수 상한 없음(`REVIEWNOTE_DETAIL_MAX_FETCH` 0, 2026-11-28 개발자 결정). 07:50까지 못 받은 것은 다음 실행 |
+| `reviewnote` (CronJob 02:00) | 상세 API는 부르지 않고 `campaign_stay_detail` 값을 붙여 저장 (DELETE 후 INSERT 라 붙이지 않으면 요일이 지워짐). 전체 목록(최대 1,600건) 뒤에 `REVIEWNOTE_LIST_CATEGORY_IDS`(기본 여행) 목록을 더 받아 빠진 공고를 채움 |
 | DB | `server/migrations/add_stay_detail_to_campaign.sql`: campaign 에 `possible_days`, `impossible_days`, `possible_time`, `same_day_visit`, `reservation_notice`, `detail_fetched_at` + 보관 테이블 `campaign_stay_detail` |
 | 서버 API | campaign 모델에 위 필드 추가 → 캠페인 목록·상세 응답에 포함 (값 없으면 생략) |
 | 세션 | GSM `prod-reviewmaps-reviewnote-session` (`REVIEWNOTE_SESSION`, `REVIEWNOTE_SESSION_EXPIRES_AT`) → ExternalSecret `reviewnote-session` (optional, 없으면 상세만 건너뜀) |
@@ -80,10 +80,22 @@
 - [x] GSM `prod-reviewmaps-reviewnote-session` 생성 (개발자 승인, 버전 1 = 수집 전용 계정 재로그인 쿠키, 만료 2026-12-12 17:43 KST)
 - [x] 머지·이미지 반영·ArgoCD 동기화 확인 (reviewmaps #310 → 이미지 `20261127-990dcc0`, infra #1231. reviewmaps·kube-prometheus-stack Synced/Healthy, ExternalSecret SecretSynced, CronJob `reviewmaps-go-cron-reviewnote-detail` backoff 0·deadline 30600·MAX_FETCH 100)
 - [x] 만료 3일 전 메일 실제 발송 시험: 시험 그룹(scraper=alert-test)에 만료 2일 남음 push → 5분 뒤 firing → Alertmanager email 수신자로 발송(실패 0) → 그룹 삭제. 실제 그룹에는 만료 시각을 미리 push(남은 14.99일, "만료일 지표 없음" 오탐 방지)
-- [ ] 2026-11-28 첫 실행(100건) 결과 확인 → 이상 없으면 `REVIEWNOTE_DETAIL_MAX_FETCH` 450
+- [x] 2026-11-28 첫 실행 결과 확인: 차단·실패 없음, 그러나 대상이 41건뿐 → 아래 "첫 실행 결과"
+- [ ] 2026-11-29 수정 후 첫 실행 확인: 대상 약 400건, 아직 없음 0 근처, 02:00 목록에 여행 카테고리 추가 로그
 - [ ] 모바일: 요일 배지를 문구 추정(`StayAvailability`) 대신 `possible_days`/`impossible_days` 우선 사용 (`feature/stay-available-days` 머지 후)
 - [ ] 세션 갱신 자동화(휴대폰·관리자 화면) — 리뷰맵 서버 비용 회수 후 논의 (2026-11-27 결정)
 - [ ] 세션 갱신 2026-12-09 무렵 (현재 쿠키 만료 2026-12-12 17:43, 만료 3일 전 [WARN] 메일 2026-12-09 17:43 무렵)
+
+## 첫 실행 결과와 목록 상한 (2026-11-28)
+
+| 항목 | 값 |
+|------|-----|
+| 실행 | 00:00 → 07:49 성공, 차단 신호·실패 0, 세션 정상 |
+| 상세 | 대상 41건 모두 받음, 요일 있음 40건, 시간 40건, 당일 방문 40건, 예약 주의사항 38건, 불가 요일 0건. 41건 모두 campaign 행에 반영 |
+| 문제 | 같은 시각 여행 모집 중은 400건 → 41건(10%)만 대상. campaign 에는 400건 중 288건만 있고 112건은 한 번도 수집되지 않음 |
+| 원인 | 목록 API가 `limit` 값과 상관없이 한 쪽에 16건, **한 조건당 100쪽(1,600건)까지만** 준다. 필터 없이 받던 상세 대상과 02:00 목록 모두 앞의 1,600건만 봄 (1,600이라는 숫자는 2026-11-13에도 같았음) |
+| 조치 | 상세 대상은 여행 categoryId로 걸러 받기, 02:00 목록에 여행 카테고리 추가, 건수 상한 제거, 알림 2개(대상 급감, 못 받은 상세) |
+| 확인 방법 | 카테고리 목록 `https://www.reviewnote.co.kr/api/categories`, 목록 `…/api/v2/campaigns?categoryId=<id>&s=default&page=N` |
 
 ## 겪은 문제 (2026-11-27)
 

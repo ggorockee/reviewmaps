@@ -41,7 +41,10 @@ func (m *memStore) SaveStayDetail(_ context.Context, _, link string, id int, d m
 	return nil
 }
 
-func (m *memStore) SyncStayDetailsToCampaigns(_ context.Context, _ string) (int64, error) {
+func (m *memStore) SyncStayDetailsToCampaigns(ctx context.Context, _ string) (int64, error) {
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
 	m.synced++
 	return 0, nil
 }
@@ -250,6 +253,35 @@ func TestRunDetail_ToleratesScatteredErrorsButStopsOnRun(t *testing.T) {
 			}
 			if calls != tc.wantCalls {
 				t.Errorf("호출 %d, want %d", calls, tc.wantCalls)
+			}
+		})
+	}
+}
+
+func TestRunDetail_StopSignalStillFinishes(t *testing.T) {
+	for name, duringFetch := range map[string]bool{"대기 중 종료": false, "요청 중 종료": true} {
+		t.Run(name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			store := newMemStore()
+			pages := [][]map[string]interface{}{{item(1, "여행", "SELECT"), item(2, "여행", "SELECT"), item(3, "여행", "SELECT")}}
+			calls := 0
+			fetch := func(_ context.Context, _ int) (*detailResponse, error) {
+				calls++
+				if calls == 2 {
+					cancel()
+					if duringFetch {
+						return nil, context.Canceled
+					}
+				}
+				return &detailResponse{PossibleDays: strp("금")}, nil
+			}
+			s := newDetailScraper(t, rc("s"), store, pages, fetch)
+			if err := s.RunDetail(ctx); err != nil {
+				t.Fatalf("종료 신호는 실패가 아님: %v", err)
+			}
+			if calls != 2 || store.synced != 1 {
+				t.Errorf("바로 멈추고 campaign 맞추기는 끝내야 함: 호출 %d, 맞추기 %d", calls, store.synced)
 			}
 		})
 	}

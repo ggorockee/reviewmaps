@@ -179,6 +179,22 @@ func (s *Scraper) listDetailTargets(ctx context.Context) ([]detailTarget, int, e
 	return out, total, nil
 }
 
+// detailSummary 로그에 남길 상세 값 요약 (예약 안내는 길어서 유무만)
+func detailSummary(d models.StayDetail) string {
+	text := func(p *string) string {
+		if p == nil {
+			return "없음"
+		}
+		return *p
+	}
+	notice := "없음"
+	if d.ReservationNotice != nil {
+		notice = "있음"
+	}
+	return fmt.Sprintf("가능요일=[%s] 불가요일=[%s] 시간=[%s] 예약안내=%s",
+		text(d.PossibleDays), text(d.ImpossibleDays), text(d.PossibleTime), notice)
+}
+
 // RunDetail reviewnote-detail 명령. 세션 만료·차단 신호는 실패가 아니라 지표·알림으로 알린다.
 // 목록을 못 받거나 DB에 못 쓰면 실패(종료 코드 1, Job 실패 메일).
 func (s *Scraper) RunDetail(ctx context.Context) error {
@@ -236,6 +252,15 @@ func (s *Scraper) RunDetail(ctx context.Context) error {
 
 	stopReason := ""
 	errorsInRow := 0
+	loc := s.Config.Batch.Location()
+	loopStart := time.Now()
+	progress := runstats.DetailProgress{Total: len(targets)}
+	pushProgress := func(nextAt time.Time) {
+		progress.Done, progress.Errors, progress.NextAt = stats.Fetched, stats.Errors, nextAt
+		if err := runstats.PushDetailProgress(progress); err != nil {
+			log.Warnf("진행 상황 push 실패: %v", err)
+		}
+	}
 	for i, t := range targets {
 		remaining := time.Until(plan.Deadline)
 		if remaining <= 0 {
@@ -247,6 +272,7 @@ func (s *Scraper) RunDetail(ctx context.Context) error {
 			stopReason = "마감 시각"
 			break
 		}
+		pushProgress(time.Now().Add(gap))
 		if !s.sleep(ctx, gap) {
 			stopReason = "종료 요청"
 			break
@@ -265,7 +291,7 @@ func (s *Scraper) RunDetail(ctx context.Context) error {
 		if err != nil {
 			stats.Errors++
 			errorsInRow++
-			log.Warnf("상세 실패: %v", err)
+			log.Warnf("상세 실패 (%d/%d번째): %v", i+1, len(targets), err)
 			if errorsInRow >= maxDetailErrorsInRow || stats.Errors >= maxDetailErrors {
 				stopReason = fmt.Sprintf("상세 실패 연속 %d회, 누적 %d회", errorsInRow, stats.Errors)
 				break
@@ -273,14 +299,17 @@ func (s *Scraper) RunDetail(ctx context.Context) error {
 			continue
 		}
 		errorsInRow = 0
-		if err := s.details.SaveStayDetail(ctx, platformName, t.Link, t.ID, d.toStayDetail(time.Now())); err != nil {
+		detail := d.toStayDetail(time.Now())
+		if err := s.details.SaveStayDetail(ctx, platformName, t.Link, t.ID, detail); err != nil {
 			return err
 		}
 		stats.Fetched++
-		if stats.Fetched%10 == 0 {
-			log.Infof("상세 %d/%d건", stats.Fetched, len(targets))
-		}
+		// 지금까지의 속도로 남은 건수를 받으면 끝나는 시각
+		eta := time.Now().Add(time.Since(loopStart) / time.Duration(i+1) * time.Duration(len(targets)-i-1))
+		log.Infof("상세 %d/%d건 저장 id=%d %s | 실패 %d, 예상 완료 %s",
+			stats.Fetched, len(targets), t.ID, detailSummary(detail), stats.Errors, eta.In(loc).Format("15:04"))
 	}
+	pushProgress(time.Now())
 	if stopReason != "" {
 		log.Warnf("상세 수집을 멈춤: %s (받은 것 %d/%d건, 나머지는 다음 실행)", stopReason, stats.Fetched, len(targets))
 	}

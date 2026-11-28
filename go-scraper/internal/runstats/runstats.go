@@ -134,6 +134,33 @@ func PushDetailSession() error {
 	return post(reg)
 }
 
+// DetailProgress 상세 수집이 도는 동안의 진행 상황
+type DetailProgress struct {
+	Total  int       // 이번 실행에서 받을 수
+	Done   int64     // 받아서 저장한 수
+	Errors int64     // 실패 수
+	NextAt time.Time // 다음 요청 예정 시각. 이 시각이 한참 지나도 갱신이 없으면 멈춘 것
+}
+
+// PushDetailProgress 진행 상황을 바로 push 한다 (실행이 몇 시간 걸려 끝나기 전에 볼 수 있어야 함)
+func PushDetailProgress(p DetailProgress) error {
+	reg := prometheus.NewRegistry()
+	for _, m := range []struct {
+		name, help string
+		v          float64
+	}{
+		{"reviewmaps_scraper_detail_progress_total", "진행 중인 상세 수집에서 받을 건수", float64(p.Total)},
+		{"reviewmaps_scraper_detail_progress_done", "진행 중인 상세 수집에서 받은 건수", float64(p.Done)},
+		{"reviewmaps_scraper_detail_progress_errors", "진행 중인 상세 수집의 실패 건수", float64(p.Errors)},
+		{"reviewmaps_scraper_detail_progress_next_timestamp_seconds", "다음 상세 요청 예정 시각 (unix 초)", float64(p.NextAt.Unix())},
+	} {
+		g := prometheus.NewGauge(prometheus.GaugeOpts{Name: m.name, Help: m.help})
+		g.Set(m.v)
+		reg.MustRegister(g)
+	}
+	return post(reg)
+}
+
 // SetAlertsCreated 키워드 알림 생성 수 기록
 func SetAlertsCreated(n int) {
 	cur.mu.Lock()

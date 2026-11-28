@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ggorockee/reviewmaps/go-scraper/internal/runstats"
 )
@@ -128,5 +129,33 @@ func TestPushStartThenEnd(t *testing.T) {
 	}
 	if !strings.Contains(end.body, "reviewmaps_scraper_running 0") {
 		t.Errorf("종료 push에 running 0 없음")
+	}
+}
+
+// 상세 수집 진행 상황은 실행 중에 바로 push 되어야 한다 (마지막 실행 결과 지표는 건드리지 않음).
+func TestPushDetailProgress(t *testing.T) {
+	srv, reqs := fakePushgateway(t)
+	t.Setenv("PUSHGATEWAY_URL", srv.URL)
+
+	runstats.Start("reviewnote-detail", "")
+	if err := runstats.PushDetailProgress(runstats.DetailProgress{Total: 363, Done: 110, Errors: 1, NextAt: time.Unix(1795850000, 0)}); err != nil {
+		t.Fatalf("Push 에러: %v", err)
+	}
+	r := (*reqs)[0]
+	if r.method != http.MethodPost || r.path != runstats.GroupPath("reviewnote-detail", "전체") {
+		t.Errorf("%s %s", r.method, r.path)
+	}
+	for _, want := range []string{
+		"reviewmaps_scraper_detail_progress_total 363",
+		"reviewmaps_scraper_detail_progress_done 110",
+		"reviewmaps_scraper_detail_progress_errors 1",
+		"reviewmaps_scraper_detail_progress_next_timestamp_seconds 1.79585e+09",
+	} {
+		if !strings.Contains(r.body, want) {
+			t.Errorf("body에 %q 없음:\n%s", want, r.body)
+		}
+	}
+	if strings.Contains(r.body, "last_run") {
+		t.Error("마지막 실행 결과 지표는 보내지 않아야 함")
 	}
 }

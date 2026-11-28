@@ -13,6 +13,7 @@
 | 서버 API | campaign 모델에 위 필드 추가 → 캠페인 목록·상세 응답에 포함 (값 없으면 생략) |
 | 세션 | GSM `prod-reviewmaps-reviewnote-session` (`REVIEWNOTE_SESSION`, `REVIEWNOTE_SESSION_EXPIRES_AT`) → ExternalSecret `reviewnote-session` (optional, 없으면 상세만 건너뜀) |
 | 지표 (Pushgateway, scraper="reviewnote-detail") | `reviewmaps_scraper_detail_session_ok`, `..._session_expiry_timestamp_seconds`(시작 직후 먼저 push), `..._blocked`, `reviewmaps_scraper_last_run_detail{type=target/reused/fetched/error/missing/with_days}` |
+| 실행 중 확인 | 로그: 1건마다 `상세 N/M건 저장 id=… 가능요일=… 예상 완료 HH:MM` (`kubectl -n reviewmaps logs -f job/<Job>`, 완료 뒤 1일 보관). 지표: `reviewmaps_scraper_detail_progress_total/done/errors/next_timestamp_seconds` 를 요청마다 push → 대시보드 "지금 상세 수집 진행", 다음 요청 예정보다 10분 넘게 늦으면 [WARN] (2026-11-28) |
 | 알림 | 만료 3일 전 [WARN](12시간마다 반복), 만료·401 [ERROR], 만료일 지표 없음 1시간 [ERROR], 차단 신호 [ERROR], Job 실패 [ERROR], 26시간 미성공 [ERROR] |
 | 대시보드 | ReviewMaps 수집 서버(`reviewmaps-scraper`) "리뷰노트 여행 상세" 행 |
 

@@ -14,7 +14,7 @@ class AppVersion {
   ///
   /// 새 버전 배포 시 pubspec.yaml의 version과 함께 올립니다 (다르면 테스트 실패).
   /// Semantic Versioning (major.minor.patch) 형식을 따릅니다.
-  static const String current = '2.2.3';
+  static const String current = '2.2.4';
 
   /// 버전 문자열을 파싱하여 비교 가능한 형태로 변환
   ///

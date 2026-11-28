@@ -12,12 +12,17 @@ String noteJson(String version, {String title = '제목', int pages = 1}) {
   return '{"version": "$version", "pages": [$list]}';
 }
 
-ReleaseNoteService service({String current = '2.3.0', String bundled = '', String remote = ''}) =>
-    ReleaseNoteService(
-      currentVersion: current,
-      loadBundled: () async => bundled,
-      remoteSource: () => remote,
-    );
+ReleaseNoteService service({
+  String current = '2.3.0',
+  String bundled = '',
+  String remote = '',
+  bool Function()? enabled,
+}) => ReleaseNoteService(
+  currentVersion: current,
+  loadBundled: () async => bundled,
+  remoteSource: () => remote,
+  afterUpdateEnabled: enabled ?? () => true,
+);
 
 VersionCheckResponse policy({String latest = '2.4.0', String? title, String? body}) =>
     VersionCheckResponse(
@@ -77,6 +82,22 @@ void main() {
     test('다음 버전으로 올리면 다시 보여준다', () async {
       SharedPreferences.setMockInitialValues({ReleaseNoteService.seenVersionKey: '2.2.3'});
       expect(await service(bundled: noteJson('2.3.0')).pendingAfterUpdate(), isNotNull);
+    });
+
+    test('Remote Config에서 끄면 안 보이고, 다시 켜면 한 번 보인다', () async {
+      SharedPreferences.setMockInitialValues({ReleaseNoteService.seenVersionKey: '2.2.3'});
+      var on = false;
+      final s = service(bundled: noteJson('2.3.0'), enabled: () => on);
+      expect(await s.pendingAfterUpdate(), isNull);
+      on = true;
+      expect(await s.pendingAfterUpdate(), isNotNull);
+      await s.markSeen();
+      expect(await s.pendingAfterUpdate(), isNull);
+    });
+
+    test('꺼도 업데이트 전 안내는 그대로다', () {
+      final note = service(remote: noteJson('2.4.0'), enabled: () => false).beforeUpdate(policy(), forced: false);
+      expect(note.version, '2.4.0');
     });
 
     test('버전을 내리면 보여주지 않는다', () async {

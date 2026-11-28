@@ -192,7 +192,7 @@ func TestLiveAPI(t *testing.T) {
 	defer cancel()
 
 	// 첫 페이지만 가져오기 (샘플링)
-	rawData, err := s.scrapePage(ctx, 0, 5)
+	rawData, err := s.scrapePage(ctx, "", 0, 5)
 	if err != nil {
 		t.Fatalf("Failed to fetch from API: %v", err)
 	}

@@ -483,7 +483,7 @@ func (s *Scraper) Parse(ctx context.Context, rawData []map[string]interface{}) (
 }
 
 // dedupeCampaigns 저장 키(platform + title + offer + campaign_channel)가 같은 공고는 하나만 남긴다.
-// 같은 업체가 회차를 나눠 올린 공고라, 가장 최신 회차를 고른다 (순서는 처음 나온 자리 유지).
+// 같은 업체가 회차를 나눠 올린 공고라, 상세 정보를 보여줄 수 있는 것을 고른다 (순서는 처음 나온 자리 유지).
 func dedupeCampaigns(campaigns []models.Campaign) []models.Campaign {
 	index := make(map[string]int, len(campaigns))
 	out := make([]models.Campaign, 0, len(campaigns))
@@ -502,13 +502,20 @@ func dedupeCampaigns(campaigns []models.Campaign) []models.Campaign {
 	return out
 }
 
-// kst 모집 마감 날짜를 비교하는 기준 시간대
+// kst 모집 마감 날짜를 비교하는 기준 시간대 (preferCampaign)
 var kst = time.FixedZone("KST", 9*60*60)
 
 // preferCampaign a를 b 대신 남길지.
-// 최신이 먼저다: 모집 마감 날짜(한국 날짜)가 늦은 것. 날짜가 같으면 정보가 많은 것(이용 요일 있음 > 상세 받음),
-// 그것도 같으면 나중에 등록된 것(원본 ID가 큰 것).
+// 상세 페이지 정보가 먼저다: 이용 요일 있음 > 상세 받음. 제목·제공 내역의 "평일" 같은 문구는 실제 요일과 달라
+// 상세 요일을 보여줄 수 있는 공고를 고른다. 같으면 모집 마감 날짜(한국 날짜)가 늦은 것, 그다음 나중에 등록된 것(원본 ID가 큰 것).
 func preferCampaign(a, b models.Campaign) bool {
+	hasDays := func(c models.Campaign) bool { return c.PossibleDays != nil || c.ImpossibleDays != nil }
+	if hasDays(a) != hasDays(b) {
+		return hasDays(a)
+	}
+	if (a.DetailFetchedAt != nil) != (b.DetailFetchedAt != nil) {
+		return a.DetailFetchedAt != nil
+	}
 	deadlineDate := func(c models.Campaign) string {
 		if c.ApplyDeadline == nil {
 			return ""
@@ -517,13 +524,6 @@ func preferCampaign(a, b models.Campaign) bool {
 	}
 	if da, db := deadlineDate(a), deadlineDate(b); da != db {
 		return da > db
-	}
-	hasDays := func(c models.Campaign) bool { return c.PossibleDays != nil || c.ImpossibleDays != nil }
-	if hasDays(a) != hasDays(b) {
-		return hasDays(a)
-	}
-	if (a.DetailFetchedAt != nil) != (b.DetailFetchedAt != nil) {
-		return a.DetailFetchedAt != nil
 	}
 	return a.SourceID > b.SourceID
 }

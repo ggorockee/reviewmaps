@@ -11,8 +11,9 @@
 ///      요일로 풀지 않음 (숙소마다 "평일"이 월~금인지 일~목인지 다름)
 ///
 /// 원칙: 써 있지 않은 요일을 짐작해서 만들지 않습니다 (잘못된 요일 안내가 표시 안 함보다 나쁨).
-///   - "평일 45만원 상당", "주말기준 42만원", "평일 기준 / 8만원"처럼
-///     요금 기준을 말하는 경우는 이용 제한으로 보지 않습니다.
+///   - "평일 45만원 상당", "주말기준 42만원", "평일 기준 / 8만원", "요금: 주중 …"처럼
+///     요금을 설명하는 경우는 평일·주말을 표시하지 않습니다 (2026-11-28 개발자 결정).
+///   - 평일과 주말을 함께 말하면("평일 및 주말 이용권", "주말 추가요금") 표시하지 않습니다.
 ///   - "애견 동반 불가", "인원 추가 불가"처럼 요일과 무관한 불가는 무시합니다.
 library;
 
@@ -308,7 +309,8 @@ class StayAvailability {
       if (overlaps(m.start, m.end)) continue;
       final word = m.group(1)!;
       final rest = text.substring(m.end);
-      if (_priceBasis.hasMatch(rest)) continue; // "평일 45만원 상당", "주말기준 42만원"
+      // 요금 설명: "평일 45만원 상당", "주말기준 42만원", "평일 숙박료 …", "요금: 주중 …"
+      if (_priceBasis.hasMatch(rest) || _priceLead.hasMatch(text.substring(0, m.start))) continue;
       final isWeekend = word == '주말';
       if (_isNegated(rest)) {
         // "주말 불가"는 숙소마다 금·토 밤 / 토·일을 뜻해 요일 띠에는 표시하지 않음
@@ -327,6 +329,13 @@ class StayAvailability {
       if (!_isNegated(text.substring(m.end))) continue;
       addExcluded(_holidayLabel(m.group(0)!), const []);
       consumed.add(_Span(m.start, m.end));
+    }
+
+    // 평일과 주말을 함께 말하면 한쪽만 되는지 알 수 없음 ("평일 및 주말 이용권", "주말 추가요금").
+    // 주말 불가라고 쓴 경우만 낱말을 그대로 둠
+    if (availableLabels.isEmpty && !excludedLabels.contains('주말') && _bothWeekParts(text)) {
+      weekdaysOnly = false;
+      weekendOnly = false;
     }
 
     final result = StayAvailability(
@@ -376,9 +385,16 @@ class StayAvailability {
   static final RegExp _weekendPositive =
       RegExp(r'^\s*(\(|만|에만|전용|이용|가능|숙박|투숙|입실|1박)');
 
-  /// 요금 기준 표현: "45만원", "기준", "요금", "정상가", "추가금", "할증"
+  /// 낱말 바로 뒤의 요금 표현: "45만원", "10~15만원", "기준", "요금", "숙박료", "객실가", "추가금", "할증"
   static final RegExp _priceBasis = RegExp(
-      r'^\s*(기준|요금|가격|정상가|추가|할증|[:)]?\s*\(?\s*[\d,.]+\s*(만|천)?\s*원)');
+      r'^\s*(기준|요금|가격|정상가|정가|판매가|금액|(객실|숙박|이용|입실|대실)\s*(료|가(?!능))|가(?=\s*[\d:])|추가|할증|'
+      r'[:)]?\s*\(?\s*(약\s*)?[\d,.]+(\s*(만|천)?\s*[~\-]\s*[\d,.]+)?\s*(만|천)?\s*원)');
+
+  /// 낱말 앞에서 요금 설명을 시작한 표현: "요금: 주중 …", "가격 - 평일 …"
+  static final RegExp _priceLead = RegExp(r'(요금|가격|이용료|숙박료)\s*[:\-·(]?\s*$');
+
+  static bool _bothWeekParts(String text) =>
+      RegExp(r'평일|주중').hasMatch(text) && text.contains('주말');
 
   static final RegExp _noRestriction = RegExp(
       r'(요일\s*(무관|상관\s*없)|(평일|주중)\s*[,/·및]?\s*주말\s*(모두|상관|무관|전부)|주말\s*[,/·및]?\s*평일\s*(모두|상관|무관|전부)|(평일|주말)\s*(또는|or|OR|/|,|·)\s*(평일|주말))');

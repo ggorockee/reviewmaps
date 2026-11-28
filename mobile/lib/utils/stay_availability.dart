@@ -5,12 +5,12 @@
 ///       "오션뷰풀빌라 2인숙박권 (토요일 및 공휴일제외)", "평일 월~목요일 이용권"
 /// 사용자가 공고마다 들어가 확인하지 않도록 목록 카드에 바로 보여줍니다.
 ///
-/// 표시 우선순위 (stayAvailabilityFor, 2026-11-27 개발자 결정):
+/// 표시 우선순위 (stayAvailabilityFor, 2026-11-28 개발자 결정):
 ///   1) 상세 페이지 정보(서버 possible_days / impossible_days, 리뷰노트 여행 상세 수집)가 있으면 그것만 사용
-///   2) 없으면 제공 내역 글을 파싱하되, 요일이 없는 "평일만"·"주말만"은 표시하지 않음
-///      ("평일"이 월~금인지 일~목인지 숙소마다 달라 애매함)
+///   2) 없으면 제공 내역 글에 써 있는 그대로 표시. "평일"만 쓴 경우는 "평일"로만 보여주고
+///      요일로 풀지 않음 (숙소마다 "평일"이 월~금인지 일~목인지 다름)
 ///
-/// 원칙: 애매하면 표시하지 않습니다 (잘못된 요일 안내가 표시 안 함보다 나쁨).
+/// 원칙: 써 있지 않은 요일을 짐작해서 만들지 않습니다 (잘못된 요일 안내가 표시 안 함보다 나쁨).
 ///   - "평일 45만원 상당", "주말기준 42만원", "평일 기준 / 8만원"처럼
 ///     요금 기준을 말하는 경우는 이용 제한으로 보지 않습니다.
 ///   - "애견 동반 불가", "인원 추가 불가"처럼 요일과 무관한 불가는 무시합니다.
@@ -65,7 +65,7 @@ class StayAvailability {
   /// 요일 띠(월~일)로 그릴 수 있을 만큼 요일이 명시되었는지
   bool get hasExplicitDays => availableDays.isNotEmpty || excludedDays.isNotEmpty;
 
-  /// 이용 가능 문구 (예: "평일(일~목)", "평일만", "주말만", "월~목")
+  /// 이용 가능 문구 (예: "평일(일~목)", "평일", "주말", "월~목")
   String? get availableText {
     if (availableLabels.isNotEmpty) {
       final joined = availableLabels.join(', ');
@@ -73,8 +73,8 @@ class StayAvailability {
       if (weekendOnly) return '주말($joined)';
       return joined;
     }
-    if (weekdaysOnly) return '평일만';
-    if (weekendOnly) return '주말만';
+    if (weekdaysOnly) return '평일';
+    if (weekendOnly) return '주말';
     return null;
   }
 
@@ -100,38 +100,29 @@ class StayAvailability {
     return null;
   }
 
-  /// 요일 없이 "평일"·"주말"만 쓴 애매한 이용 가능 정보를 뺀 결과 (남는 게 없으면 null)
-  StayAvailability? withoutAmbiguousWeekPart() {
-    final ambiguous = availableLabels.isEmpty && (weekdaysOnly || weekendOnly);
-    final r = StayAvailability(
-      availableLabels: availableLabels,
-      availableDays: availableDays,
-      weekdaysOnly: ambiguous ? false : weekdaysOnly,
-      weekendOnly: ambiguous ? false : weekendOnly,
-      excludedLabels: excludedLabels,
-      excludedDays: excludedDays,
-    );
-    return r.isEmpty ? null : r;
-  }
-
   /// 상세 페이지 정보(서버 possible_days / impossible_days)로 만듭니다.
   ///   예) possibleDays "월 / 화 / 수 / 목 / 일" → "일~목 가능", impossibleDays "토 / 공휴일" → "토·공휴일 불가"
-  /// 7일 모두 가능하고 불가 정보가 없으면 제한이 없으므로 null.
+  /// 7일 모두 가능하면 "월~일" (제공 내역에 "평일"이라고 써 있어도 상세를 따른다는 것을 보여줘야 함).
+  /// 상세에 "평일"·"주말"만 적혀 있으면 요일로 풀지 않고 그대로 보여줌.
   static StayAvailability? fromDetail({String? possibleDays, String? impossibleDays}) {
     final possible = _detailTokens(possibleDays);
     final impossible = _detailTokens(impossibleDays);
-    // 이용 가능 쪽: "매일"·"상시"는 7일, "평일"·"주말" 같은 애매한 낱말은 버림 (요일이 분명할 때만 표시)
+    // 이용 가능 쪽: "매일"·"상시"는 7일. "평일"·"주말"은 요일이 따로 없을 때만 낱말 그대로 씀
     if (possible.others.any(_everyDayWords.contains)) possible.days.addAll(const [1, 2, 3, 4, 5, 6, 7]);
+    final saysWeekdays = possible.others.any((t) => t == '평일' || t == '주중');
+    final saysWeekend = possible.others.contains('주말');
     possible.others.removeWhere((t) => _everyDayWords.contains(t) || _weekPartWords.contains(t));
 
     final availDays = <int>{...possible.days};
     final exclDays = <int>{...impossible.days};
     availDays.removeAll(exclDays);
-    final allWeek = availDays.length == 7;
 
     final availLabels = <String>[];
-    if (availDays.isNotEmpty && !allWeek) availLabels.add(_cyclicLabel(availDays));
+    if (availDays.isNotEmpty) {
+      availLabels.add(availDays.length == 7 ? '월~일' : _cyclicLabel(availDays));
+    }
     availLabels.addAll(possible.others);
+    final wordOnly = possible.days.isEmpty && possible.others.isEmpty;
 
     final exclLabels = <String>[];
     if (exclDays.isNotEmpty) exclLabels.add(_cyclicLabel(exclDays));
@@ -139,7 +130,9 @@ class StayAvailability {
 
     final r = StayAvailability(
       availableLabels: List.unmodifiable(availLabels),
-      availableDays: Set.unmodifiable(allWeek ? const <int>{} : availDays),
+      availableDays: Set.unmodifiable(availDays),
+      weekdaysOnly: wordOnly && saysWeekdays && !saysWeekend,
+      weekendOnly: wordOnly && saysWeekend && !saysWeekdays,
       excludedLabels: List.unmodifiable(exclLabels),
       excludedDays: Set.unmodifiable(exclDays),
     );
@@ -501,7 +494,7 @@ final RegExp _lodgingWords = RegExp(
 ///
 /// 1) 상세 페이지 정보(possibleDays / impossibleDays)가 있으면 그것만 씁니다. 숙박이 아니어도
 ///    (공연·체험 등 "금요일만") 상세에 적힌 이용 요일이므로 표시합니다.
-/// 2) 없으면 숙박 체험단만 제공 내역 글을 파싱하고, 요일 없는 "평일만"·"주말만"은 뺍니다.
+/// 2) 없으면 숙박 체험단만 제공 내역 글을 파싱합니다. "평일"·"주말"은 써 있는 그대로 보여줍니다.
 StayAvailability? stayAvailabilityFor({
   int? categoryId,
   String? title,
@@ -520,5 +513,5 @@ StayAvailability? stayAvailabilityFor({
   if (!isLodgingCampaign(categoryId: categoryId, title: title, offer: offer)) {
     return null;
   }
-  return StayAvailability.parse(offer)?.withoutAmbiguousWeekPart();
+  return StayAvailability.parse(offer);
 }

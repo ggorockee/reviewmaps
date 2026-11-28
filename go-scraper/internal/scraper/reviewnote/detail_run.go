@@ -45,7 +45,8 @@ const (
 	// 목록을 받은 뒤 지워진 공고가 드문드문 있어도 끝까지 돈다.
 	maxDetailErrorsInRow = 3
 	maxDetailErrors      = 20
-	listPageDelayMin     = time.Second // 목록은 로그인 없는 API라 짧게 (02:00 목록 수집은 0.1초)
+	finishTimeout        = 20 * time.Second // 끝낼 때 DB 맞추기·집계에 쓰는 시간
+	listPageDelayMin     = time.Second      // 목록은 로그인 없는 API라 짧게 (02:00 목록 수집은 0.1초)
 	listPageDelayRange   = time.Second
 )
 
@@ -278,6 +279,10 @@ func (s *Scraper) RunDetail(ctx context.Context) error {
 			break
 		}
 		d, err := s.fetchDetail(ctx, t.ID)
+		if err != nil && ctx.Err() != nil {
+			stopReason = "종료 요청"
+			break
+		}
 		if errors.Is(err, ErrSessionExpired) {
 			stats.SessionOK = false
 			stopReason = "세션 만료(401)"
@@ -314,14 +319,18 @@ func (s *Scraper) RunDetail(ctx context.Context) error {
 		log.Warnf("상세 수집을 멈춤: %s (받은 것 %d/%d건, 나머지는 다음 실행)", stopReason, stats.Fetched, len(targets))
 	}
 
-	synced, err := s.details.SyncStayDetailsToCampaigns(ctx, platformName)
+	// 종료 신호(Job 삭제·시간 제한)를 받아도 campaign 맞추기와 결과 집계는 끝낸다.
+	// 취소된 ctx 를 쓰면 실패로 끝나 결과 지표가 "0건·실패"로 남는다. Kubernetes 종료 유예(30초)보다 짧게.
+	finishCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), finishTimeout)
+	defer cancel()
+	synced, err := s.details.SyncStayDetailsToCampaigns(finishCtx, platformName)
 	if err != nil {
 		return err
 	}
 	runstats.SetItems(runstats.StageSaved, int(stats.Fetched))
 	runstats.SetItems(runstats.StageUpdated, int(synced))
 
-	after, err := s.details.LoadStayDetails(ctx, platformName, links)
+	after, err := s.details.LoadStayDetails(finishCtx, platformName, links)
 	if err == nil {
 		for _, l := range links {
 			d, ok := after[l]

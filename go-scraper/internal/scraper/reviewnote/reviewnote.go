@@ -171,19 +171,25 @@ func (s *Scraper) Run(ctx context.Context, keyword *string) error {
 		log.Warn("parse 단계에서 데이터가 파싱되지 않았습니다.")
 		return nil
 	}
-	log.Infof("총 %d개의 아이템을 파싱했습니다.", len(parsedData))
+	// 3. 보관된 상세 이용 조건(요일 등) 붙이기 (상세 API 호출은 reviewnote-detail 이 새벽에 따로 함)
+	parsedData = s.ApplyStoredStayDetails(ctx, parsedData)
 
-	// 3. Enrich (선택적)
-	enrichedData, err := s.Enrich(ctx, parsedData)
+	// 4. 중복 공고는 하나만 남김 (요일 정보가 있는 것을 고르려고 상세 값을 붙인 뒤에 함)
+	unique := dedupeCampaigns(parsedData)
+	log.Infof("중복 제거: %d개 중 %d개를 남겼습니다", len(parsedData), len(unique))
+	runstats.SetItems(runstats.StageParsed, len(unique))
+	if s.telemetry != nil {
+		s.telemetry.AddCampaignsScraped(ctx, int64(len(unique)), platformName)
+	}
+
+	// 5. Enrich (선택적)
+	enrichedData, err := s.Enrich(ctx, unique)
 	if err != nil {
 		log.Errorf("enrich 단계에서 에러 발생: %v", err)
 		return err
 	}
 
-	// 4. 보관된 상세 이용 조건(요일 등) 붙이기 (상세 API 호출은 reviewnote-detail 이 새벽에 따로 함)
-	enrichedData = s.ApplyStoredStayDetails(ctx, enrichedData)
-
-	// 5. Save
+	// 6. Save
 	if err := s.Save(ctx, enrichedData); err != nil {
 		log.Errorf("save 단계에서 에러 발생: %v", err)
 		return err
@@ -372,7 +378,6 @@ func (s *Scraper) Parse(ctx context.Context, rawData []map[string]interface{}) (
 	log := logger.GetLogger("scraper.reviewnote")
 
 	var campaigns []models.Campaign
-	seen := make(map[string]bool)
 
 	for _, raw := range rawData {
 		// Status 필터링: SELECT 상태 캠페인만 수집
@@ -469,27 +474,44 @@ func (s *Scraper) Parse(ctx context.Context, rawData []map[string]interface{}) (
 		// Search Text (키워드 검색용)
 		campaign.SearchText = campaign.Title
 
-		// 중복 체크 (platform + title + offer + campaign_channel)
-		dedupKey := fmt.Sprintf("%s|%s|%s|%s",
-			campaign.Platform, campaign.Title, campaign.Offer, campaign.CampaignChannel)
-		if seen[dedupKey] {
-			continue
-		}
-		seen[dedupKey] = true
-
 		campaigns = append(campaigns, campaign)
 	}
 
-	log.Infof("Parse 완료: %d개 중 %d개 캠페인 파싱 (중복 제거)", len(rawData), len(campaigns))
-
-	runstats.SetItems(runstats.StageParsed, len(campaigns))
-
-	// 메트릭 기록
-	if s.telemetry != nil {
-		s.telemetry.AddCampaignsScraped(ctx, int64(len(campaigns)), platformName)
-	}
+	log.Infof("Parse 완료: %d개 중 %d개 캠페인 파싱 (모집 중)", len(rawData), len(campaigns))
 
 	return campaigns, nil
+}
+
+// dedupeCampaigns 저장 키(platform + title + offer + campaign_channel)가 같은 공고는 하나만 남긴다.
+// 같은 업체가 회차를 나눠 올린 공고라, 앱에 보여줄 정보가 가장 많은 것을 고른다 (순서는 처음 나온 자리 유지).
+func dedupeCampaigns(campaigns []models.Campaign) []models.Campaign {
+	index := make(map[string]int, len(campaigns))
+	out := make([]models.Campaign, 0, len(campaigns))
+	for _, c := range campaigns {
+		key := fmt.Sprintf("%s|%s|%s|%s", c.Platform, c.Title, c.Offer, c.CampaignChannel)
+		i, seen := index[key]
+		if !seen {
+			index[key] = len(out)
+			out = append(out, c)
+			continue
+		}
+		if richerCampaign(c, out[i]) {
+			out[i] = c
+		}
+	}
+	return out
+}
+
+// richerCampaign a가 b보다 보여줄 것이 많은지: 이용 요일 있음 > 상세 받음 > 모집 마감이 늦음(더 오래 신청 가능)
+func richerCampaign(a, b models.Campaign) bool {
+	hasDays := func(c models.Campaign) bool { return c.PossibleDays != nil || c.ImpossibleDays != nil }
+	if hasDays(a) != hasDays(b) {
+		return hasDays(a)
+	}
+	if (a.DetailFetchedAt != nil) != (b.DetailFetchedAt != nil) {
+		return a.DetailFetchedAt != nil
+	}
+	return a.ApplyDeadline != nil && (b.ApplyDeadline == nil || a.ApplyDeadline.After(*b.ApplyDeadline))
 }
 
 // scrapePage 목록 API 한 쪽. categoryID가 있으면 그 카테고리만 받는다.

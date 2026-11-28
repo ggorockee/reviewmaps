@@ -10,9 +10,12 @@
 ///   2) 없으면 제공 내역 글에 써 있는 그대로 표시. "평일"만 쓴 경우는 "평일"로만 보여주고
 ///      요일로 풀지 않음 (숙소마다 "평일"이 월~금인지 일~목인지 다름)
 ///
-/// 원칙: 써 있지 않은 요일을 짐작해서 만들지 않습니다 (잘못된 요일 안내가 표시 안 함보다 나쁨).
-///   - "평일 45만원 상당", "주말기준 42만원", "평일 기준 / 8만원"처럼
-///     요금 기준을 말하는 경우는 이용 제한으로 보지 않습니다.
+/// 원칙: **확실한 경우만 표시합니다** (잘못된 요일 안내가 표시 안 함보다 훨씬 나쁨, 2026-11-28).
+///   써 있지 않은 요일을 짐작해서 만들지 않고, "평일"·"주말"은 바로 뒤에 숙박·이용을 뜻하는 말이
+///   붙은 경우만 씁니다. 조식·추가요금 같은 다른 이야기에 붙은 요일은 버립니다.
+///   - "평일 45만원 상당", "주말기준 42만원", "평일 기준 / 8만원", "요금: 주중 …"처럼
+///     요금을 설명하는 경우는 평일·주말을 표시하지 않습니다 (2026-11-28 개발자 결정).
+///   - 평일과 주말을 함께 말하면("평일 및 주말 이용권", "주말 추가요금") 표시하지 않습니다.
 ///   - "애견 동반 불가", "인원 추가 불가"처럼 요일과 무관한 불가는 무시합니다.
 library;
 
@@ -102,7 +105,7 @@ class StayAvailability {
 
   /// 상세 페이지 정보(서버 possible_days / impossible_days)로 만듭니다.
   ///   예) possibleDays "월 / 화 / 수 / 목 / 일" → "일~목 가능", impossibleDays "토 / 공휴일" → "토·공휴일 불가"
-  /// 7일 모두 가능하면 "월~일" (제공 내역에 "평일"이라고 써 있어도 상세를 따른다는 것을 보여줘야 함).
+  /// 7일 모두 가능하고 불가 정보가 없으면 표시하지 않음 (예약 안내에 따로 제한을 적는 업체가 있어 "매일"이라고 단정하지 않음).
   /// 상세에 "평일"·"주말"만 적혀 있으면 요일로 풀지 않고 그대로 보여줌.
   static StayAvailability? fromDetail({String? possibleDays, String? impossibleDays}) {
     final possible = _detailTokens(possibleDays);
@@ -117,10 +120,10 @@ class StayAvailability {
     final exclDays = <int>{...impossible.days};
     availDays.removeAll(exclDays);
 
+    final allWeek = availDays.length == 7;
+
     final availLabels = <String>[];
-    if (availDays.isNotEmpty) {
-      availLabels.add(availDays.length == 7 ? '월~일' : _cyclicLabel(availDays));
-    }
+    if (availDays.isNotEmpty && !allWeek) availLabels.add(_cyclicLabel(availDays));
     availLabels.addAll(possible.others);
     final wordOnly = possible.days.isEmpty && possible.others.isEmpty;
 
@@ -130,7 +133,7 @@ class StayAvailability {
 
     final r = StayAvailability(
       availableLabels: List.unmodifiable(availLabels),
-      availableDays: Set.unmodifiable(availDays),
+      availableDays: Set.unmodifiable(allWeek ? const <int>{} : availDays),
       weekdaysOnly: wordOnly && saysWeekdays && !saysWeekend,
       weekendOnly: wordOnly && saysWeekend && !saysWeekdays,
       excludedLabels: List.unmodifiable(exclLabels),
@@ -242,6 +245,10 @@ class StayAvailability {
       final b = _dayIndex[m.group(2)]!;
       if (a == b) continue;
       final days = _expandRange(a, b);
+      if (_aboutSomethingElse(text.substring(m.end))) {
+        consumed.add(_Span(m.start, m.end));
+        continue;
+      }
       final label = '${m.group(1)}~${m.group(2)}';
       if (_isNegated(text.substring(m.end))) {
         addExcluded(label, days);
@@ -257,6 +264,10 @@ class StayAvailability {
       if (!_validDayPrefix(text, m.start)) continue;
       final rest = text.substring(m.end);
       if (!_validDaySuffix(rest)) continue;
+      if (_aboutSomethingElse(text.substring(m.end))) {
+        consumed.add(_Span(m.start, m.end));
+        continue;
+      }
       final days = _daysIn(m.group(0)!);
       if (days.length < 2) continue;
       final label = _labelForDays(days);
@@ -274,6 +285,10 @@ class StayAvailability {
       if (!_validDayPrefix(text, m.start)) continue;
       final rest = text.substring(m.end);
       if (!_validDaySuffix(rest)) continue;
+      if (_aboutSomethingElse(text.substring(m.end))) {
+        consumed.add(_Span(m.start, m.end));
+        continue;
+      }
       final chars = m.group(1)!.split('');
       if (chars.toSet().length != chars.length) continue;
       final days = chars.map((c) => _dayIndex[c]!).toList();
@@ -291,6 +306,10 @@ class StayAvailability {
       if (overlaps(m.start, m.end)) continue;
       final hasYoil = m.group(2) != null;
       if (!hasYoil && !_validDayPrefix(text, m.start)) continue;
+      if (_aboutSomethingElse(text.substring(m.end))) {
+        consumed.add(_Span(m.start, m.end));
+        continue;
+      }
       final day = _dayIndex[m.group(1)]!;
       final rest = text.substring(m.end);
       if (_isNegated(rest)) {
@@ -308,13 +327,16 @@ class StayAvailability {
       if (overlaps(m.start, m.end)) continue;
       final word = m.group(1)!;
       final rest = text.substring(m.end);
-      if (_priceBasis.hasMatch(rest)) continue; // "평일 45만원 상당", "주말기준 42만원"
+      // 요금 설명: "평일 45만원 상당", "주말기준 42만원", "평일 숙박료 …", "요금: 주중 …"
+      if (_priceBasis.hasMatch(rest) || _priceLead.hasMatch(text.substring(0, m.start))) continue;
       final isWeekend = word == '주말';
       if (_isNegated(rest)) {
         // "주말 불가"는 숙소마다 금·토 밤 / 토·일을 뜻해 요일 띠에는 표시하지 않음
         addExcluded(isWeekend ? '주말' : '평일', const []);
+      } else if (!_wordUsage.hasMatch(rest)) {
+        continue; // "평일 오토캠핑장…", "주중점심뷔페"처럼 이용 요일인지 확실하지 않음
       } else if (isWeekend) {
-        if (_weekendPositive.hasMatch(rest)) weekendOnly = true;
+        weekendOnly = true;
       } else {
         weekdaysOnly = true;
       }
@@ -328,6 +350,16 @@ class StayAvailability {
       addExcluded(_holidayLabel(m.group(0)!), const []);
       consumed.add(_Span(m.start, m.end));
     }
+
+    // 평일과 주말을 함께 말하면 한쪽만 되는지 알 수 없음 ("평일 및 주말 이용권", "주말 추가요금").
+    // 주말 불가라고 쓴 경우만 낱말을 그대로 둠
+    if (availableLabels.isEmpty && !excludedLabels.contains('주말') && _bothWeekParts(text)) {
+      weekdaysOnly = false;
+      weekendOnly = false;
+    }
+
+    // "평일 1박(일요일 가능)"처럼 평일에 하루를 덧붙인 문구는 그 하루만 되는 것처럼 보일 수 있음
+    if (weekdaysOnly && availableDays.length == 1) return null;
 
     final result = StayAvailability(
       availableLabels: List.unmodifiable(availableLabels),
@@ -373,12 +405,31 @@ class StayAvailability {
 
   static final RegExp _weekPartPattern = RegExp(r'(평일|주중|주말)');
 
-  static final RegExp _weekendPositive =
-      RegExp(r'^\s*(\(|만|에만|전용|이용|가능|숙박|투숙|입실|1박)');
+  /// "평일"·"주말" 바로 뒤에 와야 이용 요일로 보는 말: 숙박·이용·1박 … 또는 요일 범위 "평일(일~목)"
+  static final RegExp _wordUsage = RegExp(
+      r'^\s*\)?\s*(만|에만|전용|이용|가능|숙박|투숙|입실|체크인|대실|스테이|체험(?![료가])|무료|하루|\d\s*(박|일(?!반))|'
+      r'\(?\s*[월화수목금토일](요일)?\s*[~\-,·/])');
 
-  /// 요금 기준 표현: "45만원", "기준", "요금", "정상가", "추가금", "할증"
+  /// 요일 표현 뒤가 숙박이 아닌 다른 이야기인지: "조식 불가", "10만원 추가"
+  static final RegExp _otherSubject =
+      RegExp(r'^(조식|중식|석식|식사|바베큐|바비큐|BBQ|수영장|온수|스파|사우나|자쿠지|불멍|대여|픽업)');
+  static final RegExp _surcharge = RegExp(r'^[^,/.()]{0,8}?(추가|할증|별도|[\d,.]+\s*(만|천)?\s*원)');
+
+  static bool _aboutSomethingElse(String rest) {
+    final context = rest.replaceFirst(RegExp(r'^[\s\])]*(요일)?[\s\])]*(만|에만|은|는|에는)?\s*'), '');
+    return _otherSubject.hasMatch(context) || _surcharge.hasMatch(context);
+  }
+
+  /// 낱말 바로 뒤의 요금 표현: "45만원", "10~15만원", "기준", "요금", "숙박료", "객실가", "추가금", "할증"
   static final RegExp _priceBasis = RegExp(
-      r'^\s*(기준|요금|가격|정상가|추가|할증|[:)]?\s*\(?\s*[\d,.]+\s*(만|천)?\s*원)');
+      r'^\s*(기준|요금|가격|정상가|정가|판매가|금액|(객실|숙박|이용|입실|대실|체험)\s*(료|가(?!능))|가(?=\s*[\d:])|추가|할증|'
+      r'[:)]?\s*\(?\s*(\d\s*박\s*(\d\s*일\s*)?)?(약\s*)?[\d,.]+(\s*(만|천)?\s*[~\-]\s*[\d,.]+)?\s*(만|천)?\s*원)');
+
+  /// 낱말 앞에서 요금 설명을 시작한 표현: "요금: 주중 …", "가격 - 평일 …"
+  static final RegExp _priceLead = RegExp(r'(요금|가격|이용료|숙박료)\s*[:\-·(]?\s*$');
+
+  static bool _bothWeekParts(String text) =>
+      RegExp(r'평일|주중').hasMatch(text) && text.contains('주말');
 
   static final RegExp _noRestriction = RegExp(
       r'(요일\s*(무관|상관\s*없)|(평일|주중)\s*[,/·및]?\s*주말\s*(모두|상관|무관|전부)|주말\s*[,/·및]?\s*평일\s*(모두|상관|무관|전부)|(평일|주말)\s*(또는|or|OR|/|,|·)\s*(평일|주말))');

@@ -5,6 +5,28 @@ import 'package:mobile/utils/stay_availability.dart';
 void main() {
   StayAvailability? p(String s) => StayAvailability.parse(s);
 
+  group('확실한 경우만 표시 (운영 데이터)', () {
+    test('이용 요일인지 확실하지 않으면 표시 안 함', () {
+      for (final offer in [
+        '평일 오토캠핑장(9만원권)+사우나 이용 체험권',
+        '주중점심뷔페 2인 제공',
+        '평일 최대 4인 1박2일 펜션 무료이용 제공 / 바베큐 5만원',
+        '숙박권 평일 1박 25만원',
+        '평일1박(일요일가능) 숙박권+프라이빗 자쿠지 옵션 포함',
+        '1박 숙박권 (금,토 10만원 추가)',
+        '1박 숙박권 토요일 3만원 추가',
+      ]) {
+        expect(p(offer), isNull, reason: offer);
+      }
+    });
+
+    test('다른 이야기에 붙은 요일은 섞지 않음', () {
+      final r = p('일~목요일 1박 숙박권 + 조식(월~화요일 조식 불가)')!;
+      expect(r.availableText, '일~목');
+      expect(r.excludedText, isNull);
+    });
+  });
+
   group('요금 설명·평일과 주말을 함께 말한 문구 (운영 데이터)', () {
     test('요일·평일·주말을 표시하지 않음', () {
       for (final offer in [
@@ -29,9 +51,8 @@ void main() {
       for (final offer in [
         '2인 기준 평일 1박 숙박권 (평일 63,984원 상당)',
         '18만원 상당 주중 1일 숙박권',
-        '평일 오토캠핑장(9만원권)+사우나 이용 체험권',
-        '평일 최대 4인 1박2일 펜션 무료이용 제공 / 바베큐 5만원',
         '자쿠지 감성 펜션 이용권(평일 이용 가능)',
+        '1박 주중 스테이 체험권 (4인 기준)',
       ]) {
         expect(p(offer)?.availableText, '평일', reason: offer);
       }
@@ -200,18 +221,10 @@ void main() {
       expect(StayAvailability.fromDetail(possibleDays: '월 / 수 / 금')!.availableText, '월·수·금');
     });
 
-    test('7일 모두 가능하면 월~일로 표시', () {
-      for (final days in ['월 / 화 / 수 / 목 / 금 / 토 / 일', '매일']) {
-        final r = StayAvailability.fromDetail(possibleDays: days)!;
-        expect(r.availableText, '월~일', reason: days);
-        expect(List.generate(7, (i) => r.dayState(i + 1)), everyElement(isTrue));
-      }
-    });
-
-    test('문구가 "평일"이어도 상세가 7일이면 상세를 따름', () {
-      final r = stayAvailabilityFor(
-        title: '펜션', offer: '평일 1박 숙박권', possibleDays: '월 / 화 / 수 / 목 / 금 / 토 / 일')!;
-      expect(r.availableText, '월~일');
+    test('7일 모두 가능하고 불가 정보가 없으면 표시 안 함', () {
+      expect(StayAvailability.fromDetail(possibleDays: '월 / 화 / 수 / 목 / 금 / 토 / 일'), isNull);
+      expect(StayAvailability.fromDetail(possibleDays: '매일'), isNull);
+      expect(stayAvailabilityFor(title: '펜션', offer: '평일 1박 숙박권', possibleDays: '월 / 화 / 수 / 목 / 금 / 토 / 일'), isNull);
     });
 
     test('불가 요일·공휴일', () {

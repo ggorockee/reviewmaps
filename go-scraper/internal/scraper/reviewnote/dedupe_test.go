@@ -7,7 +7,7 @@ import (
 	"github.com/ggorockee/reviewmaps/go-scraper/pkg/models"
 )
 
-func TestDedupeCampaignsKeepsLatestThenRichest(t *testing.T) {
+func TestDedupeCampaignsKeepsDetailThenLatest(t *testing.T) {
 	day := func(d int) *time.Time {
 		v := time.Date(2026, 12, d, 0, 0, 0, 0, time.UTC)
 		return &v
@@ -33,14 +33,14 @@ func TestDedupeCampaignsKeepsLatestThenRichest(t *testing.T) {
 		in   []models.Campaign
 		want int
 	}{
-		"최신 회차가 요일 있는 지난 회차보다 먼저":     {[]models.Campaign{withDays(c("a", 1, day(1))), c("a", 2, day(9))}, 2},
-		"순서가 반대여도 같음":                 {[]models.Campaign{c("a", 2, day(9)), withDays(c("a", 1, day(1)))}, 2},
-		"마감이 같으면 요일 있는 것":             {[]models.Campaign{c("a", 2, day(9)), withDays(c("a", 1, day(9)))}, 1},
-		"마감이 같고 요일이 없으면 상세 받은 것":      {[]models.Campaign{c("a", 2, day(9)), withDetail(c("a", 1, day(9)))}, 1},
-		"같은 날짜면 시각이 늦은 것보다 요일 있는 것":   {[]models.Campaign{c("a", 2, at(9, 14)), withDays(c("a", 1, at(9, 1)))}, 1},
-		"UTC로는 같은 날이어도 한국 날짜가 늦으면 최신": {[]models.Campaign{withDays(c("a", 1, at(9, 14))), c("a", 2, at(9, 16))}, 2},
-		"마감 없는 것보다 있는 것":              {[]models.Campaign{c("a", 2, nil), c("a", 1, day(1))}, 1},
-		"모두 같으면 나중에 등록된 것":            {[]models.Campaign{c("a", 1, day(1)), c("a", 2, day(1))}, 2},
+		"요일 있는 지난 회차가 요일 없는 최신 회차보다 먼저": {[]models.Campaign{c("a", 2, day(9)), withDays(c("a", 1, day(1)))}, 1},
+		"순서가 반대여도 같음":                   {[]models.Campaign{withDays(c("a", 1, day(1))), c("a", 2, day(9))}, 1},
+		"요일이 없으면 상세 받은 것":               {[]models.Campaign{c("a", 2, day(9)), withDetail(c("a", 1, day(1)))}, 1},
+		"둘 다 요일 있으면 마감이 늦은 것":           {[]models.Campaign{withDays(c("a", 2, day(1))), withDays(c("a", 1, day(9)))}, 1},
+		"한국 날짜가 늦으면 최신":                 {[]models.Campaign{c("a", 2, at(9, 14)), c("a", 1, at(9, 16))}, 1},
+		"같은 날짜면 나중에 등록된 것":              {[]models.Campaign{c("a", 2, at(9, 1)), c("a", 1, at(9, 14))}, 2},
+		"마감 없는 것보다 있는 것":                {[]models.Campaign{c("a", 2, nil), c("a", 1, day(1))}, 1},
+		"모두 같으면 나중에 등록된 것":              {[]models.Campaign{c("a", 1, day(1)), c("a", 2, day(1))}, 2},
 	} {
 		got := dedupeCampaigns(tc.in)
 		if len(got) != 1 || got[0].SourceID != tc.want {
